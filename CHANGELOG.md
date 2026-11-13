@@ -3,6 +3,12 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.3.1
+
+- **Prévision** : un paiement fixe (mensualité de crédit, box, forfait) reste reconnu quand son libellé change — autre
+  source de synchronisation, opération renommée — parce qu'il se suit aussi à son montant au centime, dans la même
+  catégorie et par le même moyen de paiement. Deux contrats du même créancier sont attendus chacun pour son montant.
+
 ## 1.3.0
 
 - **Analyse sur une année entière** : le sélecteur de période de la barre du haut choisit un mois ou une année

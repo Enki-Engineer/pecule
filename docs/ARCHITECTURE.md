@@ -47,7 +47,9 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   `stats:date_basis` d'`app_kv`) : la vue `tx_lines` rend le jour retenu dans sa colonne `date`, et une lecture
   directe de `transactions` le calcule par `statDate()` (`src/server/stats.ts`). Changer de réglage ne réécrit rien.
 - **Prévision** — ce qui revient chaque mois (prélèvements, abonnements, salaire) est reconnu dans l'historique
-  (`src/lib/recurring.ts`) et attendu sur le mois en cours et les trois suivants (`forecast`, `src/server/flows.ts`).
+  (`src/lib/recurring.ts`) : au même libellé, d'un montant stable, ou à défaut au même montant au centime (une
+  mensualité dont le libellé a changé). C'est attendu sur le mois en cours et les trois suivants (`forecast`,
+  `src/server/flows.ts`).
 - **Marques et logos** — `src/lib/brands.ts` reconnaît une marque dans un libellé : les enseignes que le foyer a
   ajoutées (table `custom_brands`, Réglages → Classement, `src/server/brands.ts`), puis le référentiel commun. Un logo
   est téléchargé une fois par le serveur et gardé en base (`logos`, `src/server/logos.ts`) : icône du site d'une

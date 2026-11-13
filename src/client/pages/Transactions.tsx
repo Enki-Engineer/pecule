@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { api, invoiceListQuery, transactionListQuery, useAccounts, useCategories, useSuggestions, useTransactionDetails, useUpdateTransaction, type Category, type Transaction, type TxFilters } from "../api.ts";
 import { AddInvoiceButton, FileIcon } from "./Invoices.tsx";
 import { Amount, Card, Empty, ErrorBox, OpsTabs, PageHeader, Sheet, Spinner, TxAmount } from "../components/ui.tsx";
-import { dateFr, dayLabel, money, moneyIn, monthLabel, periodLabel } from "../format.ts";
+import { dateFr, dateShort, dayLabel, money, moneyIn, monthLabel, periodLabel } from "../format.ts";
 import { txDateHint, txSubline } from "../txInfo.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
 import { txTitle } from "../../lib/labels.ts";
@@ -747,7 +747,7 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
                     onChange={(e) => toggle(t.id, (e.nativeEvent as MouseEvent).shiftKey)}
                     className="size-4 accent-[var(--color-accent)]"
                   />
-                  <span className="tnum text-muted">{dateFr(t.date).slice(0, 5)}</span>
+                  <span className="tnum text-muted">{dateShort(t.date)}</span>
                   <span className="flex min-w-0 items-center gap-2.5">
                     <TxLogo t={t} size="sm" />
                     <span className="min-w-0">

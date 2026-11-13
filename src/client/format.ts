@@ -18,12 +18,18 @@ export const pct = (n: number, digits = 2) => `${n.toLocaleString(locale(), { mi
 const parse = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00Z`);
 
 export const dateFr = (d: string) => parse(d).toLocaleDateString(locale(), { day: "2-digit", month: "2-digit", year: "numeric" });
+/** Jour d'une ligne de liste : « 13/11 » ; avec l'année (« 01/07/24 ») quand ce n'est pas celle en cours, pour une liste qui en traverse plusieurs. */
+export const dateShort = (d: string) => {
+  const otherYear = d.slice(0, 4) !== new Date().toLocaleDateString("sv-SE").slice(0, 4);
+  return parse(d).toLocaleDateString(locale(), { day: "2-digit", month: "2-digit", ...(otherYear ? { year: "2-digit" as const } : {}) });
+};
 export const dayLabel = (d: string) => {
   const today = new Date().toLocaleDateString("sv-SE");
   const yesterday = new Date(Date.now() - 86400_000).toLocaleDateString("sv-SE");
   if (d === today) return t("Aujourd'hui");
   if (d === yesterday) return t("Hier");
-  return parse(d).toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long" });
+  // L'année n'est écrite que si ce n'est pas celle en cours (« lundi 1 juillet 2024 »).
+  return parse(d).toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long", ...(d.slice(0, 4) !== today.slice(0, 4) ? { year: "numeric" as const } : {}) });
 };
 export const monthLabel = (m: string) => {
   const s = parse(`${m}-01`).toLocaleDateString(locale(), { month: "long", year: "numeric" });

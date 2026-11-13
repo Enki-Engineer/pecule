@@ -8,6 +8,8 @@ sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent
 - **Prévision** : un paiement fixe (mensualité de crédit, box, forfait) reste reconnu quand son libellé change — autre
   source de synchronisation, opération renommée — parce qu'il se suit aussi à son montant au centime, dans la même
   catégorie et par le même moyen de paiement. Deux contrats du même créancier sont attendus chacun pour son montant.
+- **Opérations** : dans une liste qui traverse plusieurs années (recherche, toutes les dates), la date d'une ligne
+  écrit son année quand ce n'est pas celle en cours.
 
 ## 1.3.0
 

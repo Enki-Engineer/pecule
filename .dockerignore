@@ -1,0 +1,14 @@
+# Rien de local ni de privé dans l'image : ni dépendances, ni build, ni données, ni réglages.
+node_modules
+dist
+data
+.git
+.github
+.playwright-mcp
+.env
+.env.*
+!.env.example
+*.log
+coverage
+.DS_Store
+docs

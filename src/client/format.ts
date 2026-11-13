@@ -1,0 +1,49 @@
+import { locale, t } from "../lib/i18n.ts";
+import { currencySymbol, formatMoney, withUnit } from "../lib/currencies.ts";
+import { region } from "./region.ts";
+
+/** Montant dans la devise du foyer, écrit dans la langue de l'appli ; `round` retire les centimes. */
+export const money = (n: number | null | undefined, round = false) => (n == null ? "—" : formatMoney(n, region().currency, locale(), round));
+/** Montant dans une devise donnée : facture d'un achat à l'étranger, opération ou solde d'un compte en devise. */
+export const moneyIn = (n: number | null | undefined, currency: string = region().currency) => (n == null ? "—" : formatMoney(n, currency, locale()));
+/** Signe de la devise du foyer (« € », « CHF ») ; celui d'une autre devise avec `currency`. */
+export const moneySymbol = (currency: string = region().currency) => currencySymbol(currency, locale());
+/** Milliers abrégés d'un axe : « 12 k€ », « 12 k CHF » ; `digits` : décimales gardées. */
+export const kMoney = (n: number, digits = 0) => withUnit((n / 1000).toLocaleString(locale(), { maximumFractionDigits: digits }), "k", moneySymbol());
+/** Montant entier suivi du signe, pour un axe : « 850 € ». */
+export const unitMoney = (n: number) => withUnit(String(Math.round(n)), "", moneySymbol());
+
+export const pct = (n: number, digits = 2) => `${n.toLocaleString(locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits })} %`;
+
+const parse = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00Z`);
+
+export const dateFr = (d: string) => parse(d).toLocaleDateString(locale(), { day: "2-digit", month: "2-digit", year: "numeric" });
+export const dayLabel = (d: string) => {
+  const today = new Date().toLocaleDateString("sv-SE");
+  const yesterday = new Date(Date.now() - 86400_000).toLocaleDateString("sv-SE");
+  if (d === today) return t("Aujourd'hui");
+  if (d === yesterday) return t("Hier");
+  return parse(d).toLocaleDateString(locale(), { weekday: "long", day: "numeric", month: "long" });
+};
+export const monthLabel = (m: string) => {
+  const s = parse(`${m}-01`).toLocaleDateString(locale(), { month: "long", year: "numeric" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+export const timeAgo = (iso: string | null | undefined) => {
+  if (!iso) return t("jamais");
+  const ms = Date.now() - Date.parse(iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z"));
+  const min = Math.round(ms / 60_000);
+  if (min < 1) return t("à l'instant");
+  if (min < 60) return t("il y a {n} min", { n: min });
+  const h = Math.round(min / 60);
+  if (h < 24) return t("il y a {n} h", { n: h });
+  return t("il y a {n} j", { n: Math.round(h / 24) });
+};
+export const currentMonth = () => new Date().toLocaleDateString("sv-SE").slice(0, 7);
+export const shiftMonth = (m: string, delta: number) => {
+  const d = parse(`${m}-01`);
+  d.setUTCMonth(d.getUTCMonth() + delta);
+  return d.toISOString().slice(0, 7);
+};
+/** « janv », « févr », « juin », « juil »… (uniques, pour les axes). */
+export const monthShort = (m: string) => parse(`${m}-01`).toLocaleDateString(locale(), { month: "short" }).replace(".", "");

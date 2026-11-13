@@ -1,0 +1,20 @@
+# Base locale de développement : MariaDB 11.8, la même version que la production.
+# Pilotée par `pnpm local` (scripts/local.ts) ; écoute sur 127.0.0.1:3316 seulement.
+services:
+  base:
+    image: mariadb:11.8
+    container_name: pecule-base-locale
+    environment:
+      MARIADB_ROOT_PASSWORD: pecule-local
+    command: ["--max-allowed-packet=256M"]
+    ports:
+      - "127.0.0.1:3316:3306"
+    volumes:
+      - pecule-base-locale:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+volumes:
+  pecule-base-locale:

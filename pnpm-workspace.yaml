@@ -1,0 +1,13 @@
+# pnpm bloque par défaut les scripts d'install des dépendances : on n'en autorise aucun.
+allowBuilds:
+  esbuild: false
+minimumReleaseAgeExclude:
+  - '@tanstack/query-core@5.104.4'
+  - '@tanstack/react-query@5.104.4'
+# Planchers de sécurité (alerte de sécurité de l'hébergeur) :
+# - body-parser < 2.4.0 : plantage possible sur un corps compressé (GHSA-27r3-jxmh-p828), amené par Express ;
+# - esbuild : drizzle-kit embarque de vieilles versions (0.18, 0.25) signalées par les analyses.
+# À retirer quand Express et drizzle-kit demanderont eux-mêmes ces versions.
+overrides:
+  body-parser: ^2.4.0
+  esbuild: ^0.28.2

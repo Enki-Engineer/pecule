@@ -1,0 +1,55 @@
+name: Contrôles
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  controles:
+    runs-on: ubuntu-latest
+    services:
+      base:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: pecule-ci
+          MARIADB_DATABASE: pecule
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - name: Démarrage sur une base vide
+        env:
+          NODE_ENV: production
+          PORT: 3000
+          APP_URL: http://localhost:3000
+          DATABASE_URL: mysql://root:pecule-ci@127.0.0.1:3306/pecule
+          API_TOKEN: jeton-des-controles-automatiques-0123456789
+          SYNC_TOKEN: jeton-de-synchro-des-controles-0123456789
+          SYNC_INTERVAL_MINUTES: 0
+        run: |
+          node dist/server.mjs &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:3000/api/health | grep -q '"phase":"pret"' && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:3000/api/health | grep '"phase":"pret"'
+          curl -sf http://127.0.0.1:3000/api/auth/me | grep '"setup":true'
+          node scripts/doctor.mjs --url http://127.0.0.1:3000 --fichier /dev/null || true

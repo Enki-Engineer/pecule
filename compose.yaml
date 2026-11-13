@@ -1,0 +1,58 @@
+# Pécule avec Docker : l'appli et sa base MariaDB. Réglages dans `.env` (écrit par `node scripts/setup.mjs --docker`).
+#
+#   docker compose up -d --build                 Pécule sur http://localhost:3000 (essai sur sa propre machine)
+#   docker compose --profile https up -d --build  en plus, Caddy sert https://<PECULE_DOMAIN> (certificat automatique)
+#
+# Les clés d'accès (passkeys) exigent https ou localhost : sur un serveur, utiliser le profil « https » ou
+# son propre proxy, et donner la même adresse dans APP_URL.
+services:
+  pecule:
+    build: .
+    image: ${PECULE_IMAGE:-pecule}
+    restart: unless-stopped
+    env_file: ${PECULE_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: mysql://pecule:${DB_PASSWORD}@base:3306/pecule
+      DEMO_DATABASE_URL: mysql://pecule_demo:${DEMO_DB_PASSWORD}@base:3306/pecule_demo
+    depends_on:
+      base:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${PECULE_PORT:-3000}:3000"
+
+  base:
+    image: mariadb:11.8
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: pecule
+      MARIADB_USER: pecule
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      DEMO_DB_PASSWORD: ${DEMO_DB_PASSWORD}
+    command: ["--max-allowed-packet=256M"]
+    volumes:
+      - pecule-base:/var/lib/mysql
+      - ./docker/base-init.sh:/docker-entrypoint-initdb.d/10-demo.sh:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  # https avec certificat automatique (Let's Encrypt) : `--profile https`, PECULE_DOMAIN dans .env, ports 80 et 443 ouverts.
+  caddy:
+    profiles: ["https"]
+    image: caddy:2
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${PECULE_DOMAIN:-localhost} --to pecule:3000
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - pecule-caddy:/data
+    depends_on:
+      - pecule
+
+volumes:
+  pecule-base:
+  pecule-caddy:

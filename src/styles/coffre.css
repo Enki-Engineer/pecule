@@ -1,0 +1,57 @@
+/*
+ * Coffre du logo dessiné en ligne (components/ChestLogo.tsx) : fermé sur l'écran de connexion, il s'ouvre
+ * quand la clé d'accès est reconnue. Les calques viennent du fichier du logo (scripts/logo.mjs) : c-closed
+ * (couvercle fermé) et c-halo (lueur) y sont invisibles, pour que le même fichier serve d'image partout ailleurs.
+ */
+.chest svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.chest--closed :is(.c-open, .c-sparks) {
+  opacity: 0;
+}
+.chest--closed .c-closed {
+  opacity: 1;
+}
+.chest--opening .c-closed {
+  animation: chest-lid 0.75s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+.chest--opening .c-halo {
+  animation: chest-halo 0.75s ease-out both;
+}
+.chest--opening .c-open {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: chest-open 0.75s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+.chest--opening .c-sparks {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: chest-sparks 0.9s ease-out both;
+}
+@keyframes chest-lid {
+  0% { opacity: 1; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-30px); }
+  62%, 100% { opacity: 0; transform: translateY(-46px); }
+}
+@keyframes chest-halo {
+  0% { opacity: 0; }
+  40% { opacity: 1; }
+  75%, 100% { opacity: 0; }
+}
+@keyframes chest-open {
+  0%, 38% { opacity: 0; transform: scaleY(0.6); }
+  70% { opacity: 1; transform: scaleY(1.05); }
+  100% { opacity: 1; transform: scaleY(1); }
+}
+@keyframes chest-sparks {
+  0%, 55% { opacity: 0; transform: scale(0.6); }
+  80% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chest--opening :is(.c-closed, .c-halo, .c-open, .c-sparks) {
+    animation-duration: 1ms;
+  }
+}

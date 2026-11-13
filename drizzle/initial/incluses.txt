@@ -1,0 +1,35 @@
+# Migrations repliées dans schema.sql : leurs fichiers ne sont plus dans le dépôt. Une installation neuve les note
+# comme faites ; une base plus ancienne doit les avoir toutes appliquées avant de passer à ce code.
+001_init.sql
+002_account_prefs.sql
+003_patrimoine.sql
+004_prets_solidaires.sql
+005_assistant.sql
+006_factures.sql
+007_factures_sans_operation.sql
+drizzle/0000_baseline.sql
+drizzle/0001_audit_alertes.sql
+drizzle/0002_crypto_coinstats.sql
+drizzle/0003_crypto_identifiants_longs.sql
+drizzle/0004_crypto_source_remplacee.sql
+drizzle/0005_assistant_actions_cout.sql
+drizzle/0006_documents_echeancier.sql
+drizzle/0007_reprise_notion.sql
+drizzle/0008_fiches_de_paie.sql
+drizzle/0009_nom_des_prelevements.sql
+drizzle/0010_memoire_assistant.sql
+drizzle/0011_logos.sql
+drizzle/0012_enveloppes_objectifs.sql
+drizzle/0013_notifications.sql
+drizzle/0014_sessions_demo.sql
+drizzle/0015_libelle_banque.sql
+drizzle/0016_projections_par_membre.sql
+drizzle/0017_oauth_mcp.sql
+drizzle/0018_langue_membre.sql
+drizzle/0019_traductions_donnees.sql
+drizzle/0020_roles_membres.sql
+drizzle/0021_salaires_par_membre.sql
+drizzle/0022_reference_bancaire.sql
+drizzle/0023_sans_liens_notion.sql
+drizzle/0024_import_massif.sql
+drizzle/0025_purge_code_installation.sql

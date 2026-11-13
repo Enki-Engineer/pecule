@@ -1,0 +1,36 @@
+# Journal des versions
+
+Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
+sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
+
+## 1.1.0
+
+- **Pays, devise et fuseau horaire du foyer** (Réglages → Foyer) : tous les totaux s'expriment dans la devise du
+  foyer, l'euro par défaut. Trente devises, celles dont la Banque centrale européenne publie un cours de référence.
+- **Comptes en devise** : un compte peut être tenu dans une autre devise que celle du foyer (Enable Banking, fichier
+  OFX / QIF / CSV, relevé importé, saisie à la main). Ses montants sont convertis au cours du jour de chaque opération
+  et gardent leur valeur d'origine, affichée sous le montant ; son solde suit le cours du jour.
+- Changer la devise du foyer recalcule opérations, soldes et historiques ; les montants saisis à la main (budgets,
+  objectifs, placements, biens, crédits) gardent leur chiffre.
+- Titres cotés dans une autre devise que l'euro acceptés (convertis au cours du jour) ; cours et crypto valorisés dans
+  la devise du foyer.
+- Hors de France : pas de calendrier fiscal français ni de fêtes locales ; les écrans Impôts et Retraite sont retirés
+  d'office (on peut les remettre). Hémisphère sud : pas de thème de saison.
+- Les unités amusantes des thèmes, dont le prix est fixé en euros, ne s'affichent que pour un foyer en euros. Le coût
+  de l'IA reste compté en euros.
+- Migrations `0026_devises` et `0027_evenement_crypto_valeur` (appliquées au démarrage). Un foyer en euros ne voit
+  aucun changement.
+
+## 1.0.0
+
+Première version publique.
+
+- Comptes, opérations, catégories et règles, analyse du mois, enveloppes et objectifs, factures et rapprochement.
+- Patrimoine : épargne, placements, immobilier, crédits et échéanciers, crypto, projections.
+- Situation : revenus et bulletins de paie, impôts, retraite. Coffre de documents et échéancier.
+- Sources bancaires : Enable Banking, fichiers OFX / QIF / CSV, comptes tenus à la main.
+- Import massif de documents avec contrôles, relecture et annulation.
+- Assistant facultatif (fournisseur d'IA au choix), mode vocal, serveur MCP et connexion OAuth.
+- Foyer à plusieurs membres, clés d'accès, mode démo, sauvegarde complète et restauration.
+- Cinq langues : français, anglais, allemand, italien, espagnol.
+- Installation par Docker ou sur un hébergement Node.js, `setup` et `doctor`, guide pour un agent IA.

@@ -1,0 +1,30 @@
+# Veille automatique des versions : Dependabot ouvre une demande de fusion dès qu'une dépendance a une nouvelle
+# version — correctifs et mineures regroupés en une seule demande par semaine, chaque montée majeure dans la sienne
+# pour être évaluée à part. Les alertes de sécurité de GitHub s'appuient sur la même configuration.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 10
+    versioning-strategy: "increase"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dépendances"
+    ignore:
+      # Les types de Node suivent la version demandée par le projet (Node 24 : .nvmrc, engines, Dockerfile).
+      # @types/node 26 laisserait passer des API absentes de Node 24 : à retirer quand le projet passera à Node 26.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # Une seule PR par semaine pour tout ce qui n'est pas une majeure.
+      mineures-et-correctifs:
+        update-types:
+          - "minor"
+          - "patch"

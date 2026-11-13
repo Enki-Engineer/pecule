@@ -1,0 +1,82 @@
+#!/usr/bin/env node
+// Diagnostic d'une installation de Pécule : réglages, base, serveur, premier démarrage. Sans dépendance (Node seul).
+//
+//   node scripts/doctor.mjs [--fichier .env] [--url http://localhost:3000] [--json]
+//
+// Code de sortie 0 si rien ne bloque, 1 sinon. Aucun secret n'est affiché.
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const argv = process.argv.slice(2);
+if (argv.includes("--help") || argv.includes("-h")) {
+  console.log("Diagnostic d'une installation de Pécule.\n\n  node scripts/doctor.mjs [--fichier .env] [--url http://localhost:3000] [--json]\n\nContrôle Node, les réglages, le serveur, son démarrage et le premier membre. Code de sortie 1 si quelque chose bloque.");
+  process.exit(0);
+}
+const value = (name) => (argv.includes(`--${name}`) ? argv[argv.indexOf(`--${name}`) + 1] : undefined);
+const json = argv.includes("--json");
+// Sans --fichier : le .env du dossier courant, sinon celui de la racine du dépôt (le script peut être lancé d'ailleurs).
+const here = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const file = value("fichier") ?? (existsSync(".env") ? ".env" : path.join(here, ".env"));
+const checks = [];
+const check = (id, ok, message, fix) => checks.push({ id, ok, message, ...(ok || !fix ? {} : { fix }) });
+
+// 1. Node
+const major = Number(process.versions.node.split(".")[0]);
+check("node", major >= 24, `Node ${process.versions.node}`, "Installer Node 24 ou plus récent (ou utiliser Docker).");
+
+// 2. Réglages
+const env = {};
+if (existsSync(file)) {
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
+    if (m && !line.trim().startsWith("#")) env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+  }
+  check("reglages", true, `${file} trouvé (${Object.keys(env).length} réglages)`);
+} else check("reglages", false, `${file} introuvable`, "node scripts/setup.mjs --docker   (ou --base \"mysql://…\")");
+
+const docker = !!env.DB_PASSWORD && !env.DATABASE_URL;
+if (existsSync(file)) {
+  for (const name of ["API_TOKEN", "SYNC_TOKEN"]) check(name.toLowerCase(), (env[name] ?? "").length >= 32, `${name} ${env[name] ? `(${env[name].length} caractères)` : "absent"}`, `${name} : 32 caractères au moins (node scripts/setup.mjs --force en tire un).`);
+  let appUrl = null;
+  try {
+    appUrl = new URL(env.APP_URL ?? "");
+  } catch {
+    /* signalé ci-dessous */
+  }
+  const local = !!appUrl && ["localhost", "127.0.0.1"].includes(appUrl.hostname);
+  check("app_url", !!appUrl && (appUrl.protocol === "https:" || local), `APP_URL ${env.APP_URL ?? "absent"}`, "APP_URL : une adresse en https, ou http://localhost pour un essai local (les clés d'accès l'exigent).");
+  check("base", docker || /^mysql:\/\//.test(env.DATABASE_URL ?? ""), docker ? "Base fournie par Docker Compose" : `DATABASE_URL ${env.DATABASE_URL ? "présent" : "absent"}`, "DATABASE_URL=mysql://utilisateur:motdepasse@hote:3306/base (ou setup --docker).");
+}
+
+// 3. Serveur
+const port = env.PECULE_PORT ?? env.PORT ?? "3000";
+const target = (value("url") ?? `http://127.0.0.1:${port}`).replace(/\/+$/, "");
+let health = null;
+try {
+  const r = await fetch(`${target}/api/health`, { signal: AbortSignal.timeout(8000) });
+  const body = await r.json();
+  // Une autre appli peut écouter sur ce port : seule une réponse de Pécule compte.
+  health = body && typeof body.phase === "string" ? body : null;
+} catch {
+  /* serveur arrêté ou injoignable */
+}
+check("serveur", !!health, health ? `Serveur joint sur ${target}` : `Pécule ne répond pas sur ${target}`, docker ? "docker compose up -d --build, puis docker compose logs pecule" : "pnpm build && node dist/server.mjs (ou voir le journal de l'hébergeur)");
+if (health) {
+  check("demarrage", health.ok === true && health.phase === "pret", `Démarrage : ${health.phase}`, "Le serveur applique encore ses migrations, ou la base refuse la connexion : voir son journal.");
+  try {
+    const me = await (await fetch(`${target}/api/auth/me`, { signal: AbortSignal.timeout(8000) })).json();
+    checks.push({ id: "premier_demarrage", ok: true, message: me.setup ? "Aucun membre encore : ouvrir l'appli pour créer le premier (code d'installation = SETUP_CODE du fichier de réglages, sinon API_TOKEN)" : "Le foyer a ses membres", todo: me.setup === true });
+    checks.push({ id: "demo", ok: true, message: me.demoAvailable ? "Mode démo disponible" : "Mode démo non configuré (DEMO_DATABASE_URL), facultatif" });
+  } catch {
+    check("api", false, "L'API ne répond pas comme attendu", "Voir le journal du serveur.");
+  }
+}
+
+const ok = checks.every((c) => c.ok);
+if (json) console.log(JSON.stringify({ ok, checks }, null, 1));
+else {
+  for (const c of checks) console.log(`${c.ok ? "✓" : "✗"} ${c.message}${c.fix ? `\n    → ${c.fix}` : ""}`);
+  console.log(ok ? "\nRien ne bloque." : "\nÀ corriger : les lignes marquées ✗.");
+}
+process.exit(ok ? 0 : 1);

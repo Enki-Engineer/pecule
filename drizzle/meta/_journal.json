@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1794523585444,
+      "tag": "0025_purge_code_installation",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1794539672244,
+      "tag": "0026_devises",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1794539678659,
+      "tag": "0027_evenement_crypto_valeur",
+      "breakpoints": true
+    }
+  ]
+}

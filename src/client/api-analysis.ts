@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "./api.ts";
 import { currentScopeKey } from "./shell.ts";
+import type { TimelinePoint } from "../lib/timeline.ts";
 
 /* Analyse (phase 15, lot B) : flux du mois, natures sur 12 mois, prélèvements, marchands. */
 
@@ -26,6 +27,11 @@ export const useMonthDebits = (month: string) =>
   useQuery({ placeholderData: keepPreviousData, queryKey: ["analysis", "debits", month, currentScopeKey()], queryFn: () => api<MonthDebits>(`/analysis/debits?month=${month}`) });
 export const useMerchants = (month: string) =>
   useQuery({ placeholderData: keepPreviousData, queryKey: ["analysis", "merchants", month, currentScopeKey()], queryFn: () => api<{ merchants: Merchant[] }>(`/analysis/merchants?month=${month}`) });
+
+export type Expected = { name: string; day: number; amount: number; category: string | null };
+export type Timeline = { month: string; today: number | null; points: TimelinePoint[]; upcoming: Expected[]; overdue: Expected[] };
+export const useTimeline = (month: string) =>
+  useQuery({ placeholderData: keepPreviousData, queryKey: ["analysis", "timeline", month, currentScopeKey()], queryFn: () => api<Timeline>(`/analysis/timeline?month=${month}`) });
 
 export type Comparison = {
   label: string;

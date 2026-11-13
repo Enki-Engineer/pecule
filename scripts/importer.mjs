@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Import massif d'un dossier de documents dans Pécule, en ligne de commande. Même moteur que l'écran « Importer » :
+// Import massif d'un dossier de documents dans Pécule, en ligne de commande. Même moteur que la zone de dépôt du coffre :
 // les fichiers sont annoncés (empreinte calculée ici), envoyés s'ils sont nouveaux, lus par le serveur, puis proposés
 // à la relecture. Sans dépendance (Node seul), utilisable par une personne ou par un agent.
 //
@@ -8,7 +8,7 @@
 //
 // Adresse et jeton : --url et --jeton, sinon PECULE_URL et PECULE_API_TOKEN (variables d'environnement ou fichier .env).
 // --a-blanc : liste ce qui serait envoyé, sans rien envoyer. --valider-surs : valide ce qui peut l'être sans relecture
-// (contrôles passés, lecture sans doute, rien de changé à l'existant) ; le reste se relit dans l'appli (Documents → Importer).
+// (contrôles passés, lecture sans doute, rien de changé à l'existant) ; le reste se relit dans l'appli (Documents → Coffre, onglet « Imports »).
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -118,7 +118,7 @@ function show(batch) {
 /**
  * Dossier surveillé : à chaque passage, les fichiers pas encore envoyés (et que personne n'est en train d'écrire)
  * partent dans un nouveau lot. La mémoire de ce qui a été envoyé est un fichier caché du dossier ; la relecture se
- * fait dans l'appli (Documents → Importer).
+ * fait dans l'appli (Documents → Coffre, onglet « Imports »).
  */
 async function watch() {
   if (!existsSync(folder) || !statSync(folder).isDirectory()) fail(`${folder} n'est pas un dossier.`);
@@ -152,7 +152,7 @@ async function watch() {
           seen[f.sha256] = new Date().toISOString();
         }
         writeFileSync(stateFile, JSON.stringify(seen, null, 1));
-        say(`${new Date().toLocaleTimeString("fr-FR")} · lot ${batch.id} : ${fresh.length} fichier(s) envoyé(s) — à relire : ${url}/importer?lot=${batch.id}`);
+        say(`${new Date().toLocaleTimeString("fr-FR")} · lot ${batch.id} : ${fresh.length} fichier(s) envoyé(s) — à relire : ${url}/documents?lot=${batch.id}`);
       }
     } catch (e) {
       // Pécule injoignable ou refus passager : on réessaie au prochain passage, sans rien noter comme envoyé.
@@ -217,7 +217,7 @@ async function main() {
     show(batch);
     if (validated) console.log(`${validated.validated} fichier(s) validé(s) sans relecture${validated.failed.length ? `, ${validated.failed.length} en échec` : ""}.`);
     const left = batch.counts.a_relire ?? 0;
-    if (left) console.log(`${left} fichier(s) à relire : ${url}/importer?lot=${batch.id}`);
+    if (left) console.log(`${left} fichier(s) à relire : ${url}/documents?lot=${batch.id}`);
   }
 }
 await main().catch((e) => fail(e instanceof Error ? e.message : String(e)));

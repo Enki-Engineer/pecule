@@ -816,3 +816,29 @@ body {
 .recharts-wrapper *:focus {
   outline: none;
 }
+
+/* Diagramme de flux : halo des blocs cliquables, deux battements à l'arrivée du diagramme, puis plus rien. */
+@keyframes flow-hint {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  25% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.4, 1.12);
+  }
+}
+.flow-hint {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: flow-hint 1.5s ease-out 0.6s 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-hint {
+    animation: none;
+  }
+}

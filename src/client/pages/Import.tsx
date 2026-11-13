@@ -1,20 +1,22 @@
-import { useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useState } from "react";
+import { Link, Navigate, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, CheckCheck, ChevronRight, FileDown, FolderUp, RotateCcw, Trash2, Undo2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, CheckCheck, ChevronRight, FileDown, RotateCcw, Trash2, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
-import { api, useDemo } from "../api.ts";
+import { api } from "../api.ts";
+import { useCrumb } from "../shell.ts";
 import { Card, Empty, ErrorBox, PageHeader, Sheet, Spinner } from "../components/ui.tsx";
 import { cn } from "../cn.ts";
-import { dateFr, money } from "../format.ts";
-import { droppedFiles, pickedFiles, startImport, type BatchLine, type ImportBatch, type ImportDetail, type ImportField, type ImportItem, type Picked, type Progress } from "../importer.ts";
+import { money } from "../format.ts";
+import type { ImportBatch, ImportDetail, ImportField, ImportItem } from "../importer.ts";
 import { isPending, STATUS_LABELS, type ItemStatus } from "../../lib/imports.ts";
 import { t, tn } from "../../lib/i18n.ts";
 
 /*
- * Importer des documents (phase 28) : on dépose un dossier entier, Pécule range chaque fichier au coffre, reconnaît
- * ceux qu'il sait lire (bulletins, avis d'impôt, échéanciers, relevés…) et propose leurs données. Rien n'est écrit
- * dans les écrans avant la validation, fichier par fichier ou d'un coup pour ce qui est sûr.
+ * Relecture d'un import (un « lot ») : ce qu'on a déposé dans le coffre, une ligne par fichier. Chaque fichier est
+ * rangé au coffre ; ceux que Pécule sait lire (bulletins, avis d'impôt, échéanciers, relevés…) donnent une proposition.
+ * Rien n'est écrit dans les écrans avant la validation, fichier par fichier ou d'un coup pour ce qui est sûr.
+ * Le dépôt lui-même se fait dans le coffre (pages/Documents.tsx), qui ouvre le lot.
  */
 
 const button = "press inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50";
@@ -33,119 +35,16 @@ const TONES: Record<ItemStatus, string> = {
   erreur: "bg-neg/10 text-neg",
 };
 
+/** Ancienne adresse « /importer » (liens gardés, ligne de commande) : tout est désormais dans le coffre. */
 export function Import() {
-  const [params, setParams] = useSearchParams();
-  const batchId = Number(params.get("lot")) || null;
-  const demo = useDemo();
-  if (demo)
-    return (
-      <>
-        <PageHeader title={t("Importer des documents")} />
-        <Card className="p-4 text-sm text-muted md:max-w-[880px]">{t("L'import de documents n'est pas proposé en mode démo : il écrirait dans de vraies données.")}</Card>
-      </>
-    );
-  return batchId ? <Batch id={batchId} onBack={() => setParams({}, { replace: true })} /> : <Start onOpen={(id) => setParams({ lot: String(id) })} />;
-}
-
-/* ---------- Dépôt d'un dossier, lots précédents ---------- */
-
-function Start({ onOpen }: { onOpen: (id: number) => void }) {
-  const qc = useQueryClient();
-  const batches = useQuery({ queryKey: ["imports"], queryFn: () => api<{ batches: BatchLine[] }>("/imports") });
-  const folder = useRef<HTMLInputElement>(null);
-  const files = useRef<HTMLInputElement>(null);
-  const [over, setOver] = useState(false);
-  const [progress, setProgress] = useState<Progress | null>(null);
-
-  async function run(picked: Picked[]) {
-    if (!picked.length || progress) return;
-    const name = picked[0].path.includes("/") ? picked[0].path.split("/")[0] : t("Fichiers du {date}", { date: dateFr(new Date().toLocaleDateString("sv-SE")) });
-    try {
-      const batch = await startImport(name, picked, setProgress);
-      void qc.invalidateQueries({ queryKey: ["imports"] });
-      onOpen(batch.id);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("Import impossible"));
-    } finally {
-      setProgress(null);
-    }
-  }
-
-  return (
-    <>
-      <PageHeader title={t("Importer des documents")} subtitle={t("Dépose un dossier entier : Pécule range, lit et propose")} />
-      <div className="space-y-6 md:max-w-[880px]">
-        <Card
-          className={cn("border-2 border-dashed p-6 text-center transition-colors md:p-10", over ? "border-accent bg-accent-soft/50" : "border-line")}
-        >
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setOver(true);
-            }}
-            onDragLeave={() => setOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setOver(false);
-              void droppedFiles(e.dataTransfer).then(run);
-            }}
-          >
-            <FolderUp size={34} className="mx-auto text-accent" />
-            <p className="mt-3 text-[17px] font-semibold">{t("Glisse ici un dossier ou des fichiers")}</p>
-            <p className="mx-auto mt-1 max-w-xl text-sm text-muted">
-              {t("Bulletins de paie, avis d'impôt, taxes foncières, tableaux d'amortissement, relevés de carrière, actes, baux, relevés de compte, exports de la banque, factures. PDF, photos, OFX, QIF ou CSV, 20 Mo au plus par fichier.")}
-            </p>
-            {progress ? (
-              <p className="mt-4 text-sm font-medium text-accent" role="status">
-                {progress.step === "empreintes" ? t("Préparation des fichiers… {a} sur {b}", { a: progress.done, b: progress.total }) : t("Envoi… {a} sur {b}", { a: progress.done, b: progress.total })}
-              </p>
-            ) : (
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <button type="button" className={button} onClick={() => folder.current?.click()}>
-                  <FolderUp size={16} /> {t("Choisir un dossier")}
-                </button>
-                <button type="button" className={ghost} onClick={() => files.current?.click()}>
-                  {t("Choisir des fichiers")}
-                </button>
-              </div>
-            )}
-            {/* @ts-expect-error webkitdirectory : attribut du sélecteur de dossier, absent des types de React */}
-            <input ref={folder} type="file" webkitdirectory="" multiple className="hidden" onChange={(e) => e.target.files && void run(pickedFiles(e.target.files))} />
-            <input ref={files} type="file" multiple className="hidden" onChange={(e) => e.target.files && void run(pickedFiles(e.target.files))} />
-          </div>
-        </Card>
-        <p className="px-1 text-xs text-muted">
-          {t("Chaque fichier est rangé au coffre. Ceux que Pécule sait lire donnent une proposition, que tu relis avant qu'elle ne soit écrite dans tes écrans ; tout import peut être annulé. La lecture passe par ton fournisseur d'IA : le coût est estimé avant, mesuré ensuite, et plafonné par lot.")}
-        </p>
-
-        {batches.error && <ErrorBox error={batches.error} />}
-        {!!batches.data?.batches.length && (
-          <section>
-            <h2 className="mb-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted">{t("Imports précédents")}</h2>
-            <Card className="divide-y divide-line">
-              {batches.data.batches.map((b) => (
-                <button key={b.id} type="button" onClick={() => onOpen(b.id)} className="press flex w-full items-center gap-3 px-4 py-3 text-left">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-medium">{b.name}</span>
-                    <span className="block text-xs text-muted">
-                      {dateFr(b.created_at.slice(0, 10))} · {tn("{n} fichier", "{n} fichiers", Number(b.files), { n: Number(b.files) })}
-                      {b.status === "annule" ? ` · ${t("annulé")}` : Number(b.to_review) > 0 ? ` · ${t("{n} à relire", { n: Number(b.to_review) })}` : ""}
-                    </span>
-                  </span>
-                  <ChevronRight size={17} className="shrink-0 text-muted" />
-                </button>
-              ))}
-            </Card>
-          </section>
-        )}
-      </div>
-    </>
-  );
+  const [params] = useSearchParams();
+  const lot = Number(params.get("lot")) || null;
+  return <Navigate to={lot ? `/documents?lot=${lot}` : "/documents"} replace />;
 }
 
 /* ---------- Un lot : une ligne par fichier ---------- */
 
-function Batch({ id, onBack }: { id: number; onBack: () => void }) {
+export function Batch({ id, onBack }: { id: number; onBack: () => void }) {
   const qc = useQueryClient();
   const batch = useQuery({
     queryKey: ["import", id],
@@ -156,6 +55,7 @@ function Batch({ id, onBack }: { id: number; onBack: () => void }) {
   const [filter, setFilter] = useState<"tout" | "a_relire" | "autres">("tout");
   const [busy, setBusy] = useState(false);
   const b = batch.data;
+  useCrumb(b?.name);
 
   async function act(run: () => Promise<unknown>, done?: string) {
     setBusy(true);
@@ -192,7 +92,7 @@ function Batch({ id, onBack }: { id: number; onBack: () => void }) {
         }
         right={
           <button type="button" onClick={onBack} className={ghost}>
-            {t("Tous les imports")}
+            <ArrowLeft size={15} /> {t("Retour au coffre")}
           </button>
         }
       />

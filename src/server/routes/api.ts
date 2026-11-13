@@ -27,7 +27,7 @@ import { recordAlert } from "../journal.ts";
 import { agenda } from "../agenda.ts";
 import { searchDocuments } from "../documents.ts";
 import { day } from "../tools/registry.ts";
-import { coloredPostes, comparePeriods, comparisonSpan, monthDebits, monthFlows, monthMerchants, natureTrend } from "../flows.ts";
+import { coloredPostes, comparePeriods, comparisonSpan, monthDebits, monthFlows, monthMerchants, monthTimeline, natureTrend } from "../flows.ts";
 import { debitSeries, nameDebits, refreshDebitNames, resetDebitNames } from "../debits.ts";
 import { importBankLabels } from "../bank-labels.ts";
 import { importBankHistory, removeBankHistory } from "../bank-history.ts";
@@ -1209,6 +1209,10 @@ api.get("/analysis/natures", async (req, res) => {
 
 api.get("/analysis/debits", async (req, res) => {
   res.json(await monthDebits(req.user!.id, userAccounts(req), month.parse(req.query.month)));
+});
+
+api.get("/analysis/timeline", async (req, res) => {
+  res.json(await monthTimeline(req.user!.id, userAccounts(req), month.parse(req.query.month)));
 });
 
 api.get("/analysis/merchants", async (req, res) => {

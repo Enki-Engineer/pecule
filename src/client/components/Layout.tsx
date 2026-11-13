@@ -28,9 +28,10 @@ import { DrillDrawer } from "./DrillDrawer.tsx";
 import { InvoiceViewer } from "./InvoiceViewer.tsx";
 import { Shortcuts } from "./Shortcuts.tsx";
 import { shiftMonth, useCurrentCrumb, usePeriod, useRail, useScope } from "../shell.ts";
-import type { Counts } from "../nav.ts";
+import { COUNT_LINKS, type Counts } from "../nav.ts";
 import { useModulesOff, useNav } from "../modules.ts";
 import { pathEnabled } from "../../lib/modules.ts";
+import { scopeApplies } from "../../lib/scope.ts";
 import { NavTracker, PullToRefresh, isTopLevel, useBack, useEdgeSwipeBack } from "./MobileShell.tsx";
 import { useMedia } from "../useMedia.ts";
 import { SeasonDecor } from "./SeasonDecor.tsx";
@@ -68,7 +69,6 @@ const CRUMBS: [RegExp, { label: string; to?: string }[]][] = [
   [/^\/retraite/, [{ label: t("Situation") }, { label: t("Retraite"), to: "/retraite" }]],
   [/^\/documents/, [{ label: t("Documents") }, { label: t("Coffre"), to: "/documents" }]],
   [/^\/echeancier/, [{ label: t("Documents") }, { label: t("Échéancier"), to: "/echeancier" }]],
-  [/^\/importer/, [{ label: t("Documents") }, { label: t("Importer"), to: "/importer" }]],
   [/^\/reglages/, [{ label: t("Réglages"), to: "/reglages" }]],
   [/^\/assistant/, [{ label: t("Assistant") }]],
 ];
@@ -236,13 +236,26 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
   const me = useMe();
   const nav = useNav();
   const counts = useQuery({ queryKey: ["nav-counts"], queryFn: () => api<Counts>("/nav-counts"), refetchInterval: 120_000, staleTime: 60_000 });
+  // Compteur d'une entrée : en menu replié, un point ; sinon un lien à part, qui ouvre l'écran déjà filtré sur ce qu'il compte.
+  const dot = (key?: keyof Counts) => (rail && key && counts.data?.[key] ? <span className="absolute right-1.5 top-1 size-2 rounded-full bg-accent" /> : null);
   const badge = (key?: keyof Counts) => {
     const n = key ? (counts.data?.[key] ?? 0) : 0;
-    if (!n) return null;
-    return rail ? (
-      <span className="absolute right-1.5 top-1 size-2 rounded-full bg-accent" />
-    ) : (
-      <span className={cn("ml-auto rounded px-1.5 text-[11px] font-semibold tabular-nums", key === "tasksOverdue" ? "bg-neg/10 text-neg" : "bg-accent-soft text-accent")}>{n}</span>
+    if (!key || !n || rail) return null;
+    const link = COUNT_LINKS[key];
+    const danger = key === "tasksOverdue" || key === "alerts";
+    return (
+      <Link
+        to={link.to}
+        viewTransition
+        title={link.label(n)}
+        aria-label={link.label(n)}
+        className={cn(
+          "absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-1.5 text-[11px] font-semibold leading-[18px] tabular-nums transition-colors",
+          danger ? "bg-neg/10 text-neg hover:bg-neg hover:text-white" : "bg-accent-soft text-accent hover:bg-accent hover:text-white",
+        )}
+      >
+        {n}
+      </Link>
     );
   };
   return (
@@ -255,12 +268,15 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
         <div key={i} className="mb-2">
           {g.title && !rail && <div className="px-2.5 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted">{g.title}</div>}
           {g.title && rail && <div className="mx-3 my-2 border-t border-line" />}
-          {g.items.map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.end} viewTransition title={rail ? t.label : undefined} className={({ isActive }) => navItem(isActive, rail)}>
-              <t.icon size={16} strokeWidth={2} className="shrink-0" />
-              {!rail && <span className="truncate">{t.label}</span>}
-              {badge(t.count)}
-            </NavLink>
+          {g.items.map((it) => (
+            <div key={it.to} className="relative">
+              <NavLink to={it.to} end={it.end} viewTransition title={rail ? it.label : undefined} className={({ isActive }) => cn(navItem(isActive, rail), !rail && it.count && counts.data?.[it.count] ? "pr-10" : null)}>
+                <it.icon size={16} strokeWidth={2} className="shrink-0" />
+                {!rail && <span className="truncate">{it.label}</span>}
+                {dot(it.count)}
+              </NavLink>
+              {badge(it.count)}
+            </div>
           ))}
         </div>
       ))}
@@ -276,11 +292,14 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
             <Sparkles size={16} className="shrink-0" /> {!rail && "Assistant"}
           </NavLink>
         )}
-        <NavLink to="/reglages" viewTransition title={rail ? t("Réglages") : undefined} className={({ isActive }) => navItem(isActive, rail)}>
-          <Settings size={16} className="shrink-0" />
-          {!rail && <span>{t("Réglages")}</span>}
+        <div className="relative">
+          <NavLink to="/reglages" viewTransition title={rail ? t("Réglages") : undefined} className={({ isActive }) => navItem(isActive, rail)}>
+            <Settings size={16} className="shrink-0" />
+            {!rail && <span>{t("Réglages")}</span>}
+            {dot("alerts")}
+          </NavLink>
           {badge("alerts")}
-        </NavLink>
+        </div>
         <button type="button" onClick={onRail} title={rail ? t("Déplier le menu (⌘\\)") : t("Replier le menu (⌘\\)")} className={cn(navItem(false, rail), "w-full")}>
           {rail ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           {!rail && <span className="flex-1 text-left">{t("Replier")}</span>}
@@ -300,6 +319,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
   const sync = useSync();
   const [scope, setScope] = useScope();
   const showPeriod = pathname.startsWith("/mois") || pathname.startsWith("/operations");
+  const scoped = scopeApplies(pathname);
   async function refresh() {
     try {
       const r = await sync.mutateAsync();
@@ -341,9 +361,20 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
       </nav>
       <DemoBadge className="py-1 text-[12px]" />
       {showPeriod && <PeriodPicker operations={pathname.startsWith("/operations")} />}
-      <div className="flex rounded-md bg-bg p-0.5 text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--color-line)]" title={t("Foyer : tous les comptes · Moi : mes comptes, sans le compte commun")}>
+      {/* Foyer / Moi : grisé sur les écrans qui ne dépendent pas des comptes (le choix n'y changerait rien). */}
+      <div
+        className={cn("flex rounded-md bg-bg p-0.5 text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--color-line)]", !scoped && "cursor-not-allowed opacity-45")}
+        title={scoped ? t("Foyer : tous les comptes · Moi : mes comptes, sans le compte commun") : t("Foyer / Moi : sans effet sur cet écran, qui ne dépend pas des comptes")}
+      >
         {(["foyer", "moi"] as const).map((s) => (
-          <button key={s} type="button" onClick={() => setScope(s)} className={cn("rounded px-2.5 py-1", scope === s ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-line)]" : "text-muted hover:text-ink")}>
+          <button
+            key={s}
+            type="button"
+            disabled={!scoped}
+            aria-pressed={scope === s}
+            onClick={() => setScope(s)}
+            className={cn("rounded px-2.5 py-1 disabled:pointer-events-none", scope === s ? (scoped ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-line)]" : "text-ink") : "text-muted enabled:hover:text-ink")}
+          >
             {s === "foyer" ? t("Foyer") : t("Moi")}
           </button>
         ))}

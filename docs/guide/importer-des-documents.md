@@ -14,7 +14,8 @@ Où trouver chaque document : [récupérer ses documents](recuperer-ses-document
 
 ## Depuis l'appli
 
-Documents → **Importer**, puis glissez un dossier (ou choisissez-le). Pécule calcule l'empreinte de chaque fichier
+Documents → **Coffre** : glissez un dossier ou des fichiers dans la zone de dépôt, en haut de l'écran (ou choisissez-les).
+Le lot s'ouvre aussitôt pour la relecture ; on le retrouve ensuite dans l'onglet « Imports » du coffre. Pécule calcule l'empreinte de chaque fichier
 sur votre appareil : un fichier déjà connu n'est pas renvoyé. Les fichiers non pris en charge (autres que PDF, photos,
 texte, OFX, QIF, CSV, ou de plus de 20 Mo) sont listés dans le rapport « Fichiers non importés ».
 

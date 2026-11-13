@@ -77,7 +77,7 @@ clé d'accès. L'accueil affiche ensuite « Bien démarrer » :
   compte peut être tenu dans une autre devise que celle du foyer : ses montants sont convertis au cours de référence
   de la Banque centrale européenne et gardent leur valeur d'origine ;
 - **brancher l'assistant** (Réglages → Assistant → Fournisseur d'IA), facultatif ;
-- **importer vos documents** (Documents → Importer) : voir [`importer-des-documents.md`](importer-des-documents.md).
+- **importer vos documents** (Documents → Coffre, zone de dépôt) : voir [`importer-des-documents.md`](importer-des-documents.md).
 
 Les autres membres du foyer s'ajoutent dans Réglages → Compte et sécurité : chacun reçoit un lien d'inscription et
 crée sa propre clé d'accès.

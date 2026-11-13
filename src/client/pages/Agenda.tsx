@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, Check, Circle, Flag, Landmark, Plus, Receipt, Repeat, ShieldCheck, FileText, Trash2, AlertTriangle } from "lucide-react";
 import clsx from "clsx";
@@ -53,9 +53,19 @@ export function Agenda() {
   const [horizon, setHorizon] = useState<(typeof HORIZONS)[number]["value"]>("365");
   const [adding, setAdding] = useState(false);
   const desktop = useMedia("(min-width: 1024px)");
-  const [view, setView] = useState<"calendrier" | "liste">("calendrier");
+  // « ?retard=1 » (compteur du menu) : la liste, déroulée jusqu'à ce qui est en retard.
+  const [params] = useSearchParams();
+  const late = params.get("retard") === "1";
+  const [view, setView] = useState<"calendrier" | "liste">(late ? "liste" : "calendrier");
   const agenda = useAgenda(Number(horizon));
   const entries = agenda.data?.entries ?? [];
+  const overdueRef = useRef<HTMLElement>(null);
+  const ready = !!agenda.data;
+  useEffect(() => {
+    if (!late || !ready) return;
+    setView("liste");
+    requestAnimationFrame(() => overdueRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
+  }, [late, ready]);
 
   const { overdue, undated, byMonth } = useMemo(() => {
     const overdue = entries.filter((e) => e.overdue);
@@ -125,7 +135,7 @@ export function Agenda() {
       ) : (
         <div className="space-y-5">
           {overdue.length > 0 && (
-            <section>
+            <section ref={overdueRef} className="scroll-mt-20">
               <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-semibold text-neg">
                 <AlertTriangle size={15} /> {t("En retard")}
               </h2>

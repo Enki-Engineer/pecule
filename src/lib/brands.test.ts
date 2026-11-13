@@ -34,6 +34,30 @@ describe("brandOf", () => {
     expect(d("Dassault Systemes Se")).toBe("3ds.com");
   });
 
+  it("reconnaît les enseignes courantes, même tronquées ou collées par la banque", () => {
+    expect(d("Carte 02 05 26 Hellofresh France")).toBe("hellofresh.fr");
+    expect(d("Autoroutes Du S")).toBe("vinci-autoroutes.com");
+    expect(d("Direction Generale Des Finance")).toBe("impots.gouv.fr");
+    expect(d("Gie Les Cinemas Pathe")).toBe("pathe.fr");
+    expect(d("Megadonquijote")).toBe("donki.com");
+    expect(d("Seven Eleven")).toBe("7-eleven.com");
+    expect(d("Openai Chatgpt Subscr")).toBe("openai.com");
+    expect(d("Claude Ai Subscription")).toBe("claude.ai");
+    expect(d("Uberjp Eats")).toBe("ubereats.com");
+    expect(d("Avis Budget Nantes")).toBe("avis.fr");
+    expect(d("Super U Angers")).toBe("magasins-u.com");
+    expect(d("C&A Nantes")).toBe("c-and-a.com");
+  });
+
+  it("ne prend pas un prénom ou un nom de famille pour une marque", () => {
+    expect(d("Vir Inst M Alex Hertz")).toBeNull();
+    expect(d("Virement de Claude Martin")).toBeNull();
+    expect(d("Alan Durand")).toBeNull();
+    expect(d("Avis d'imposition")).toBeNull();
+    expect(d("Pharmacie Du Monde")).toBeNull();
+    expect(d("Sum Up Marche Des Halles")).toBeNull();
+  });
+
   it("ne confond pas des mots courants", () => {
     expect(d("Boulangerie/café")).toBeNull();
     expect(d("Boulanger De Neuvil")).toBeNull();

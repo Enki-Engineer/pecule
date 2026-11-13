@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Bitcoin, Blocks, Cable, CalendarClock, ExternalLink, FileUp, KeyRound, Landmark, PenLine, Presentation, Smartphone, Sparkles } from "lucide-react";
+import { Archive, Bitcoin, Blocks, Cable, CalendarClock, ExternalLink, FileUp, Info, KeyRound, Landmark, PenLine, Presentation, Smartphone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { api, useAccounts, useMe, type Account } from "../api.ts";
 import { AccountList } from "./AccountList.tsx";
@@ -88,6 +88,7 @@ export function ConnectionsSettings({ slots }: { slots: ConnectionSlots }) {
             </Part>
           </Connector>
         )}
+        {!demo && <SourceGuide />}
         {!demo && (
           <Connector
             {...block("banque")}
@@ -246,6 +247,48 @@ export function ConnectionsSettings({ slots }: { slots: ConnectionSlots }) {
 }
 
 const stateProps = (s: { state: ConnectorState; label: string }) => ({ state: s.state, stateLabel: s.label });
+
+/** Encart « Quelle source choisir ? » : ce que coûte chaque façon d'alimenter ses comptes, avant d'en déplier une. */
+function SourceGuide() {
+  const sources: { name: string; price: string; free: boolean; text: string }[] = [
+    {
+      name: "Enable Banking",
+      price: t("Gratuit"),
+      free: true,
+      text: t("Gratuit pour un usage personnel : tu crées ton application sur enablebanking.com et tu y relies les comptes à ton nom (un autre adulte du foyer fait de même pour les siens). Lecture seule, directement chez la banque."),
+    },
+    {
+      name: "Finta",
+      price: t("Abonnement payant"),
+      free: false,
+      text: t("Service tiers sur abonnement : Pécule le lit si tu as déjà un compte Finta et sa clé d'API. Rien ne t'oblige à le prendre."),
+    },
+    {
+      name: t("Fichiers de la banque"),
+      price: t("Gratuit"),
+      free: true,
+      text: t("Sans rien relier : tu déposes de temps en temps l'export OFX, QIF ou CSV de ton espace client."),
+    },
+  ];
+  return (
+    <aside className="rounded-xl bg-accent-soft/60 px-4 py-3.5 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]">
+      <h3 className="flex items-center gap-1.5 text-[13px] font-semibold">
+        <Info size={15} className="shrink-0 text-accent" /> {t("Quelle source choisir ?")}
+      </h3>
+      <dl className="mt-2.5 grid gap-x-5 gap-y-3 md:grid-cols-3">
+        {sources.map((x) => (
+          <div key={x.name} className="min-w-0">
+            <dt className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px] font-semibold">
+              {x.name}
+              <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none", x.free ? "bg-pos/15 text-pos" : "bg-warn/20 text-warn")}>{x.price}</span>
+            </dt>
+            <dd className="mt-1 text-[12.5px] leading-snug text-muted">{x.text}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
+  );
+}
 
 type FintaConnection = { id: string; institutionName: string | null; status: string | null; lastSyncedAt: string | null; lastProviderErrorMessage: string | null; reconnectUrl: string | null };
 

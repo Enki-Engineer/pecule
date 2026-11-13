@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Bar, BarChart, CartesianGrid, ReferenceArea, ResponsiveContainer, Sankey, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
-import { AlertTriangle, Table2 } from "lucide-react";
+import { AlertTriangle, MousePointerClick, Table2 } from "lucide-react";
 import { Card, ErrorBox, PageHeader, Spinner, Tabs } from "../components/ui.tsx";
 import { Stat, StatGrid } from "../components/blocks.tsx";
 import { openDrill } from "../components/DrillDrawer.tsx";
@@ -17,21 +17,23 @@ import { CompareView } from "./Compare.tsx";
 import { natureColor } from "../charts.ts";
 import { BrandLogo } from "../components/Logo.tsx";
 import { Breakdown } from "../components/Breakdown.tsx";
+import { TimelineTab } from "../components/MonthTimeline.tsx";
 import { useMonth } from "../api.ts";
 import { monthTotals } from "../../lib/month.ts";
 import { locale, t, td, tk, tn } from "../../lib/i18n.ts";
 
 /*
  * Analyse (ordinateur) : vue d'ensemble du mois, flux (d'où vient l'argent, par quel moyen il part,
- * vers quels postes), prélèvements (calendrier, attendus, manqués), marchands. Chaque marque est
+ * vers quels postes), frise (les paiements au fil des jours), prélèvements (calendrier, attendus, manqués), marchands. Chaque marque est
  * cliquable et ouvre les opérations correspondantes. Sur l'iPhone, l'écran « Mois » reste tel quel.
  */
 
-type Tab = "synthese" | "repartition" | "flux" | "prelevements" | "marchands" | "comparer";
+type Tab = "synthese" | "repartition" | "flux" | "frise" | "prelevements" | "marchands" | "comparer";
 const TABS: { value: Tab; label: string }[] = [
   { value: "synthese", label: t("Vue d'ensemble") },
   { value: "repartition", label: t("Répartition") },
   { value: "flux", label: t("Flux") },
+  { value: "frise", label: t("Frise") },
   { value: "prelevements", label: t("Prélèvements") },
   { value: "marchands", label: t("Marchands") },
   { value: "comparer", label: t("Comparer") },
@@ -59,6 +61,7 @@ export function Analysis() {
       {tab === "synthese" && <Month bare />}
       {tab === "repartition" && <BreakdownTab month={month} />}
       {tab === "flux" && <FlowsTab month={month} />}
+      {tab === "frise" && <TimelineTab month={month} />}
       {tab === "prelevements" && <DebitsTab month={month} />}
       {tab === "marchands" && <MerchantsTab month={month} />}
       {tab === "comparer" && <CompareView />}
@@ -190,7 +193,10 @@ function FlowsTab({ month }: { month: string }) {
       <Card className="mb-5 p-5">
         <div className="mb-1 flex items-baseline justify-between">
           <h2 className="text-[14px] font-semibold">{t("Où part l'argent")}</h2>
-          <span className="text-[12px] text-muted">{t("Clique sur un bloc ou un flux pour voir les opérations · mouvements internes exclus")}</span>
+          <span className="flex items-center gap-1.5 text-[12px] text-muted">
+            <MousePointerClick size={13} className="shrink-0 text-accent" />
+            {t("Les blocs et les flux marqués d'un › s'ouvrent au clic · mouvements internes exclus")}
+          </span>
         </div>
         {!data ? (
           <Spinner />
@@ -205,7 +211,7 @@ function FlowsTab({ month }: { month: string }) {
                 nodePadding={18}
                 nodeWidth={10}
                 iterations={64}
-                margin={{ top: 12, right: 170, bottom: 12, left: 170 }}
+                margin={{ top: 12, right: 190, bottom: 12, left: 190 }}
                 link={(p) => <FlowLink {...(p as unknown as FlowLinkProps)} month={month} />}
                 node={(p) => <FlowNode x={p.x} y={p.y} width={p.width} height={p.height} payload={p.payload as unknown as SNode} onClick={drillNode} />}
               >
@@ -279,7 +285,16 @@ function FlowsTab({ month }: { month: string }) {
   );
 }
 
+/** Ce qui s'ouvre au clic dans le diagramme : une nature, un poste nommé, un revenu classé ; un flux d'une nature vers un poste nommé. */
+const nodeClickable = (n: SNode) => n.kind === "nature" || (n.kind === "poste" && !!n.poste) || (n.kind === "income" && !!n.category);
+const linkClickable = (source: SNode, target: SNode) => source.kind === "nature" && target.kind === "poste" && !!target.poste;
+
+/**
+ * Bloc du diagramme. Un bloc cliquable se reconnaît sans le survoler : son nom finit par un chevron de la couleur
+ * d'accent, et un halo bat deux fois à l'arrivée du diagramme. Au survol (ou au clavier), le halo reste et le nom se souligne.
+ */
 function FlowNode({ x, y, width, height, payload, onClick }: { x: number; y: number; width: number; height: number; payload: SNode & { value?: number }; onClick: (n: SNode) => void }) {
+  const [hover, setHover] = useState(false);
   const left = payload.kind === "income" || payload.kind === "deficit";
   const right = payload.kind === "poste" || payload.kind === "saving" || payload.kind === "balance";
   const fill =
@@ -292,15 +307,45 @@ function FlowNode({ x, y, width, height, payload, onClick }: { x: number; y: num
           : payload.kind === "deficit"
             ? "var(--color-neg)"
             : "var(--color-muted)";
-  const clickable = payload.kind === "nature" || (payload.kind === "poste" && !!payload.poste) || (payload.kind === "income" && !!payload.category);
+  const clickable = nodeClickable(payload);
+  const active = clickable && hover;
+  // Un nom long déborderait de la marge : il est coupé ici, et entier dans l'info-bulle.
+  const name = nodeLabel(payload);
+  const h = Math.max(height, 2);
   const tx = left ? x - 8 : x + width + 8;
   return (
-    <g onClick={() => clickable && onClick(payload)} style={{ cursor: clickable ? "pointer" : "default" }}>
-      <rect x={x} y={y} width={width} height={Math.max(height, 2)} rx={2} fill={fill} />
+    <g
+      onClick={() => clickable && onClick(payload)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setHover(true)}
+      onBlur={() => setHover(false)}
+      onKeyDown={(e) => {
+        if (clickable && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick(payload);
+        }
+      }}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      aria-label={clickable ? t("{nom} : voir les opérations", { nom: nodeLabel(payload) }) : undefined}
+      style={{ cursor: clickable ? "pointer" : "default", outline: "none" }}
+    >
+      {clickable && <rect className="flow-hint" x={x} y={y} width={width} height={h} rx={2} fill={fill} style={{ pointerEvents: "none" }} />}
+      {active && <rect x={x - 4} y={y - 4} width={width + 8} height={h + 8} rx={5} fill={fill} fillOpacity={0.28} />}
+      <rect x={x} y={y} width={width} height={h} rx={2} fill={fill} />
       {payload.kind !== "hub" && (
         <text x={tx} y={y + height / 2} dy="0.35em" textAnchor={left ? "end" : "start"} fontSize={12} fill="var(--color-ink)">
           <tspan fontWeight={600}>{k(payload.value ?? 0)}</tspan>
-          <tspan fill="var(--color-muted)"> {nodeLabel(payload)}</tspan>
+          <tspan> </tspan>
+          <tspan fill={active ? "var(--color-ink)" : "var(--color-muted)"} textDecoration={active ? "underline" : undefined}>
+            {name.length > 24 ? `${name.slice(0, 23).trimEnd()}…` : name}
+          </tspan>
+          {clickable && (
+            <tspan fill="var(--color-accent)" fontWeight={700} dx={3}>
+              ›
+            </tspan>
+          )}
         </text>
       )}
       {payload.kind === "hub" && !right && (
@@ -342,14 +387,15 @@ function FlowLinkPath(props: {
   const [hover, setHover] = useState(false);
   const nature = payload.source.kind === "nature" ? payload.source.nature : payload.target.kind === "nature" ? payload.target.nature : undefined;
   const color = nature ? natureColor(nature) : payload.target.kind === "saving" ? "var(--series-6)" : "var(--color-muted)";
-  const clickable = payload.source.kind === "nature" && payload.target.kind === "poste" && !!payload.target.poste;
+  const clickable = linkClickable(payload.source, payload.target);
   return (
     <path
       d={`M${sourceX},${sourceY} C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
       fill="none"
       stroke={color}
       strokeWidth={Math.max(linkWidth, 1)}
-      strokeOpacity={hover ? 0.55 : nature ? 0.3 : 0.18}
+      // Un flux cliquable s'éclaire franchement au survol ; les autres à peine (ils ne mènent nulle part).
+      strokeOpacity={hover ? (clickable ? 0.62 : nature ? 0.36 : 0.24) : nature ? 0.3 : 0.18}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() =>
@@ -365,10 +411,16 @@ function FlowTooltip({ active, payload }: Partial<TooltipContentProps<number, st
   if (!active || !payload?.length) return null;
   const p = payload[0].payload as { source?: SNode; target?: SNode; value?: number; name?: string; payload?: SNode };
   const label = p.source && p.target ? `${nodeLabel(p.source)} → ${nodeLabel(p.target)}` : p.payload ? nodeLabel(p.payload) : (p.name ?? "");
+  const clickable = p.source && p.target ? linkClickable(p.source, p.target) : p.payload ? nodeClickable(p.payload) : false;
   return (
     <div className="rounded-md border border-line bg-card px-3 py-2 text-[12px] shadow-md">
       <div className="text-[14px] font-semibold tnum">{money(Number(payload[0].value ?? p.value ?? 0))}</div>
       <div className="text-muted">{label}</div>
+      {clickable && (
+        <div className="mt-1 flex items-center gap-1 border-t border-line pt-1 font-medium text-accent">
+          <MousePointerClick size={12} /> {t("Clic : voir les opérations")}
+        </div>
+      )}
     </div>
   );
 }

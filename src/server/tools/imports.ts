@@ -6,7 +6,7 @@ import { t as tr } from "../../lib/i18n.ts";
 
 /*
  * Import massif de documents : suivre un lot et relire ses fichiers. Le dépôt des fichiers se fait par l'écran
- * « Importer » ou par `node scripts/importer.mjs <dossier>` (un outil ne transporte pas de fichiers).
+ * du coffre (zone de dépôt) ou par `node scripts/importer.mjs <dossier>` (un outil ne transporte pas de fichiers).
  */
 
 const guard = async <T>(run: () => Promise<T>): Promise<T> => {

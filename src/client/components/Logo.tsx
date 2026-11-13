@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { brandOf } from "../../lib/brands.ts";
+import { merchantName } from "../../lib/nature.ts";
 import { cn } from "../cn.ts";
 
 /*
@@ -117,7 +118,8 @@ export function TxLogo({
   t: { label: string; merchant: string | null; category_name?: string | null; category_poste?: string | null; category_kind?: string | null; amount?: number };
   size?: LogoSize;
 }) {
-  const brand = t.category_kind === "interne" ? null : brandOf(t.merchant, t.label);
+  // Dernier essai sur le nom du marchand tiré du libellé (sans « Carte JJ MM AA ») : les motifs ancrés en début de nom s'y retrouvent.
+  const brand = t.category_kind === "interne" ? null : brandOf(t.merchant, t.label, merchantName(t.label, t.merchant));
   const Icon = t.category_name ? categoryIcon(t.category_poste, t.category_name, t.category_kind) : CircleHelp;
   const px = size === "sm" ? 15 : size === "md" ? 17 : 18;
   const fallback = (

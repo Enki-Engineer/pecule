@@ -3,6 +3,8 @@ import { q } from "./db.ts";
 import { IS_EXPENSE, LINE_KIND, STAT_SCOPE } from "./stats.ts";
 import { debitSeries } from "./debits.ts";
 import { merchantName, natureSql } from "../lib/nature.ts";
+import { txTitle } from "../lib/labels.ts";
+import type { TimelinePoint } from "../lib/timeline.ts";
 import { pickColored } from "../lib/breakdown.ts";
 import { tk } from "../lib/i18n.ts";
 export { comparisonSpan, type CompareBase } from "../lib/periods.ts";
@@ -88,6 +90,50 @@ export async function monthDebits(userId: number, accountsSql: string, month: st
     debits: rows.map((r) => ({ id: r.id, date: r.date, day: Number(r.date.slice(8, 10)), amount: -Number(r.amount), name: r.merchant || merchantName(r.label), category: r.category, poste: r.poste })),
     expected: isCurrent ? expected : expected.filter(() => false),
     missed: isCurrent ? [] : expected,
+  };
+}
+
+/**
+ * Frise du mois : chaque opération à sa date, avec sa nature et son sens, pour lire les paiements dans le temps.
+ * Mêmes définitions que les flux (mouvements internes exclus) : une opération ventilée donne un point par sens
+ * (ses lignes de dépense, ses lignes d'épargne). Montants signés : positif quand l'argent entre. Pour le mois en
+ * cours, les prélèvements habituels pas encore passés sont joints (`upcoming`).
+ */
+export async function monthTimeline(userId: number, accountsSql: string, month: string) {
+  const start = `${month}-01`;
+  const [rows, debits] = await Promise.all([
+    q<{ id: string; date: string; label: string; merchant: string | null; bank_label: string | null; nature: string; kind: TimelinePoint["kind"]; amount: number; category: string | null; poste: string | null }>(
+      `SELECT tr.id, tr.date, tr.label, tr.merchant, tr.bank_label, ${natureSql("tr")} AS nature, ${LINE_KIND} AS kind,
+              ROUND(SUM(t.amount), 2) AS amount, MIN(c.name) AS category, MIN(c.poste) AS poste
+       FROM tx_lines t JOIN transactions tr ON tr.id = t.id JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
+       WHERE ${STAT_SCOPE} AND ${monthRange} AND ${LINE_KIND} IN ('depense', 'revenu', 'epargne')
+       GROUP BY tr.id, tr.date, tr.label, tr.merchant, tr.bank_label, nature, kind
+       HAVING amount <> 0 ORDER BY tr.date, amount`,
+      [start, start],
+    ),
+    monthDebits(userId, accountsSql, month),
+  ]);
+  const today = householdDay();
+  const points: TimelinePoint[] = rows.map((r) => ({
+    id: r.id,
+    date: r.date,
+    day: Number(r.date.slice(8, 10)),
+    amount: Number(r.amount),
+    kind: r.kind,
+    nature: r.nature,
+    name: txTitle({ merchant: r.merchant, label: r.label, bank_label: r.bank_label, category_name: r.category }),
+    category: r.category,
+    poste: r.poste,
+  }));
+  // À venir : ce qui est attendu d'ici la fin du mois ; un prélèvement habituel dont le jour est passé reste « en attente ».
+  const todayDay = today.startsWith(month) ? Number(today.slice(8, 10)) : null;
+  const expected = debits.expected.map((x) => ({ name: x.name, day: x.day, amount: r2(x.amount), category: x.category }));
+  return {
+    month,
+    today: todayDay,
+    points,
+    upcoming: todayDay == null ? [] : expected.filter((x) => x.day >= todayDay),
+    overdue: todayDay == null ? [] : expected.filter((x) => x.day < todayDay),
   };
 }
 

@@ -4,7 +4,6 @@ import {
   Building2,
   CalendarClock,
   FolderOpen,
-  FolderUp,
   Landmark,
   LayoutDashboard,
   ListOrdered,
@@ -17,11 +16,18 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { t } from "../lib/i18n.ts";
+import { t, tn } from "../lib/i18n.ts";
 
 /* Plan de l'appli : menu latéral (ordinateur) et menu « Tout Pécule » (iPhone). */
 
 export type Counts = { uncategorized: number; invoicesToMatch: number; tasksOverdue: number; alerts: number };
+/** Où mène un clic sur un compteur du menu : l'écran déjà filtré sur ce qu'il compte, et le libellé du lien. */
+export const COUNT_LINKS: Record<keyof Counts, { to: string; label: (n: number) => string }> = {
+  uncategorized: { to: "/operations?a_classer=1", label: (n) => tn("Voir l'opération à classer", "Voir les {n} opérations à classer", n) },
+  invoicesToMatch: { to: "/factures?filtre=a_rapprocher", label: (n) => tn("Voir la facture à rapprocher", "Voir les {n} factures à rapprocher", n) },
+  tasksOverdue: { to: "/echeancier?retard=1", label: (n) => tn("Voir la tâche en retard", "Voir les {n} tâches en retard", n) },
+  alerts: { to: "/reglages/suivi", label: (n) => tn("Voir l'alerte à traiter", "Voir les {n} alertes à traiter", n) },
+};
 export type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean; count?: keyof Counts };
 export const NAV: { title?: string; items: NavItem[] }[] = [
   { items: [{ to: "/", label: t("Tableau de bord"), icon: LayoutDashboard, end: true }] },
@@ -56,7 +62,6 @@ export const NAV: { title?: string; items: NavItem[] }[] = [
     title: t("Documents"),
     items: [
       { to: "/documents", label: t("Coffre"), icon: FolderOpen },
-      { to: "/importer", label: t("Importer"), icon: FolderUp },
       { to: "/echeancier", label: t("Échéancier"), icon: CalendarClock, count: "tasksOverdue" },
     ],
   },

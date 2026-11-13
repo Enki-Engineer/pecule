@@ -3,6 +3,7 @@ import type { RowDataPacket } from "mysql2/promise";
 import { demoEnabled, migrate, one, pool, q, withLock } from "./db.ts";
 import { env } from "./env.ts";
 import { runDemo, runReal } from "./demo-context.ts";
+import { fillPurchaseDates } from "./stat-dates.ts";
 import { recordAlert } from "./journal.ts";
 import { seedDemo } from "./demo/seed.ts";
 import { householdSettings } from "./household.ts";
@@ -129,6 +130,8 @@ export async function ensureDemoReady(): Promise<void> {
     if (seeded?.value?.slice(0, 10) !== day) {
       const t0 = Date.now();
       const r = await runDemo(() => withLock("pecule:demo-seed", () => seedDemo({ users })));
+      // Jour d'achat des achats par carte de la démo : la frise et le réglage « au jour de l'achat » s'y essaient.
+      await runDemo(() => fillPurchaseDates()).catch((e) => console.error("[démo] jour d'achat", e));
       if (r) console.log(`[démo] données fictives recréées en ${Date.now() - t0} ms`, r.counts);
     }
     personas.clear();

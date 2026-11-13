@@ -96,3 +96,13 @@ export function balanceRows(daily: Map<string, Balances>, defs: Record<AccKey, A
 }
 
 export const ruleRows = (rules: readonly Rule[]): Insert<typeof schema.rules>[] => rules.map(([pattern, categoryId]) => ({ pattern, categoryId, priority: 100 }));
+
+/**
+ * Enseignes du foyer (Réglages → Classement → « Mes enseignes ») : trois commerces du quartier que le référentiel
+ * commun ne connaît pas. Sans site : leurs opérations portent leurs initiales.
+ */
+export const brandRows = (): Insert<typeof schema.customBrands>[] => [
+  { name: "Au Pain Doré", pattern: "pain dore", domain: null },
+  { name: "Le Fournil Nantais", pattern: "fournil nantais", domain: null },
+  { name: "Primeur de Talensac", pattern: "primeur talensac", domain: null },
+];

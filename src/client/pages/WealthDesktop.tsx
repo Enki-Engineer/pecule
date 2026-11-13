@@ -11,6 +11,7 @@ import { BrandLogo } from "../components/Logo.tsx";
 import { dateFr, kMoney, money, pct } from "../format.ts";
 import { cn } from "../cn.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
+import { historyRangeStart, historyRangeUseful, type HistoryRange } from "../../lib/wealth.ts";
 
 /*
  * Patrimoine (ordinateur) : chiffres clés, évolution (net ou empilée par poche, un clic sur une date
@@ -19,10 +20,12 @@ import { locale, t, tn } from "../../lib/i18n.ts";
  */
 
 export type Mode = "net" | "poches";
-export type Range = "3m" | "6m" | "tout";
+export type Range = HistoryRange;
 export type Point = { date: string; t: number; net: number; parts: Partial<Record<WealthCategory, number>> | null } & Partial<Record<WealthCategory, number>>;
 
 const DAY = 86_400_000;
+/** Durées proposées au-dessus de la courbe (règles dans src/lib/wealth.ts) ; « Tout » vient après. */
+const RANGE_LABELS: Record<Exclude<Range, "tout">, string> = { "1m": t("1 mois"), "3m": t("3 mois"), "6m": t("6 mois") };
 const keur = (v: number) => kMoney(v);
 const dayOf = (s: string) => s.slice(0, 10);
 const tOf = (d: string) => Date.parse(`${d}T12:00:00Z`);
@@ -49,6 +52,13 @@ export function WealthDesktop({ w, onEdit, onAdd }: { w: Wealth; onEdit: (a: Ass
   const tableRef = useRef<HTMLDivElement>(null);
 
   const points = useMemo<Point[]>(() => historyPoints(w), [w]);
+
+  // Une durée ne sert que si l'historique remonte plus loin qu'elle : sinon elle montrerait la même chose que
+  // « Tout ». Elle est alors grisée (avec la date où l'historique commence), et la courbe retombe sur « Tout ».
+  const first = (mode === "net" ? points : points.filter((p) => p.parts))[0];
+  const usable = (r: Range) => historyRangeUseful(r, first?.t);
+  const shownRange: Range = usable(range) ? range : "tout";
+  const since = first ? t("L'historique commence le {date}", { date: dateFr(first.date) }) : undefined;
 
   const monthAgo = [...points].reverse().find((p) => p.t <= Date.now() - 30 * DAY);
   const selectedPoint = points.find((p) => p.date === selected) ?? null;
@@ -99,17 +109,16 @@ export function WealthDesktop({ w, onEdit, onAdd }: { w: Wealth; onEdit: (a: Ass
                 ]}
               />
               <Segmented<Range>
-                value={range}
+                value={shownRange}
                 onChange={setRange}
                 options={[
-                  { value: "3m", label: t("3 mois") },
-                  { value: "6m", label: t("6 mois") },
+                  ...(["1m", "3m", "6m"] as const).map((r) => ({ value: r, label: RANGE_LABELS[r], disabled: !usable(r), title: usable(r) ? undefined : since })),
                   { value: "tout", label: t("Tout") },
                 ]}
               />
             </div>
           </div>
-          <EvolutionChart points={points} mode={mode} range={range} selected={selected} onSelect={selectDate} />
+          <EvolutionChart points={points} mode={mode} range={shownRange} selected={selected} onSelect={selectDate} />
         </Card>
 
         <Card key={selected ?? "aujourd'hui"} className={cn("col-span-12 p-5 xl:col-span-4", dated && "sel-swap")}>
@@ -160,7 +169,7 @@ export function EvolutionChart({
   height?: number;
 }) {
   const [hidden, setHidden] = useState<Set<WealthCategory>>(new Set());
-  const cutoff = range === "tout" ? 0 : Date.now() - (range === "3m" ? 92 : 183) * DAY;
+  const cutoff = historyRangeStart(range);
   const data = points.filter((p) => p.t >= cutoff && (mode === "net" || p.parts));
   const present = ORDER.filter((k) => data.some((p) => (p[k] ?? 0) > 0));
   const visible = present.filter((k) => !hidden.has(k));

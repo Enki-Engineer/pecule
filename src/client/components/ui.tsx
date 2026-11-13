@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { cn } from "../cn.ts";
 import { MobileHeader } from "./MobileShell.tsx";
 import { LogoImg, type LogoSize } from "./Logo.tsx";
+import { useBankLogoKey, useBrandsVersion } from "../api-brands.ts";
 import { brandOf } from "../../lib/brands.ts";
 import { Link } from "react-router";
 import { X } from "lucide-react";
@@ -57,7 +58,11 @@ export function TxAmount({ tx, className }: { tx: { amount: number; original_amo
   );
 }
 
-export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
+/**
+ * Choix entre quelques options. Une option peut être indisponible (`disabled`) : elle reste lisible, grisée, et son
+ * `title` dit pourquoi au survol (elle garde le focus du clavier : `aria-disabled`, pas l'attribut `disabled`).
+ */
+export function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string; disabled?: boolean; title?: string }[]; onChange: (v: T) => void }) {
   const i = Math.max(0, options.findIndex((o) => o.value === value));
   const track = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
@@ -100,11 +105,13 @@ export function Segmented<T extends string>({ value, options, onChange }: { valu
         <button
           key={o.value}
           type="button"
-          onClick={() => onChange(o.value)}
+          onClick={() => !o.disabled && onChange(o.value)}
           aria-pressed={value === o.value}
+          aria-disabled={o.disabled || undefined}
+          title={o.title}
           className={clsx(
             "relative z-10 flex-1 whitespace-nowrap rounded-[8px] px-2 py-1.5 text-[14px] font-semibold transition-colors md:px-3 md:py-1 md:text-[13px] md:font-medium",
-            value === o.value ? "text-ink" : "text-muted",
+            value === o.value ? "text-ink" : o.disabled ? "cursor-not-allowed text-muted/45" : "text-muted",
           )}
         >
           {o.label}
@@ -293,8 +300,14 @@ export function ProgressBar({ value, className }: { value: number; className?: s
   );
 }
 
-/** Pastille aux initiales de la banque (pas de logos externes). */
+/**
+ * Pastille d'une banque : pour une banque reliée, le logo donné par Enable Banking quand il fait mieux que l'icône
+ * de son site (le serveur en décide : pas de bonne icône, logo ni trop allongé ni trop pâle) ; sinon l'icône du
+ * site de la marque ; sinon ses initiales.
+ */
 export function BankBadge({ bank, size = "lg" }: { bank: string | null; size?: LogoSize }) {
+  useBrandsVersion();
+  const bankKey = useBankLogoKey(bank);
   const b = (bank ?? "?").toLowerCase();
   const style = b.includes("caisse")
     ? "bg-[#d0121b] text-white"
@@ -308,7 +321,8 @@ export function BankBadge({ bank, size = "lg" }: { bank: string | null; size?: L
   const initials = b.includes("caisse") ? "CE" : b.includes("bourso") ? "B" : b.includes("action") ? "AL" : b.includes("populaire") ? "BP" : (bank ?? "?").slice(0, 2).toUpperCase();
   const brand = brandOf(bank);
   const fallback = <span className={cn("grid shrink-0 place-items-center font-bold", size === "sm" ? "size-7 rounded-md text-[10px]" : size === "md" ? "size-9 rounded-[10px] text-xs" : "size-10 rounded-xl text-sm", style)}>{initials}</span>;
-  return <LogoImg logoKey={brand ? `d:${brand.domain}` : null} alt={bank ?? ""} size={size} fallback={fallback} />;
+  const site = <LogoImg logoKey={brand?.domain ? `d:${brand.domain}` : null} alt={bank ?? ""} size={size} fallback={fallback} />;
+  return bankKey ? <LogoImg logoKey={bankKey} alt={bank ?? ""} size={size} fit="contain" fallback={site} /> : site;
 }
 
 /** Petite courbe sans axes (SVG pur, sans Recharts pour garder l'accueil léger). */

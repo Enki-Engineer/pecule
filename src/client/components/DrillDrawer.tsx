@@ -6,6 +6,7 @@ import { api, type Transaction } from "../api.ts";
 import { Amount, Sheet, Spinner } from "./ui.tsx";
 import { dateFr, money } from "../format.ts";
 import { txTitle } from "../../lib/labels.ts";
+import { txSubline } from "../txInfo.ts";
 import { currentScopeKey } from "../shell.ts";
 import { TxLogo } from "./Logo.tsx";
 import { HoverPreview } from "./HoverPreview.tsx";
@@ -108,7 +109,7 @@ function DrillContent({ drill, onClose }: { drill: NonNullable<Drill>; onClose: 
                     <span className="block truncate text-[13.5px] font-medium">{txTitle(t)}</span>
                   </HoverPreview>
                   <span className="block truncate text-[12px] text-muted">
-                    {dateFr(t.date).slice(0, 5)} · {td(t.category_name ?? tk("À classer"))} · {t.account_name}
+                    {dateFr(t.date).slice(0, 5)} · {td(t.category_name ?? tk("À classer"))} · {txSubline(t) ?? t.account_name}
                   </span>
                 </span>
                 <Amount value={Number(t.amount)} className="text-[13.5px] font-semibold" />

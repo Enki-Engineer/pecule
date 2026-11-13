@@ -7,6 +7,9 @@ import { MODULES } from "../../lib/modules.ts";
 import { COUNTRIES, isTimeZone } from "../../lib/countries.ts";
 import { CURRENCIES } from "../../lib/currencies.ts";
 import { changeHouseholdCurrency, currencyChangePreview } from "../currency-change.ts";
+import { dateBasis, setDateBasis } from "../stat-dates.ts";
+import { ActionError } from "../actions.ts";
+import { t } from "../../lib/i18n.ts";
 
 /** Le foyer : ses membres et ses réglages (personnes sans connexion, banques professionnelles, écrans retirés). Sous /api. */
 export const householdApi = Router();
@@ -39,4 +42,19 @@ householdApi.put("/household/currency", requireAdmin, async (req, res) => {
   const { currency } = z.object({ currency: z.enum(CURRENCIES) }).parse(req.body);
   const result = await changeHouseholdCurrency(currency);
   res.json({ members: await listMembers(), ...(await householdSettings()), ...result });
+});
+
+/**
+ * Jour retenu pour les statistiques : le jour d'achat ou le jour d'écriture de la banque (src/server/stat-dates.ts).
+ * C'est une définition des chiffres du foyer, la même pour tous ses membres : l'administrateur la choisit. En démo,
+ * chacun peut l'essayer (la base de démo est jetable).
+ */
+householdApi.get("/household/date-basis", async (_req, res) => {
+  res.json({ dateBasis: await dateBasis() });
+});
+
+householdApi.put("/household/date-basis", async (req, res) => {
+  if (!req.user?.admin && !req.user?.demo) throw new ActionError(403, t("Réservé à l'administrateur du foyer"));
+  const { basis } = z.object({ basis: z.enum(["achat", "debit"]) }).parse(req.body);
+  res.json({ dateBasis: await setDateBasis(basis) });
 });

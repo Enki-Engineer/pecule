@@ -9,7 +9,7 @@ import { MySqlTable } from "drizzle-orm/mysql-core";
 import * as schema from "../db/schema/index.ts";
 import { Ops, monthsOf } from "./context.ts";
 import { accountDefs, accountRows, categoryRows } from "./data-banque.ts";
-import { balanceRows, classify, ruleRows, transactionRows } from "./data-classement.ts";
+import { balanceRows, brandRows, classify, ruleRows, transactionRows } from "./data-classement.ts";
 import { buildDocuments } from "./data-documents.ts";
 import { buildInvoices, invoiceSpecs } from "./data-factures.ts";
 import { generateOperations } from "./data-operations.ts";
@@ -30,6 +30,7 @@ export const DEMO_TABLES = [
   "transactions",
   "balances",
   "rules",
+  "customBrands",
   "loans",
   "loanSchedule",
   "assets",
@@ -113,6 +114,7 @@ export function buildDemoData(today: Date, users: DemoUser[]): DemoData {
     transactions: tx.rows,
     balances: balanceRows(daily, defs),
     rules: ruleRows(rules),
+    customBrands: brandRows(),
     ...wealth,
     ...buildInvoices(specs, tx.byRef, members),
     documents: docs.documents,

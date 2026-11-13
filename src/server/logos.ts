@@ -1,15 +1,21 @@
 import { isDemo, runReal } from "./demo-context.ts";
 import { exec, one, q } from "./db.ts";
 import { BRAND_DOMAINS } from "../lib/brands.ts";
+import { bankLogo, bankLogoKeyValid } from "./bank-logos.ts";
+import { customDomains } from "./brands.ts";
 import { publicFetch } from "./net.ts";
 import { serviceKey } from "./service-keys.ts";
 
 /*
  * Logos officiels : téléchargés une fois par le serveur, gardés en base, servis par /api/logos/:key.
  * Marques : icône du site officiel (apple-touch-icon, sinon l'icône haute définition connue de Google
- * ou de DuckDuckGo) pour les seuls domaines du référentiel (src/lib/brands.ts) — jamais un domaine
- * arbitraire. Cryptos : image CoinGecko. Pas de SVG (servi depuis notre domaine, il pourrait
- * exécuter du script) : PNG, JPEG, WebP, GIF ou ICO seulement, 400 Ko au plus.
+ * ou de DuckDuckGo) pour les domaines du référentiel (src/lib/brands.ts) et pour les sites que le foyer a
+ * donnés à ses propres enseignes (src/server/brands.ts) — jamais un domaine venu d'ailleurs. La liste n'est donc
+ * plus tout à fait fermée : un membre connecté peut y ajouter un site. `publicFetch` garde la protection qui
+ * compte (toute adresse, redirections comprises, doit mener à un hôte public), et la démo ne cherche aucun logo
+ * hors du référentiel. Banques reliées : logo donné par Enable Banking (src/server/bank-logos.ts). Cryptos : image
+ * CoinGecko. Pas de SVG (servi depuis notre domaine, il pourrait exécuter du script) : PNG, JPEG, WebP, GIF ou ICO
+ * seulement, 400 Ko au plus.
  */
 
 type Logo = { mime: string; data: Buffer };
@@ -101,10 +107,22 @@ async function coinLogo(id: string): Promise<{ logo: Logo; source: string } | nu
   }
 }
 
-/** Clé valide : « d:<domaine du référentiel> » ou « coin:<id CoinGecko> ». */
+/** Clé du référentiel : « d:<domaine du référentiel> » ou « coin:<id CoinGecko> ». */
 export function logoKeyValid(key: string): boolean {
   if (key.startsWith("d:")) return BRAND_DOMAINS.has(key.slice(2));
   return /^coin:[a-z0-9-]{1,80}$/.test(key);
+}
+
+/**
+ * Clé dont le serveur accepte de chercher le logo : celles du référentiel, le site d'une enseigne du foyer
+ * (« d:<domaine> ») et une banque reliée par Enable Banking (« bank:<pays>:<banque> »). En démo, le référentiel
+ * seulement : une session de démonstration ne fait chercher aucun site au serveur.
+ */
+export async function logoKeyAllowed(key: string): Promise<boolean> {
+  if (logoKeyValid(key)) return true;
+  if (isDemo()) return false;
+  if (key.startsWith("d:")) return (await customDomains()).has(key.slice(2));
+  return bankLogoKeyValid(key);
 }
 
 /** Logo en cache, téléchargé au premier besoin ; null si introuvable (nouvel essai après 7 jours). */
@@ -119,7 +137,7 @@ export async function getLogo(key: string): Promise<Logo | null> {
   const running = inflight.get(key);
   if (running) return running;
   const job = (async () => {
-    const found = key.startsWith("coin:") ? await coinLogo(key.slice(5)) : await brandLogo(key.slice(2));
+    const found = key.startsWith("coin:") ? await coinLogo(key.slice(5)) : key.startsWith("bank:") ? await bankLogo(key, (domain) => getLogo(`d:${domain}`)) : await brandLogo(key.slice(2));
     await exec(
       `INSERT INTO logos (\`key\`, mime, data, source, status, fetched_at) VALUES (?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE mime = VALUES(mime), data = VALUES(data), source = VALUES(source), status = VALUES(status), fetched_at = NOW()`,

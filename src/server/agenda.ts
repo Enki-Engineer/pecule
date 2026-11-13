@@ -31,15 +31,27 @@ export type AgendaEntry = {
   /** Écran de Pécule où voir le détail. */
   link?: string;
   overdue?: boolean;
+  /** Pour l'écran Échéancier (option `recentDone`) : ligne saisie visible de son seul auteur. */
+  private?: boolean;
+  /** Pour l'écran Échéancier : jour où la tâche a été cochée, et si c'est assez récent pour « Fait récemment ». */
+  doneAt?: string | null;
+  recent?: boolean;
 };
 
 const ITEM_COLS = "a.id, a.kind, a.title, a.notes, a.due_date, a.domain, a.entity_type, a.entity_id, a.amount, a.status, a.done_at, a.recurrence, a.owner_user_id";
 
-/** Échéancier d'un membre entre deux dates (tâches en retard et tâches sans date comprises). */
-export async function agenda(userId: number, from: string, to: string, opts: { includeDone?: boolean } = {}): Promise<AgendaEntry[]> {
+/**
+ * Échéancier d'un membre entre deux dates (tâches en retard et tâches sans date comprises).
+ * `includeDone` : les lignes déjà faites dont la date tombe dans la période. `recentDone` (en jours, demandé par
+ * l'écran Échéancier seulement) : en plus, les tâches cochées depuis moins de N jours, datées ou non, marquées
+ * `recent` pour être rangées à part ; chaque ligne saisie porte alors ce qu'il faut à sa fiche (`private`, `doneAt`).
+ */
+export async function agenda(userId: number, from: string, to: string, opts: { includeDone?: boolean; recentDone?: number } = {}): Promise<AgendaEntry[]> {
   const today = householdDay();
   const out: AgendaEntry[] = [];
   const mine = `(a.owner_user_id IS NULL OR a.owner_user_id = ${Number(userId)})`;
+  // `done_at` est gardé en temps universel : la limite se calcule de la même façon.
+  const recentFrom = opts.recentDone ? new Date(Date.now() - opts.recentDone * 86_400_000).toISOString().slice(0, 19).replace("T", " ") : null;
 
   const items = await q<{
     id: number;
@@ -52,13 +64,16 @@ export async function agenda(userId: number, from: string, to: string, opts: { i
     entity_id: string | null;
     amount: number | null;
     status: string;
+    done_at: string | null;
     recurrence: string | null;
+    owner_user_id: number | null;
   }>(
     `SELECT ${ITEM_COLS} FROM agenda_items a WHERE ${mine} AND (
        (a.kind = 'tache' AND a.status = 'a_faire' AND (a.due_date IS NULL OR a.due_date <= ?))
-       OR (a.due_date BETWEEN ? AND ? ${opts.includeDone ? "" : "AND a.status = 'a_faire'"}))
+       OR (a.due_date BETWEEN ? AND ? ${opts.includeDone ? "" : "AND a.status = 'a_faire'"})
+       ${recentFrom ? "OR (a.kind = 'tache' AND a.status = 'fait' AND a.done_at >= ?)" : ""})
      ORDER BY a.due_date IS NULL, a.due_date, a.id`,
-    [to, from, to],
+    recentFrom ? [to, from, to, recentFrom] : [to, from, to],
   );
   for (const i of items)
     out.push({
@@ -76,6 +91,14 @@ export async function agenda(userId: number, from: string, to: string, opts: { i
       link: entityLink(i.entity_type, i.entity_id),
       // Seule une tâche peut être en retard ; un jalon passé reste une date (affichée seulement dans la période).
       overdue: i.kind === "tache" && i.status === "a_faire" && !!i.due_date && i.due_date < today,
+      ...(recentFrom
+        ? {
+            private: i.owner_user_id != null,
+            // Jour du foyer où la tâche a été cochée.
+            doneAt: i.status === "fait" && i.done_at ? householdDay(new Date(`${i.done_at.replace(" ", "T")}Z`)) : null,
+            recent: i.kind === "tache" && i.status === "fait" && !!i.done_at && i.done_at >= recentFrom,
+          }
+        : {}),
     });
 
   // Crédits : prochaine mensualité et fin.
@@ -214,10 +237,20 @@ async function visibleItem(userId: number, id: number) {
   return i;
 }
 
-/** Coche (ou décoche) une tâche ; une tâche récurrente cochée crée l'occurrence suivante. */
+/**
+ * Coche (ou décoche) une tâche ; une tâche récurrente cochée crée l'occurrence suivante. La remettre à faire retire
+ * cette occurrence tant qu'elle n'a pas été touchée (même intitulé, même date, encore à faire) : sans cela, annuler
+ * une coche laisserait la tâche en double.
+ */
 export async function setTaskDone(userId: number, id: number, done: boolean): Promise<{ next?: number }> {
   const i = await visibleItem(userId, id);
   await exec("UPDATE agenda_items SET status = ?, done_at = ? WHERE id = ?", [done ? "fait" : "a_faire", done ? new Date().toISOString().slice(0, 19).replace("T", " ") : null, id]);
+  if (!done && i.status === "fait" && i.recurrence && i.due_date)
+    await exec(
+      `DELETE FROM agenda_items WHERE source = 'recurrence' AND kind = 'tache' AND status = 'a_faire' AND title = ? AND due_date = ? AND recurrence = ?
+         AND owner_user_id <=> ? AND id > ? ORDER BY id LIMIT 1`,
+      [i.title, nextOccurrence(i.due_date, i.recurrence), i.recurrence, (i.owner_user_id as number | null) ?? null, id],
+    );
   if (done && i.status !== "fait" && i.recurrence && i.due_date) {
     const next = await createTask(null, {
       kind: "tache",

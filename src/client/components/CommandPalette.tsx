@@ -46,7 +46,7 @@ const PAGES: { label: string; to: string; icon: typeof Search; words: string }[]
   { label: t("Mode démo"), to: "/reglages/demo", icon: Settings, words: t("demo demonstration montrer presenter donnees fictives discretion") },
   { label: `${t("Réglages")} · ${t("Foyer")}`, to: "/reglages/foyer", icon: Settings, words: t("foyer pays devise monnaie fuseau horaire ecrans affiches modules personnes enfant banques professionnelles") },
   { label: `${t("Réglages")} · ${t("Comptes et connexions")}`, to: "/reglages/connexions", icon: Settings, words: t("comptes connexions banque enable banking finta fichier ofx csv masque hors stats solde nom ia fournisseur cle crypto coinstats coingecko jetons applications raccourci calendrier") },
-  { label: `${t("Réglages")} · ${t("Classement")}`, to: "/reglages/classement", icon: Settings, words: t("regles classement categories libelle") },
+  { label: `${t("Réglages")} · ${t("Classement")}`, to: "/reglages/classement", icon: Settings, words: t("regles classement categories libelle enseignes logo commerce") },
   { label: `${t("Réglages")} · ${t("Apparence")}`, to: "/reglages/apparence", icon: Settings, words: t("theme sombre clair couleur saisons noel halloween paques") },
   { label: `${t("Réglages")} · ${t("Notifications et appareil")}`, to: "/reglages/notifications", icon: Settings, words: t("notifications alertes push appareil hors ligne ouverture instantanee") },
   { label: `${t("Réglages")} · ${t("Assistant")}`, to: "/reglages/assistant", icon: Settings, words: t("memoire assistant voix cout ia") },

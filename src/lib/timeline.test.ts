@@ -31,12 +31,12 @@ describe("stackOffsets", () => {
 });
 
 describe("cumulativeNet", () => {
-  it("cumule les montants signés jour après jour et s'arrête au jour demandé", () => {
+  it("cumule les montants signés rang après rang et s'arrête au rang demandé", () => {
     const points = [
-      { day: 1, amount: 2000 },
-      { day: 2, amount: -500 },
-      { day: 2, amount: -100.5 },
-      { day: 4, amount: -300 },
+      { slot: 1, amount: 2000 },
+      { slot: 2, amount: -500 },
+      { slot: 2, amount: -100.5 },
+      { slot: 4, amount: -300 },
     ];
     expect(cumulativeNet(points, 5)).toEqual([2000, 1399.5, 1399.5, 1099.5, 1099.5]);
     expect(cumulativeNet(points, 5, 3)).toEqual([2000, 1399.5, 1399.5, null, null]);

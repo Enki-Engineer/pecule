@@ -29,6 +29,8 @@ export const monthLabel = (m: string) => {
   const s = parse(`${m}-01`).toLocaleDateString(locale(), { month: "long", year: "numeric" });
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
+/** Nom d'une période : « Novembre 2026 » pour un mois, « 2026 » pour une année entière. */
+export const periodLabel = (p: string) => (/^\d{4}$/.test(p) ? p : monthLabel(p));
 export const timeAgo = (iso: string | null | undefined) => {
   if (!iso) return t("jamais");
   const ms = Date.now() - Date.parse(iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z"));

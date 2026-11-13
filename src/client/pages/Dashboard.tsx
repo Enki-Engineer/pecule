@@ -11,7 +11,7 @@ import { currentMonth, dateFr, money, moneyIn, timeAgo } from "../format.ts";
 import { monthTotals } from "../../lib/month.ts";
 import { txTitle } from "../../lib/labels.ts";
 import { groupByOwner, OWNER_ORDER, ownerLabel } from "../../lib/labels.ts";
-import { CardOutstandingBlock } from "../components/CardOutstanding.tsx";
+import { CardOutstandingBlock, useOutstandingTotal } from "../components/CardOutstanding.tsx";
 import { Welcome } from "../components/Welcome.tsx";
 import { useFlows } from "../api-analysis.ts";
 import { NATURE_LABELS, SPEND_NATURES } from "../../lib/nature.ts";
@@ -56,6 +56,7 @@ export function Dashboard() {
   const dash = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dash>("/dashboard") });
   const recent = useQuery({ queryKey: ["transactions", "recent"], queryFn: () => api<{ transactions: Transaction[] }>("/transactions?limit=8&offset=0") });
   const navigate = useNavigate();
+  const outstanding = useOutstandingTotal();
 
   const s = summary.data;
   const w = wealth.data;
@@ -113,8 +114,8 @@ export function Dashboard() {
       </header>
       <Welcome />
 
-      {/* Chiffres clés */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      {/* Chiffres clés (un de plus quand une carte à débit différé a un encours : ce qui sortira des comptes au prochain relevé). */}
+      <div className={cn("grid grid-cols-2 gap-4", outstanding ? "lg:grid-cols-3 2xl:grid-cols-6" : "lg:grid-cols-5")}>
         <Kpi
           label={t("Patrimoine net")}
           value={w ? money(w.net, true) : "…"}
@@ -124,6 +125,20 @@ export function Dashboard() {
           to="/patrimoine"
         />
         <Kpi label={t("Disponible")} value={accounts.data ? money(cash, true) : "…"} source={t("comptes courants, hors cartes")} to="/operations" />
+        {outstanding && (
+          <Kpi
+            label={t("Cartes à débit différé")}
+            value={money(outstanding.total, true)}
+            source={[
+              outstanding.debitDate ? t("prélevé le {date}", { date: dateFr(outstanding.debitDate) }) : null,
+              tn("{n} achat", "{n} achats", outstanding.count, { n: outstanding.count }),
+              accounts.data ? t("il restera {montant}", { montant: money(cash + outstanding.total, true) }) : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            to="/mois?onglet=frise"
+          />
+        )}
         <Kpi
           label={t("Dépensé ce mois")}
           value={s ? money(s.spentThisMonth, true) : "…"}

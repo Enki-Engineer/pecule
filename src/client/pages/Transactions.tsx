@@ -21,7 +21,8 @@ import { toast } from "sonner";
 import { api, invoiceListQuery, transactionListQuery, useAccounts, useCategories, useSuggestions, useTransactionDetails, useUpdateTransaction, type Category, type Transaction, type TxFilters } from "../api.ts";
 import { AddInvoiceButton, FileIcon } from "./Invoices.tsx";
 import { Amount, Card, Empty, ErrorBox, OpsTabs, PageHeader, Sheet, Spinner, TxAmount } from "../components/ui.tsx";
-import { dateFr, dayLabel, money, moneyIn, monthLabel } from "../format.ts";
+import { dateFr, dayLabel, money, moneyIn, monthLabel, periodLabel } from "../format.ts";
+import { txDateHint, txSubline } from "../txInfo.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
 import { txTitle } from "../../lib/labels.ts";
 import { useAssistantEntity } from "../assistantContext.ts";
@@ -99,7 +100,7 @@ export function Transactions() {
   if (account) chips.push({ key: "compte", label: accounts.data?.accounts.find((a) => a.id === account)?.display_name ?? accounts.data?.accounts.find((a) => a.id === account)?.name ?? tr("Compte") });
   if (category) chips.push({ key: "categorie", label: td(categories.data?.categories.find((c) => c.id === category)?.name) ?? category });
   if (poste) chips.push({ key: "poste", label: td(poste) });
-  if (month) chips.push({ key: "mois", label: monthLabel(month) });
+  if (month) chips.push({ key: "mois", label: periodLabel(month) });
   if (nature) chips.push({ key: "nature", label: NATURE_LABELS[nature as Nature] ?? nature });
   if (uncategorized) chips.push({ key: "a_classer", label: tr("À classer") });
 
@@ -215,6 +216,7 @@ function TxRow({ t, onClick }: { t: Transaction; onClick: () => void }) {
       <TxLogo t={t} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[15px] font-medium">{txTitle(t)}</div>
+        {txSubline(t) && <div className="truncate text-xs text-muted">{txSubline(t)}</div>}
         <div className="flex items-center gap-1 truncate text-xs text-muted">
           {t.split_count ? (
             <span>{tr("Ventilée · {n} catégories", { n: t.split_count })}</span>
@@ -287,8 +289,9 @@ function TransactionSheet({ t, categories, onClose, panel = false }: { t: Transa
     <>
       <Card className="mb-3 p-4">
         <div className="text-[15px] font-semibold">{txTitle(t)}</div>
+        {/* Libellé de la banque, ligne par ligne : son intitulé, puis ce que le créancier a écrit et ses références. */}
         {t.bank_label && t.bank_label.toLowerCase() !== t.label.toLowerCase() && (
-          <div className="mt-0.5 text-xs text-muted" title={tr("Libellé de la banque")}>
+          <div className="mt-0.5 whitespace-pre-line break-words text-xs text-muted" title={tr("Libellé de la banque")}>
             {t.bank_label}
           </div>
         )}
@@ -296,6 +299,7 @@ function TransactionSheet({ t, categories, onClose, panel = false }: { t: Transa
         <div className="mt-3 flex items-end justify-between">
           <div className="text-sm text-muted">
             {dateFr(t.date)} · {t.account_name}
+            {txDateHint(t) && <div className="text-xs">{txDateHint(t)}</div>}
           </div>
           <TxAmount tx={t} className="text-xl font-bold" />
         </div>
@@ -748,7 +752,7 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
                     <TxLogo t={t} size="sm" />
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{txTitle(t)}</span>
-                      {t.status === "pending" && <span className="text-xs text-muted">{tr("en attente")}</span>}
+                      {txSubline(t) && <span className="block truncate text-xs text-muted">{txSubline(t)}</span>}
                     </span>
                   </span>
                   {wideTable && <NatureBadge n={natureOf(t.label, Number(t.amount))} />}

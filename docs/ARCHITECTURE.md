@@ -39,7 +39,21 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   sont ramenés au cours du jour. Changer la devise du foyer recalcule opérations, soldes et historiques à partir des
   montants d'origine (`src/server/currency-change.ts`) ; les montants saisis à la main gardent leur chiffre.
 - **Statistiques** — `src/server/stats.ts` définit une fois ce qu'est une dépense, un revenu, un mouvement interne ;
-  la vue `tx_lines` éclate les opérations ventilées. Tout écran et tout outil de l'IA passent par là.
+  la vue `tx_lines` éclate les opérations ventilées. Tout écran et tout outil de l'IA passent par là. Une période
+  d'analyse est un mois (`2026-11`) ou une année entière (`2026`) : `src/lib/periods.ts`.
+- **Jour d'une opération** — `transactions.date` est le jour d'écriture de la banque (pour une carte à débit
+  différé : le jour du prélèvement, le mois suivant) ; `purchase_date` est le jour de l'achat, donné par la banque
+  ou lu dans le libellé (`src/server/stat-dates.ts`). Le foyer choisit lequel compte (Réglages → Foyer, ligne
+  `stats:date_basis` d'`app_kv`) : la vue `tx_lines` rend le jour retenu dans sa colonne `date`, et une lecture
+  directe de `transactions` le calcule par `statDate()` (`src/server/stats.ts`). Changer de réglage ne réécrit rien.
+- **Prévision** — ce qui revient chaque mois (prélèvements, abonnements, salaire) est reconnu dans l'historique
+  (`src/lib/recurring.ts`) et attendu sur le mois en cours et les trois suivants (`forecast`, `src/server/flows.ts`).
+- **Marques et logos** — `src/lib/brands.ts` reconnaît une marque dans un libellé : les enseignes que le foyer a
+  ajoutées (table `custom_brands`, Réglages → Classement, `src/server/brands.ts`), puis le référentiel commun. Un logo
+  est téléchargé une fois par le serveur et gardé en base (`logos`, `src/server/logos.ts`) : icône du site d'une
+  marque du référentiel ou d'une enseigne du foyer, logo d'une banque reliée par Enable Banking quand l'icône de son
+  site ne fait pas mieux (`src/lib/bank-logos.ts`), image d'une crypto. Jamais un domaine venu d'ailleurs ; en démo,
+  rien hors du référentiel.
 - **Factures** — `invoices`, `invoice_items` ; lecture par l'IA, rapprochement avec l'opération qui l'a payée
   (`src/lib/invoices.ts`), ventilation de l'opération d'après les articles.
 - **Patrimoine** — `assets`, `loans` et `loan_schedule`, `crypto_positions`, `prices`, `wealth_snapshots` (un

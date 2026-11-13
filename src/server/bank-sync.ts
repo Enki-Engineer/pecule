@@ -1,9 +1,10 @@
-import { nameFromBankLabels } from "./bank-labels.ts";
+import { nameFromBankHeadlines, nameFromBankLabels } from "./bank-labels.ts";
 import { exec } from "./db.ts";
 import { refreshDebitNames } from "./debits.ts";
 import { syncEnableBanking, type EbSyncResult } from "./enable-banking.ts";
 import { fintaEnabled, markCardDuplicates, syncFromFinta } from "./finta.ts";
 import { matchInvoices } from "./invoices.ts";
+import { fillPurchaseDates } from "./stat-dates.ts";
 
 /*
  * Synchronisation bancaire, toutes sources confondues : Finta s'il est configuré, Enable Banking s'il a des
@@ -15,11 +16,15 @@ export type BankSyncResult = { runId: number | null; seen: number; inserted: num
 
 /** Après toute arrivée d'opérations, quelle qu'en soit la source. */
 export async function afterBankSync(): Promise<void> {
+  // Jour d'achat des opérations de carte, lu dans le libellé quand la source ne l'a pas donné.
+  await fillPurchaseDates().catch((e) => console.error("[jour d'achat]", e));
   await markCardDuplicates();
   // Prélèvements SEPA : noms et catégories d'après les engagements du Budget.
   await refreshDebitNames().catch((e) => console.error("[prélèvements] noms", e));
   // Puis les noms appris des libellés de la banque (salaire, énergie, loyer… de même forme).
   await nameFromBankLabels().catch((e) => console.error("[libellés de la banque] noms", e));
+  // Enfin les créanciers encore inconnus : le nom écrit dans l'intitulé du libellé de la banque.
+  await nameFromBankHeadlines().catch((e) => console.error("[libellés de la banque] intitulés", e));
   // Les nouvelles opérations peuvent enfin correspondre à des factures déjà reçues.
   await matchInvoices();
 }

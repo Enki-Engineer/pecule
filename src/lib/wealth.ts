@@ -33,3 +33,19 @@ export function valueCrypto<T extends CryptoInput>(rows: T[]) {
   const pricesAt = positions.map((p) => p.price_at).filter(Boolean).sort().at(-1) ?? null;
   return { positions, total, change24h, pricesAt };
 }
+
+/* ---------- Durées de la courbe d'évolution ---------- */
+
+/** Durées proposées au-dessus de la courbe d'évolution, en jours ; « tout » n'a pas de limite. */
+export const HISTORY_RANGES = { "1m": 31, "3m": 92, "6m": 183 } as const;
+export type HistoryRange = keyof typeof HISTORY_RANGES | "tout";
+
+/** Premier instant affiché pour une durée (0 : tout l'historique). */
+export const historyRangeStart = (range: HistoryRange, now: number = Date.now()): number => (range === "tout" ? 0 : now - HISTORY_RANGES[range] * 86_400_000);
+
+/**
+ * Une durée sert-elle à quelque chose ? Seulement si l'historique remonte plus loin qu'elle : sinon elle montrerait
+ * exactement la même courbe que « tout ». `first` : instant du premier point affichable (null : aucun point).
+ */
+export const historyRangeUseful = (range: HistoryRange, first: number | null | undefined, now: number = Date.now()): boolean =>
+  range === "tout" || (first != null && first < historyRangeStart(range, now));

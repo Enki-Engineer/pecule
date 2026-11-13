@@ -3,9 +3,13 @@
  * officiel (d'où vient le logo, téléchargé une fois par le serveur puis servi par /api/logos) et
  * motif reconnu dans le nom du marchand ou le libellé bancaire (minuscules, sans accents).
  * Un libellé qui ne correspond à aucune marque garde l'icône de son poste.
+ *
+ * Un foyer y ajoute ses propres enseignes (commerce de quartier, artisan, association) : elles vivent
+ * dans sa base (`custom_brands`), l'écran les confie à `setCustomBrands`, et elles passent avant le
+ * référentiel. Une enseigne du foyer peut ne pas avoir de site : elle garde alors ses initiales.
  */
 
-export type Brand = { domain: string; name: string; match: RegExp };
+export type Brand = { domain: string | null; name: string; match: RegExp; /** Enseigne ajoutée par le foyer. */ custom?: true };
 
 const b = (domain: string, name: string, match: RegExp): Brand => ({ domain, name, match });
 
@@ -427,17 +431,106 @@ export const brandText = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+/* ---------- Enseignes du foyer ---------- */
+
+export type CustomBrand = { id: number; name: string; pattern: string; domain: string | null };
+
+/** Mots d'un motif, tels que `brandText` les écrit (séparés par une espace). */
+const patternWords = (pattern: string) => brandText(pattern).split(" ").filter(Boolean);
+const useful = (s: string) => s.replace(/[^a-z0-9]/g, "").length;
+
+/**
+ * Motif d'une enseigne du foyer tel qu'on le garde : les mots du libellé, écrits comme `brandText`. Null s'il ne
+ * dit rien d'assez précis (moins de 3 caractères utiles, aucun mot d'au moins 3 lettres ou chiffres) ou s'il est trop long.
+ */
+export function customPattern(input: string): string | null {
+  const words = patternWords(input);
+  const text = words.join(" ");
+  if (text.length > 120 || useful(text) < 3) return null;
+  return words.some((w) => useful(w) >= 3) ? text : null;
+}
+
+/** Ce que reconnaît un motif, quel que soit l'ordre de ses mots : deux motifs de même clé font double emploi. */
+export const patternKey = (pattern: string) => [...new Set(patternWords(pattern))].sort().join(" ");
+
+/**
+ * Reconnaît un texte qui contient tous les mots du motif, en mots entiers et dans n'importe quel ordre (la banque
+ * glisse volontiers un numéro de magasin ou une ville entre deux mots). Chaque mot est échappé : rien de ce
+ * qu'écrit un membre n'est lu comme une expression régulière.
+ */
+export function customMatcher(pattern: string): RegExp | null {
+  const words = [...new Set(patternWords(pattern))];
+  if (!words.length) return null;
+  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return new RegExp(`^${escaped.map((w) => `(?=(?:.* )?${w}(?: |$))`).join("")}`);
+}
+
+/**
+ * Site d'une enseigne, réduit à son domaine (« https://www.exemple.fr/contact » → « exemple.fr ») ; null s'il n'a
+ * pas la forme d'un nom de domaine (une adresse IP n'en est pas un).
+ */
+export function cleanDomain(input: string): string | null {
+  const host = input
+    .trim()
+    .toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, "")
+    .replace(/[/?#].*$/, "")
+    .replace(/^[^@]*@/, "")
+    .replace(/:\d+$/, "")
+    .replace(/^www\./, "")
+    .replace(/\.$/, "");
+  return host.length <= 120 && /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z][a-z0-9-]+$/.test(host) ? host : null;
+}
+
+/** Petits mots qui ne disent rien d'une enseigne (articles, prépositions, dans les langues de Pécule) : ses initiales les sautent. */
+const SMALL_WORDS = new Set(["le", "la", "les", "l", "de", "du", "des", "d", "au", "aux", "et", "un", "une", "chez", "the", "of", "and", "a", "der", "die", "das", "und", "von", "zum", "zur", "il", "lo", "i", "gli", "di", "del", "della", "dei", "e", "el", "los", "las", "y"]);
+
+/**
+ * Initiales d'une enseigne sans logo : la première lettre de ses deux premiers mots qui comptent (« Le Fournil des
+ * Halles » → FH), sinon ses deux premières lettres.
+ */
+export function brandInitials(name: string): string {
+  const all = name
+    .replace(/[^\p{L}\p{N} ]+/gu, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const meaningful = all.filter((w) => !SMALL_WORDS.has(w.toLowerCase()));
+  const words = meaningful.length ? meaningful : all;
+  const letters = words.length >= 2 ? `${[...words[0]][0]}${[...words[1]][0]}` : [...(words[0] ?? "?")].slice(0, 2).join("");
+  return letters.toUpperCase();
+}
+
+let custom: Brand[] = [];
+let customKey = "[]";
+
+/**
+ * Enseignes du foyer, à consulter avant le référentiel. Rend vrai si la liste a changé (ce qui s'affiche doit alors
+ * être redessiné) ; un motif vide ou trop vague est ignoré.
+ */
+export function setCustomBrands(list: readonly Pick<CustomBrand, "name" | "pattern" | "domain">[]): boolean {
+  const key = JSON.stringify(list.map((x) => [x.name, x.pattern, x.domain ?? null]));
+  if (key === customKey) return false;
+  customKey = key;
+  custom = list.flatMap((x) => {
+    const match = customPattern(x.pattern) ? customMatcher(x.pattern) : null;
+    return match ? [{ domain: x.domain || null, name: x.name, match, custom: true as const }] : [];
+  });
+  seen.clear();
+  return true;
+}
+
 /** Résultats déjà calculés : les mêmes libellés reviennent d'une ligne à l'autre d'une liste, et le référentiel est long. */
 const seen = new Map<string, Brand | null>();
 
-/** Marque reconnue dans un ou plusieurs textes (marchand, libellé, nom de compte, banque…). */
+/** Marque reconnue dans un ou plusieurs textes (marchand, libellé, nom de compte, banque…) : une enseigne du foyer d'abord, puis le référentiel. */
 export function brandOf(...texts: (string | null | undefined)[]): Brand | null {
   for (const t of texts) {
     if (!t) continue;
     let hit = seen.get(t);
     if (hit === undefined) {
       const s = brandText(t);
-      hit = BRANDS.find((x) => x.match.test(s)) ?? null;
+      hit = custom.find((x) => x.match.test(s)) ?? BRANDS.find((x) => x.match.test(s)) ?? null;
       if (seen.size > 5000) seen.clear();
       seen.set(t, hit);
     }
@@ -446,5 +539,8 @@ export function brandOf(...texts: (string | null | undefined)[]): Brand | null {
   return null;
 }
 
-/** Domaines dont le serveur accepte de chercher le logo (liste fermée : pas d'appel vers un domaine arbitraire). */
-export const BRAND_DOMAINS = new Set(BRANDS.map((x) => x.domain));
+/**
+ * Domaines du référentiel, dont le serveur accepte de chercher le logo. S'y ajoutent, côté serveur, les sites des
+ * enseignes du foyer (src/server/brands.ts) : jamais un domaine venu d'ailleurs.
+ */
+export const BRAND_DOMAINS = new Set(BRANDS.flatMap((x) => (x.domain ? [x.domain] : [])));

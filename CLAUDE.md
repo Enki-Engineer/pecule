@@ -22,6 +22,9 @@ pnpm lint && pnpm test && pnpm build
   `users`, le foyer se décrit par `householdSummary()`.
 - **Un chiffre = une définition** : tout agrégat passe par `src/server/stats.ts` et lit la vue `tx_lines`
   (une opération ventilée = ses lignes). L'accueil, l'analyse, les tendances et l'assistant donnent les mêmes valeurs.
+  Le jour d'une opération est `tx_lines.date` — le jour d'achat ou le jour d'écriture de la banque, selon le réglage
+  du foyer — ; une requête qui lit `transactions` pour un total ou une liste datée prend `statDate()` et
+  `STAT_DATE_JOIN`, jamais `transactions.date` seul (réservé aux synchronisations et aux rapprochements).
 - **Toute requête sur les opérations passe par les comptes du membre** (`userAccounts(req)`) : masquer un compte ou le
   sortir des statistiques est un réglage par membre.
 - **Le mode démo ne touche jamais la vraie base** : `src/server/demo-context.ts` aiguille chaque requête ; toute route

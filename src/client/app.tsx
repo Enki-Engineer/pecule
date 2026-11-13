@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { adoptRegion, region } from "./region.ts";
 import { api, useMe } from "./api.ts";
+import { adoptBrands, useBrands } from "./api-brands.ts";
 import { adoptData, appLang, applyLang, hasData } from "./i18n.ts";
 import { claimOfflineCache, clearOfflineCache, OfflineBanner, OfflineProvider } from "./offline.tsx";
 import { Layout } from "./components/Layout.tsx";
@@ -69,6 +70,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (names.data && adoptData(names.data.names)) setVersion((v) => v + 1);
   }, [names.data]);
+  // Enseignes du foyer : confiées au référentiel des marques dès qu'elles arrivent ; les logos déjà affichés se
+  // redessinent d'eux-mêmes (pas besoin de remonter les écrans).
+  const brands = useBrands(signedIn);
+  useEffect(() => {
+    if (brands.data) adoptBrands(brands.data.brands);
+  }, [brands.data]);
   if (me.isPending) return <Spinner />;
   if (!me.data?.user) return <Navigate to="/connexion" replace state={{ from: location.pathname }} />;
   if (appLang() !== "fr" && !hasData() && names.isPending) return <Spinner />;

@@ -3,6 +3,42 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.3.0
+
+- **Analyse sur une année entière** : le sélecteur de période de la barre du haut choisit un mois ou une année
+  (« Mois | Année »), et « Aujourd'hui » ramène à la période en cours. Chaque onglet suit : cumul mois par mois face
+  à l'année précédente, répartition, flux, frise de l'année, tableau des prélèvements (un créancier par ligne, un
+  mois par colonne), marchands, comparaison avec l'année d'avant. Le filtre des Opérations accepte aussi une année.
+- **Douze mois glissants et prévision** : le graphique mois par mois suit le mois choisi quand il sort de la fenêtre,
+  et montre les trois mois à venir — ce qui est déjà écrit, et en pointillé ce qui revient chaque mois
+  (prélèvements, abonnements, salaire), reconnu dans l'historique.
+- **Jour d'achat ou jour du débit** : un achat par carte à débit différé est écrit par la banque le mois suivant.
+  Le foyer choisit de compter ses achats au jour de l'achat ou au jour du débit (Réglages → Foyer, ou depuis la
+  frise) ; tous les écrans, l'assistant et le serveur MCP suivent, sans rien réécrire. Par défaut : le jour du
+  débit, comme avant. Une opération montre son autre date (« sera prélevé le… », « achat du… »).
+- **Frise** : achats pas encore prélevés cerclés, récurrences attendues dans tous les couloirs (entrées comprises),
+  et la même frise, resserrée, sur l'écran Mois du téléphone.
+- **Libellés d'Enable Banking** : le libellé de la banque est gardé ligne par ligne. Son intitulé devient le
+  libellé de l'opération (stable d'un mois à l'autre), le texte du créancier (« Solde impôt revenus… ») s'affiche
+  sous le nom, et une opération sans nom prend celui du créancier dès la synchronisation, sans export de la banque.
+- **Encours des cartes à débit différé** mis en avant : chiffre clé du tableau de bord (montant, date du
+  prélèvement, ce qu'il restera sur les comptes) et rappel sur l'accueil du téléphone.
+- **Mes enseignes** (Réglages → Classement) : le foyer ajoute ses propres enseignes — commerce de quartier, artisan,
+  association — avec un nom, les mots du libellé qui la font reconnaître et, si elle en a un, son site pour le logo.
+  Un aperçu dit combien d'opérations des douze derniers mois ces mots reconnaissent ; sans site, l'enseigne garde ses
+  initiales. Elles passent avant le référentiel commun.
+- **Logos des banques reliées** : quand le site d'une banque n'a pas de bonne icône (banque hors du référentiel,
+  petit favicon), sa pastille prend le logo fourni par Enable Banking, téléchargé une fois par le serveur. Rien sans
+  clé Enable Banking, rien en démo.
+- **Échéancier** : un clic sur une ligne ouvre sa fiche (détail, notes, modification) au lieu de la cocher ; seule
+  la pastille coche, le message propose « Annuler », et ce qui a été fait reste visible trente jours dans « Fait
+  récemment ».
+- **Patrimoine → Évolution** : durée « 1 mois » ; les durées plus longues que l'historique sont grisées, avec la date
+  où il commence.
+- **Foyer / Moi** n'est plus proposé quand tous les comptes sont ceux du membre.
+- Migration `0028_jour_achat_enseignes` (appliquée au démarrage) : colonne `purchase_date`, vue `tx_lines`, table
+  `custom_brands`. Le jour d'achat des opérations déjà là est lu dans leur libellé à la première ouverture.
+
 ## 1.2.0
 
 - **Un seul endroit pour les documents** : l'écran « Importer » rejoint le **Coffre**. En haut, une zone de dépôt (un

@@ -27,23 +27,44 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { brandOf } from "../../lib/brands.ts";
+import { brandInitials, brandOf } from "../../lib/brands.ts";
 import { merchantName } from "../../lib/nature.ts";
+import { useBrandsVersion } from "../api-brands.ts";
 import { cn } from "../cn.ts";
 
 /*
  * Logos officiels (banques, plateformes crypto, cryptos, marchands) servis par /api/logos, avec un
  * repli si le logo est introuvable : icône du poste pour une opération, initiales pour le reste.
+ * Une enseigne ajoutée par le foyer (Réglages → Classement) se reconnaît comme une marque : son logo si
+ * elle a un site, sinon ses initiales.
  */
 
 const failed = new Set<string>();
 const SIZES = { sm: "size-7 rounded-md", md: "size-9 rounded-[10px]", lg: "size-10 rounded-xl" } as const;
 export type LogoSize = keyof typeof SIZES;
 
-/** Image d'un logo (clé « d:<domaine> » ou « coin:<id> ») ; `fallback` s'il n'existe pas. */
-export function LogoImg({ logoKey, alt, size = "lg", fallback, className }: { logoKey: string | null; alt: string; size?: LogoSize; fallback: ReactNode; className?: string }) {
-  const [broken, setBroken] = useState(() => !logoKey || failed.has(logoKey));
-  if (!logoKey || broken) return <>{fallback}</>;
+/**
+ * Image d'un logo (clé « d:<domaine> », « coin:<id> » ou « bank:<pays>:<banque> ») ; `fallback` s'il n'existe pas.
+ * `fit="contain"` montre l'image entière (logo de banque un peu allongé) au lieu de remplir la pastille.
+ */
+export function LogoImg({
+  logoKey,
+  alt,
+  size = "lg",
+  fallback,
+  className,
+  fit = "cover",
+}: {
+  logoKey: string | null;
+  alt: string;
+  size?: LogoSize;
+  fallback: ReactNode;
+  className?: string;
+  fit?: "cover" | "contain";
+}) {
+  // L'échec est retenu pour la clé qui a échoué : si la clé change (enseignes du foyer chargées, banque reliée), l'image est retentée.
+  const [brokenKey, setBrokenKey] = useState<string | null>(null);
+  if (!logoKey || brokenKey === logoKey || failed.has(logoKey)) return <>{fallback}</>;
   return (
     <span className={cn("grid shrink-0 place-items-center overflow-hidden bg-white ring-1 ring-line", SIZES[size], className)}>
       {/* Décoratif : le nom de la marque est écrit à côté (sinon les lecteurs d'écran le liraient deux fois). */}
@@ -55,10 +76,10 @@ export function LogoImg({ logoKey, alt, size = "lg", fallback, className }: { lo
         loading="lazy"
         decoding="async"
         draggable={false}
-        className="size-full object-cover"
+        className={cn("size-full", fit === "contain" ? "object-contain p-[3px]" : "object-cover")}
         onError={() => {
           failed.add(logoKey);
-          setBroken(true);
+          setBrokenKey(logoKey);
         }}
       />
     </span>
@@ -115,19 +136,26 @@ export function TxLogo({
   t,
   size = "lg",
 }: {
-  t: { label: string; merchant: string | null; category_name?: string | null; category_poste?: string | null; category_kind?: string | null; amount?: number };
+  t: { label: string; merchant: string | null; bank_label?: string | null; category_name?: string | null; category_poste?: string | null; category_kind?: string | null; amount?: number };
   size?: LogoSize;
 }) {
+  useBrandsVersion();
   // Dernier essai sur le nom du marchand tiré du libellé (sans « Carte JJ MM AA ») : les motifs ancrés en début de nom s'y retrouvent.
-  const brand = t.category_kind === "interne" ? null : brandOf(t.merchant, t.label, merchantName(t.label, t.merchant));
+  // Puis sur l'intitulé du libellé de la banque : un prélèvement au libellé codé y porte le nom du créancier.
+  const brand = t.category_kind === "interne" ? null : brandOf(t.merchant, t.label, merchantName(t.label, t.merchant), t.bank_label?.split("\n")[0]);
   const Icon = t.category_name ? categoryIcon(t.category_poste, t.category_name, t.category_kind) : CircleHelp;
   const px = size === "sm" ? 15 : size === "md" ? 17 : 18;
-  const fallback = (
+  // Une enseigne du foyer sans logo (pas de site, ou site sans icône) garde ses initiales : on voit qu'elle est reconnue.
+  const fallback = brand?.custom ? (
+    <Tile size={size} tone="accent">
+      {brandInitials(brand.name)}
+    </Tile>
+  ) : (
     <Tile size={size} tone={t.category_name ? (t.category_kind === "revenu" ? "pos" : "neutral") : "warn"}>
       <Icon size={px} strokeWidth={2} />
     </Tile>
   );
-  return <LogoImg logoKey={brand ? `d:${brand.domain}` : null} alt={brand?.name ?? ""} size={size} fallback={fallback} />;
+  return <LogoImg logoKey={brand?.domain ? `d:${brand.domain}` : null} alt={brand?.name ?? ""} size={size} fallback={fallback} />;
 }
 
 /** Logo d'une marque d'après un ou plusieurs textes (banque, créancier, plateforme) ; initiales sinon. */
@@ -145,10 +173,24 @@ export function BrandLogo({
   size?: LogoSize;
   tone?: "neutral" | "accent";
 }) {
+  useBrandsVersion();
   const brand = brandOf(...texts);
   const label = initials ?? (texts.find(Boolean) ?? "?").replace(/^\p{Extended_Pictographic}\s*/u, "").slice(0, 2).toUpperCase();
   const px = size === "sm" ? 15 : size === "md" ? 17 : 18;
-  return <LogoImg logoKey={brand ? `d:${brand.domain}` : null} alt={brand?.name ?? ""} size={size} fallback={<Tile size={size} tone={tone}>{Icon ? <Icon size={px} strokeWidth={2} /> : label}</Tile>} />;
+  // Enseigne du foyer sans logo : ses initiales, plutôt que l'icône ou les lettres du texte d'origine.
+  const fallback = brand?.custom ? brandInitials(brand.name) : Icon ? <Icon size={px} strokeWidth={2} /> : label;
+  return (
+    <LogoImg
+      logoKey={brand?.domain ? `d:${brand.domain}` : null}
+      alt={brand?.name ?? ""}
+      size={size}
+      fallback={
+        <Tile size={size} tone={tone}>
+          {fallback}
+        </Tile>
+      }
+    />
+  );
 }
 
 /** Icône d'un type d'engagement du budget (repli des engagements sans fournisseur reconnu). */

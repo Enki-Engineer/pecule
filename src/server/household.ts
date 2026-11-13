@@ -7,6 +7,7 @@ import { cleanModulesOff, MODULE_INFO, type ModuleId } from "../lib/modules.ts";
 import { cleanRegion, DEFAULT_REGION, type Region } from "../lib/countries.ts";
 import { setRegion, watchRegion } from "./region.ts";
 import { isDemo, runReal } from "./demo-context.ts";
+import { dateBasis } from "./stat-dates.ts";
 
 /*
  * Réglages du foyer, gardés dans app_kv (« household ») : les personnes qui ne se connectent pas (un enfant)
@@ -75,15 +76,18 @@ export async function accountHousehold(): Promise<Household> {
  * viennent de la base du contexte (celle de la démo en démo), jamais du code. Les biens privés d'un autre membre n'y sont pas.
  */
 export async function householdSummary(userId?: number): Promise<string> {
-  const [members, settings, properties] = await Promise.all([
+  const [members, settings, basis, properties] = await Promise.all([
     listMembers(),
     householdSettings(),
+    dateBasis().catch(() => "debit" as const),
     q<{ name: string; city: string | null }>(`SELECT name, city FROM properties WHERE owner_user_id IS NULL${userId ? " OR owner_user_id = ?" : ""} ORDER BY sort_order, id`, userId ? [userId] : []).catch(() => []),
   ]);
   const parts = [`membres : ${members.map((m) => m.name).join(", ") || "aucun"}`];
   // Un foyer français en euros est le cas par défaut : on ne le dit que s'il en va autrement.
   if (settings.currency !== DEFAULT_REGION.currency || settings.country !== DEFAULT_REGION.country)
     parts.push(`pays : ${settings.country} ; devise du foyer : ${settings.currency} (tous les montants rendus par les outils sont dans cette devise ; un compte tenu dans une autre garde aussi son montant d'origine)`);
+  // Jour d'achat : à dire seulement quand le foyer l'a choisi (le jour d'écriture de la banque est le cas par défaut).
+  if (basis === "achat") parts.push("les achats par carte sont comptés au jour de l'achat, pas au jour où la banque les prélève (les dates rendues par les outils sont des jours d'achat ; `debit_date` donne le jour du prélèvement quand il diffère)");
   if (settings.people.length) parts.push(`autres personnes (sans connexion) : ${settings.people.join(", ")}`);
   if (properties.length) parts.push(`biens immobiliers : ${properties.map((p) => (p.city && !p.name.includes(p.city) ? `${p.name} (${p.city})` : p.name)).join(" ; ")}`);
   if (settings.modulesOff.length) parts.push(`écrans retirés de l'appli par le foyer (ne pas y renvoyer) : ${settings.modulesOff.map((m) => MODULE_INFO[m].label).join(", ")}`);

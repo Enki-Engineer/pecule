@@ -25,7 +25,7 @@ import {
 import { historyLabel } from "../lib/bank-history.ts";
 import { purchaseDay, reconcile, summarize, type RecTx } from "../lib/bank-reconcile.ts";
 import { t } from "../lib/i18n.ts";
-import { classifyAccount, labelKey, type AccountKind } from "../lib/labels.ts";
+import { bankHeadline, classifyAccount, labelKey, type AccountKind } from "../lib/labels.ts";
 
 /*
  * Enable Banking : lecture des comptes bancaires par l'interface officielle des banques (lecture seule).
@@ -274,9 +274,9 @@ export async function ebForget(userId?: number): Promise<void> {
   });
 }
 
-const banks = new Map<string, { at: number; list: { name: string; country: string; personal: boolean; consentDays: number }[] }>();
+const banks = new Map<string, { at: number; list: { name: string; country: string; personal: boolean; consentDays: number; logo: string | null }[] }>();
 
-/** Banques d'un pays (gardées une heure en mémoire). */
+/** Banques d'un pays (gardées une heure en mémoire), avec l'adresse de leur logo chez Enable Banking. */
 export async function ebBanks(country: string) {
   const c = country.toUpperCase();
   const cached = banks.get(c);
@@ -284,9 +284,9 @@ export async function ebBanks(country: string) {
   const s = await load();
   const client = clientOf(s) ?? Object.keys(s.members ?? {}).map((id) => clientOf(s, Number(id))).find(Boolean) ?? null;
   if (!client) throw new EbError(400, t("Enable Banking n'est pas configuré"));
-  const { aspsps } = await client.get<{ aspsps: { name: string; country: string; psu_types?: string[]; maximum_consent_validity?: number }[] }>(`/aspsps?country=${encodeURIComponent(c)}`);
+  const { aspsps } = await client.get<{ aspsps: { name: string; country: string; psu_types?: string[]; maximum_consent_validity?: number; logo?: string | null }[] }>(`/aspsps?country=${encodeURIComponent(c)}`);
   const list = aspsps
-    .map((a) => ({ name: a.name, country: a.country, personal: (a.psu_types ?? []).includes("personal"), consentDays: Math.floor((a.maximum_consent_validity ?? 0) / 86400) }))
+    .map((a) => ({ name: a.name, country: a.country, personal: (a.psu_types ?? []).includes("personal"), consentDays: Math.floor((a.maximum_consent_validity ?? 0) / 86400), logo: a.logo ?? null }))
     .sort((a, b) => a.name.localeCompare(b.name));
   banks.set(c, { at: Date.now(), list });
   return list;
@@ -400,6 +400,14 @@ const KEEP_CONVERTED = "IF(? IS NOT NULL AND original_amount <=> ? AND original_
 const kept = (t: { amount: number; originalAmount: number | null; originalCurrency: string | null }) => [t.originalCurrency, t.originalAmount, t.originalCurrency, t.amount];
 
 const ROW = "id, DATE_FORMAT(date, '%Y-%m-%d') AS date, COALESCE(original_amount, amount) AS amount, label, status, bank_ref, origin";
+
+/**
+ * Libellé de la banque d'une opération venue d'une autre source : celui d'Enable Banking (ligne par ligne) le
+ * remplace s'il manque, s'il n'est que son intitulé (export de la banque), ou s'il est son ancienne écriture sur une
+ * seule ligne. Tout autre libellé déjà là est gardé. Paramètres : `richer(t)`.
+ */
+const RICHER_BANK_LABEL = "IF(bank_label IS NULL OR bank_label = ? OR bank_label = ?, ?, bank_label)";
+const richer = (t: { label: string; bankLabel: string | null }) => [bankHeadline(t.bankLabel ?? ""), t.label.slice(0, 255), t.bankLabel];
 /** Préfixe des références d'un compte : « eb:<début de l'empreinte du compte>: ». */
 const refPrefix = (key: string) => `eb:${key.slice(0, 12)}:`;
 
@@ -506,8 +514,8 @@ export async function syncEnableBanking(opts: { force?: boolean; client?: EbClie
             const row = byRef.get(t.ref);
             if (!row) continue;
             if (row.origin === "enablebanking")
-              await exec(`UPDATE transactions SET date = ?, amount = ${KEEP_CONVERTED}, original_amount = ?, original_currency = ?, status = ?, label = ?, bank_label = ?, label_key = IF(merchant IS NOT NULL, label_key, ?) WHERE id = ?`, [t.date, ...kept(t), t.originalAmount, t.originalCurrency, t.status, historyLabel(t.label), t.label.slice(0, 255), labelKey(historyLabel(t.label)), row.id]);
-            else await exec(`UPDATE transactions SET date = ?, amount = ${KEEP_CONVERTED}, original_amount = ?, original_currency = ?, status = ? WHERE id = ?`, [t.date, ...kept(t), t.originalAmount, t.originalCurrency, t.status, row.id]);
+              await exec(`UPDATE transactions SET date = ?, amount = ${KEEP_CONVERTED}, original_amount = ?, original_currency = ?, status = ?, label = ?, bank_label = ?, purchase_date = COALESCE(?, purchase_date), label_key = IF(merchant IS NOT NULL, label_key, ?) WHERE id = ?`, [t.date, ...kept(t), t.originalAmount, t.originalCurrency, t.status, historyLabel(t.headline), t.bankLabel, t.purchaseDate, labelKey(historyLabel(t.headline)), row.id]);
+            else await exec(`UPDATE transactions SET date = ?, amount = ${KEEP_CONVERTED}, original_amount = ?, original_currency = ?, status = ?, purchase_date = COALESCE(purchase_date, ?), bank_label = ${RICHER_BANK_LABEL} WHERE id = ?`, [t.date, ...kept(t), t.originalAmount, t.originalCurrency, t.status, t.purchaseDate, ...richer(t), row.id]);
           }
 
           // 2. Opérations nouvelles : d'abord les rapprocher d'une ligne qui les attend.
@@ -524,16 +532,18 @@ export async function syncEnableBanking(opts: { force?: boolean; client?: EbClie
             const freshByRef = new Map(fresh.map((t) => [t.ref, t]));
             for (const p of r.pairs) {
               const t = freshByRef.get(p.incoming.id)!;
-              await exec(`UPDATE transactions SET bank_ref = ?, date = ?, amount = ${KEEP_CONVERTED}, original_amount = ?, original_currency = ?, status = ?, bank_label = COALESCE(bank_label, IF(origin = 'enablebanking', NULL, ?)) WHERE id = ?`, [t.ref, t.date, ...kept(t), t.originalAmount, t.originalCurrency, t.status, t.label.slice(0, 255), p.existing.id]);
+              await exec(`UPDATE transactions SET bank_ref = ?, date = ?, amount = ${KEEP_CONVERTED}, original_amount = ?, original_currency = ?, status = ?, purchase_date = COALESCE(purchase_date, ?), bank_label = IF(origin = 'enablebanking', bank_label, ${RICHER_BANK_LABEL}) WHERE id = ?`, [t.ref, t.date, ...kept(t), t.originalAmount, t.originalCurrency, t.status, t.purchaseDate, ...richer(t), p.existing.id]);
               announced.add(t.ref);
               result.attached++;
             }
             for (const lone of r.onlyIncoming) {
               const t = freshByRef.get(lone.id)!;
-              // Le libellé est écrit comme les autres (« Carte 05 11 26 Enseigne ») ; celui de la banque est gardé tel quel à côté.
-              const label = historyLabel(t.label);
+              // Le libellé est l'intitulé de la banque, écrit comme les autres (« Carte 05 11 26 Enseigne », « Prlv Sepa Créancier ») :
+              // le même d'un mois à l'autre, donc la même catégorie. Le libellé entier de la banque (texte du créancier,
+              // références) est gardé ligne par ligne à côté, et le jour d'achat quand la banque le donne.
+              const label = historyLabel(t.headline);
               const key = labelKey(label);
-              await exec("INSERT INTO transactions (id, account_id, date, amount, original_amount, original_currency, label, bank_label, label_key, status, origin, bank_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enablebanking', ?)", [t.ref, id, t.date, t.amount, t.originalAmount, t.originalCurrency, label, t.label.slice(0, 255), key, t.status, t.ref]);
+              await exec("INSERT INTO transactions (id, account_id, date, purchase_date, amount, original_amount, original_currency, label, bank_label, label_key, status, origin, bank_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enablebanking', ?)", [t.ref, id, t.date, t.purchaseDate, t.amount, t.originalAmount, t.originalCurrency, label, t.bankLabel, key, t.status, t.ref]);
               result.inserted++;
               const guess = await guessCategory(key);
               if (guess) await exec("UPDATE transactions SET category_id = ?, category_source = ? WHERE id = ? AND category_id IS NULL", [guess.categoryId, guess.source, t.ref]);
@@ -767,4 +777,18 @@ export async function ebCompare(): Promise<EbComparison[]> {
 export async function ebConsents(): Promise<{ id: string; aspsp: string; userId: number; validUntil: string }[]> {
   if (isDemo()) return [];
   return ((await load()).sessions ?? []).map((x) => ({ id: x.id, aspsp: x.aspsp, userId: x.userId, validUntil: x.validUntil }));
+}
+
+/** Banques reliées (une fois chacune), avec les comptes de Pécule qu'elles alimentent : pour leur logo (bank-logos.ts). Rien en démo. */
+export async function ebLinkedBanks(): Promise<{ aspsp: string; country: string; accountIds: string[] }[]> {
+  if (isDemo()) return [];
+  const s = await load();
+  const out = new Map<string, { aspsp: string; country: string; accountIds: string[] }>();
+  for (const x of s.sessions ?? []) {
+    const key = `${x.country.toUpperCase()}:${x.aspsp}`;
+    const bank = out.get(key) ?? { aspsp: x.aspsp, country: x.country.toUpperCase(), accountIds: [] };
+    for (const a of x.accounts) bank.accountIds.push(s.adopted?.[a.key] ?? accountIdOf(a.key));
+    out.set(key, bank);
+  }
+  return [...out.values()].map((b) => ({ ...b, accountIds: [...new Set(b.accountIds)] }));
 }

@@ -123,6 +123,8 @@ export function BankConnections({ accounts, members }: { accounts: Account[]; me
       if (done) toast.success(done);
       await qc.invalidateQueries({ queryKey: ["accounts"] });
       await qc.invalidateQueries({ queryKey: ["connections"] });
+      // Une banque reliée ou retirée change les logos de banque proposés.
+      await qc.invalidateQueries({ queryKey: ["bank-logos"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Action impossible"));
     } finally {

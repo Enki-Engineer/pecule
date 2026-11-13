@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { queryClient, setScopeSource } from "./api.ts";
+import { addMonths, isYearPeriod, PERIOD_RE } from "../lib/periods.ts";
 
 /*
  * État de la coquille partagé entre les écrans : période globale (mois), périmètre Foyer / Moi,
@@ -36,18 +37,38 @@ const thisMonth = () => new Date().toLocaleDateString("sv-SE").slice(0, 7);
 /* ---------- Période globale ---------- */
 
 const period = store<string>(thisMonth(), { key: "pecule.periode", storage: sessionStorage });
+// Dernier mois affiché : en revenant d'une année entière au mois, on retrouve celui qu'on regardait.
+let lastMonth = thisMonth();
 
-/** Mois affiché par les écrans d'analyse (AAAA-MM), partagé entre les écrans et conservé pendant la session. */
-export function usePeriod(): [string, (m: string) => void] {
-  const m = useSyncExternalStore(period.subscribe, period.get);
-  return [m > thisMonth() ? thisMonth() : m, period.set];
+/** Période valide et pas dans le futur : un mois (« 2026-11 ») ou une année entière (« 2026 »). */
+function cleanPeriod(p: string): string {
+  const now = thisMonth();
+  if (!PERIOD_RE.test(p)) return now;
+  if (isYearPeriod(p)) return p > now.slice(0, 4) ? now.slice(0, 4) : p;
+  return p > now ? now : p;
 }
 
-export const shiftMonth = (m: string, delta: number) => {
-  const d = new Date(`${m}-15T12:00:00Z`);
-  d.setUTCMonth(d.getUTCMonth() + delta);
-  return d.toISOString().slice(0, 7);
-};
+/**
+ * Période affichée par les écrans d'analyse — un mois (AAAA-MM) ou une année entière (AAAA) —, partagée entre les
+ * écrans et conservée pendant la session.
+ */
+export function usePeriod(): [string, (p: string) => void] {
+  const p = cleanPeriod(useSyncExternalStore(period.subscribe, period.get));
+  if (!isYearPeriod(p)) lastMonth = p;
+  return [p, (next) => period.set(cleanPeriod(next))];
+}
+
+/** Mois à montrer en quittant une année entière : le dernier regardé s'il est de cette année, sinon son dernier mois écoulé. */
+export function monthOfPeriod(p: string): string {
+  if (!isYearPeriod(p)) return p;
+  if (lastMonth.startsWith(`${p}-`)) return lastMonth;
+  const now = thisMonth();
+  return p === now.slice(0, 4) ? now : `${p}-12`;
+}
+
+export const currentPeriodMonth = thisMonth;
+
+export const shiftMonth = (m: string, delta: number) => addMonths(m, delta);
 
 /* ---------- Périmètre Foyer / Moi ---------- */
 

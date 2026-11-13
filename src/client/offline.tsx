@@ -8,7 +8,8 @@ import { t } from "../lib/i18n.ts";
 
 /*
  * Ouverture instantanée, même sans réseau : les dernières données de synthèse (accueil, soldes,
- * mois, patrimoine, budget, échéancier, première page d'opérations) sont gardées sur l'appareil
+ * mois, patrimoine, budget, échéancier, première page d'opérations, et les enseignes du foyer qui leur
+ * donnent leur logo) sont gardées sur l'appareil
  * 7 jours au plus, affichées tout de suite puis rafraîchies. Effacées à la déconnexion ; désactivables
  * dans Réglages (« Garder les dernières données sur cet appareil »). Les fichiers (factures,
  * documents) et les conversations de l'assistant ne sont jamais gardés.
@@ -35,7 +36,7 @@ export function claimOfflineCache(userId: number | null, clear: () => void): boo
 }
 const MAX_AGE = 7 * 86_400_000;
 /** Requêtes gardées (premier élément de la clé). */
-const KEEP = new Set(["me", "summary", "accounts", "wealth", "dashboard", "nav-counts", "month", "trend", "balance-series", "categories", "budget", "agenda", "crypto", "properties", "loans", "transactions", "flows"]);
+const KEEP = new Set(["me", "summary", "accounts", "wealth", "dashboard", "nav-counts", "month", "trend", "balance-series", "categories", "budget", "agenda", "crypto", "properties", "loans", "transactions", "flows", "brands"]);
 
 export const offlineCacheEnabled = () => localStorage.getItem(OFF_KEY) !== "1";
 
@@ -62,6 +63,8 @@ function keep(q: Query): boolean {
     const data = q.state.data as { pages?: unknown[] } | undefined;
     return !!f && Object.values(f).every((v) => v == null || v === "" || v === false) && (data?.pages?.length ?? 0) <= 1;
   }
+  // Enseignes du foyer : la liste seule (les logos sont les mêmes dès l'ouverture), pas les aperçus d'un motif en cours de saisie.
+  if (q.queryKey[0] === "brands") return q.queryKey.length === 1;
   return true;
 }
 

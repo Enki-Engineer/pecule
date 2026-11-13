@@ -20,6 +20,17 @@ export function purchaseDay(label: string): string | null {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === day ? day : null;
 }
 
+/**
+ * Jour d'achat à garder pour une opération écrite par la banque le `booked` : celui du libellé, s'il est plausible
+ * (jamais après l'écriture, jamais plus de 70 jours avant : une carte à débit différé prélève le mois suivant).
+ */
+export function purchaseDateFor(label: string, booked: string): string | null {
+  const day = purchaseDay(label);
+  if (!day || day > booked) return null;
+  const gap = (Date.parse(`${booked}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86_400_000;
+  return gap <= 70 ? day : null;
+}
+
 export type RecPair = {
   incoming: RecTx;
   existing: RecTx;

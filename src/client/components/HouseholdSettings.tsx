@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { api, useMe } from "../api.ts";
 import { Card, Field } from "./ui.tsx";
 import { CurrencySelect, currencyName } from "./CurrencySelect.tsx";
+import { DateBasisSwitch } from "./DateBasisSwitch.tsx";
 import { FRENCH_MODULES, MODULES, MODULE_INFO, type ModuleId } from "../../lib/modules.ts";
 import { COUNTRIES, isFrance, regionOf, type Region } from "../../lib/countries.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
@@ -141,6 +142,15 @@ export function HouseholdSettings() {
               ))}
             </select>
           </label>
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <span className="min-w-0 flex-1 basis-64">
+              <span className="block text-[15px] font-medium">{t("Achats par carte")}</span>
+              <span className="block text-xs text-muted">
+                {t("Le jour où ils comptent, sur tous les écrans : le jour de l'achat, ou le jour où la banque les prélève (le mois suivant pour une carte à débit différé).")}
+              </span>
+            </span>
+            <DateBasisSwitch />
+          </div>
         </Card>
         <p className="mt-2 px-1 text-xs text-muted">
           {t("Un compte tenu dans une autre devise garde ses montants d'origine ; ils sont convertis au cours de référence de la Banque centrale européenne du jour de chaque opération. Le calendrier fiscal et certaines fêtes ne valent qu'en France.")}

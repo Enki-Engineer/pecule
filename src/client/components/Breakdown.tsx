@@ -5,7 +5,7 @@ import { Donut } from "./Donut.tsx";
 import { Tile, categoryIcon } from "./Logo.tsx";
 import { openDrill } from "./DrillDrawer.tsx";
 import { cn } from "../cn.ts";
-import { money, monthLabel } from "../format.ts";
+import { money, periodLabel } from "../format.ts";
 import { useMedia } from "../useMedia.ts";
 import type { MonthStats } from "../api.ts";
 import { arcsOf, incomeParts, spendingParts, type Part } from "../../lib/breakdown.ts";
@@ -44,7 +44,7 @@ const share = (v: number, total: number) => {
 const ops = (n: number) => tn("{n} opération", "{n} opérations", n);
 
 function openPart(kind: BreakdownKind, month: string, p: Part) {
-  const sub = monthLabel(month);
+  const sub = periodLabel(month);
   if (p.unclassified) openDrill(td(p.label), kind === "depenses" ? { month, uncategorized: true, debits: true } : { month, uncategorized: true, credits: true }, sub);
   else if (p.poste) openDrill(td(p.label), { month, poste: p.poste }, sub);
   else if (p.category) openDrill(td(p.label), { month, category: p.category }, sub);
@@ -88,7 +88,7 @@ function PartRow({ kind, month, part, total, active, open, onActive, onToggle }:
             <button
               key={c.id ?? "none"}
               type="button"
-              onClick={() => openDrill(td(c.name), c.id ? { month, category: c.id } : { month, uncategorized: true, debits: true }, monthLabel(month))}
+              onClick={() => openDrill(td(c.name), c.id ? { month, category: c.id } : { month, uncategorized: true, debits: true }, periodLabel(month))}
               className="press flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-[13px]"
             >
               <span className="min-w-0 truncate">
@@ -123,7 +123,7 @@ export function Breakdown({ kind, data, byScreen = false }: { kind: BreakdownKin
   const ring = arcs.reduce((s, a) => s + a.value, 0);
   const shown = arcs.find((a) => a.key === active);
   const noun = kind === "depenses" ? t("Dépenses") : t("Revenus");
-  const summary = kind === "depenses" ? t("Dépenses de {mois} : {montant}.", { mois: monthLabel(month), montant: money(total, true) }) : t("Revenus de {mois} : {montant}.", { mois: monthLabel(month), montant: money(total, true) });
+  const summary = kind === "depenses" ? t("Dépenses de {mois} : {montant}.", { mois: periodLabel(month), montant: money(total, true) }) : t("Revenus de {mois} : {montant}.", { mois: periodLabel(month), montant: money(total, true) });
 
   const pick = (arc: string) => {
     const of = parts.filter((p) => p.arc === arc && p.total > 0);

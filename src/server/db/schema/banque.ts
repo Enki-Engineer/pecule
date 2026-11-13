@@ -68,7 +68,14 @@ export const transactions = mysqlTable(
     id: varchar("id", { length: 160 }).primaryKey(),
     fintaId: char("finta_id", { length: 36 }),
     accountId: varchar("account_id", { length: 64 }).notNull(),
+    /** Jour d'écriture de la banque (pour une carte à débit différé : le jour du prélèvement). */
     date: date("date", { mode: "string" }).notNull(),
+    /**
+     * Jour de l'achat, quand il diffère du jour d'écriture (achat par carte) : donné par la banque, sinon lu dans le
+     * libellé (« Carte 30 04 26 … »). Les statistiques le prennent quand le foyer compte ses achats au jour de l'achat
+     * (réglage `stats:date_basis`, appliqué par la vue `tx_lines`).
+     */
+    purchaseDate: date("purchase_date", { mode: "string" }),
     /** Montant dans la devise du foyer : c'est lui que lisent toutes les statistiques. */
     amount: decimal("amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
     /** Montant et devise d'origine quand le compte n'est pas dans la devise du foyer (NULL sinon) ; `amount` en est la conversion au cours du jour de l'opération. */
@@ -138,8 +145,28 @@ export const syncRuns = mysqlTable("sync_runs", {
 });
 
 /**
+ * Enseignes propres au foyer (commerce de quartier, artisan, association) : un nom, les mots qui la font reconnaître
+ * dans un libellé, et le site d'où vient son logo. Elles passent avant le référentiel commun (`src/lib/brands.ts`).
+ */
+export const customBrands = mysqlTable(
+  "custom_brands",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    name: varchar("name", { length: 80 }).notNull(),
+    /** Mots à retrouver dans le libellé, écrits comme `brandText` (minuscules, sans accents). */
+    pattern: varchar("pattern", { length: 120 }).notNull(),
+    /** Site officiel (domaine seul), pour le logo ; facultatif. */
+    domain: varchar("domain", { length: 120 }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("uq_custom_brands_pattern").on(t.pattern)],
+);
+
+/**
  * Lignes statistiques : une opération non ventilée = 1 ligne, une opération ventilée = ses lignes
- * de ventilation. Toutes les statistiques lisent cette vue (créée par la migration 006).
+ * de ventilation. Toutes les statistiques lisent cette vue (créée par la migration 006). Sa colonne `date` est le
+ * jour retenu pour les statistiques : le jour d'achat si le foyer l'a choisi (`stats:date_basis` = « achat » dans
+ * `app_kv`), sinon le jour d'écriture de la banque (migration 0028).
  */
 export const txLines = mysqlView("tx_lines", {
   id: varchar("id", { length: 160 }).notNull(),

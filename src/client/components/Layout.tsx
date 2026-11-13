@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AssistantChat } from "../screens.tsx";
 import { DemoBadge } from "./DemoBadge.tsx";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  CalendarCheck,
   ChevronLeft,
   ChevronRight,
   House,
@@ -21,13 +22,14 @@ import {
 } from "lucide-react";
 import { Spinner } from "./ui.tsx";
 import { cn } from "../cn.ts";
-import { api, useMe, useSync } from "../api.ts";
+import { api, useMe, useMonth, useSync } from "../api.ts";
 import { useTheme } from "../theme.ts";
 import { CommandPalette, openPalette } from "./CommandPalette.tsx";
 import { DrillDrawer } from "./DrillDrawer.tsx";
 import { InvoiceViewer } from "./InvoiceViewer.tsx";
 import { Shortcuts } from "./Shortcuts.tsx";
-import { shiftMonth, useCurrentCrumb, usePeriod, useRail, useScope } from "../shell.ts";
+import { currentPeriodMonth, monthOfPeriod, shiftMonth, useCurrentCrumb, usePeriod, useRail, useScope } from "../shell.ts";
+import { isYearPeriod, PERIOD_RE, shiftPeriod } from "../../lib/periods.ts";
 import { COUNT_LINKS, type Counts } from "../nav.ts";
 import { useModulesOff, useNav } from "../modules.ts";
 import { pathEnabled } from "../../lib/modules.ts";
@@ -39,7 +41,8 @@ import { FetchingBar } from "./FetchingBar.tsx";
 import { applyAppearance } from "../theme.ts";
 import { AppLogo } from "./AppLogo.tsx";
 import { useBirthdays } from "../birthdays.ts";
-import { locale, t, tn } from "../../lib/i18n.ts";
+import { periodLabel } from "../format.ts";
+import { t, tn } from "../../lib/i18n.ts";
 
 /*
  * Coquille de l'appli. Ordinateur (≥ 768 px) : menu latéral compact et repliable (⌘\\) avec compteurs,
@@ -320,6 +323,13 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
   const [scope, setScope] = useScope();
   const showPeriod = pathname.startsWith("/mois") || pathname.startsWith("/operations");
   const scoped = scopeApplies(pathname);
+  const scopeChoice = useMe().data?.user?.scopeChoice !== false;
+  // Sans choix à faire, on reste sur « Foyer » : un « Moi » gardé d'avant ne doit pas vider les écrans sans moyen d'en sortir.
+  useEffect(() => {
+    if (!scopeChoice && scope === "moi") setScope("foyer");
+  }, [scopeChoice, scope, setScope]);
+  // Libellés des boutons : seulement quand la barre a la place (elle perd 400 px quand le panneau de l'assistant est ouvert).
+  const label = panelOpen ? "hidden 2xl:inline" : "hidden xl:inline";
   async function refresh() {
     try {
       const r = await sync.mutateAsync();
@@ -332,11 +342,13 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
   const navigate = useNavigate();
   const canGoBack = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
   return (
-    <header className="sticky top-0 z-30 hidden h-[52px] items-center gap-3 border-b border-line bg-card/85 px-6 backdrop-blur-md md:flex">
-      <button type="button" onClick={() => navigate(-1)} disabled={!canGoBack} aria-label={t("Retour")} title={t("Retour")} className="-ml-2 grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-bg hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent">
+    <header className={cn("sticky top-0 z-30 hidden h-[52px] items-center border-b border-line bg-card/85 backdrop-blur-md md:flex", panelOpen ? "gap-2 px-4 2xl:gap-3 2xl:px-6" : "gap-2 px-4 xl:gap-3 xl:px-6")}>
+      <button type="button" onClick={() => navigate(-1)} disabled={!canGoBack} aria-label={t("Retour")} title={t("Retour")} className="-ml-2 hidden size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-bg hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent lg:grid">
         <ArrowLeft size={17} />
       </button>
-      <nav aria-label={t("Fil d'Ariane")} className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px]">
+      {/* Fil d'Ariane : il cède sa place aux réglages de période quand la barre est étroite (le menu dit déjà où l'on est). */}
+      {showPeriod && <div className={cn("min-w-0 flex-1", panelOpen ? "2xl:hidden" : "lg:hidden")} />}
+      <nav aria-label={t("Fil d'Ariane")} className={cn("min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-[13px]", showPeriod ? (panelOpen ? "hidden 2xl:flex" : "hidden lg:flex") : "flex")}>
         {crumbs.map((c, i) => {
           const last = i === crumbs.length - 1 && !current;
           return (
@@ -360,10 +372,12 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
         )}
       </nav>
       <DemoBadge className="py-1 text-[12px]" />
-      {showPeriod && <PeriodPicker operations={pathname.startsWith("/operations")} />}
-      {/* Foyer / Moi : grisé sur les écrans qui ne dépendent pas des comptes (le choix n'y changerait rien). */}
+      {showPeriod && <PeriodPicker operations={pathname.startsWith("/operations")} label={label} />}
+      {/* Foyer / Moi : grisé sur les écrans qui ne dépendent pas des comptes (le choix n'y changerait rien) ; absent quand
+          tous les comptes sont ceux du membre (« Moi » et « Foyer » diraient la même chose). */}
+      {scopeChoice && (
       <div
-        className={cn("flex rounded-md bg-bg p-0.5 text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--color-line)]", !scoped && "cursor-not-allowed opacity-45")}
+        className={cn("flex shrink-0 rounded-md bg-bg p-0.5 text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--color-line)]", !scoped && "cursor-not-allowed opacity-45")}
         title={scoped ? t("Foyer : tous les comptes · Moi : mes comptes, sans le compte commun") : t("Foyer / Moi : sans effet sur cet écran, qui ne dépend pas des comptes")}
       >
         {(["foyer", "moi"] as const).map((s) => (
@@ -379,80 +393,145 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
           </button>
         ))}
       </div>
-      <button type="button" onClick={openPalette} className="flex h-8 w-56 items-center gap-2 rounded-md bg-bg px-2.5 text-[13px] text-muted shadow-[inset_0_0_0_1px_var(--color-line)] hover:text-ink">
-        <Search size={14} />
-        <span className="flex-1 text-left">{t("Rechercher…")}</span>
-        <kbd className="text-[11px]">⌘K</kbd>
+      )}
+      {/* Recherche : le champ entier s'il y a la place, sinon la loupe seule (période affichée ou panneau de l'assistant ouvert). */}
+      <button
+        type="button"
+        onClick={openPalette}
+        title={t("Rechercher (⌘K)")}
+        aria-label={t("Rechercher…")}
+        className={cn(
+          "flex h-8 shrink-0 items-center gap-2 rounded-md bg-bg text-[13px] text-muted shadow-[inset_0_0_0_1px_var(--color-line)] hover:text-ink",
+          showPeriod || panelOpen ? "w-8 justify-center 2xl:w-48 2xl:justify-start 2xl:px-2.5" : "w-8 justify-center lg:w-56 lg:justify-start lg:px-2.5",
+          showPeriod && panelOpen && "2xl:w-8 2xl:justify-center 2xl:px-0",
+        )}
+      >
+        <Search size={14} className="shrink-0" />
+        <span className={cn("hidden flex-1 text-left", showPeriod || panelOpen ? (showPeriod && panelOpen ? "" : "2xl:block") : "lg:block")}>{t("Rechercher…")}</span>
+        <kbd className={cn("hidden text-[11px]", showPeriod || panelOpen ? (showPeriod && panelOpen ? "" : "2xl:block") : "lg:block")}>⌘K</kbd>
       </button>
-      <button type="button" onClick={refresh} disabled={sync.isPending} title={t("Synchroniser les banques")} className="grid size-8 place-items-center rounded-md text-muted hover:bg-bg hover:text-ink disabled:opacity-50">
+      <button type="button" onClick={refresh} disabled={sync.isPending} title={t("Synchroniser les banques")} className="grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-bg hover:text-ink disabled:opacity-50">
         <RefreshCw size={15} className={sync.isPending ? "animate-spin" : ""} />
       </button>
       <button
         type="button"
         onClick={onAssistant}
         title={t("Assistant (⌘J)")}
-        className={cn("flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium", panelOpen ? "bg-accent text-white" : "text-accent hover:bg-accent-soft")}
+        aria-label={t("Assistant")}
+        className={cn("flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium", panelOpen ? "bg-accent text-white" : "text-accent hover:bg-accent-soft")}
       >
-        <Sparkles size={14} /> {t("Assistant")}
+        <Sparkles size={14} /> <span className={label}>{t("Assistant")}</span>
       </button>
     </header>
   );
 }
 
-const monthLabelLong = (m: string) => new Date(`${m}-15T12:00:00`).toLocaleDateString(locale(), { month: "long", year: "numeric" });
-
 /**
- * Période : sur Analyse, le mois global (partagé, ⌥← / ⌥→) ; sur Opérations, le filtre « mois »
- * de l'adresse, avec « Toutes les dates ».
+ * Période. Sur Analyse : la période globale (partagée entre les écrans), un mois ou une année entière. Sur
+ * Opérations : le filtre « mois » de l'adresse (un mois, une année, ou « Toutes les dates »). Le sélecteur « Mois |
+ * Année » choisit le pas ; les flèches et ⌥← / ⌥→ avancent d'un pas ; « Aujourd'hui » ramène à la période en cours
+ * et n'apparaît que si l'on s'en est écarté.
  */
-function PeriodPicker({ operations }: { operations: boolean }) {
+function PeriodPicker({ operations, label }: { operations: boolean; label: string }) {
   const [global, setGlobal] = usePeriod();
   const [params, setParams] = useSearchParams();
-  const value = operations ? params.get("mois") : global;
-  const set = (m: string | null) => {
-    if (!operations) return m && setGlobal(m);
+  const raw = operations ? params.get("mois") : global;
+  const value = raw && PERIOD_RE.test(raw) ? raw : null;
+  const now = currentPeriodMonth();
+  const year = value ? isYearPeriod(value) : false;
+  const current = year ? now.slice(0, 4) : now;
+  // Mois qui portent des opérations (les plus récents d'abord) : ce sont eux, et leurs années, que l'on propose.
+  const known = useMonth(now).data?.months;
+  const months = useMemo(() => {
+    const recent = Array.from({ length: 36 }, (_, i) => shiftMonth(now, -i));
+    return [...new Set([...recent, ...(known ?? [])])].filter((m) => m <= now).sort((a, b) => b.localeCompare(a));
+  }, [known, now]);
+  const years = useMemo(() => [...new Set(months.map((m) => m.slice(0, 4)))], [months]);
+  const set = (p: string | null) => {
+    if (!operations) return p && setGlobal(p);
     const next = new URLSearchParams(params);
-    if (m) next.set("mois", m);
+    if (p) next.set("mois", p);
     else next.delete("mois");
     setParams(next, { replace: true });
   };
-  const now = new Date().toLocaleDateString("sv-SE").slice(0, 7);
-  const months = Array.from({ length: 36 }, (_, i) => shiftMonth(now, -i));
+  const setUnit = (toYear: boolean) => {
+    if (value && toYear === year) return;
+    set(toYear ? (value ?? now).slice(0, 4) : value ? monthOfPeriod(value) : now);
+  };
+  const step = (delta: number) => {
+    const next = shiftPeriod(value ?? current, delta);
+    if (next <= current) set(next);
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
       e.preventDefault();
-      const base = value ?? now;
-      const next = shiftMonth(base, e.key === "ArrowLeft" ? -1 : 1);
-      if (next <= now) set(next);
+      step(e.key === "ArrowLeft" ? -1 : 1);
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
     };
   });
+  const frame = "flex h-8 items-center rounded-md bg-bg text-[13px] shadow-[inset_0_0_0_1px_var(--color-line)]";
   return (
-    <div className="focus-frame flex h-8 items-center rounded-md bg-bg text-[13px] shadow-[inset_0_0_0_1px_var(--color-line)]" title={t("Période (⌥← / ⌥→)")}>
-      <button type="button" onClick={() => set(shiftMonth(value ?? now, -1))} className="grid h-full w-7 place-items-center text-muted hover:text-ink" aria-label={t("Mois précédent")}>
-        <ChevronLeft size={14} />
-      </button>
-      <select value={value ?? ""} onChange={(e) => set(e.target.value || null)} className="h-full bg-transparent px-1 font-medium capitalize outline-none" aria-label={t("Période")}>
-        {operations && <option value="">{t("Toutes les dates")}</option>}
-        {months.map((m) => (
-          <option key={m} value={m}>
-            {monthLabelLong(m)}
-          </option>
+    <div className="flex shrink-0 items-center gap-1.5">
+      <div className={cn(frame, "hidden p-0.5 text-[12.5px] font-medium lg:flex")} role="group" aria-label={t("Pas de la période")}>
+        {([false, true] as const).map((y) => (
+          <button
+            key={String(y)}
+            type="button"
+            onClick={() => setUnit(y)}
+            aria-pressed={!!value && year === y}
+            title={y ? t("Une année entière") : t("Un mois")}
+            className={cn("h-full rounded px-2", value && year === y ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-line)]" : "text-muted hover:text-ink")}
+          >
+            {y ? t("Année") : t("Mois##pas")}
+          </button>
         ))}
-      </select>
-      <button
-        type="button"
-        onClick={() => value && value < now && set(shiftMonth(value, 1))}
-        disabled={!value || value >= now}
-        className="grid h-full w-7 place-items-center text-muted hover:text-ink disabled:opacity-30"
-        aria-label={t("Mois suivant")}
-      >
-        <ChevronRight size={14} />
-      </button>
+      </div>
+      <div className={cn(frame, "focus-frame")} title={t("Période (⌥← / ⌥→)")}>
+        <button type="button" onClick={() => step(-1)} className="grid h-full w-7 place-items-center text-muted hover:text-ink" aria-label={year ? t("Année précédente") : t("Mois précédent")}>
+          <ChevronLeft size={14} />
+        </button>
+        <select value={value ?? ""} onChange={(e) => set(e.target.value || null)} className="h-full bg-transparent px-1 font-medium outline-none" aria-label={t("Période")}>
+          {operations && <option value="">{t("Toutes les dates")}</option>}
+          {/* Les années entières d'abord, puis les mois : le sélecteur suffit quand « Mois | Année » manque de place. */}
+          <optgroup label={t("Années entières")}>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </optgroup>
+          {!year &&
+            years.map((y) => (
+              <optgroup key={y} label={y}>
+                {months
+                  .filter((m) => m.startsWith(y))
+                  .map((m) => (
+                    <option key={m} value={m}>
+                      {periodLabel(m)}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
+        </select>
+        <button type="button" onClick={() => step(1)} disabled={!value || value >= current} className="grid h-full w-7 place-items-center text-muted hover:text-ink disabled:opacity-30" aria-label={year ? t("Année suivante") : t("Mois suivant")}>
+          <ChevronRight size={14} />
+        </button>
+      </div>
+      {value && value !== current && (
+        <button
+          type="button"
+          onClick={() => set(current)}
+          title={year ? t("Revenir à l'année en cours") : t("Revenir au mois en cours")}
+          aria-label={t("Aujourd'hui")}
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12.5px] font-medium text-accent hover:bg-accent-soft"
+        >
+          <CalendarCheck size={15} /> <span className={label}>{t("Aujourd'hui")}</span>
+        </button>
+      )}
     </div>
   );
 }

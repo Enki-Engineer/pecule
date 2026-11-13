@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IS_EXPENSE, LINE_KIND } from "../stats.ts";
+import { IS_EXPENSE, LINE_KIND, STAT_DATE_JOIN, statDate } from "../stats.ts";
 import { one, q } from "../db.ts";
 import { setTransactionCategory, setTransactionNote, userAccountsSql } from "../actions.ts";
 import { syncBanks } from "../bank-sync.ts";
@@ -99,9 +99,11 @@ const searchTransactions = readTool({
     // Compte demandé nommément : on y cherche même s'il est hors statistiques (comme l'écran des opérations).
     const where = [f.account_id ? "t.status IN ('posted', 'pending')" : SCOPE];
     const params: unknown[] = [];
-    if (f.month) where.push("t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH)"), params.push(`${f.month}-01`, `${f.month}-01`);
-    if (f.date_from) where.push("t.date >= ?"), params.push(f.date_from);
-    if (f.date_to) where.push("t.date <= ?"), params.push(f.date_to);
+    // Jour retenu : celui des écrans (jour d'achat ou d'écriture, selon le foyer), pour que les mêmes dates donnent les mêmes opérations.
+    const day = statDate("t");
+    if (f.month) where.push(`${day} >= ? AND ${day} < DATE_ADD(?, INTERVAL 1 MONTH)`), params.push(`${f.month}-01`, `${f.month}-01`);
+    if (f.date_from) where.push(`${day} >= ?`), params.push(f.date_from);
+    if (f.date_to) where.push(`${day} <= ?`), params.push(f.date_to);
     if (f.category_id) where.push("t.category_id = ?"), params.push(f.category_id);
     if (f.uncategorized) where.push("t.category_id IS NULL");
     if (f.account_id) where.push("t.account_id = ?"), params.push(f.account_id);
@@ -111,15 +113,15 @@ const searchTransactions = readTool({
     if (f.nature) where.push(`${natureSql("t")} = ?`), params.push(f.nature);
     const A = userAccountsSql(userId);
     const total = await one<{ n: number; s: number | null }>(
-      `SELECT COUNT(*) AS n, SUM(t.amount) AS s FROM transactions t JOIN ${A} a ON a.id = t.account_id WHERE ${where.join(" AND ")}`,
+      `SELECT COUNT(*) AS n, SUM(t.amount) AS s FROM transactions t JOIN ${A} a ON a.id = t.account_id ${STAT_DATE_JOIN} WHERE ${where.join(" AND ")}`,
       params,
     );
-    const order = { date_desc: "t.date DESC, t.id", date_asc: "t.date, t.id", amount_asc: "t.amount, t.date DESC", amount_desc: "t.amount DESC, t.date DESC" }[f.sort ?? "date_desc"];
+    const order = { date_desc: `${day} DESC, t.id`, date_asc: `${day}, t.id`, amount_asc: `t.amount, ${day} DESC`, amount_desc: `t.amount DESC, ${day} DESC` }[f.sort ?? "date_desc"];
     const rows = await q<{ id: string; invoice_count: number } & Record<string, unknown>>(
-      `SELECT t.id, t.date, t.amount, t.label, t.merchant, t.bank_label, t.category_id, c.name AS category, ${natureSql("t")} AS nature,
+      `SELECT t.id, ${day} AS date, IF(t.date <> ${day}, t.date, NULL) AS debit_date, t.amount, t.label, t.merchant, t.bank_label, t.category_id, c.name AS category, ${natureSql("t")} AS nature,
               COALESCE(a.display_name, a.name) AS account, t.note,
               (SELECT COUNT(*) FROM invoice_transactions it WHERE it.transaction_id = t.id) AS invoice_count
-       FROM transactions t JOIN ${A} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
+       FROM transactions t JOIN ${A} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id ${STAT_DATE_JOIN}
        WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ?`,
       [...params, f.limit ?? 40],
     );

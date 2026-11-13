@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { purchaseDay, reconcile, summarize, type RecTx } from "./bank-reconcile.ts";
+import { purchaseDateFor, purchaseDay, reconcile, summarize, type RecTx } from "./bank-reconcile.ts";
 
 const tx = (id: string, date: string, amount: number, label: string, status = "posted"): RecTx => ({ id, date, amount, label, status });
 
@@ -54,5 +54,18 @@ describe("reconcile", () => {
     expect(reconcile(incoming, existing).pairs[0].existing.id).toBe("bon");
     expect(summarize(reconcile(incoming, existing))).toEqual({ same: 1, shifted: 0, onlyIncoming: 0, onlyExisting: 0 });
     expect(reconcile(incoming, [existing[0]]).pairs[0].existing.id).toBe("dup");
+  });
+});
+
+describe("purchaseDateFor", () => {
+  it("garde le jour d'achat du libellé quand il précède l'écriture de peu", () => {
+    expect(purchaseDateFor("Carte 29 10 26 Boulangerie Du Port", "2026-12-01")).toBe("2026-10-29");
+    expect(purchaseDateFor("Carte 30 12 25 Librairie", "2026-01-02")).toBe("2025-12-30");
+    expect(purchaseDateFor("Avoir 03 11 26 Librairie", "2026-11-05")).toBe("2026-11-03");
+  });
+  it("écarte un jour postérieur à l'écriture, trop ancien, ou un libellé sans jour d'achat", () => {
+    expect(purchaseDateFor("Carte 05 11 26 Librairie", "2026-11-02")).toBeNull();
+    expect(purchaseDateFor("Carte 05 03 26 Librairie", "2026-11-02")).toBeNull();
+    expect(purchaseDateFor("Prlv Sepa Energie", "2026-11-02")).toBeNull();
   });
 });

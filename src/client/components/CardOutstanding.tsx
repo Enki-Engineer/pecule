@@ -13,6 +13,14 @@ export const useCardOutstanding = () => {
   return useQuery({ queryKey: ["bank", "cards"], queryFn: () => api<{ cards: CardRow[] }>("/bank/cards"), enabled: !demo, staleTime: 10 * 60_000 });
 };
 
+/** Total de l'encours, toutes cartes confondues : ce qui sortira des comptes à la prochaine échéance (négatif), et quand. */
+export function useOutstandingTotal(): { total: number; debitDate: string | null; count: number } | null {
+  const cards = useCardOutstanding().data?.cards ?? [];
+  if (!cards.length) return null;
+  const dates = cards.map((c) => c.outstanding.debitDate).filter((d): d is string => !!d).sort();
+  return { total: Math.round(cards.reduce((s, c) => s + c.outstanding.amount, 0) * 100) / 100, debitDate: dates[0] ?? null, count: cards.reduce((s, c) => s + c.outstanding.count, 0) };
+}
+
 function Rows({ cards }: { cards: CardRow[] }) {
   return (
     <>

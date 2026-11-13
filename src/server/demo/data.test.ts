@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { getTableColumns, getTableName } from "drizzle-orm";
 import * as schema from "../db/schema/index.ts";
-import { brandOf } from "../../lib/brands.ts";
+import { brandOf, brandText, customMatcher, customPattern } from "../../lib/brands.ts";
 import { autoMatch } from "../../lib/invoices.ts";
 import { labelKey } from "../../lib/labels.ts";
 import { natureOf } from "../../lib/nature.ts";
@@ -191,6 +191,18 @@ describe("données de démo", () => {
     expect(branded.reduce((s, t) => s + t.amount, 0) / cards.reduce((s, t) => s + t.amount, 0)).toBeGreaterThan(0.5);
     for (const name of ["Carrefour", "Netflix", "EDF", "Free", "Amazon", "SNCF", "Deliveroo", "IKEA", "Vinci Autoroutes", "Decathlon"])
       expect(d.transactions.some((t) => brandOf(t.merchant, t.label)?.name === name), name).toBe(true);
+  });
+
+  it("donnent au foyer des enseignes de quartier qui retrouvent leurs opérations", () => {
+    expect(d.customBrands.length).toBeGreaterThan(0);
+    for (const b of d.customBrands) {
+      // Motif gardé tel quel (déjà écrit comme un libellé), inconnu du référentiel commun, et reconnu dans des opérations.
+      expect(customPattern(b.pattern), b.name).toBe(b.pattern);
+      const match = customMatcher(b.pattern)!;
+      const hits = d.transactions.filter((t) => match.test(brandText(t.label)));
+      expect(hits.length, b.name).toBeGreaterThan(0);
+      for (const t of hits) expect(brandOf(t.merchant, t.label), t.label).toBeNull();
+    }
   });
 
   it("gardent des règles et des engagements qui retrouvent leurs opérations", () => {

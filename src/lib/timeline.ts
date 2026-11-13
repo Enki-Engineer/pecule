@@ -1,15 +1,18 @@
 import { SPEND_NATURES } from "./nature.ts";
 
 /*
- * Frise du mois (Analyse → Frise) : règles pures. Chaque opération tombe dans un couloir (ce qui entre, ce qui sort
- * par moyen de paiement, ce qui part en épargne), sa taille dit son montant, et les opérations d'un même jour
- * s'empilent autour de l'axe du couloir. Le cumul suit la définition du « Reste du mois » : entrées − sorties − épargne.
+ * Frise (Analyse → Frise) : règles pures. Chaque opération tombe dans un couloir (ce qui entre, ce qui sort par
+ * moyen de paiement, ce qui part en épargne), sa taille dit son montant, et les opérations d'un même rang (un jour
+ * du mois, ou un mois de l'année) s'empilent autour de l'axe du couloir. Le cumul suit la définition du « Reste du
+ * mois » : entrées − sorties − épargne.
  */
 
 export type TimelinePoint = {
   id: string;
+  /** Jour retenu pour les statistiques (jour d'achat ou d'écriture, selon le foyer). */
   date: string;
-  day: number;
+  /** Rang dans la période affichée : le jour pour un mois, le mois pour une année. */
+  slot: number;
   /** Montant signé : positif quand l'argent entre. */
   amount: number;
   kind: "depense" | "revenu" | "epargne";
@@ -17,6 +20,10 @@ export type TimelinePoint = {
   name: string;
   category: string | null;
   poste: string | null;
+  /** Jour d'écriture de la banque, quand il diffère du jour retenu. */
+  booked?: string;
+  /** Achat par carte annoncé par la banque mais pas encore prélevé. */
+  pending?: boolean;
 };
 
 export type Lane = "entrees" | (typeof SPEND_NATURES)[number] | "epargne";
@@ -58,12 +65,12 @@ export function stackOffsets(radii: number[], gap = 2): { offsets: number[]; ext
   return { offsets, extent: Math.max(up, down) };
 }
 
-/** Reste du mois au soir de chaque jour (indice 0 = le 1er) ; null après `upTo` (jours à venir du mois en cours). */
-export function cumulativeNet(points: Pick<TimelinePoint, "day" | "amount">[], days: number, upTo = days): (number | null)[] {
-  const byDay = new Array<number>(days).fill(0);
-  for (const p of points) if (p.day >= 1 && p.day <= days) byDay[p.day - 1] += p.amount;
+/** Reste de la période à la fin de chaque rang (indice 0 = le premier jour, ou janvier) ; null après `upTo` (rangs à venir de la période en cours). */
+export function cumulativeNet(points: Pick<TimelinePoint, "slot" | "amount">[], slots: number, upTo = slots): (number | null)[] {
+  const bySlot = new Array<number>(slots).fill(0);
+  for (const p of points) if (p.slot >= 1 && p.slot <= slots) bySlot[p.slot - 1] += p.amount;
   let sum = 0;
-  return byDay.map((v, i) => {
+  return bySlot.map((v, i) => {
     sum += v;
     return i < upTo ? Math.round(sum * 100) / 100 : null;
   });

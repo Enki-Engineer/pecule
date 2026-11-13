@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0027_evenement_crypto_valeur.sql
+-- inclut-jusqu-a: drizzle/0028_jour_achat_enseignes.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -355,6 +355,16 @@ CREATE TABLE `crypto_sync_runs` (
   `error` text DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- § table custom_brands
+CREATE TABLE `custom_brands` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(80) NOT NULL,
+  `pattern` varchar(120) NOT NULL,
+  `domain` varchar(120) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_custom_brands_pattern` (`pattern`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 -- § table data_translations
 CREATE TABLE `data_translations` (
   `source` varchar(191) NOT NULL,
@@ -934,6 +944,7 @@ CREATE TABLE `transactions` (
   `bank_ref` varchar(160) DEFAULT NULL,
   `original_amount` decimal(14,2) DEFAULT NULL,
   `original_currency` char(3) DEFAULT NULL,
+  `purchase_date` date DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_tx_finta` (`finta_id`),
   UNIQUE KEY `uq_tx_bank_ref` (`bank_ref`),
@@ -980,4 +991,4 @@ CREATE TABLE `wealth_snapshots` (
   CONSTRAINT `fk_snap_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § vue tx_lines
-CREATE OR REPLACE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `tx_lines` AS select `t`.`id` AS `id`,`t`.`account_id` AS `account_id`,`t`.`date` AS `date`,`t`.`amount` AS `amount`,`t`.`category_id` AS `category_id`,`t`.`status` AS `status`,0 AS `split_id` from `transactions` `t` where !exists(select 1 from `transaction_splits` `s` where `s`.`transaction_id` = `t`.`id` limit 1) union all select `t`.`id` AS `id`,`t`.`account_id` AS `account_id`,`t`.`date` AS `date`,`s`.`amount` AS `amount`,`s`.`category_id` AS `category_id`,`t`.`status` AS `status`,`s`.`id` AS `split_id` from (`transaction_splits` `s` join `transactions` `t` on(`t`.`id` = `s`.`transaction_id`));
+CREATE OR REPLACE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `tx_lines` AS select `t`.`id` AS `id`,`t`.`account_id` AS `account_id`,if(`k`.`value` = 'achat',coalesce(`t`.`purchase_date`,`t`.`date`),`t`.`date`) AS `date`,`t`.`amount` AS `amount`,`t`.`category_id` AS `category_id`,`t`.`status` AS `status`,0 AS `split_id` from (`transactions` `t` left join `app_kv` `k` on(`k`.`key` = 'stats:date_basis')) where !exists(select 1 from `transaction_splits` `s` where `s`.`transaction_id` = `t`.`id` limit 1) union all select `t`.`id` AS `id`,`t`.`account_id` AS `account_id`,if(`k`.`value` = 'achat',coalesce(`t`.`purchase_date`,`t`.`date`),`t`.`date`) AS `date`,`s`.`amount` AS `amount`,`s`.`category_id` AS `category_id`,`t`.`status` AS `status`,`s`.`id` AS `split_id` from ((`transaction_splits` `s` join `transactions` `t` on(`t`.`id` = `s`.`transaction_id`)) left join `app_kv` `k` on(`k`.`key` = 'stats:date_basis'));

@@ -3,7 +3,8 @@ import { exec, q } from "./db.ts";
 import { guessCategory } from "./guess.ts";
 import { bankCounterparty, matchBankRows, nameAddsInfo, parseBoursoCsv, shapeIsSpecific } from "../lib/bourso.ts";
 import { t as tr } from "../lib/i18n.ts";
-import { labelKey } from "../lib/labels.ts";
+import { bankHeadline, labelKey } from "../lib/labels.ts";
+import { brandOf } from "../lib/brands.ts";
 import { labelShape } from "../lib/nature.ts";
 
 /*
@@ -76,7 +77,8 @@ export async function importBankLabels(csv: string): Promise<BankImportResult> {
   for (const m of matches) {
     const t = byId.get(m.txId)!;
     const label = m.row.label.slice(0, 255);
-    if (t.bank_label !== label) {
+    // Un libellé déjà plus riche (lu ligne par ligne chez la banque, avec le texte du créancier) n'est pas remplacé par son seul intitulé.
+    if (t.bank_label !== label && !t.bank_label?.includes("\n")) {
       await exec("UPDATE transactions SET bank_label = ? WHERE id = ?", [label, t.id]);
       out.labelled++;
     }
@@ -89,6 +91,28 @@ export async function importBankLabels(csv: string): Promise<BankImportResult> {
   const spread = await nameFromBankLabels();
   out.propagated = spread.named;
   out.categorized += spread.categorized;
+  return out;
+}
+
+/**
+ * Nomme les opérations sans nom d'après l'intitulé de leur libellé de banque (« PRLV SEPA CRÉANCIER » → le créancier,
+ * sous le nom de sa marque quand elle est connue) : ce que fait l'import d'un export de la banque, mais sans export,
+ * dès qu'une source donne le libellé (Enable Banking). Seulement quand le nom dit ce que le libellé de l'opération
+ * ne dit pas (un code de créancier) ; un nom déjà posé n'est jamais remplacé.
+ */
+export async function nameFromBankHeadlines(): Promise<{ named: number; categorized: number }> {
+  const todo = await q<{ id: string; label: string; bank_label: string; category_id: string | null }>(
+    `SELECT id, label, bank_label, category_id FROM transactions
+     WHERE ${NAMELESS} AND status <> 'deleted' AND (bank_label LIKE 'PRLV SEPA %' OR bank_label LIKE 'VIR SEPA %' OR bank_label LIKE 'VIR INST %')`,
+  );
+  const out = { named: 0, categorized: 0 };
+  for (const t of todo) {
+    const raw = bankCounterparty(bankHeadline(t.bank_label));
+    if (!raw || !nameAddsInfo(t.label, raw)) continue;
+    const r = await nameTransaction(t, brandOf(raw)?.name ?? raw);
+    if (r.named) out.named++;
+    if (r.categorized) out.categorized++;
+  }
   return out;
 }
 

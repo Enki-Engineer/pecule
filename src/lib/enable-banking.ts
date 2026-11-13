@@ -80,7 +80,28 @@ export function ebBalance(kind: AccountKind, balances: EbBalance[]): { balance: 
   return null;
 }
 
-/** Libellé sans les séparateurs de la banque (« ENSEIGNE\VILLE\    FR » → « ENSEIGNE VILLE FR »). */
+/** Lignes du libellé telles que la banque les donne, sans ses séparateurs (« ENSEIGNE\VILLE\    FR » → « ENSEIGNE VILLE FR ») ni lignes vides. */
+const ebLines = (t: Pick<EbTransaction, "remittance_information">) =>
+  (t.remittance_information ?? []).map((l) => l.replace(/\\/g, " ").replace(/\s+/g, " ").trim()).filter(Boolean);
+
+/**
+ * Libellé de la banque gardé sur l'opération (`bank_label`) : une ligne par élément — l'intitulé de la banque d'abord
+ * (« PRLV SEPA CRÉANCIER »), puis le texte du créancier (« Votre abonnement mobile… ») et les références.
+ */
+export const ebBankLabel = (t: Pick<EbTransaction, "remittance_information">) => ebLines(t).join("\n").slice(0, 255);
+
+/**
+ * Intitulé de l'opération : la première ligne (« PRLV SEPA CRÉANCIER », « CARTE 05/11/26 ENSEIGNE »), la même d'un mois
+ * à l'autre, sans les références qui changent. Un virement à l'intitulé générique de la banque (« VIR Virement depuis
+ * … ») est complété par la ligne suivante, qui nomme l'autre partie.
+ */
+export function ebHeadline(t: Pick<EbTransaction, "remittance_information">): string {
+  const [first = "", second] = ebLines(t);
+  const generic = /^VIR\s+Virement\s+(de|depuis|vers|pour)\b/i.test(first) && !!second && /\p{L}{2}/u.test(second) && !/\d{4}/.test(second);
+  return (generic ? `${first} ${second}` : first).slice(0, 255);
+}
+
+/** Libellé entier sur une ligne : sert à reconnaître une opération d'une lecture à l'autre (ne pas en changer la forme). */
 export const ebLabel = (t: Pick<EbTransaction, "remittance_information">) =>
   (t.remittance_information ?? [])
     .join(" ")
@@ -99,7 +120,12 @@ export type EbMapped = {
   amount: number;
   /** Devise du montant, telle que la banque l'écrit (null si elle ne la donne pas). */
   currency: string | null;
+  /** Libellé entier sur une ligne : sert au rapprochement et à la référence de secours, jamais à l'affichage. */
   label: string;
+  /** Intitulé de l'opération (première ligne du libellé) : c'est lui que Pécule écrit comme libellé. */
+  headline: string;
+  /** Libellé de la banque, ligne par ligne (intitulé, texte du créancier, références). */
+  bankLabel: string | null;
   /** `pending` : écrite d'avance par la banque (achat d'une carte à débit différé pas encore prélevé). */
   status: "posted" | "pending";
 };
@@ -117,10 +143,13 @@ export function ebTransaction(t: EbTransaction): EbMapped | null {
   return {
     reference: t.entry_reference?.trim() || null,
     date: t.booking_date,
-    purchaseDate: t.transaction_date && t.transaction_date !== t.booking_date ? t.transaction_date : null,
+    // Jour de l'achat ou de l'ordre : seulement s'il précède l'écriture (une date postérieure n'en est pas un).
+    purchaseDate: t.transaction_date && t.transaction_date < t.booking_date ? t.transaction_date : null,
     amount: Math.round(amount * 100) / 100,
     currency: isoCurrency(t.transaction_amount.currency),
     label: ebLabel(t) || "(sans libellé)",
+    headline: ebHeadline(t) || "(sans libellé)",
+    bankLabel: ebBankLabel(t) || null,
     status: t.status === "BOOK" ? "posted" : "pending",
   };
 }

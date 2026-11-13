@@ -80,6 +80,8 @@ export function displayLabel(label: string): string {
   const s = label
     .replace(/^(Carte|Avoir)\s+\d{2}\s\d{2}\s\d{2,4}\s+/i, "")
     .replace(/^Prlv Sepa\s+/i, "")
+    // « Vir Virement depuis … » (intitulé générique de la banque) : un seul « Virement ».
+    .replace(/^Vir\s+(?=Virement\s)/i, "")
     .replace(/^Vir(\s+Inst|\s+Sepa)?\s+/i, "Virement ")
     .replace(/\s+Cb\s*\d{4}$/i, "")
     .trim();
@@ -93,15 +95,54 @@ export function isCodeLabel(label: string): boolean {
   return s.length > 0 && (/^\d{4,}/.test(s) || digits / s.length > 0.6);
 }
 
-/** Libellé de la banque (export BoursoBank, en capitales) tel qu'on l'affiche : sans préfixe SEPA ni date de carte. */
+/** Intitulé d'un libellé de banque : sa première ligne (les suivantes portent le texte du créancier et les références). */
+export const bankHeadline = (label: string): string => label.split("\n")[0].trim();
+
+/** Libellé de la banque (en capitales) tel qu'on l'affiche : son intitulé, sans préfixe SEPA ni date de carte. */
 export function displayBankLabel(label: string): string {
-  const s = label
+  const s = bankHeadline(label)
     .replace(/^(CARTE|AVOIR)\s+\d{2}\/\d{2}\/\d{2,4}\s+/i, "")
     .replace(/^PRLV SEPA\s+/i, "")
+    .replace(/^VIR\s+(?=Virement\s)/i, "")
     .replace(/^VIR(\s+INST|\s+SEPA)?\s+/i, "Virement ")
     .trim();
   const cased = s === s.toUpperCase() || /^Virement [^a-z]+$/.test(s) ? s.toLowerCase().replace(/(^|[\s\-'.(/])\p{L}/gu, (c) => c.toUpperCase()) : s;
   return cased || label;
+}
+
+/**
+ * Ce que le créancier ou le donneur d'ordre a écrit (« Solde impôt revenus 2025 », « Votre abonnement mobile »),
+ * lu dans les lignes qui suivent l'intitulé d'un libellé de banque : sans les références (mandat, numéros de
+ * contrat, identifiants), qui ne disent rien à la lecture. Null s'il ne reste aucun mot.
+ */
+export function bankMotif(label: string | null | undefined): string | null {
+  const lines = (label ?? "")
+    .split("\n")
+    .slice(1)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  let text = "";
+  let previous = "";
+  for (const line of lines) {
+    if (/^(RUM|R[ée]f\.?|REF)(\s|:|$)/i.test(line)) continue;
+    // La banque coupe un texte long en lignes de 40 caractères : un mot coupé se recolle.
+    const cut = previous.length >= 40 && /\p{Ll}$/u.test(previous) && /^\p{Ll}/u.test(line);
+    text += (text && !cut ? " " : "") + line;
+    previous = line;
+  }
+  const words = text
+    .replace(/[-_/()]+/g, " ")
+    .split(/\s+/)
+    // Un numéro (4 chiffres ou plus dans le mot) est une référence, sauf une année.
+    .filter((w) => w && ((w.match(/\d/g) ?? []).length < 4 || /^(19|20)\d{2}$/.test(w)));
+  const out = words
+    .join(" ")
+    .replace(/\s+([:;,.])/g, "$1")
+    .replace(/^[\s:;,.*]+|[\s:;,.*]+$/g, "");
+  if (!/\p{L}{3}/u.test(out)) return null;
+  // Tout en capitales : une seule majuscule, comme une phrase.
+  const cased = out === out.toUpperCase() ? out.charAt(0) + out.slice(1).toLowerCase() : out;
+  return cased.slice(0, 140);
 }
 
 /** Titre d'une opération : marchand, sinon libellé nettoyé ; pour un libellé codé, le libellé de la banque, sinon la catégorie ou le code. */

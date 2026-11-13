@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountShare, assetValue, valueCrypto } from "./wealth.ts";
+import { accountShare, assetValue, historyRangeStart, historyRangeUseful, valueCrypto } from "./wealth.ts";
 import { cumulative, monthTotals } from "./month.ts";
 
 describe("assetValue", () => {
@@ -57,5 +57,27 @@ describe("monthTotals / cumulative", () => {
   });
   it("cumule jour par jour, jours sans opération compris", () => {
     expect(cumulative([{ day: 1, total: 10.4 }, { day: 3, total: 5 }], 4)).toEqual([10, 10, 15, 15]);
+  });
+});
+
+describe("durées de la courbe d'évolution", () => {
+  const DAY = 86_400_000;
+  const now = Date.UTC(2026, 10, 13, 12);
+  it("fait commencer chaque durée à son nombre de jours, et « tout » au début", () => {
+    expect(historyRangeStart("tout", now)).toBe(0);
+    expect(historyRangeStart("1m", now)).toBe(now - 31 * DAY);
+    expect(historyRangeStart("6m", now)).toBe(now - 183 * DAY);
+  });
+  it("ne propose une durée que si l'historique remonte plus loin qu'elle", () => {
+    const first = now - 82 * DAY; // un historique de 82 jours
+    expect(historyRangeUseful("1m", first, now)).toBe(true);
+    expect(historyRangeUseful("3m", first, now)).toBe(false);
+    expect(historyRangeUseful("6m", first, now)).toBe(false);
+    expect(historyRangeUseful("tout", first, now)).toBe(true);
+  });
+  it("garde « tout » sans aucun point, et refuse le reste", () => {
+    expect(historyRangeUseful("tout", null, now)).toBe(true);
+    expect(historyRangeUseful("1m", null, now)).toBe(false);
+    expect(historyRangeUseful("1m", undefined, now)).toBe(false);
   });
 });

@@ -20,6 +20,8 @@ import { demoEnabled, exec, one, q } from "./db.ts";
 import { adminMember, listMembers } from "./members.ts";
 import { ensureDemoReady } from "./demo.ts";
 import { setMemberLang, storedLang } from "./lang.ts";
+import { runDemo, runReal } from "./demo-context.ts";
+import { dateBasis } from "./stat-dates.ts";
 import { LANG_IDS, t as tr } from "../lib/i18n.ts";
 
 const SESSION_COOKIE = "pecule_session";
@@ -198,6 +200,17 @@ async function takeChallenge(req: Request, res: Response, purpose: string) {
   return row ?? null;
 }
 
+/** Ce qui règle les écrans d'un membre et dépend de sa base : le jour retenu pour les statistiques, et l'intérêt du choix Foyer / Moi. */
+async function memberView(userId: number) {
+  const [basis, counts] = await Promise.all([
+    dateBasis(),
+    // « Moi » = les comptes à son nom. Le choix n'a de sens que s'il en a, et s'il n'a pas que ceux-là.
+    one<{ total: number; mine: number }>("SELECT COUNT(*) AS total, COALESCE(SUM(a.owner = (SELECT LOWER(u.name) FROM users u WHERE u.id = ?)), 0) AS mine FROM accounts a", [userId]),
+  ]);
+  const mine = Number(counts?.mine ?? 0);
+  return { dateBasis: basis, scopeChoice: mine > 0 && mine < Number(counts?.total ?? 0) };
+}
+
 const limiter = rateLimit({ windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
 
 export const authRouter = Router();
@@ -211,7 +224,10 @@ authRouter.get("/me", async (req, res) => {
   // region : pays, devise et fuseau du foyer (l'écran met en forme les montants dans cette devise).
   // modulesOff : écrans facultatifs retirés par le foyer (la démo les montre tous).
   const modulesOff = req.user && !req.user.demo ? (await householdSettings().catch(() => null))?.modulesOff ?? [] : [];
-  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, language, modulesOff, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true } : {}) });
+  // dateBasis : jour retenu pour les statistiques (jour d'achat ou d'écriture) ; scopeChoice : « Moi » montre-t-il autre
+  // chose que « Foyer » pour ce membre (sinon l'écran ne propose pas le choix). Lus dans la base du membre (démo comprise).
+  const view = req.user ? await (req.user.demo ? runDemo : runReal)(() => memberView(req.user!.id)).catch(() => null) : null;
+  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true } : {}) });
 });
 
 /**

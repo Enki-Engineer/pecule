@@ -116,9 +116,10 @@ documentsApi.delete("/documents/:id", async (req, res) => {
 /* ---------- Échéancier ---------- */
 
 documentsApi.get("/agenda", async (req, res) => {
-  const f = z.object({ from: day.optional(), to: day.optional(), done: z.enum(["0", "1"]).optional() }).parse(req.query);
+  // `faits` (écran Échéancier) : joint les tâches cochées depuis moins de N jours, pour pouvoir les remettre à faire.
+  const f = z.object({ from: day.optional(), to: day.optional(), done: z.enum(["0", "1"]).optional(), faits: z.coerce.number().int().min(1).max(365).optional() }).parse(req.query);
   const from = f.from ?? today();
-  res.json({ from, to: f.to ?? plusDays(from, 365), entries: await agenda(req.user!.id, from, f.to ?? plusDays(from, 365), { includeDone: f.done === "1" }) });
+  res.json({ from, to: f.to ?? plusDays(from, 365), entries: await agenda(req.user!.id, from, f.to ?? plusDays(from, 365), { includeDone: f.done === "1", recentDone: f.faits }) });
 });
 
 const task = z.object({

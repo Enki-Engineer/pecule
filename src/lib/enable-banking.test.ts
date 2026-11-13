@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ebAccountKind, ebAccountTail, ebBalance, ebCardOutstanding, ebDeferredCard, ebHolding, ebLabel, ebTransaction, type EbBalance, type EbTransaction } from "./enable-banking.ts";
+import { ebAccountKind, ebAccountTail, ebBalance, ebBankLabel, ebCardOutstanding, ebDeferredCard, ebHeadline, ebHolding, ebLabel, ebTransaction, type EbBalance, type EbTransaction } from "./enable-banking.ts";
 
 const bal = (type: string, amount: string, date = "2026-11-12"): EbBalance => ({ balance_type: type, balance_amount: { amount, currency: "EUR" }, reference_date: date });
 const tx = (status: string, amount: string, booking: string | null, purchase: string, label: string, ref = "1234567890"): EbTransaction => ({
@@ -54,6 +54,8 @@ describe("opérations", () => {
       amount: -19.32,
       currency: "EUR",
       label: "CARTE 26/10/26 BOULANGERIE DU PORT",
+      headline: "CARTE 26/10/26 BOULANGERIE DU PORT",
+      bankLabel: "CARTE 26/10/26 BOULANGERIE DU PORT",
       status: "posted",
     });
   });
@@ -90,3 +92,24 @@ describe("encours d'une carte à débit différé", () => {
     expect(ebCardOutstanding([bal("CLBD", "0")], [txs[3]])).toBeNull();
   });
 });
+
+describe("libellé en plusieurs lignes", () => {
+  const debit = { remittance_information: ["PRLV SEPA ENERGIE DE L'OUEST", "Votre contrat electricite", "00000N1111111111111111", "RUM ABCD012345678"] };
+  it("garde chaque ligne pour le libellé de la banque, et l'intitulé seul pour le libellé de l'opération", () => {
+    expect(ebBankLabel(debit)).toBe("PRLV SEPA ENERGIE DE L'OUEST\nVotre contrat electricite\n00000N1111111111111111\nRUM ABCD012345678");
+    expect(ebHeadline(debit)).toBe("PRLV SEPA ENERGIE DE L'OUEST");
+    expect(ebLabel(debit)).toBe("PRLV SEPA ENERGIE DE L'OUEST Votre contrat electricite 00000N1111111111111111 RUM ABCD012345678");
+  });
+  it("complète un virement à l'intitulé générique par le nom de l'autre partie", () => {
+    expect(ebHeadline({ remittance_information: ["VIR Virement depuis Courant", "MARTIN ALEX"] })).toBe("VIR Virement depuis Courant MARTIN ALEX");
+    expect(ebHeadline({ remittance_information: ["VIR SEPA CAGNOTTE", "LOYER-12345678", "7654321"] })).toBe("VIR SEPA CAGNOTTE");
+    expect(ebHeadline({ remittance_information: [] })).toBe("");
+  });
+  it("ne prend pour jour d'achat qu'un jour antérieur à l'écriture", () => {
+    const t = (booking: string, transaction: string) => ebTransaction({ transaction_amount: { amount: "10.00", currency: "EUR" }, credit_debit_indicator: "DBIT", status: "BOOK", booking_date: booking, transaction_date: transaction, remittance_information: ["CARTE 01/11/26 LIBRAIRIE"] });
+    expect(t("2026-11-03", "2026-11-01")?.purchaseDate).toBe("2026-11-01");
+    expect(t("2026-11-03", "2026-11-03")?.purchaseDate).toBeNull();
+    expect(t("2026-11-03", "2026-11-05")?.purchaseDate).toBeNull();
+  });
+});
+

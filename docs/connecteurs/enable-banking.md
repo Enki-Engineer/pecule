@@ -204,7 +204,14 @@ Référence : <https://enablebanking.com/docs/api/reference/>. Ce qui suit a ét
     (leur somme ne retombe plus sur le solde `OTHR`) ; sur 45 ou 120 jours, tout y est. La synchronisation
     courante lit donc une fenêtre courte ; la longue période ne sert qu'à reprendre l'historique, une fois,
     et seules ses opérations comptabilisées (`BOOK`) sont gardées.
-  - Les libellés des prélèvements portent le **nom du créancier** (« PRLV SEPA … »).
+  - Le libellé (`remittance_information`) est une **liste de lignes** : l'intitulé de la banque d'abord (« PRLV SEPA
+    CRÉANCIER », « VIR SEPA DONNEUR D'ORDRE », « CARTE 05/11/26 ENSEIGNE »), puis ce que le créancier a écrit
+    (« Votre abonnement mobile… », coupé toutes les 40 lettres) et les références (numéro de contrat, « RUM … »,
+    « Réf … »). Pécule prend l'intitulé comme libellé de l'opération — le même d'un mois à l'autre, donc la même
+    catégorie —, garde toutes les lignes dans `bank_label`, et affiche le texte du créancier sous le nom de
+    l'opération (`bankMotif`, `src/lib/labels.ts`).
+  - `transaction_date` (jour de l'achat ou de l'ordre) est gardé dans `purchase_date` quand il précède
+    `booking_date` : c'est le jour retenu si le foyer compte ses achats au jour de l'achat.
 - **Règles pures** : `src/lib/enable-banking.ts` (nature d'un compte, solde à garder, opération dans les
   termes de Pécule, encours d'une carte recoupé avec ses achats en attente), testées.
 - **Limites** : accord de 180 jours pour la plupart des banques ; lectures sans le titulaire souvent limitées

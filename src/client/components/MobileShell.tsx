@@ -224,7 +224,8 @@ export function MenuSheet({ open, onClose }: { open: boolean; onClose: () => voi
   return (
     <Sheet open onClose={onClose} title={t("Tout Pécule")}>
       <div className="space-y-4 pb-2">
-        {scopeSwitch}
+        {/* Foyer / Moi : seulement s'il y a un choix à faire (des comptes à soi, et d'autres). */}
+        {me.data?.user?.scopeChoice !== false && scopeSwitch}
         {nav.map((g, i) => (
           <section key={i}>
             {g.title && <h3 className="mb-1.5 px-1 text-[12px] font-semibold uppercase tracking-wide text-muted">{g.title}</h3>}

@@ -5,9 +5,9 @@ import { toast } from "sonner";
 import clsx from "clsx";
 import { useAccounts, useAgenda, useBalanceSeries, useDemo, useSummary, useSync, type Account } from "../api.ts";
 import { Amount, BankBadge, Card, ErrorBox, PageHeader, Sheet, Sparkline, Spinner } from "../components/ui.tsx";
-import { money, moneyIn, timeAgo } from "../format.ts";
+import { money, moneyIn, timeAgo, dateFr } from "../format.ts";
 import { groupByOwner, OWNER_ORDER, ownerLabel } from "../../lib/labels.ts";
-import { CardOutstandingSection } from "../components/CardOutstanding.tsx";
+import { CardOutstandingSection, useOutstandingTotal } from "../components/CardOutstanding.tsx";
 import { Welcome } from "../components/Welcome.tsx";
 import { useSeasonGreeting } from "../theme.ts";
 import { FunCard } from "../components/FunCard.tsx";
@@ -48,6 +48,7 @@ function MobileHome() {
   const summary = useSummary();
   const sync = useSync();
   const series = useBalanceSeries(90);
+  const outstanding = useOutstandingTotal();
   const balances = series.data?.series.map((p) => p.balance) ?? [];
   const trend3m = balances.length >= 2 ? balances[balances.length - 1] - balances[0] : null;
 
@@ -108,10 +109,21 @@ function MobileHome() {
           <Card className="p-5">
             <div className="text-sm text-muted">{t("Disponible sur les comptes")}</div>
             <div className="tnum mt-1 text-[34px] font-bold tracking-tight">{money(cash)}</div>
-            {cards !== 0 && (
+            {outstanding ? (
+              // Encours lu chez la banque : ce qui sortira au prochain relevé, quand, et ce qu'il restera.
               <div className="mt-1 text-sm text-muted">
-                {t("Encours cartes à débit différé :")} <span className="tnum font-medium text-ink">{money(cards)}</span>
+                {t("Encours cartes à débit différé :")} <span className="tnum font-medium text-ink">{money(outstanding.total)}</span>
+                <div className="text-xs">
+                  {outstanding.debitDate ? `${t("prélevé le {date}", { date: dateFr(outstanding.debitDate) })} · ` : ""}
+                  {t("il restera {montant}", { montant: money(cash + outstanding.total, true) })}
+                </div>
               </div>
+            ) : (
+              cards !== 0 && (
+                <div className="mt-1 text-sm text-muted">
+                  {t("Encours cartes à débit différé :")} <span className="tnum font-medium text-ink">{money(cards)}</span>
+                </div>
+              )
             )}
             {balances.length >= 2 && (
               <>

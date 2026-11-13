@@ -112,7 +112,12 @@ export type Category = { id: string; name: string; group_name: string | null; po
 export type Transaction = {
   id: string;
   account_id: string;
+  /** Jour retenu pour les statistiques : le jour d'achat ou le jour d'écriture de la banque, selon le réglage du foyer. */
   date: string;
+  /** Jour d'écriture de la banque (pour une carte à débit différé : le jour du prélèvement). */
+  booked_date?: string | null;
+  /** Jour de l'achat, quand il est connu et diffère du jour d'écriture. */
+  purchase_date?: string | null;
   /** Dans la devise du foyer ; `original_*` : montant et devise du compte, quand elle diffère. */
   amount: number;
   original_amount?: number | null;
@@ -175,7 +180,23 @@ export type Loan = {
 
 /** `region` : pays, devise et fuseau du foyer. `language` : langue de Pécule choisie par le membre (null tant qu'il n'a rien choisi) ; `admin` : administrateur de Pécule (sauvegarde complète). */
 /** `setup` : installation neuve, aucun membre encore. */
-export type Me = { user: { id: number; name: string; demo?: boolean; admin?: boolean; language?: Lang | null; modulesOff?: ModuleId[]; region?: Region } | null; demoAvailable?: boolean; setup?: boolean };
+export type Me = {
+  user: {
+    id: number;
+    name: string;
+    demo?: boolean;
+    admin?: boolean;
+    language?: Lang | null;
+    modulesOff?: ModuleId[];
+    region?: Region;
+    /** Jour retenu pour les statistiques : jour d'achat ou jour d'écriture de la banque (réglage du foyer). */
+    dateBasis?: "achat" | "debit";
+    /** « Moi » montre-t-il autre chose que « Foyer » pour ce membre ? Sinon le choix n'est pas proposé. */
+    scopeChoice?: boolean;
+  } | null;
+  demoAvailable?: boolean;
+  setup?: boolean;
+};
 export const useMe = () => useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/auth/me"), staleTime: Infinity });
 /** Session en mode démo (données fictives). */
 export const useDemo = () => useMe().data?.user?.demo === true;
@@ -305,8 +326,14 @@ export type Wealth = {
 
 export const useWealth = () => useQuery({ queryKey: ["wealth"], queryFn: () => api<Wealth>("/wealth") });
 export const useCrypto = () => useQuery({ queryKey: ["crypto"], queryFn: () => api<CryptoSummary>("/crypto") });
-export const useTrend = () =>
-  useQuery({ queryKey: ["trend"], queryFn: () => api<{ months: { month: string; revenus: number; depenses: number; epargne: number }[] }>("/trend") });
+export type TrendMonth = { month: string; revenus: number; depenses: number; epargne: number };
+/** Revenus et dépenses mois par mois : les douze derniers mois, ou du mois `from` au mois `to`. */
+export const useTrend = (from?: string, to?: string) =>
+  useQuery({
+    placeholderData: keepPreviousData,
+    queryKey: from && to ? ["trend", from, to] : ["trend"],
+    queryFn: () => api<{ months: TrendMonth[] }>(from && to ? `/trend?from=${from}&to=${to}` : "/trend"),
+  });
 export const useBalanceSeries = (days = 90) =>
   useQuery({ placeholderData: keepPreviousData, queryKey: ["balance-series", days], queryFn: () => api<{ series: { date: string; balance: number }[] }>(`/balance-series?days=${days}`) });
 
@@ -412,17 +439,22 @@ export type AgendaEntry = {
   notes?: string | null;
   link?: string;
   overdue?: boolean;
+  /** Écran Échéancier : ligne saisie visible de son seul auteur ; jour où une tâche a été cochée ; cochée depuis peu. */
+  private?: boolean;
+  doneAt?: string | null;
+  recent?: boolean;
 };
 
 export const useDocument = (id: number | null) => useQuery({ queryKey: ["document", id], queryFn: () => api<DocDetail>(`/documents/${id}`), enabled: id != null });
-export const useAgenda = (days = 365, done = false) =>
+/** `recentDone` (jours) : joint les tâches cochées depuis peu, marquées `recent` (écran Échéancier, « Fait récemment »). */
+export const useAgenda = (days = 365, done = false, recentDone = 0) =>
   useQuery({
     placeholderData: keepPreviousData,
-    queryKey: ["agenda", days, done],
+    queryKey: ["agenda", days, done, recentDone],
     queryFn: () => {
       const from = new Date().toLocaleDateString("sv-SE");
       const to = new Date(Date.now() + days * 86400_000).toISOString().slice(0, 10);
-      return api<{ from: string; to: string; entries: AgendaEntry[] }>(`/agenda?from=${from}&to=${to}${done ? "&done=1" : ""}`);
+      return api<{ from: string; to: string; entries: AgendaEntry[] }>(`/agenda?from=${from}&to=${to}${done ? "&done=1" : ""}${recentDone ? `&faits=${recentDone}` : ""}`);
     },
   });
 

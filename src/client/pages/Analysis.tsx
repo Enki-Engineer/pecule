@@ -5,12 +5,13 @@ import { AlertTriangle, MousePointerClick, Table2 } from "lucide-react";
 import { Card, ErrorBox, PageHeader, Spinner, Tabs } from "../components/ui.tsx";
 import { Stat, StatGrid } from "../components/blocks.tsx";
 import { openDrill } from "../components/DrillDrawer.tsx";
-import { kMoney, money } from "../format.ts";
+import { kMoney, money, monthShort, periodLabel } from "../format.ts";
 import { cn } from "../cn.ts";
 import { AxisTick, SELECTED_BAND } from "../components/StackedBars.tsx";
 import { useMedia } from "../useMedia.ts";
 import { usePeriod } from "../shell.ts";
-import { useFlows, useMerchants, useMonthDebits, useNatureTrend, type Flows } from "../api-analysis.ts";
+import { useFlows, useMerchants, useMonthDebits, useNatureTrend, useYearDebits, type Flows } from "../api-analysis.ts";
+import { addMonths, isYearPeriod, monthsOfPeriod, trendEnd } from "../../lib/periods.ts";
 import { NATURE_LABELS, SPEND_NATURES } from "../../lib/nature.ts";
 import { Month } from "./Month.tsx";
 import { CompareView } from "./Compare.tsx";
@@ -39,13 +40,14 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "comparer", label: t("Comparer") },
 ];
 
-const monthLabel = (m: string) => new Date(`${m}-15T12:00:00`).toLocaleDateString(locale(), { month: "long", year: "numeric" });
 const k = (n: number) => (Math.abs(n) >= 1000 ? kMoney(n, 1) : money(n, true));
+const thisMonth = () => new Date().toLocaleDateString("sv-SE").slice(0, 7);
 
 export function Analysis() {
   const desktop = useMedia("(min-width: 768px)");
   const [params, setParams] = useSearchParams();
-  const [month] = usePeriod();
+  // La période : un mois, ou une année entière (chaque onglet se lit alors mois par mois).
+  const [period] = usePeriod();
   const tab = (params.get("onglet") as Tab) || "synthese";
   if (!desktop) return <Month />;
   const setTab = (v: Tab) => {
@@ -56,14 +58,14 @@ export function Analysis() {
   };
   return (
     <>
-      <PageHeader title={t("Analyse")} subtitle={<span className="capitalize">{monthLabel(month)}</span>} />
+      <PageHeader title={t("Analyse")} subtitle={isYearPeriod(period) ? t("Année {annee}", { annee: period }) : periodLabel(period)} />
       <Tabs value={tab} options={TABS} onChange={setTab} />
       {tab === "synthese" && <Month bare />}
-      {tab === "repartition" && <BreakdownTab month={month} />}
-      {tab === "flux" && <FlowsTab month={month} />}
-      {tab === "frise" && <TimelineTab month={month} />}
-      {tab === "prelevements" && <DebitsTab month={month} />}
-      {tab === "marchands" && <MerchantsTab month={month} />}
+      {tab === "repartition" && <BreakdownTab period={period} />}
+      {tab === "flux" && <FlowsTab period={period} />}
+      {tab === "frise" && <TimelineTab period={period} />}
+      {tab === "prelevements" && (isYearPeriod(period) ? <YearDebitsTab year={period} /> : <DebitsTab month={period} />)}
+      {tab === "marchands" && <MerchantsTab period={period} />}
       {tab === "comparer" && <CompareView />}
     </>
   );
@@ -71,9 +73,10 @@ export function Analysis() {
 
 /* ---------- Répartition ---------- */
 
-/** Deux anneaux côte à côte : d'où vient l'argent du mois (par catégorie), où il part (par poste). */
-function BreakdownTab({ month }: { month: string }) {
-  const { data, isLoading, error, isPlaceholderData } = useMonth(month);
+/** Deux anneaux côte à côte : d'où vient l'argent de la période (par catégorie), où il part (par poste). */
+function BreakdownTab({ period }: { period: string }) {
+  const year = isYearPeriod(period);
+  const { data, isLoading, error, isPlaceholderData } = useMonth(period);
   const tot = data ? monthTotals(data.categories) : null;
   return (
     <>
@@ -83,10 +86,10 @@ function BreakdownTab({ month }: { month: string }) {
       ) : (
         <div className={cn("transition-opacity duration-200", isPlaceholderData && "opacity-50")}>
           <StatGrid>
-            <Stat label={t("Revenus")} value={money(tot.revenus, true)} hint={t("entrées du mois, hors mouvements internes")} />
+            <Stat label={t("Revenus")} value={money(tot.revenus, true)} hint={year ? t("entrées de l'année, hors mouvements internes") : t("entrées du mois, hors mouvements internes")} />
             <Stat label={t("Dépenses")} value={money(tot.depenses, true)} hint={t("nettes des remboursements")} />
             <Stat label={t("Épargne")} value={money(tot.epargne, true)} hint={t("versements vers l'épargne")} />
-            <Stat label={t("Solde du mois")} value={money(tot.revenus - tot.depenses, true)} tone={tot.revenus - tot.depenses >= 0 ? "pos" : "neg"} hint={t("revenus − dépenses")} />
+            <Stat label={year ? t("Solde de l'année") : t("Solde du mois")} value={money(tot.revenus - tot.depenses, true)} tone={tot.revenus - tot.depenses >= 0 ? "pos" : "neg"} hint={t("revenus − dépenses")} />
           </StatGrid>
           <div className="grid grid-cols-12 items-start gap-4">
             {(["depenses", "revenus"] as const).map((kind) => (
@@ -110,7 +113,7 @@ function BreakdownTab({ month }: { month: string }) {
 type SNode = { name: string; kind: "income" | "hub" | "nature" | "poste" | "saving" | "balance" | "deficit"; nature?: string; poste?: string; category?: string | null; value?: number };
 
 /** Revenus → mois → natures (+ épargne, reste) → postes. Le déficit éventuel entre à gauche. Les noms des revenus et des postes restent ceux des données (clés) : `nodeLabel` les traduit à l'affichage. */
-function buildSankey(f: Flows) {
+function buildSankey(f: Flows, year: boolean) {
   const nodes: SNode[] = [];
   const links: { source: number; target: number; value: number }[] = [];
   const add = (n: SNode) => nodes.push(n) - 1;
@@ -123,7 +126,7 @@ function buildSankey(f: Flows) {
   if (f.totals.refunds > 0) leftNodes.push([{ name: tk("Remboursements"), kind: "income" }, f.totals.refunds]);
   if (f.totals.balance < 0) leftNodes.push([{ name: t("Pris sur le solde ou l'épargne"), kind: "deficit" }, -f.totals.balance]);
   const leftIdx = leftNodes.map(([n, v]) => [add({ ...n, value: v }), v] as const);
-  add({ name: t("Ce mois-ci"), kind: "hub" });
+  add({ name: year ? t("Cette année") : t("Ce mois-ci"), kind: "hub" });
   for (const [i, v] of leftIdx) links.push({ source: i, target: hubIdx(), value: v });
   const byNature = new Map<string, number>();
   for (const x of f.flows) if (SPEND_NATURES.includes(x.nature as (typeof SPEND_NATURES)[number])) byNature.set(x.nature, (byNature.get(x.nature) ?? 0) + x.total);
@@ -135,7 +138,7 @@ function buildSankey(f: Flows) {
     links.push({ source: hubIdx(), target: natureIdx.get(n)!, value: v });
   }
   if (f.totals.savings > 0) links.push({ source: hubIdx(), target: add({ name: t("Épargne"), kind: "saving", value: f.totals.savings }), value: f.totals.savings });
-  if (f.totals.balance > 0) links.push({ source: hubIdx(), target: add({ name: t("Reste du mois"), kind: "balance", value: f.totals.balance }), value: f.totals.balance });
+  if (f.totals.balance > 0) links.push({ source: hubIdx(), target: add({ name: year ? t("Reste de l'année") : t("Reste du mois"), kind: "balance", value: f.totals.balance }), value: f.totals.balance });
   // Postes : les 9 plus gros, le reste regroupé.
   const posteTotals = new Map<string, number>();
   for (const x of f.flows) if (natureIdx.has(x.nature)) posteTotals.set(x.poste, (posteTotals.get(x.poste) ?? 0) + x.total);
@@ -164,30 +167,38 @@ function buildSankey(f: Flows) {
 /** Nom affiché d'un bloc : revenus et postes portent le nom de la donnée, traduit ici ; les autres sont déjà écrits dans la langue. */
 const nodeLabel = (n: SNode) => (n.kind === "income" || n.kind === "poste" ? td(n.name) : n.name);
 
-const monthTick = (m: string) => new Date(`${m}-15T12:00:00`).toLocaleDateString(locale(), { month: "short" });
+const monthTick = (m: string) => monthShort(m);
 
-function FlowsTab({ month }: { month: string }) {
-  const flows = useFlows(month);
-  const trend = useNatureTrend();
-  const [, setMonth] = usePeriod();
+function FlowsTab({ period }: { period: string }) {
+  const year = isYearPeriod(period);
+  const now = thisMonth();
+  const flows = useFlows(period);
+  // Sorties par nature : les douze mois de l'année, ou douze mois glissants qui suivent le mois choisi quand il en sort.
+  const [end, setEnd] = useState(() => (year ? now : trendEnd(now, period, now)));
+  const nextEnd = year ? end : trendEnd(end, period, now);
+  if (nextEnd !== end) setEnd(nextEnd);
+  const span = year ? monthsOfPeriod(period) : [addMonths(nextEnd, -11), nextEnd];
+  const trend = useNatureTrend(span[0], span[span.length - 1]);
+  const [, setPeriod] = usePeriod();
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [table, setTable] = useState(false);
-  const data = useMemo(() => (flows.data ? buildSankey(flows.data) : null), [flows.data]);
+  const data = useMemo(() => (flows.data ? buildSankey(flows.data, year) : null), [flows.data, year]);
   const f = flows.data;
+  const sub = periodLabel(period);
   const drillNode = (n: SNode) => {
-    if (n.kind === "nature") openDrill(NATURE_LABELS[n.nature as keyof typeof NATURE_LABELS], { month, nature: n.nature, debits: true }, monthLabel(month));
-    else if (n.kind === "poste" && n.poste) openDrill(td(n.poste), { month, poste: n.poste, debits: true }, monthLabel(month));
-    else if (n.kind === "income" && n.category) openDrill(td(n.name), { month, category: n.category }, monthLabel(month));
+    if (n.kind === "nature") openDrill(NATURE_LABELS[n.nature as keyof typeof NATURE_LABELS], { month: period, nature: n.nature, debits: true }, sub);
+    else if (n.kind === "poste" && n.poste) openDrill(td(n.poste), { month: period, poste: n.poste, debits: true }, sub);
+    else if (n.kind === "income" && n.category) openDrill(td(n.name), { month: period, category: n.category }, sub);
   };
   return (
     <>
       {flows.error && <ErrorBox error={flows.error} />}
       {f && (
         <StatGrid>
-          <Stat label={t("Entrées")} value={money(f.totals.income, true)} hint={f.totals.refunds ? t("+ {montant} de remboursements", { montant: money(f.totals.refunds, true) }) : t("revenus du mois")} />
+          <Stat label={t("Entrées")} value={money(f.totals.income, true)} hint={f.totals.refunds ? t("+ {montant} de remboursements", { montant: money(f.totals.refunds, true) }) : year ? t("revenus de l'année") : t("revenus du mois")} />
           <Stat label={t("Sorties")} value={money(f.totals.grossSpend, true)} hint={t("dépenses nettes {montant}", { montant: money(f.totals.netSpend, true) })} />
           <Stat label={t("Épargne")} value={money(f.totals.savings, true)} hint={t("versements vers l'épargne")} />
-          <Stat label={t("Reste du mois")} value={money(f.totals.balance, true)} tone={f.totals.balance >= 0 ? "pos" : "neg"} hint={t("entrées − sorties − épargne")} />
+          <Stat label={year ? t("Reste de l'année") : t("Reste du mois")} value={money(f.totals.balance, true)} tone={f.totals.balance >= 0 ? "pos" : "neg"} hint={t("entrées − sorties − épargne")} />
         </StatGrid>
       )}
       <Card className="mb-5 p-5">
@@ -201,7 +212,7 @@ function FlowsTab({ month }: { month: string }) {
         {!data ? (
           <Spinner />
         ) : data.links.length < 2 ? (
-          <div className="py-16 text-center text-sm text-muted">{t("Pas encore de mouvements ce mois-ci.")}</div>
+          <div className="py-16 text-center text-sm text-muted">{year ? t("Aucun mouvement cette année-là.") : t("Pas encore de mouvements ce mois-ci.")}</div>
         ) : (
           <div className="h-[460px]">
             <ResponsiveContainer>
@@ -212,7 +223,7 @@ function FlowsTab({ month }: { month: string }) {
                 nodeWidth={10}
                 iterations={64}
                 margin={{ top: 12, right: 190, bottom: 12, left: 190 }}
-                link={(p) => <FlowLink {...(p as unknown as FlowLinkProps)} month={month} />}
+                link={(p) => <FlowLink {...(p as unknown as FlowLinkProps)} month={period} />}
                 node={(p) => <FlowNode x={p.x} y={p.y} width={p.width} height={p.height} payload={p.payload as unknown as SNode} onClick={drillNode} />}
               >
                 <Tooltip content={<FlowTooltip />} />
@@ -224,7 +235,7 @@ function FlowsTab({ month }: { month: string }) {
 
       <Card className="p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[14px] font-semibold">{t("Sorties par nature, 12 mois")}</h2>
+          <h2 className="text-[14px] font-semibold">{year ? t("Sorties par nature, {annee}", { annee: period }) : t("Sorties par nature, 12 mois")}</h2>
           <div className="flex flex-wrap items-center gap-1.5">
             {SPEND_NATURES.map((n) => (
               <button
@@ -252,11 +263,11 @@ function FlowsTab({ month }: { month: string }) {
             <ResponsiveContainer>
               <BarChart data={trend.data.months} margin={{ top: 8, right: 8, bottom: 0, left: 0 }} barCategoryGap="22%">
                 <CartesianGrid vertical={false} stroke="var(--color-line)" />
-                <XAxis dataKey="month" tick={<AxisTick selected={month} format={monthTick} />} tickFormatter={monthTick} tickLine={false} axisLine={false} />
+                <XAxis dataKey="month" tick={<AxisTick selected={year ? null : period} format={monthTick} />} tickFormatter={monthTick} tickLine={false} axisLine={false} />
                 <YAxis tickFormatter={(v: number) => k(v)} tickLine={false} axisLine={false} width={56} />
                 <Tooltip content={<NatureTooltip />} cursor={{ fill: "var(--color-bg)" }} />
                 {/* Le mois de la période (celui du diagramme au-dessus) est marqué : un clic sur un segment le change. */}
-                {trend.data.months.some((r) => r.month === month) && <ReferenceArea x1={month} x2={month} {...SELECTED_BAND} />}
+                {!year && trend.data.months.some((r) => r.month === period) && <ReferenceArea x1={period} x2={period} {...SELECTED_BAND} />}
                 {SPEND_NATURES.filter((n) => !hidden.has(n)).map((n, i, arr) => (
                   <Bar
                     key={n}
@@ -270,8 +281,8 @@ function FlowsTab({ month }: { month: string }) {
                     onClick={(d: { payload?: { month?: string } }) => {
                       const m = d.payload?.month;
                       if (!m) return;
-                      setMonth(m);
-                      openDrill(NATURE_LABELS[n], { month: m, nature: n, debits: true }, monthLabel(m));
+                      setPeriod(m);
+                      openDrill(NATURE_LABELS[n], { month: m, nature: n, debits: true }, periodLabel(m));
                     }}
                   />
                 ))}
@@ -400,7 +411,7 @@ function FlowLinkPath(props: {
       onMouseLeave={() => setHover(false)}
       onClick={() =>
         clickable &&
-        openDrill(`${NATURE_LABELS[nature as keyof typeof NATURE_LABELS]} · ${td(payload.target.poste)}`, { month, nature, poste: payload.target.poste, debits: true }, monthLabel(month))
+        openDrill(`${NATURE_LABELS[nature as keyof typeof NATURE_LABELS]} · ${td(payload.target.poste)}`, { month, nature, poste: payload.target.poste, debits: true }, periodLabel(month))
       }
       style={{ cursor: clickable ? "pointer" : "default", transition: "stroke-opacity 120ms" }}
     />
@@ -582,10 +593,95 @@ function DebitsTab({ month }: { month: string }) {
   );
 }
 
+/**
+ * Prélèvements d'une année : une ligne par créancier, une colonne par mois. On y lit d'un coup ce qui passe chaque
+ * mois, ce qui a changé de montant et ce qui a manqué ; l'intensité d'une case suit son montant dans sa ligne.
+ */
+function YearDebitsTab({ year }: { year: string }) {
+  const d = useYearDebits(year);
+  const data = d.data && "series" in d.data ? d.data : null;
+  const months = monthsOfPeriod(year);
+  const total = data?.totals.reduce((s, v) => s + v, 0) ?? 0;
+  return (
+    <Card className="p-5">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-[14px] font-semibold">{t("Prélèvements de {annee}, mois par mois", { annee: year })}</h2>
+        <span className="tnum text-[13px] font-semibold">{money(total)}</span>
+      </div>
+      {d.error && <ErrorBox error={d.error} />}
+      {!data ? (
+        <Spinner />
+      ) : !data.series.length ? (
+        <div className="py-10 text-center text-sm text-muted">{t("Aucun prélèvement.")}</div>
+      ) : (
+        <div className={cn("overflow-x-auto transition-opacity duration-200", d.isPlaceholderData && "opacity-50")}>
+          <table className="w-full min-w-[980px] border-separate border-spacing-y-0.5 text-[12.5px]">
+            <thead>
+              <tr className="text-muted">
+                <th className="py-1.5 text-left font-medium">{t("Créancier")}</th>
+                {months.map((m) => (
+                  <th key={m} className="w-[62px] py-1.5 text-right font-medium capitalize">
+                    {monthShort(m)}
+                  </th>
+                ))}
+                <th className="w-[84px] py-1.5 text-right font-medium">{t("Total")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.series.map((x) => {
+                const top = Math.max(1, ...x.byMonth);
+                return (
+                  <tr key={x.name}>
+                    <td className="max-w-0 truncate py-1 pr-3" style={{ width: "24%" }} title={x.name}>
+                      <span className="font-medium">{x.name}</span>
+                      {x.category && <span className="text-muted"> · {td(x.category)}</span>}
+                    </td>
+                    {x.byMonth.map((v, i) => (
+                      <td key={i} className="p-0 text-right">
+                        {v > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => openDrill(x.name, { month: months[i], nature: "prelevement", debits: true }, periodLabel(months[i]))}
+                            className="tnum w-full rounded px-1.5 py-1 text-right hover:ring-2 hover:ring-accent"
+                            style={{ background: `color-mix(in oklab, var(--series-2) ${Math.round(10 + (v / top) * 26)}%, var(--color-card))` }}
+                            title={`${x.name} · ${periodLabel(months[i])} · ${money(v)}`}
+                          >
+                            {k(v)}
+                          </button>
+                        ) : (
+                          <span className="block px-1.5 py-1 text-muted/50">·</span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="tnum py-1 pl-2 text-right font-semibold">{money(x.total, true)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="text-muted">
+                <td className="border-t border-line py-1.5 font-medium">{t("Total")}</td>
+                {data.totals.map((v, i) => (
+                  <td key={i} className="tnum border-t border-line px-1.5 py-1.5 text-right font-medium text-ink">
+                    {v > 0 ? k(v) : "·"}
+                  </td>
+                ))}
+                <td className="tnum border-t border-line py-1.5 pl-2 text-right font-semibold text-ink">{money(total, true)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <p className="mt-2 text-[12px] text-muted">{t("Une case vide : rien n'est passé ce mois-là. Clic sur un montant : les prélèvements du mois.")}</p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 /* ---------- Marchands ---------- */
 
-function MerchantsTab({ month }: { month: string }) {
-  const m = useMerchants(month);
+function MerchantsTab({ period }: { period: string }) {
+  const year = isYearPeriod(period);
+  const m = useMerchants(period);
   const list = (m.data?.merchants ?? []).slice(0, 25);
   const max = Math.max(1, ...list.map((x) => Math.max(x.total, x.previous)));
   return (
@@ -594,10 +690,10 @@ function MerchantsTab({ month }: { month: string }) {
         <h2 className="text-[14px] font-semibold">{t("Achats carte par marchand")}</h2>
         <span className="flex items-center gap-3 text-[12px] text-muted">
           <span className="flex items-center gap-1">
-            <span className="size-2.5 rounded-sm" style={{ background: natureColor("carte") }} /> {t("ce mois-ci")}
+            <span className="size-2.5 rounded-sm" style={{ background: natureColor("carte") }} /> {year ? period : t("ce mois-ci")}
           </span>
           <span className="flex items-center gap-1">
-            <span className="h-3 w-0.5 bg-ink" /> {t("mois précédent")}
+            <span className="h-3 w-0.5 bg-ink" /> {year ? t("année précédente") : t("mois précédent")}
           </span>
         </span>
       </div>
@@ -605,7 +701,7 @@ function MerchantsTab({ month }: { month: string }) {
       {!m.data ? (
         <Spinner />
       ) : !list.length ? (
-        <div className="py-10 text-center text-sm text-muted">{t("Aucun achat carte ce mois-ci.")}</div>
+        <div className="py-10 text-center text-sm text-muted">{year ? t("Aucun achat carte cette année-là.") : t("Aucun achat carte ce mois-ci.")}</div>
       ) : (
         <div className="space-y-1">
           {list.map((x) => {
@@ -614,7 +710,7 @@ function MerchantsTab({ month }: { month: string }) {
               <button
                 key={x.name}
                 type="button"
-                onClick={() => openDrill(x.name, { month, nature: "carte", merchant: x.name, debits: true }, monthLabel(month))}
+                onClick={() => openDrill(x.name, { month: period, nature: "carte", merchant: x.name, debits: true }, periodLabel(period))}
                 className="grid w-full grid-cols-[230px_minmax(0,1fr)_90px_80px] items-center gap-3 rounded-md px-2 py-1 text-left text-[13px] hover:bg-bg"
               >
                 <span className="flex min-w-0 items-center gap-2" title={x.name}>
@@ -624,7 +720,7 @@ function MerchantsTab({ month }: { month: string }) {
                 </span>
                 <span className="relative h-4">
                   <span className="absolute inset-y-0 left-0 rounded-r" style={{ width: `${(x.total / max) * 100}%`, background: natureColor("carte") }} />
-                  {x.previous > 0 && <span className="absolute inset-y-[-2px] w-0.5 bg-ink" style={{ left: `${(x.previous / max) * 100}%` }} title={t("Mois précédent : {montant}", { montant: money(x.previous) })} />}
+                  {x.previous > 0 && <span className="absolute inset-y-[-2px] w-0.5 bg-ink" style={{ left: `${(x.previous / max) * 100}%` }} title={year ? t("Année précédente : {montant}", { montant: money(x.previous) }) : t("Mois précédent : {montant}", { montant: money(x.previous) })} />}
                 </span>
                 <span className="tnum text-right font-semibold">{money(x.total)}</span>
                 <span className={cn("tnum text-right text-[12px]", delta > 0 ? "text-neg" : delta < 0 ? "text-pos" : "text-muted")}>

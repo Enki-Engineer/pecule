@@ -3,12 +3,14 @@ import { useCompare } from "../api-analysis.ts";
 import { Card, PageHeader, Spinner } from "../components/ui.tsx";
 import { Stat, StatGrid } from "../components/blocks.tsx";
 import { openDrill } from "../components/DrillDrawer.tsx";
-import { money } from "../format.ts";
+import { currentMonth, money, periodLabel } from "../format.ts";
+import { useMonth } from "../api.ts";
+import { isYearPeriod } from "../../lib/periods.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
 import { cn } from "../cn.ts";
 import { usePeriod } from "../shell.ts";
 import { useMedia } from "../useMedia.ts";
-import { currentLang, locale, t, td, tk } from "../../lib/i18n.ts";
+import { currentLang, t, td, tk } from "../../lib/i18n.ts";
 
 /*
  * Comparer deux périodes : un mois (ou des dates libres) face au mois précédent, au même mois l'an
@@ -30,7 +32,8 @@ const lastDay = (m: string) => {
   return `${m}-${String(new Date(y, mo, 0).getDate()).padStart(2, "0")}`;
 };
 const fr = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
-const monthLabel = (m: string) => new Date(`${m}-15T12:00:00`).toLocaleDateString(locale(), { month: "long", year: "numeric" });
+/** Premier et dernier jour d'une période (un mois ou une année entière). */
+const spanOf = (p: string) => (isYearPeriod(p) ? { from: `${p}-01-01`, to: `${p}-12-31` } : { from: `${p}-01`, to: lastDay(p) });
 
 export function ComparePage() {
   return (
@@ -43,15 +46,23 @@ export function ComparePage() {
 
 export function CompareView() {
   const desktop = useMedia("(min-width: 768px)");
+  // La période de la barre du haut : un mois, ou une année entière (comparée alors à l'année d'avant, ou à une autre période).
   const [month, setMonth] = usePeriod();
+  const year = isYearPeriod(month);
   const [free, setFree] = useState(false);
-  const [from, setFrom] = useState(`${month}-01`);
-  const [to, setTo] = useState(lastDay(month));
-  const [base, setBase] = useState<(typeof BASES)[number]["value"]>("prev");
+  const [from, setFrom] = useState(spanOf(month).from);
+  const [to, setTo] = useState(spanOf(month).to);
+  const [chosen, setBase] = useState<(typeof BASES)[number]["value"]>("prev");
+  // Une année se compare à la précédente ou à une période choisie : les moyennes de mois n'ont pas de sens pour elle.
+  const base = year && !free && chosen !== "custom" ? "prev" : chosen;
+  const bases = year && !free ? BASES.filter((b) => b.value === "prev" || b.value === "custom") : BASES;
+  const baseLabel = (b: (typeof BASES)[number]) => (year && !free && b.value === "prev" ? t("Année précédente") : b.label);
   const [bfrom, setBfrom] = useState("");
   const [bto, setBto] = useState("");
-  const a = free ? { from, to } : { from: `${month}-01`, to: lastDay(month) };
+  const a = free ? { from, to } : spanOf(month);
   const q = useCompare({ ...a, base, bfrom, bto });
+  // Premier mois qui porte des opérations : une référence qui remonte plus loin est incomplète.
+  const first = useMonth(currentMonth()).data?.months.at(-1);
   const d = q.data;
   const max = Math.max(1, ...(d?.postes ?? []).flatMap((p) => [p.a, p.b]));
   const diffTone = (v: number, lowerIsBetter = true) => (Math.abs(v) < 1 ? "text-muted" : (v < 0) === lowerIsBetter ? "text-pos" : "text-neg");
@@ -67,33 +78,35 @@ export function CompareView() {
               <span className="text-muted">→</span>
               <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-md bg-bg px-2 py-1 ring-1 ring-line" />
             </>
+          ) : year ? (
+            <span className="font-medium">{t("Année {annee}", { annee: month })}</span>
           ) : (
             <input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} className="rounded-md bg-bg px-2 py-1 ring-1 ring-line" />
           )}
           <button type="button" onClick={() => setFree((f) => !f)} className="text-[13px] text-accent hover:underline">
-            {free ? t("Un mois") : t("Dates libres")}
+            {free ? (year ? t("Une année") : t("Un mois")) : t("Dates libres")}
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[14px]">
           <span className="text-muted">{t("Comparée à :")}</span>
           {desktop ? (
             <div className="flex flex-wrap gap-1.5">
-              {BASES.map((b) => (
+              {bases.map((b) => (
                 <button
                   key={b.value}
                   type="button"
                   onClick={() => setBase(b.value)}
                   className={cn("rounded-md border px-2.5 py-1 text-[13px]", base === b.value ? "border-accent bg-accent-soft font-medium text-accent" : "border-line text-muted hover:text-ink")}
                 >
-                  {b.label}
+                  {baseLabel(b)}
                 </button>
               ))}
             </div>
           ) : (
             <select value={base} onChange={(e) => setBase(e.target.value as typeof base)} aria-label={t("Période de référence")} className="rounded-md bg-bg px-2 py-1.5 ring-1 ring-line">
-              {BASES.map((b) => (
+              {bases.map((b) => (
                 <option key={b.value} value={b.value}>
-                  {b.label}
+                  {baseLabel(b)}
                 </option>
               ))}
             </select>
@@ -108,10 +121,10 @@ export function CompareView() {
         </div>
         {d && (
           <p className="text-[12px] text-muted">
-            {free ? t("Du {debut} au {fin}", { debut: fr(d.a.from), fin: fr(d.a.to) }) : <span className="capitalize">{monthLabel(month)}</span>}{" "}
+            {free ? t("Du {debut} au {fin}", { debut: fr(d.a.from), fin: fr(d.a.to) }) : year ? t("Année {annee}", { annee: month }) : periodLabel(month)}{" "}
             {/* En allemand, un nom garde sa majuscule au milieu d'une phrase. */}
             {t("face à : {reference} (du {debut} au {fin})", { reference: currentLang() === "de" ? d.label : d.label.toLowerCase(), debut: fr(d.b.from), fin: fr(d.b.to) })}
-            {d.b.from < "2026-01-02" && " · " + t("l'historique bancaire commence le 02/01/2026 : la référence peut être incomplète")}
+            {first && d.b.from.slice(0, 7) < first && " · " + t("les opérations commencent en {mois} : la référence peut être incomplète", { mois: currentLang() === "de" ? periodLabel(first) : periodLabel(first).toLowerCase() })}
           </p>
         )}
       </Card>
@@ -147,7 +160,7 @@ export function CompareView() {
                   key={p.poste}
                   type="button"
                   disabled={free}
-                  onClick={() => openDrill(td(p.poste), p.poste === tk("À classer") ? { month, debits: true, uncategorized: true } : { month, poste: p.poste, debits: true }, monthLabel(month))}
+                  onClick={() => openDrill(td(p.poste), p.poste === tk("À classer") ? { month, debits: true, uncategorized: true } : { month, poste: p.poste, debits: true }, periodLabel(month))}
                   className="-mx-2 block w-[calc(100%+1rem)] rounded-md px-2 py-1 text-left hover:bg-bg disabled:hover:bg-transparent"
                 >
                   <div className="flex items-baseline justify-between gap-3 text-[14px]">

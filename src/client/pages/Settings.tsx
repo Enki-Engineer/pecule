@@ -12,6 +12,7 @@ import { useAppearance, useTheme } from "../theme.ts";
 import { clearOfflineCache, offlineCacheEnabled, setOfflineCache } from "../offline.tsx";
 import { NotificationsSettings } from "../components/NotificationsSettings.tsx";
 import { BankLabelsImport } from "../components/BankLabelsImport.tsx";
+import { BrandSettings } from "../components/BrandSettings.tsx";
 import { AddMember } from "../components/AddMember.tsx";
 import { LogoSettings } from "../components/LogoSettings.tsx";
 import { FunSettings } from "../components/FunSettings.tsx";
@@ -177,6 +178,9 @@ export function Settings() {
             <BankLabelsImport />
           </Section>
         )}
+        <Section id="enseignes" title={t("Mes enseignes")}>
+          <BrandSettings />
+        </Section>
         <Section id="regles" title={t("Règles de classement ({n})", { n: rules.data?.rules.length ?? 0 })}>
           <label className="card mb-2 flex items-center gap-2 px-4 py-2.5">
             <Search size={16} className="text-muted" />
@@ -356,7 +360,7 @@ const GROUPS: { id: GroupId; label: string; hint: string; icon: typeof Bell; ton
   { id: "foyer", label: t("Foyer"), hint: t("Pays et devise, écrans affichés, personnes sans connexion, banques professionnelles"), icon: House, tone: "bg-[#7a5c1f]" },
   { id: "demo", label: t("Mode démo"), hint: t("Montrer Pécule avec une famille fictive"), icon: Presentation, tone: "bg-[#0f766e]" },
   { id: "connexions", label: t("Comptes et connexions"), hint: t("Tes comptes et ce qui les alimente, IA, crypto, applications reliées"), icon: Plug, tone: "bg-[#1863c2]" },
-  { id: "classement", label: t("Classement"), hint: t("Libellés de la banque, règles de classement"), icon: Tags, tone: "bg-[#1f7a5c]" },
+  { id: "classement", label: t("Classement"), hint: t("Libellés de la banque, mes enseignes, règles de classement"), icon: Tags, tone: "bg-[#1f7a5c]" },
   { id: "apparence", label: t("Apparence"), hint: t("Langue, clair ou sombre, couleur, thèmes de l'année"), icon: Palette, tone: "bg-[#b83e33]" },
   { id: "notifications", label: t("Notifications et appareil"), hint: t("Alertes de cet appareil, ouverture instantanée"), icon: Bell, tone: "bg-[#c2410c]" },
   { id: "assistant", label: t("Assistant"), hint: t("Mode vocal, mémoire, coût de l'IA"), icon: Sparkles, tone: "bg-accent" },

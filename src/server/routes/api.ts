@@ -1,6 +1,8 @@
 import { householdDay } from "../region.ts";
 import { today } from "../region.ts";
-import { IS_EXPENSE, LINE_KIND, STAT_SCOPE } from "../stats.ts";
+import { IS_EXPENSE, LINE_KIND, STAT_DATE_JOIN, STAT_SCOPE, statDate } from "../stats.ts";
+import { fillPurchaseDates } from "../stat-dates.ts";
+import { addMonths, isYearPeriod, PERIOD_RE, periodRange } from "../../lib/periods.ts";
 import { Router, json, raw, type Request, type Response } from "express";
 import { z } from "zod";
 import { db, exec, one, q } from "../db.ts";
@@ -17,7 +19,7 @@ import { summarizeLoan, type ScheduleRow } from "../../lib/loans.ts";
 import { computeWealth, cryptoPositions, ensureFreshPrices, refreshWealth, snapshotWealth, wealthHistory } from "../wealth.ts";
 import { assistantEnabled, confirmPending, getThread, listThreads, sendMessage, type AssistantEvent, type PublicThread } from "../assistant.ts";
 import { listMemories } from "../tools/analyse.ts";
-import { getLogo, logoKeyValid, logoStatus, refreshWeakLogos, resetLogo } from "../logos.ts";
+import { getLogo, logoKeyAllowed, logoStatus, refreshWeakLogos, resetLogo } from "../logos.ts";
 import { registerUndo, runUndo, snapshotTransactions } from "../undo.ts";
 import { suggestCategories } from "../suggest.ts";
 import { generateSummary, latestSummary } from "../weekly.ts";
@@ -27,7 +29,7 @@ import { recordAlert } from "../journal.ts";
 import { agenda } from "../agenda.ts";
 import { searchDocuments } from "../documents.ts";
 import { day } from "../tools/registry.ts";
-import { coloredPostes, comparePeriods, comparisonSpan, monthDebits, monthFlows, monthMerchants, monthTimeline, natureTrend } from "../flows.ts";
+import { coloredPostes, comparePeriods, comparisonSpan, forecast, monthDebits, monthFlows, monthlyTrend, monthMerchants, monthTimeline, natureTrend, yearDebits } from "../flows.ts";
 import { debitSeries, nameDebits, refreshDebitNames, resetDebitNames } from "../debits.ts";
 import { importBankLabels } from "../bank-labels.ts";
 import { importBankHistory, removeBankHistory } from "../bank-history.ts";
@@ -51,6 +53,10 @@ import { ebAdoptedAccounts } from "../enable-banking.ts";
 export const api = Router();
 
 const month = z.string().regex(/^\d{4}-\d{2}$/);
+/** Période d'analyse : un mois (« 2026-11 ») ou une année entière (« 2026 »). */
+const period = z.string().regex(PERIOD_RE);
+/** Période d'une requête d'analyse (`period`, ou l'ancien paramètre `month` d'un écran pas encore rechargé). */
+const periodOf = (req: Request) => period.parse(req.query.period ?? req.query.month);
 
 /** Périmètre de lecture choisi dans la barre supérieure (« Foyer » par défaut, « Moi » = mes comptes). */
 const scopeOf = (req: Request): "foyer" | "moi" => (req.get("x-perimetre") === "moi" ? "moi" : "foyer");
@@ -192,7 +198,8 @@ api.delete("/rules/:id", async (req, res) => {
 api.get("/transactions", async (req, res) => {
   const f = z
     .object({
-      month: month.optional(),
+      /** Mois ou année entière : le jour retenu est celui des statistiques (jour d'achat ou d'écriture, selon le foyer). */
+      month: period.optional(),
       /** Une opération précise (arrivée depuis un graphique ou la recherche). */
       id: z.string().max(160).optional(),
       account: z.string().optional(),
@@ -214,7 +221,11 @@ api.get("/transactions", async (req, res) => {
     .parse(req.query);
   const where = ["t.status IN ('posted', 'pending')"];
   const params: unknown[] = [];
-  if (f.month) where.push("t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH)"), params.push(`${f.month}-01`, `${f.month}-01`);
+  const day = statDate("t");
+  if (f.month) {
+    const r = periodRange(f.month);
+    where.push(`${day} >= ? AND ${day} < ?`), params.push(r.start, r.end);
+  }
   if (f.id) where.push("t.id = ?"), params.push(f.id);
   if (f.account) where.push("t.account_id = ?"), params.push(f.account);
   // Une opération ventilée répond aux catégories de ses lignes.
@@ -232,14 +243,14 @@ api.get("/transactions", async (req, res) => {
       params.push(...Array(6).fill(`%${f.q}%`));
   if (!f.account && !f.id) where.push("a.excluded = 0");
   const raw = await q<{ label: string; merchant: string | null }>(
-    `SELECT t.id, t.account_id, t.date, t.amount, t.original_amount, t.original_currency, t.label, t.merchant, t.bank_label, t.status, t.category_id, t.category_source, t.note,
+    `SELECT t.id, t.account_id, ${day} AS date, t.date AS booked_date, t.purchase_date, t.amount, t.original_amount, t.original_currency, t.label, t.merchant, t.bank_label, t.status, t.category_id, t.category_source, t.note,
             c.name AS category_name, c.poste AS category_poste, c.kind AS category_kind,
             COALESCE(a.display_name, a.name) AS account_name, a.owner AS account_owner,
             (SELECT COUNT(*) FROM invoice_transactions it WHERE it.transaction_id = t.id) AS invoice_count,
             (SELECT COUNT(*) FROM transaction_splits s WHERE s.transaction_id = t.id) AS split_count
-     FROM transactions t JOIN ${userAccounts(req)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
+     FROM transactions t JOIN ${userAccounts(req)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id ${STAT_DATE_JOIN}
      WHERE ${where.map((w) => `(${w})`).join(" AND ")}
-     ORDER BY t.date DESC, t.amount ASC LIMIT ? OFFSET ?`,
+     ORDER BY ${day} DESC, t.amount ASC LIMIT ? OFFSET ?`,
     [...params, f.merchant ? 2000 : f.limit + 1, f.merchant ? 0 : f.offset],
   );
   // Le nom affiché d'un marchand se calcule depuis le libellé : filtre fait ici (volumes d'un mois).
@@ -347,49 +358,41 @@ api.patch("/transactions/:id", async (req, res) => {
   res.json({ ok: true, undoId: registerUndo(req.user!.id, "Classement", restore) });
 });
 
-/* ---------- Statistiques du mois ---------- */
+/* ---------- Statistiques d'une période (un mois ou une année) ---------- */
 
 api.get("/months/:month", async (req, res) => {
-  const m = month.parse(req.params.month);
-  const start = `${m}-01`;
-  const prev = new Date(`${start}T12:00:00Z`);
-  prev.setUTCMonth(prev.getUTCMonth() - 1);
-  const prevStart = prev.toISOString().slice(0, 10);
-  const byCategory = async (s: string) =>
+  const p = period.parse(req.params.month);
+  const { start, end, prevStart, year } = periodRange(p);
+  const byCategory = async (from: string, to: string) =>
     q<{ id: string | null; name: string | null; poste: string | null; kind: string | null; total: number; count: number }>(
       // Sans catégorie : débits comptés en dépenses, crédits en revenus (deux groupes distincts).
       `SELECT c.id, c.name, c.poste, ${LINE_KIND} AS kind,
               SUM(t.amount) AS total, COUNT(*) AS count
        FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH)
+       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < ?
        GROUP BY c.id, c.name, c.poste, ${LINE_KIND} ORDER BY total`,
-      [s, s],
+      [from, to],
     );
-  const daily = await q<{ day: number; total: number }>(
-    `SELECT DAY(t.date) AS day, -SUM(t.amount) AS total FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id
-     LEFT JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH) AND ${IS_EXPENSE}
-     GROUP BY DAY(t.date) ORDER BY day`,
-    [start, start],
-  );
-  const dailyPrev = await q<{ day: number; total: number }>(
-    `SELECT DAY(t.date) AS day, -SUM(t.amount) AS total FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id
-     LEFT JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH) AND ${IS_EXPENSE}
-     GROUP BY DAY(t.date) ORDER BY day`,
-    [prevStart, prevStart],
-  );
+  // Dépenses pas à pas, pour le cumul : jour par jour pour un mois, mois par mois pour une année (`day` = le rang).
+  const steps = async (from: string, to: string) =>
+    q<{ day: number; total: number }>(
+      `SELECT ${year ? "MONTH" : "DAY"}(t.date) AS day, -SUM(t.amount) AS total FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id
+       LEFT JOIN categories c ON c.id = t.category_id
+       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < ? AND ${IS_EXPENSE}
+       GROUP BY day ORDER BY day`,
+      [from, to],
+    );
   const months = await q<{ month: string }>(
     "SELECT DISTINCT DATE_FORMAT(date, '%Y-%m') AS month FROM transactions WHERE status IN ('posted', 'pending') ORDER BY month DESC",
   );
   res.json({
-    month: m,
-    categories: await byCategory(start),
-    previous: await byCategory(prevStart),
+    month: p,
+    categories: await byCategory(start, end),
+    previous: await byCategory(prevStart, start),
     // Postes colorés des donuts (même couleur d'un mois à l'autre).
     colored: await coloredPostes(userAccounts(req)),
-    daily,
-    dailyPrev,
+    daily: await steps(start, end),
+    dailyPrev: await steps(prevStart, start),
     months: months.map((r) => r.month),
   });
 });
@@ -512,17 +515,12 @@ api.patch("/crypto/:id", async (req, res) => {
 /* ---------- Tendances (graphiques) ---------- */
 
 /** Revenus, dépenses et épargne par mois (12 derniers mois), dans le périmètre de l'utilisateur. */
+/** Revenus, dépenses et épargne mois par mois : les douze derniers mois par défaut, ou du mois `from` au mois `to`. */
 api.get("/trend", async (req, res) => {
-  const rows = await q<{ month: string; revenus: number; depenses: number; epargne: number }>(
-    `SELECT DATE_FORMAT(t.date, '%Y-%m') AS month,
-            SUM(CASE WHEN ${LINE_KIND} = 'revenu' THEN t.amount ELSE 0 END) AS revenus,
-            -SUM(CASE WHEN ${LINE_KIND} = 'depense' THEN t.amount ELSE 0 END) AS depenses,
-            -SUM(CASE WHEN c.kind = 'epargne' THEN t.amount ELSE 0 END) AS epargne
-     FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND t.date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH)
-     GROUP BY month ORDER BY month`,
-  );
-  res.json({ months: rows });
+  const f = z.object({ from: month.optional(), to: month.optional() }).parse(req.query);
+  const current = householdDay().slice(0, 7);
+  // Sans borne de fin : jusqu'aux opérations déjà datées des mois à venir (achats par carte en attente de prélèvement).
+  res.json({ months: await monthlyTrend(userAccounts(req), f.from ?? addMonths(current, -11), f.to ?? addMonths(current, 12)) });
 });
 
 /** Solde disponible jour par jour (comptes visibles, hors cartes), sur N jours. */
@@ -566,10 +564,10 @@ const assistantLimiter = rateLimit({
 
 api.get("/assistant/status", (_req, res) => res.json({ enabled: assistantEnabled() }));
 
-/** Logo d'une marque (d:<domaine>) ou d'une crypto (coin:<id>) : en cache, téléchargé au premier besoin. */
+/** Logo d'une marque ou d'une enseigne du foyer (d:<domaine>), d'une banque reliée (bank:<pays>:<banque>) ou d'une crypto (coin:<id>) : en cache, téléchargé au premier besoin. */
 api.get("/logos/:key", async (req, res) => {
   const key = String(req.params.key);
-  if (!logoKeyValid(key)) return res.status(404).end();
+  if (!(await logoKeyAllowed(key))) return res.status(404).end();
   const logo = await getLogo(key);
   if (!logo) return res.status(404).set("Cache-Control", "private, max-age=86400").end();
   res
@@ -811,7 +809,9 @@ admin.post("/import/bank-history", async (req, res) => {
       bankCategories: z.record(z.string().max(255), z.string().max(16)).optional(),
     })
     .parse(req.body);
-  res.json(await importBankHistory({ ...body, dryRun: req.query.appliquer !== "1" }));
+  const report = await importBankHistory({ ...body, dryRun: req.query.appliquer !== "1" });
+  if (req.query.appliquer === "1") await fillPurchaseDates();
+  res.json(report);
 });
 
 /** Retire tout ce que l'import de l'historique a créé (opérations `origin = 'banque'` et comptes créés pour elles). */
@@ -1091,7 +1091,7 @@ api.get("/search", async (req, res) => {
 /* ---------- Analyse : flux, natures, prélèvements, marchands ---------- */
 
 api.get("/analysis/flows", async (req, res) => {
-  res.json(await monthFlows(userAccounts(req), month.parse(req.query.month)));
+  res.json(await monthFlows(userAccounts(req), periodOf(req)));
 });
 
 /* ---------- Résumé de la semaine ---------- */
@@ -1204,19 +1204,28 @@ api.get("/analysis/compare", async (req, res) => {
 });
 
 api.get("/analysis/natures", async (req, res) => {
-  res.json({ months: await natureTrend(userAccounts(req)) });
+  const f = z.object({ from: month.optional(), to: month.optional() }).parse(req.query);
+  const current = householdDay().slice(0, 7);
+  res.json({ months: await natureTrend(userAccounts(req), f.from ?? addMonths(current, -11), f.to ?? current) });
 });
 
+/** Prélèvements : le calendrier d'un mois (passés, attendus, absents), ou le tableau d'une année (créancier par mois). */
 api.get("/analysis/debits", async (req, res) => {
-  res.json(await monthDebits(req.user!.id, userAccounts(req), month.parse(req.query.month)));
+  const p = periodOf(req);
+  res.json(isYearPeriod(p) ? await yearDebits(userAccounts(req), p) : await monthDebits(req.user!.id, userAccounts(req), p));
 });
 
 api.get("/analysis/timeline", async (req, res) => {
-  res.json(await monthTimeline(req.user!.id, userAccounts(req), month.parse(req.query.month)));
+  res.json(await monthTimeline(userAccounts(req), periodOf(req)));
 });
 
 api.get("/analysis/merchants", async (req, res) => {
-  res.json({ merchants: await monthMerchants(userAccounts(req), month.parse(req.query.month)) });
+  res.json({ merchants: await monthMerchants(userAccounts(req), periodOf(req)) });
+});
+
+/** Prévision : le mois en cours et les trois suivants, entre ce qui est déjà écrit et ce qui est attendu (récurrences). */
+api.get("/analysis/forecast", async (req, res) => {
+  res.json(await forecast(userAccounts(req)));
 });
 
 api.get("/analysis/debit-series", async (req, res) => {

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { brandOf } from "./brands.ts";
+import { afterEach, describe, expect, it } from "vitest";
+import { brandInitials, brandOf, BRAND_DOMAINS, cleanDomain, customMatcher, customPattern, patternKey, setCustomBrands } from "./brands.ts";
 
 const d = (...t: string[]) => brandOf(...t)?.domain ?? null;
 
@@ -63,5 +63,92 @@ describe("brandOf", () => {
     expect(d("Boulanger De Neuvil")).toBeNull();
     expect(d("M Martin Alex Ou Mme Durand")).toBeNull();
     expect(d("Relevé Différé Carte 4810 6696")).toBeNull();
+  });
+});
+
+describe("enseignes du foyer", () => {
+  afterEach(() => {
+    setCustomBrands([]);
+  });
+
+  it("garde un motif écrit comme les libellés, et refuse ce qui est trop vague", () => {
+    expect(customPattern("  Fournil DES Halles ")).toBe("fournil des halles");
+    expect(customPattern("L'Épicerie d'Angers")).toBe("l'epicerie d'angers");
+    expect(customPattern("ab")).toBeNull();
+    expect(customPattern("de la")).toBeNull();
+    expect(customPattern("?!")).toBeNull();
+    expect(customPattern("mot ".repeat(40))).toBeNull();
+  });
+
+  it("reconnaît tous les mots du motif, entiers, dans n'importe quel ordre", () => {
+    const m = customMatcher("fournil des halles")!;
+    expect(m.test("carte 12 03 26 fournil des halles nantes")).toBe(true);
+    expect(m.test("fournil 4412 des halles")).toBe(true);
+    expect(m.test("halles des fournil")).toBe(true);
+    expect(m.test("fournils des halles")).toBe(false);
+    expect(m.test("fournil des hall")).toBe(false);
+    expect(customMatcher("")).toBeNull();
+  });
+
+  it("tient pour le même motif les mêmes mots dans un autre ordre", () => {
+    expect(patternKey("Halles des  fournil des")).toBe(patternKey("fournil des halles"));
+    expect(patternKey("fournil des halles")).not.toBe(patternKey("fournil halles"));
+  });
+
+  it("ne lit jamais le motif comme une expression régulière", () => {
+    expect(customMatcher("c.a+b")!.test("cxaab")).toBe(false);
+    expect(customMatcher("c.a+b")!.test("carte c.a+b nantes")).toBe(true);
+    expect(customMatcher("atelier.*")!.test("atelier camille")).toBe(false);
+    expect(customMatcher("canal+")!.test("canal+")).toBe(true);
+  });
+
+  it("passe avant le référentiel et dit quand la liste change", () => {
+    expect(d("Carte 02 05 26 Fournil Des Halles Nantes")).toBeNull();
+    expect(setCustomBrands([{ name: "Le Fournil des Halles", pattern: "fournil des halles", domain: "fournil-des-halles.example" }])).toBe(true);
+    expect(setCustomBrands([{ name: "Le Fournil des Halles", pattern: "fournil des halles", domain: "fournil-des-halles.example" }])).toBe(false);
+    const hit = brandOf("Carte 02 05 26 Fournil Des Halles Nantes");
+    expect(hit).toMatchObject({ name: "Le Fournil des Halles", domain: "fournil-des-halles.example", custom: true });
+    // Une enseigne du foyer l'emporte sur une marque du référentiel.
+    expect(d("Amazon Payments")).toBe("amazon.fr");
+    setCustomBrands([{ name: "Commandes de Léo", pattern: "amazon payments", domain: null }]);
+    expect(brandOf("Amazon Payments")).toMatchObject({ name: "Commandes de Léo", domain: null, custom: true });
+    expect(d("Amazon Eu Sarl")).toBe("amazon.fr");
+    // La liste retirée, le référentiel reprend sa place (le cache est vidé).
+    expect(setCustomBrands([])).toBe(true);
+    expect(d("Amazon Payments")).toBe("amazon.fr");
+    expect(d("Carte 02 05 26 Fournil Des Halles Nantes")).toBeNull();
+  });
+
+  it("ignore un motif trop vague venu de la base", () => {
+    setCustomBrands([{ name: "Vide", pattern: "de", domain: null }]);
+    expect(brandOf("Virement de Camille")).toBeNull();
+  });
+
+  it("réduit un site à son domaine et refuse ce qui n'en est pas un", () => {
+    expect(cleanDomain("https://www.Exemple.fr/contact?x=1")).toBe("exemple.fr");
+    expect(cleanDomain("boutique.exemple.fr:8443")).toBe("boutique.exemple.fr");
+    expect(cleanDomain("exemple.fr.")).toBe("exemple.fr");
+    expect(cleanDomain("exemple")).toBeNull();
+    expect(cleanDomain("192.168.0.1")).toBeNull();
+    expect(cleanDomain("http://localhost:3000")).toBeNull();
+    expect(cleanDomain("exemple .fr")).toBeNull();
+    expect(cleanDomain("")).toBeNull();
+  });
+
+  it("donne des initiales à une enseigne sans logo", () => {
+    expect(brandInitials("Le Fournil des Halles")).toBe("FH");
+    expect(brandInitials("Atelier de Léo")).toBe("AL");
+    expect(brandInitials("Atelier")).toBe("AT");
+    expect(brandInitials("L'Épicerie d'Angers")).toBe("ÉA");
+    expect(brandInitials("Chez Camille")).toBe("CA");
+    expect(brandInitials("Le 21")).toBe("21");
+    expect(brandInitials("De la")).toBe("DL");
+    expect(brandInitials("")).toBe("?");
+  });
+
+  it("ne mêle pas les sites des enseignes du foyer aux domaines du référentiel", () => {
+    setCustomBrands([{ name: "Le Fournil des Halles", pattern: "fournil des halles", domain: "fournil-des-halles.example" }]);
+    expect(BRAND_DOMAINS.has("fournil-des-halles.example")).toBe(false);
+    expect(BRAND_DOMAINS.has("amazon.fr")).toBe(true);
   });
 });

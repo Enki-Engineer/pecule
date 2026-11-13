@@ -14,6 +14,7 @@ import { mcpRouter } from "./mcp.ts";
 import { oauthApi, oauthRouter } from "./oauth.ts";
 import { voiceApi } from "./voice.ts";
 import { backupApi } from "./routes/backup.ts";
+import { brandsApi } from "./routes/brands.ts";
 import { langContext } from "./lang.ts";
 import { dataI18nApi, dataNames } from "./data-i18n.ts";
 import { DEFAULT_LANG, isLang, t, tk, translate } from "../lib/i18n.ts";
@@ -23,6 +24,7 @@ import { seedStarter } from "./starter.ts";
 import { resumeImports } from "./imports/batches.ts";
 import { loadServiceKeys } from "./service-keys.ts";
 import { loadRegion } from "./region.ts";
+import { fillPurchaseDates } from "./stat-dates.ts";
 import { FxError, refreshFx } from "./fx.ts";
 import { refreshWealth } from "./wealth.ts";
 import { maybeSyncCrypto } from "./crypto.ts";
@@ -141,6 +143,8 @@ export async function createApp() {
   app.use("/api", oauthApi);
   // Sauvegarde complète (administrateur) : archive zip écrite au fil de l'eau.
   app.use("/api", backupApi);
+  // Enseignes du foyer et logos des banques reliées.
+  app.use("/api", brandsApi);
   app.use("/api", api);
   app.use("/api", (_req, res) => res.status(404).json({ error: t("Route inconnue") }));
 
@@ -177,7 +181,8 @@ export async function createApp() {
     app.use(express.static(client, { index: false, maxAge: 0 }));
     app.get("/{*path}", (_req, res) => {
       res.set("Cache-Control", "no-cache");
-      res.sendFile(path.join(client, "index.html"));
+      // `root` : le chemin de l'installation peut passer par un dossier caché (« .apps/… ») sans que l'envoi soit refusé.
+      res.sendFile("index.html", { root: client });
     });
   } else {
     const { createServer } = await import("vite");
@@ -254,6 +259,10 @@ async function bootstrap(): Promise<void> {
     boot.phase = "pret";
     // Noms de catégories traduits : en mémoire dès l'ouverture (les textes écrits par le serveur s'en servent).
     void dataNames("fr").catch(() => {});
+    // Jour d'achat des opérations de carte déjà là (première ouverture après la migration 0028, puis sans effet).
+    void fillPurchaseDates()
+      .then((n) => n && console.log(`[jour d'achat] ${n} opération(s) complétée(s)`))
+      .catch((e) => console.error("[jour d'achat]", e));
     // Import massif : une lecture interrompue par l'arrêt du serveur reprend.
     void resumeImports().catch((e) => console.error("[import] reprise", e));
     // Base de démo : migrée à part ; un échec ne bloque pas l'appli (alerte, nouvel essai à la demande).

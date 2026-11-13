@@ -6,7 +6,7 @@ import { useEffect, useSyncExternalStore } from "react";
  * que « cette opération » ou « cette facture » désigne la bonne chose.
  */
 
-export type AssistantEntity = { type: "operation" | "facture" | "mois" | "credit" | "placement" | "document" | "bien"; id: string; label: string };
+export type AssistantEntity = { type: "operation" | "facture" | "mois" | "annee" | "credit" | "placement" | "document" | "bien"; id: string; label: string };
 
 let current: AssistantEntity | null = null;
 const listeners = new Set<() => void>();

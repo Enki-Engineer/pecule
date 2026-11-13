@@ -1,7 +1,7 @@
 import { householdTimeZone, money } from "./region.ts";
 import { isDemo } from "./demo-context.ts";
 import { createHash } from "node:crypto";
-import webpush from "web-push";
+import * as webpush from "web-push";
 import { env, origin, sealingSecret } from "./env.ts";
 import { createSealer } from "./secret.ts";
 import { exec, one, q } from "./db.ts";

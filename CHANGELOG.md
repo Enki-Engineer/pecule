@@ -18,6 +18,8 @@ sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent
   non pour le foyer. Sous chaque réponse : « Copier » (texte brut, liens complets), l'heure et le coût.
 - **Une lecture qui ne saute plus** : pendant qu'une réponse s'écrit, remonter lire plus haut ne ramène plus en bas ;
   « Suite de la réponse » y retourne. Le champ de saisie grandit avec le texte.
+- **Réponse suivie d'un graphique** : quand l'assistant rédige sa réponse puis demande un graphique (ou retient un
+  fait) dans la foulée, le texte reste dans la conversation. Il était remplacé par « … » une fois la réponse terminée.
 - Base : deux colonnes sur `assistant_threads` (`title`, `pinned`), ajoutées au démarrage par la migration 0029.
 
 ## 1.3.1

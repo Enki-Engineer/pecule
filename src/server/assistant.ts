@@ -331,6 +331,12 @@ async function runLoop(t: Thread, emit?: Emit) {
   let cost = 0;
   const charts: Chart[] = [];
   const finish = (item: DisplayItem) => t.display.push({ ...item, at: new Date().toISOString(), cost: Math.round(cost * 10000) / 10000, ...(charts.length ? { charts: charts.splice(0) } : {}) });
+  // Réponse déjà écrite pendant la boucle : Claude rédige parfois toute sa réponse puis, dans le même tour, demande
+  // un graphique ou retient un fait, et n'a plus rien à ajouter au tour suivant. Ce texte fait partie de la réponse.
+  // Une annonce avant une lecture (« je regarde tes opérations ») n'est pas gardée — sauf si rien d'autre n'a été écrit.
+  const written: string[] = [];
+  let announced = "";
+  const answer = (text: string) => [...written, text].filter(Boolean).join("\n\n");
   for (let step = 0; step < MAX_STEPS; step++) {
     const stream = aiClient().messages.stream({
       model: aiModel(),
@@ -383,6 +389,10 @@ async function runLoop(t: Thread, emit?: Emit) {
           }
         });
       const writes = uses.filter((u) => WRITE_NAMES.has(u.name));
+      if (text && !writes.length) {
+        if (reads.every((u) => MUTATING_NAMES.has(u.name))) written.push(text);
+        else announced = text;
+      }
       if (emit) for (const r of reads) emit({ type: "step", label: tr(progressLabel(r.name)) });
       const readResults = [
         ...chartResults,
@@ -408,15 +418,15 @@ async function runLoop(t: Thread, emit?: Emit) {
           continue;
         }
         t.pending = { reads: [...readResults, ...invalid], writes: await proposeActions(t, valid) };
-        if (text) finish({ role: "assistant", text });
+        if (answer(text)) finish({ role: "assistant", text: answer(text) });
         return;
       }
       t.messages.push({ role: "user", content: readResults });
       continue;
     }
-    return finish({ role: "assistant", text: text || (response.stop_reason === "max_tokens" ? tr("Réponse trop longue, interrompue.") : "…") });
+    return finish({ role: "assistant", text: answer(text) || announced || (response.stop_reason === "max_tokens" ? tr("Réponse trop longue, interrompue.") : "…") });
   }
-  finish({ role: "assistant", text: tr("Je n'ai pas réussi à terminer en un nombre raisonnable d'étapes. Reformule ou découpe la demande.") });
+  finish({ role: "assistant", text: answer(tr("Je n'ai pas réussi à terminer en un nombre raisonnable d'étapes. Reformule ou découpe la demande.")) });
 }
 
 /** Résout l'action en attente (acceptée ou refusée) et prépare les résultats d'outils. */

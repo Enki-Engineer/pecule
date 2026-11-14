@@ -29,6 +29,7 @@ export const GO: { key: string; to: string; label: string }[] = [
 const GENERAL: [string, string][] = [
   ["⌘ K", t("Rechercher partout")],
   ["⌘ J", t("Assistant")],
+  ["⌘ ⇧ J", t("Assistant en plein écran")],
   ["⌘ \\", t("Replier le menu")],
   ["⌥ ← / ⌥ →", t("Mois précédent / suivant")],
   ["?", t("Cette aide")],

@@ -3,6 +3,23 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.4.0
+
+- **Assistant en plein écran** (ordinateur) : le panneau s'agrandit — son bouton, ⌘⇧J ou l'adresse `/assistant` — en
+  une fenêtre de lecture : « Mes conversations » dans une colonne à gauche, la réponse dans une colonne large. C'est
+  la même conversation que le panneau : passer de l'un à l'autre garde le fil, le texte en cours de saisie et la
+  réponse qui s'écrit. Échap, ou un lien suivi dans une réponse, ramène au panneau.
+- **Historique des conversations** : recherche dans les titres et dans le texte des messages, rangement par
+  ancienneté (aujourd'hui, hier, cette semaine, ce mois-ci), conversations épinglées en tête, renommer, supprimer.
+  Le résumé de la semaine y porte son titre (« Semaine du … au … ») au lieu de la consigne envoyée.
+- **Réponses mises en forme** : le texte se lit à même la page, sans bulle. Tableaux à en-tête teinté, lignes
+  alternées, chiffres alignés et total mis en avant ; encadrés « À retenir », « Attention », « Conseil » et
+  « À savoir » ; surlignage du point à ne pas manquer ; écarts en vert ou en rouge selon qu'ils sont favorables ou
+  non pour le foyer. Sous chaque réponse : « Copier » (texte brut, liens complets), l'heure et le coût.
+- **Une lecture qui ne saute plus** : pendant qu'une réponse s'écrit, remonter lire plus haut ne ramène plus en bas ;
+  « Suite de la réponse » y retourne. Le champ de saisie grandit avec le texte.
+- Base : deux colonnes sur `assistant_threads` (`title`, `pinned`), ajoutées au démarrage par la migration 0029.
+
 ## 1.3.1
 
 - **Prévision** : un paiement fixe (mensualité de crédit, box, forfait) reste reconnu quand son libellé change — autre

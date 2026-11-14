@@ -1,13 +1,18 @@
-import { char, datetime, decimal, foreignKey, index, int, longtext, mysqlTable, text, varchar } from "drizzle-orm/mysql-core";
+import { char, datetime, decimal, foreignKey, index, int, longtext, mysqlTable, text, tinyint, varchar } from "drizzle-orm/mysql-core";
 import { createdAt, updatedAt } from "./common.ts";
 import { users } from "./auth.ts";
 
-/** Fils de l'assistant : historique append-only (messages API + affichage) et action en attente. */
+/**
+ * Fils de l'assistant : historique append-only (messages API + affichage) et action en attente.
+ * `title` : titre donné par le membre (sinon sa première question) ; `pinned` : épinglée en tête de l'historique.
+ */
 export const assistantThreads = mysqlTable(
   "assistant_threads",
   {
     id: char("id", { length: 36 }).primaryKey(),
     userId: int("user_id").notNull(),
+    title: varchar("title", { length: 160 }),
+    pinned: tinyint("pinned").notNull().default(0),
     messages: longtext("messages").notNull(),
     display: longtext("display").notNull(),
     pending: longtext("pending"),

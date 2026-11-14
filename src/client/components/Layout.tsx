@@ -92,7 +92,7 @@ const useWideScreen = () => {
 };
 
 export function Layout() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const navigate = useNavigate();
   useTheme(); // applique le thème choisi et suit le système en mode « auto »
   useBirthdays(); // anniversaires du foyer recopiés sur l'appareil : le thème du jour J s'applique dès l'ouverture
@@ -115,23 +115,53 @@ export function Layout() {
   const [rail, setRail] = useRail();
   const [panel, setPanel] = useState(() => localStorage.getItem(PANEL_KEY) === "1");
   const [prefill, setPrefill] = useState<string | undefined>();
-  const panelOpen = xl && panel && pathname !== "/assistant";
+  // Sur ordinateur, l'adresse /assistant est le plein écran de l'assistant : la même conversation que le panneau,
+  // déployée par-dessus l'appli (le bouton Précédent du navigateur en sort).
+  const full = !mobile && pathname === "/assistant";
+  const panelOpen = xl && panel && !full;
   // Les fenêtres (fiches) laissent le panneau de l'assistant libre : on peut lui parler de ce qui est ouvert.
   useEffect(() => {
     document.documentElement.style.setProperty("--assistant-panel", panelOpen ? "400px" : "0px");
   }, [panelOpen]);
+  // En plein écran, l'appli derrière ne défile pas.
+  useEffect(() => {
+    if (!full) return;
+    const root = document.documentElement;
+    const before = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = before;
+    };
+  }, [full]);
 
   const togglePanel = (open = !panel) => {
     setPanel(open);
     localStorage.setItem(PANEL_KEY, open ? "1" : "0");
+  };
+  // Écran d'où l'on est passé en plein écran : on y revient en le quittant.
+  const lastScreen = useRef("/");
+  useEffect(() => {
+    if (pathname !== "/assistant") lastScreen.current = pathname + search;
+  }, [pathname, search]);
+  /** Quitte le plein écran : vers le panneau (écran assez large), sinon l'assistant se ferme. */
+  const leaveFull = (toPanel: boolean) => {
+    togglePanel(toPanel && xl);
+    navigate(lastScreen.current);
+  };
+  const enterFull = () => {
+    // En sortant par un lien de la réponse, la conversation reste à portée de main dans le panneau.
+    if (xl) togglePanel(true);
+    navigate("/assistant");
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
         e.preventDefault();
-        if (xl) togglePanel();
-        else navigate("/assistant");
+        // ⌘⇧J : plein écran ; ⌘J : panneau (ou plein écran quand la fenêtre est trop étroite pour le panneau).
+        if (full) leaveFull(true);
+        else if (e.shiftKey || !xl) enterFull();
+        else togglePanel();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
         e.preventDefault();
@@ -140,13 +170,18 @@ export function Layout() {
     };
     const onAsk = (e: Event) => {
       const q = (e as CustomEvent<string>).detail;
-      if (xl) {
+      if (full) setPrefill(q);
+      else if (xl) {
         togglePanel(true);
         setPrefill(q);
       } else navigate(`/assistant?q=${encodeURIComponent(q)}`);
     };
     // Conversation existante (résumé de la semaine) : panneau sur grand écran, page sinon.
-    const onThread = () => (xl ? togglePanel(true) : navigate("/assistant"));
+    const onThread = () => {
+      if (full) return;
+      if (xl) togglePanel(true);
+      else navigate("/assistant");
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener("pecule-ask", onAsk);
     window.addEventListener("pecule-thread", onThread);
@@ -183,11 +218,16 @@ export function Layout() {
         </main>
       </div>
 
-      {/* Panneau assistant (ordinateur ≥ 1280 px) */}
-      {panelOpen && (
-        <aside className="sticky top-0 hidden h-screen border-l border-line bg-card xl:block">
+      {/* Assistant sur ordinateur : panneau à droite (≥ 1280 px) ou plein écran (/assistant). Le même élément porte
+          les deux formes : passer de l'une à l'autre garde la conversation et la réponse en cours. */}
+      {(panelOpen || full) && (
+        <aside className={full ? "chat-full fixed inset-0 z-50 bg-bg" : "sticky top-0 hidden h-screen border-l border-line bg-card xl:block"}>
           <Suspense fallback={<Spinner label={t("Ouverture de l'assistant…")} />}>
-            <AssistantChat variant="panel" prefill={prefill} onClose={() => togglePanel(false)} />
+            {full ? (
+              <AssistantChat variant="full" prefill={new URLSearchParams(search).get("q") ?? prefill} onClose={() => leaveFull(false)} onReduce={xl ? () => leaveFull(true) : undefined} />
+            ) : (
+              <AssistantChat variant="panel" prefill={prefill} onClose={() => togglePanel(false)} onExpand={enterFull} />
+            )}
           </Suspense>
         </aside>
       )}

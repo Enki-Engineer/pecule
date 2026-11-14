@@ -1,10 +1,11 @@
 import { householdTimeZone } from "./region.ts";
 import { exec, one, q } from "./db.ts";
-import { assistantEnabled, runUnattended, sendMessage } from "./assistant.ts";
+import { assistantEnabled, runUnattended, sendMessage, updateThread } from "./assistant.ts";
 import { notify } from "./notify.ts";
 import { recordAlert } from "./journal.ts";
 import { memberLang, runInLang } from "./lang.ts";
 import { t } from "../lib/i18n.ts";
+import { inlineText, plainMarkdown } from "../lib/markdown.ts";
 
 /*
  * Résumé de la semaine : chaque lundi à partir de 8 h (heure de Paris), l'assistant prépare pour
@@ -52,13 +53,17 @@ export async function generateSummary(userId: number, force = false): Promise<Su
   if (prev && !force && (JSON.parse(prev.value) as Summary).week === week) return null;
   const thread = await runUnattended(() => sendMessage(userId, undefined, PROMPT));
   const answer = [...thread.display].reverse().find((d) => d.role === "assistant" && d.text)?.text ?? "";
-  const preview = answer
+  // Aperçu de la notification : la première ligne après le titre, sans sa mise en forme.
+  const preview = plainMarkdown(answer)
     .split("\n")
-    .map((l) => l.replace(/[#*>`_-]/g, "").trim())
+    .map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim())
     .filter(Boolean)
     .slice(1, 2)
     .join(" ")
     .slice(0, 160);
+  // Dans l'historique, la conversation porte le titre du résumé (« Semaine du … au … ») plutôt que la consigne envoyée.
+  const heading = /^#{1,4}\s+(.+)$/m.exec(answer)?.[1];
+  await updateThread(userId, thread.threadId, { title: heading ? inlineText(heading) : t("Résumé de la semaine") });
   const s: Summary = { week, threadId: thread.threadId, createdAt: new Date().toISOString(), preview };
   await exec("INSERT INTO app_kv (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [`weekly:${userId}`, JSON.stringify(s)]);
   return s;

@@ -17,7 +17,7 @@ import { t as tr } from "../../lib/i18n.ts";
 import { labelShape, merchantName, natureSql, shapeRegex } from "../../lib/nature.ts";
 import { summarizeLoan, type ScheduleRow } from "../../lib/loans.ts";
 import { computeWealth, cryptoPositions, ensureFreshPrices, refreshWealth, snapshotWealth, wealthHistory } from "../wealth.ts";
-import { assistantEnabled, confirmPending, getThread, listThreads, sendMessage, type AssistantEvent, type PublicThread } from "../assistant.ts";
+import { assistantEnabled, confirmPending, deleteThread, getThread, listThreads, sendMessage, updateThread, type AssistantEvent, type PublicThread } from "../assistant.ts";
 import { listMemories } from "../tools/analyse.ts";
 import { getLogo, logoKeyAllowed, logoStatus, refreshWeakLogos, resetLogo } from "../logos.ts";
 import { registerUndo, runUndo, snapshotTransactions } from "../undo.ts";
@@ -586,11 +586,24 @@ api.delete("/assistant/memories/:id", async (req, res) => {
 });
 
 api.get("/assistant/threads", async (req, res) => {
-  res.json({ threads: await listThreads(req.user!.id, Math.min(100, Number(req.query.limit) || 30)) });
+  const search = typeof req.query.q === "string" ? req.query.q.slice(0, 120) : "";
+  res.json({ threads: await listThreads(req.user!.id, { limit: Math.min(100, Number(req.query.limit) || 30), search }) });
 });
 
 api.get("/assistant/threads/:id", async (req, res) => {
   res.json(await getThread(req.user!.id, req.params.id));
+});
+
+/** Ranger l'historique : renommer (un titre vide rend la première question) ou épingler une conversation. */
+api.patch("/assistant/threads/:id", async (req, res) => {
+  const body = z.object({ title: z.string().max(160).optional(), pinned: z.boolean().optional() }).parse(req.body);
+  await updateThread(req.user!.id, z.string().uuid().parse(req.params.id), body);
+  res.json({ ok: true });
+});
+
+api.delete("/assistant/threads/:id", async (req, res) => {
+  await deleteThread(req.user!.id, z.string().uuid().parse(req.params.id));
+  res.json({ ok: true });
 });
 
 /**

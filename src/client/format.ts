@@ -55,3 +55,14 @@ export const shiftMonth = (m: string, delta: number) => {
 };
 /** « janv », « févr », « juin », « juil »… (uniques, pour les axes). */
 export const monthShort = (m: string) => parse(`${m}-01`).toLocaleDateString(locale(), { month: "short" }).replace(".", "");
+
+/** Moment d'un message ou d'une conversation (date ISO) : l'heure le jour même, sinon le jour (« 3 nov. », avec l'année si ce n'est pas celle en cours). */
+export const momentLabel = (iso: string) => {
+  const d = new Date(iso);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString(locale(), { day: "numeric", month: "short", ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" as const } : {}) });
+};
+
+/** Coût de l'IA : compté en euros quelle que soit la devise du foyer (c'est la facture du fournisseur). */
+export const aiCost = (n: number) => (n < 0.01 ? "< 0,01 €" : new Intl.NumberFormat(locale(), { style: "currency", currency: "EUR", maximumFractionDigits: n < 1 ? 3 : 2 }).format(n));

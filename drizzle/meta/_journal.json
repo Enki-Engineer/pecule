@@ -29,6 +29,13 @@
       "when": 1794564180716,
       "tag": "0028_jour_achat_enseignes",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1794693487827,
+      "tag": "0029_fils_titre_epingle",
+      "breakpoints": true
     }
   ]
 }

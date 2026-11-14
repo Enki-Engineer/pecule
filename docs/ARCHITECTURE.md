@@ -86,6 +86,14 @@ attendent une confirmation), et les traductions des noms de catégories. Les out
 (`src/server/tools/`) et servent à l'assistant comme au **serveur MCP** (`POST /api/mcp`, jeton d'administration ou
 OAuth 2.1 pour un assistant extérieur). Le coût de chaque appel est enregistré (`ai_usage`).
 
+Une réponse de l'assistant est du Markdown, enrichi de trois marques que ses consignes lui apprennent : encadrés
+(`> [!IMPORTANT]`, `[!WARNING]`, `[!TIP]`, `[!NOTE]`), surlignage (`==…==`) et couleur selon le sens pour le foyer
+(`{+favorable+}`, `{-défavorable-}`). Le découpage est pur (`src/lib/markdown.ts`), l'écran le dessine
+(`components/Markdown.tsx`, `styles/assistant.css`) ; la voix et les notifications lisent le texte sans ses marques.
+Les conversations (`assistant_threads`) appartiennent à leur membre : lui seul les voit, les renomme, les épingle
+ou les supprime. Sur ordinateur, le panneau et le plein écran (`/assistant`) sont un seul composant monté par la
+coquille (`Layout`).
+
 ## Démarrage
 
 Le port s'ouvre tout de suite ; les migrations suivent, sous verrou (une base vide reçoit le schéma de départ en une

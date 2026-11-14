@@ -8,6 +8,11 @@ describe("speechText", () => {
       "Courses En octobre, tu as dépensé 487,30 € (détail). Auchan : 210 € Grand Frais : 107 €",
     );
   });
+  it("ne dit ni les encadrés, ni les couleurs, ni le surlignage", () => {
+    expect(speechText("Tu as dépensé {-+ 182 €-} de plus, ==à surveiller==.\n\n> [!TIP]\n> Résilie l'abonnement en double.\n\n> [!WARNING] Découvert le 28.")).toBe(
+      "Tu as dépensé + 182 € de plus, à surveiller. Résilie l'abonnement en double. Découvert le 28.",
+    );
+  });
   it("lit un tableau cellule par cellule, sans la ligne de séparation", () => {
     expect(speechText("| Mois | Dépenses |\n| --- | ---: |\n| Septembre | 554 € |\n| Octobre | 487 € |")).toBe("Mois, Dépenses. Septembre, 554 €. Octobre, 487 €.");
   });

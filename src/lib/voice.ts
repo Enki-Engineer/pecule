@@ -77,6 +77,11 @@ export function speechText(markdown: string, max = MAX_SPEECH): string {
     .replace(/^[ \t]*\|?[ \t:|-]{3,}\|?[ \t]*$/gm, "")
     .replace(/^[ \t]*\|(.*)\|[ \t]*$/gm, (_m, row: string) => row.split("|").map((c) => c.trim()).filter(Boolean).join(", ") + ".")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    // Encadrés (« > [!TIP] »), citations, couleurs et surlignage : seule la phrase est dite.
+    .replace(/^\s{0,3}>\s?(?:\[![^\]\n]{2,20}\])?[ \t]*/gm, "")
+    .replace(/\{\+\s*([^{}\n]+?)\s*\+\}/g, "$1")
+    .replace(/\{-\s*([^{}\n]+?)\s*-\}/g, "$1")
+    .replace(/==(?=\S)([^=\n]*[^=\s])==/g, "$1")
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
     .replace(/^\s*[-*•]\s+/gm, "")
     .replace(/^\s*\d+[.)]\s+/gm, "")

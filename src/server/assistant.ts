@@ -17,6 +17,7 @@ import { funPrompt } from "./fun.ts";
 import { householdSummary } from "./household.ts";
 import { dataNames } from "./data-i18n.ts";
 import { currentLang, langInfo, t as tr, type Lang } from "../lib/i18n.ts";
+import { fold } from "../lib/markdown.ts";
 
 /*
  * Assistant IA de Pécule : Claude (par le fournisseur réglé dans l'appli) avec les outils du registre
@@ -59,7 +60,13 @@ async function systemPrompt(userId: number): Promise<Anthropic.TextBlockParam[]>
 
 Façon de répondre :
 - Réponds complètement à la question posée, sans délayer : d'abord la réponse (le chiffre, la conclusion), puis le détail utile, puis les limites éventuelles et, si elle a un intérêt, une proposition de suite.
-- Mise en forme Markdown : **gras** pour l'essentiel ; listes à puces ou numérotées ; tableaux Markdown (5 colonnes au plus) pour comparer plusieurs lignes chiffrées (mois, postes, années, biens) ; titres « ### » seulement pour une réponse longue en plusieurs parties. Montants au format français (${inEuros() ? "1 234,56 €" : frMoney(1234.56)}). L'écran est un téléphone ou un panneau latéral.
+- Mise en forme Markdown, pour qu'on voie l'essentiel d'un coup d'œil :
+  - **gras** pour le chiffre ou la conclusion qui répond à la question ; ==surlignage== pour le seul point à ne pas manquer (une fois par réponse au plus) ;
+  - couleur, selon ce que cela signifie pour le foyer et non selon le signe : {+texte+} pour ce qui est favorable (économie, dépense en baisse, revenu ou patrimoine en hausse), {-texte-} pour ce qui est défavorable (dépassement, dépense en hausse, découvert, retard). Réserve-la aux écarts et aux évolutions (« {-+ 182 €-} par rapport à octobre », « {+− 12 %+} sur les courses »), jamais à un montant neutre ;
+  - encadrés, une ou deux fois par réponse au plus, sur leur propre paragraphe : une ligne « > [!IMPORTANT] » (ce qu'il faut retenir), « > [!WARNING] » (un risque, une échéance proche, un découvert), « > [!TIP] » (une piste d'économie, une action conseillée) ou « > [!NOTE] » (une hypothèse, une limite des données), puis le texte sur les lignes suivantes, chacune commençant par « > ». N'écris pas de titre dans l'encadré : l'écran l'ajoute ;
+  - tableaux Markdown (5 colonnes au plus) pour comparer plusieurs lignes chiffrées (mois, postes, années, biens) : montants alignés à droite (« ---: »), dernière ligne « **Total** » quand il y en a un, écarts en couleur ;
+  - listes à puces ou numérotées ; titres « ### » seulement pour une réponse longue en plusieurs parties.
+  Une réponse courte reste courte : une phrase avec le chiffre en gras vaut mieux qu'un tableau d'une ligne ou qu'un encadré de plus. Montants au format français (${inEuros() ? "1 234,56 €" : frMoney(1234.56)}). L'écran est un téléphone, un panneau latéral ou une fenêtre en plein écran.
 - Un graphique aide à voir une évolution (plusieurs mois ou années) ou à comparer des postes : appelle show_chart avec des chiffres issus de tes outils ; il s'affiche sous ta réponse. Pas de graphique pour deux ou trois valeurs.
 
 Méthode :
@@ -130,6 +137,8 @@ export type DisplayItem = {
   cost?: number;
   /** Graphiques demandés par Claude (show_chart), affichés sous la réponse. */
   charts?: Chart[];
+  /** Moment du message (ISO) ; absent des conversations antérieures. */
+  at?: string;
 };
 
 /* ---------- Graphiques dans la réponse (outil propre à l'assistant) ---------- */
@@ -162,14 +171,30 @@ function parseChart(input: unknown): Chart {
 }
 type Write = PendingWrite & { actionId: string; fingerprint: string };
 type Pending = { reads: Anthropic.ToolResultBlockParam[]; writes: Write[] };
-type Thread = { id: string; userId: number; messages: Anthropic.MessageParam[]; display: DisplayItem[]; pending: Pending | null; inputTokens: number; outputTokens: number; cost: number };
+type Thread = {
+  id: string;
+  userId: number;
+  /** Titre donné par le membre ; sinon la conversation porte sa première question. */
+  title: string | null;
+  pinned: boolean;
+  messages: Anthropic.MessageParam[];
+  display: DisplayItem[];
+  pending: Pending | null;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+};
+
+/** Titre affiché d'une conversation : celui du membre, sinon sa première question. */
+const threadTitle = (title: string | null, display: DisplayItem[]) =>
+  title?.trim() || (display.find((d) => d.role === "user")?.text ?? tr("Conversation")).replace(/\s+/g, " ").trim().slice(0, 120);
 
 export type AssistantEvent = { type: "text"; text: string } | { type: "step"; label: string };
 type Emit = (e: AssistantEvent) => void;
 
 async function loadThread(userId: number, id?: string): Promise<Thread> {
   if (id) {
-    const row = await one<{ id: string; messages: string; display: string; pending: string | null; input_tokens: number; output_tokens: number; cost: number | null }>(
+    const row = await one<{ id: string; title: string | null; pinned: number; messages: string; display: string; pending: string | null; input_tokens: number; output_tokens: number; cost: number | null }>(
       `SELECT t.*, (SELECT SUM(u.cost_eur) FROM ai_usage u WHERE u.thread_id = t.id) AS cost FROM assistant_threads t WHERE t.id = ? AND t.user_id = ?`,
       [id, userId],
     );
@@ -177,6 +202,8 @@ async function loadThread(userId: number, id?: string): Promise<Thread> {
       return {
         id: row.id,
         userId,
+        title: row.title,
+        pinned: !!row.pinned,
         messages: JSON.parse(row.messages),
         display: JSON.parse(row.display),
         pending: row.pending ? JSON.parse(row.pending) : null,
@@ -185,7 +212,7 @@ async function loadThread(userId: number, id?: string): Promise<Thread> {
         cost: Number(row.cost ?? 0),
       };
   }
-  return { id: randomUUID(), userId, messages: [], display: [], pending: null, inputTokens: 0, outputTokens: 0, cost: 0 };
+  return { id: randomUUID(), userId, title: null, pinned: false, messages: [], display: [], pending: null, inputTokens: 0, outputTokens: 0, cost: 0 };
 }
 
 async function saveThread(t: Thread) {
@@ -199,6 +226,8 @@ async function saveThread(t: Thread) {
 
 export const publicThread = (t: Thread) => ({
   threadId: t.id,
+  title: threadTitle(t.title, t.display),
+  pinned: t.pinned,
   display: t.display,
   // Anciennes conversations (avant la table des actions) : pas d'identifiant d'action.
   pending: t.pending ? t.pending.writes.map((w) => ({ id: w.actionId ?? null, label: w.label, details: w.details })) : null,
@@ -301,7 +330,7 @@ async function runLoop(t: Thread, emit?: Emit) {
   const system = await systemPrompt(t.userId);
   let cost = 0;
   const charts: Chart[] = [];
-  const finish = (item: DisplayItem) => t.display.push({ ...item, cost: Math.round(cost * 10000) / 10000, ...(charts.length ? { charts: charts.splice(0) } : {}) });
+  const finish = (item: DisplayItem) => t.display.push({ ...item, at: new Date().toISOString(), cost: Math.round(cost * 10000) / 10000, ...(charts.length ? { charts: charts.splice(0) } : {}) });
   for (let step = 0; step < MAX_STEPS; step++) {
     const stream = aiClient().messages.stream({
       model: aiModel(),
@@ -476,7 +505,7 @@ const VOICE_BLOCK: Anthropic.TextBlockParam = {
   type: "text",
   text:
     "[Mode vocal] L'utilisateur te parle et ta réponse sera lue à voix haute. Réponds comme à l'oral : deux à quatre phrases courtes, la réponse d'abord, " +
-    `en texte brut uniquement : aucun astérisque, aucun gras, aucun titre, aucun tableau, aucune liste, aucun graphique (pas de show_chart). Montants arrondis à ${inEuros() ? "l'euro" : "l'unité"}, dits simplement. ` +
+    `en texte brut uniquement : aucun astérisque, aucun gras, aucun titre, aucun tableau, aucune liste, aucun encadré, aucune couleur, aucun surlignage, aucun graphique (pas de show_chart). Montants arrondis à ${inEuros() ? "l'euro" : "l'unité"}, dits simplement. ` +
     "S'il y a beaucoup de lignes, donne l'essentiel (le total, les deux ou trois plus gros postes) et propose le détail à l'écran. " +
     "Le message vient d'une transcription : un mot mal compris se devine d'après le contexte ; si la question reste ambiguë, demande une précision en une phrase. " +
     "Si tu proposes une action, dis en une phrase ce que tu vas faire : l'utilisateur pourra confirmer ou annuler de vive voix (l'écran lui dit les mots à prononcer, ne les donne pas toi-même).",
@@ -500,7 +529,7 @@ export async function sendMessage(
   // Un nouveau message pendant une confirmation vaut refus de l'action proposée.
   const pendingResults = await resolvePending(t, false, "L'utilisateur a écrit un nouveau message au lieu de confirmer : action annulée.");
   t.messages.push({ role: "user", content: [...pendingResults, ...(ctx ? [ctx.block] : []), ...blocks, ...(opts.voice ? [VOICE_BLOCK] : []), { type: "text", text }] });
-  t.display.push({ role: "user", text, ...(attachments.length ? { attachments } : {}), ...(ctx?.label ? { context: ctx.label } : {}) });
+  t.display.push({ role: "user", text, at: new Date().toISOString(), ...(attachments.length ? { attachments } : {}), ...(ctx?.label ? { context: ctx.label } : {}) });
   // Le fil doit exister avant d'y rattacher des actions proposées.
   await saveThread(t);
   try {
@@ -533,23 +562,67 @@ export async function getThread(userId: number, threadId: string) {
   return publicThread(await loadThread(userId, threadId));
 }
 
-/** Conversations de l'utilisateur (les plus récentes d'abord) : premier message, nombre d'échanges, coût. */
-export async function listThreads(userId: number, limit = 30) {
-  const rows = await q<{ id: string; display: string; created_at: string; updated_at: string; cost: number | null }>(
-    `SELECT t.id, t.display, t.created_at, t.updated_at, (SELECT SUM(u.cost_eur) FROM ai_usage u WHERE u.thread_id = t.id) AS cost
-     FROM assistant_threads t WHERE t.user_id = ? ORDER BY t.updated_at DESC LIMIT ?`,
-    [userId, limit],
+/** Conversations gardées en mémoire pour une recherche dans leur texte. */
+const SEARCH_SCAN = 400;
+
+/**
+ * Conversations de l'utilisateur : les épinglées d'abord, puis les plus récentes. `search` cherche, sans tenir compte
+ * des accents ni de la casse, chacun de ses mots dans le titre et dans le texte des messages.
+ */
+export async function listThreads(userId: number, { limit = 30, search = "" }: { limit?: number; search?: string } = {}) {
+  const words = fold(search).split(/\s+/).filter(Boolean).slice(0, 8);
+  const rows = await q<{ id: string; title: string | null; pinned: number; display: string; created: number; updated: number; cost: number | null }>(
+    `SELECT t.id, t.title, t.pinned, t.display, UNIX_TIMESTAMP(t.created_at) AS created, UNIX_TIMESTAMP(t.updated_at) AS updated,
+            (SELECT SUM(u.cost_eur) FROM ai_usage u WHERE u.thread_id = t.id) AS cost
+     FROM assistant_threads t WHERE t.user_id = ? ORDER BY t.pinned DESC, t.updated_at DESC LIMIT ?`,
+    [userId, words.length ? SEARCH_SCAN : limit],
   );
-  return rows.map((r) => {
+  const iso = (seconds: number) => new Date(Number(seconds) * 1000).toISOString();
+  const out = [];
+  for (const r of rows) {
     const display = JSON.parse(r.display) as DisplayItem[];
-    const first = display.find((d) => d.role === "user");
-    return {
+    const title = threadTitle(r.title, display);
+    if (words.length) {
+      const text = fold(`${title}\n${display.map((d) => d.text).join("\n")}`);
+      if (!words.every((w) => text.includes(w))) continue;
+    }
+    out.push({
       id: r.id,
-      title: (first?.text ?? tr("Conversation")).replace(/\s+/g, " ").slice(0, 120),
+      title,
+      pinned: !!r.pinned,
       messages: display.filter((d) => d.role === "user").length,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
+      createdAt: iso(r.created),
+      updatedAt: iso(r.updated),
       cost: Math.round(Number(r.cost ?? 0) * 10000) / 10000,
-    };
-  });
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/**
+ * Renomme ou épingle une conversation. La date de dernière activité ne bouge pas : ranger une conversation
+ * ne la fait pas remonter en tête de l'historique. Un titre vide rend à la conversation sa première question.
+ */
+export async function updateThread(userId: number, threadId: string, patch: { title?: string; pinned?: boolean }) {
+  const sets: string[] = [];
+  const values: (string | number | null)[] = [];
+  if (patch.title !== undefined) {
+    sets.push("title = ?");
+    values.push(patch.title.replace(/\s+/g, " ").trim().slice(0, 160) || null);
+  }
+  if (patch.pinned !== undefined) {
+    sets.push("pinned = ?");
+    values.push(patch.pinned ? 1 : 0);
+  }
+  if (!sets.length) return;
+  const r = await exec(`UPDATE assistant_threads SET ${sets.join(", ")}, updated_at = updated_at WHERE id = ? AND user_id = ?`, [...values, threadId, userId]);
+  // « affectedRows » vaut 0 quand rien ne change : on vérifie que la conversation existe.
+  if (!r.affectedRows && !(await one("SELECT 1 AS x FROM assistant_threads WHERE id = ? AND user_id = ?", [threadId, userId]))) throw new ActionError(404, tr("Conversation introuvable"));
+}
+
+/** Supprime une conversation et ses actions proposées ; le coût déjà compté (ai_usage) reste dans les totaux. */
+export async function deleteThread(userId: number, threadId: string) {
+  const r = await exec("DELETE FROM assistant_threads WHERE id = ? AND user_id = ?", [threadId, userId]);
+  if (!r.affectedRows) throw new ActionError(404, tr("Conversation introuvable"));
 }

@@ -79,6 +79,10 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   **après** tous les hooks. Ne jamais définir un composant à l'intérieur d'un autre.
 - Une requête dont la clé change avec un réglage de l'écran porte `placeholderData: keepPreviousData` ; l'écran ne
   montre le squelette qu'au premier chargement.
+- Opérations et Factures forment une section (`components/OpsSection.tsx`) : les deux écrans restent montés, celui
+  qu'on quitte est masqué. Ils lisent leur adresse par `useTabParams()` et `useTabState()`, jamais par
+  `useSearchParams()` ni `useLocation()` (un écran masqué y lirait l'adresse de l'autre, et tous deux seraient rendus
+  à chaque bascule).
 - Couleurs : `var(--color-accent)` et les variables `--series-1…8` des graphiques, jamais de couleur en dur.
   Contraste de 4,5 au moins. Pas de script en ligne (la CSP l'interdit).
 - Un `useEffect(() => expr)` qui renvoie une valeur casse l'écran : toujours des accolades.

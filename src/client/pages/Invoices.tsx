@@ -1,14 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, FileText, Image, Link2, Package, Plus, Search, ShieldCheck, Trash2, X } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import {
   api,
-  DEFAULT_TX_FILTERS,
   invoiceListQuery,
-  transactionListQuery,
   invalidateInvoices,
   uploadInvoice,
   useCategories,
@@ -19,7 +17,8 @@ import {
   type InvoiceSummary,
   type LinkedTransaction,
 } from "../api.ts";
-import { Amount, Card, Empty, ErrorBox, Field, OpsTabs, PageHeader, Sheet, Spinner } from "../components/ui.tsx";
+import { Amount, Card, Empty, ErrorBox, Field, PageHeader, Sheet, Spinner } from "../components/ui.tsx";
+import { OpsTabs, useListSearch, useTabParams } from "../components/OpsSection.tsx";
 import { dateFr, moneyIn, moneySymbol } from "../format.ts";
 import { displayLabel } from "../../lib/labels.ts";
 import { DataTable, type Column } from "../components/DataTable.tsx";
@@ -114,24 +113,14 @@ const INVOICE_COLUMNS: Column<InvoiceSummary>[] = [
 
 export function Invoices() {
   const desktop = useMedia("(min-width: 1024px)");
-  const [params, setParams] = useSearchParams();
+  const [params, setParams] = useTabParams();
   const filtre = params.get("filtre") ?? undefined;
   const openId = params.get("id") ? Number(params.get("id")) : null;
-  const [search, setSearch] = useState(params.get("q") ?? "");
+  const [search, setSearch, debounced] = useListSearch(params.get("q") ?? "");
   const ctx = useContextMenu();
-  const [debounced, setDebounced] = useState(search);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(search.trim()), 300);
-    return () => clearTimeout(timer);
-  }, [search]);
 
   // Filtres, recherche : la liste reste affichée pendant le chargement de la suivante (pas de squelette).
   const list = useInfiniteQuery({ ...invoiceListQuery(filtre, debounced), placeholderData: keepPreviousData });
-  // Bascule « Opérations | Factures » : la liste des opérations est prête avant qu'on y revienne.
-  const qcList = useQueryClient();
-  useEffect(() => {
-    void qcList.prefetchInfiniteQuery({ ...transactionListQuery(DEFAULT_TX_FILTERS), staleTime: 60_000 });
-  }, [qcList]);
   const rows = useMemo(() => list.data?.pages.flatMap((p) => p.invoices) ?? [], [list.data]);
   const byYear = useMemo(() => {
     const groups: { year: string; items: InvoiceSummary[] }[] = [];

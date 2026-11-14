@@ -9,6 +9,7 @@ import { adoptBrands, useBrands } from "./api-brands.ts";
 import { adoptData, appLang, applyLang, hasData } from "./i18n.ts";
 import { claimOfflineCache, clearOfflineCache, OfflineBanner, OfflineProvider } from "./offline.tsx";
 import { Layout } from "./components/Layout.tsx";
+import { OpsSection } from "./components/OpsSection.tsx";
 import { Spinner } from "./components/ui.tsx";
 import { Enroll, Login } from "./pages/Auth.tsx";
 import { Authorize } from "./pages/Authorize.tsx";
@@ -24,7 +25,6 @@ import {
   Goals,
   Import,
   Income,
-  Invoices,
   LoanDetail,
   Month,
   preloadScreens,
@@ -34,7 +34,6 @@ import {
   Retirement,
   Settings,
   Taxes,
-  Transactions,
   Triage,
   Wealth,
 } from "./screens.tsx";
@@ -102,11 +101,12 @@ function App() {
         }
       >
         <Route index element={<Home />} />
-        <Route path="operations" element={<Transactions />} />
+        {/* Opérations | Factures : le même élément aux deux adresses, pour que rien ne soit démonté de l'une à l'autre. */}
+        <Route path="operations" element={<OpsSection />} />
         <Route path="tri" element={<Triage />} />
         <Route path="comparer" element={<Compare />} />
         <Route path="objectifs" element={<Goals />} />
-        <Route path="factures" element={<Invoices />} />
+        <Route path="factures" element={<OpsSection />} />
         <Route path="mois" element={<Month />} />
         <Route path="patrimoine" element={<Wealth />} />
         <Route path="patrimoine/crypto" element={<Crypto />} />

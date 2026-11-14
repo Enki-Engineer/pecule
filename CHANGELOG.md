@@ -10,6 +10,10 @@ sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent
   catégorie et par le même moyen de paiement. Deux contrats du même créancier sont attendus chacun pour son montant.
 - **Opérations** : dans une liste qui traverse plusieurs années (recherche, toutes les dates), la date d'une ligne
   écrit son année quand ce n'est pas celle en cours.
+- **Opérations | Factures** : passer de l'un à l'autre ne reconstruit plus l'écran. Les deux listes restent prêtes,
+  celle qu'on quitte est seulement masquée : plus de logos qui réapparaissent un à un, et chaque écran se retrouve tel
+  qu'on l'a laissé (filtres, recherche, fiche ouverte, hauteur de défilement). Sur le téléphone, la pastille de la
+  bascule glisse d'un côté à l'autre.
 
 ## 1.3.0
 

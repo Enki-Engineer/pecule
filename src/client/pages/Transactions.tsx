@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, ChevronDown, Eye, Search, Tags, X, Sparkles, Paperclip, ShieldCheck, PanelRight, CheckSquare, Store, Tag, CalendarDays, Shapes, Copy, MessageSquare } from "lucide-react";
 import { ContextMenu, useContextMenu } from "../components/ContextMenu.tsx";
@@ -15,12 +15,13 @@ import { askAssistant } from "../assistantBus.ts";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMedia } from "../useMedia.ts";
 import { cn } from "../cn.ts";
-import { Link, useLocation, useSearchParams } from "react-router";
+import { Link } from "react-router";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { api, invoiceListQuery, transactionListQuery, useAccounts, useCategories, useSuggestions, useTransactionDetails, useUpdateTransaction, type Category, type Transaction, type TxFilters } from "../api.ts";
+import { api, transactionListQuery, useAccounts, useCategories, useSuggestions, useTransactionDetails, useUpdateTransaction, type Category, type Transaction, type TxFilters } from "../api.ts";
 import { AddInvoiceButton, FileIcon } from "./Invoices.tsx";
-import { Amount, Card, Empty, ErrorBox, OpsTabs, PageHeader, Sheet, Spinner, TxAmount } from "../components/ui.tsx";
+import { Amount, Card, Empty, ErrorBox, PageHeader, Sheet, Spinner, TxAmount } from "../components/ui.tsx";
+import { OpsTabs, useListSearch, useTabParams, useTabState } from "../components/OpsSection.tsx";
 import { dateFr, dateShort, dayLabel, money, moneyIn, monthLabel, periodLabel } from "../format.ts";
 import { txDateHint, txSubline } from "../txInfo.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
@@ -30,19 +31,14 @@ import { t as tr, td, tk, tn } from "../../lib/i18n.ts";
 
 
 export function Transactions() {
-  const [params, setParams] = useSearchParams();
+  const [params, setParams] = useTabParams();
   const account = params.get("compte") ?? undefined;
   const category = params.get("categorie") ?? undefined;
   const poste = params.get("poste") ?? undefined;
   const month = params.get("mois") ?? undefined;
   const nature = params.get("nature") ?? undefined;
   const uncategorized = params.get("a_classer") === "1";
-  const [search, setSearch] = useState(params.get("q") ?? "");
-  const [debounced, setDebounced] = useState(search);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(search.trim()), 300);
-    return () => clearTimeout(t);
-  }, [search]);
+  const [search, setSearch, debounced] = useListSearch(params.get("q") ?? "");
 
   const accounts = useAccounts();
   const categories = useCategories();
@@ -51,16 +47,10 @@ export function Transactions() {
   const filters: TxFilters = { account, category, poste, month, nature, uncategorized, q: debounced };
   // Filtres, recherche : la liste reste affichée pendant le chargement de la suivante (pas de squelette).
   const list = useInfiniteQuery({ ...transactionListQuery(filters), placeholderData: keepPreviousData });
-  // Bascule « Opérations | Factures » : la liste des factures est prête avant qu'on y aille.
-  const qc = useQueryClient();
-  useEffect(() => {
-    void qc.prefetchInfiniteQuery({ ...invoiceListQuery(undefined, ""), staleTime: 60_000 });
-  }, [qc]);
 
   const rows = useMemo(() => list.data?.pages.flatMap((p) => p.transactions) ?? [], [list.data]);
   // Opération choisie dans la recherche ⌘K : on l'ouvre dès qu'elle apparaît dans la liste.
-  const location = useLocation();
-  const openTx = (location.state as { openTx?: string } | null)?.openTx;
+  const openTx = (useTabState() as { openTx?: string } | null)?.openTx;
   const sought = useRef<string | null>(null);
   useEffect(() => {
     if (!openTx || list.isLoading || list.isPlaceholderData) return;
@@ -512,19 +502,25 @@ type DesktopProps = {
   setSelected: (t: Transaction | null) => void;
 };
 
-/** Largeur d'un élément, suivie en direct (le panneau assistant peut s'ouvrir à côté). */
+/**
+ * Largeur d'un élément, suivie en direct (le panneau assistant peut s'ouvrir à côté). Mesurée avant la première image
+ * (pas de tableau étroit puis large), et sans état pour l'élément lui-même : l'écran masqué puis réaffiché
+ * (OpsSection) retrouve sa largeur sans rendre le tableau à nouveau.
+ */
 function useWidth() {
-  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const el = ref.current;
     if (!el) return;
+    setWidth((w) => w || el.getBoundingClientRect().width);
     const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
     ro.observe(el);
     return () => {
       ro.disconnect();
     };
-  }, [el]);
-  return [setEl, width] as const;
+  }, []);
+  return [ref, width] as const;
 }
 
 function DesktopOperations({ rows, list, search, setSearch, params, setParam, accounts, categories, selected, setSelected }: DesktopProps) {

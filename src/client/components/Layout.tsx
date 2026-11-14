@@ -34,6 +34,7 @@ import { COUNT_LINKS, type Counts } from "../nav.ts";
 import { useModulesOff, useNav } from "../modules.ts";
 import { pathEnabled } from "../../lib/modules.ts";
 import { scopeApplies } from "../../lib/scope.ts";
+import { screenKey } from "../../lib/ops-tabs.ts";
 import { NavTracker, PullToRefresh, isTopLevel, useBack, useEdgeSwipeBack } from "./MobileShell.tsx";
 import { useMedia } from "../useMedia.ts";
 import { SeasonDecor } from "./SeasonDecor.tsx";
@@ -173,7 +174,7 @@ export function Layout() {
           // en colonne (conversation, réglages) limite lui-même la largeur de son contenu.
           className="main-content mx-auto w-full min-w-0 max-w-[1600px] px-4 pb-28 md:px-8 md:pb-12 md:pt-6"
         >
-          <div key={pathname} ref={pageRef} className="page-enter">
+          <div key={screenKey(pathname)} ref={pageRef} className="page-enter">
             <Suspense fallback={<Spinner />}>
               {/* Un écran retiré par le foyer ramène à l'accueil, même ouvert par son adresse. */}
               {pathEnabled(pathname, modulesOff) ? <Outlet /> : <Navigate to="/" replace />}

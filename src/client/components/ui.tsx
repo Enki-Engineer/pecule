@@ -6,7 +6,6 @@ import { MobileHeader } from "./MobileShell.tsx";
 import { LogoImg, type LogoSize } from "./Logo.tsx";
 import { useBankLogoKey, useBrandsVersion } from "../api-brands.ts";
 import { brandOf } from "../../lib/brands.ts";
-import { Link } from "react-router";
 import { X } from "lucide-react";
 import { money, moneyIn } from "../format.ts";
 import { useMedia } from "../useMedia.ts";
@@ -362,25 +361,5 @@ export function Field({ label, value, onChange, text, placeholder }: { label: st
         className="tnum w-full bg-transparent text-[17px] font-medium outline-none placeholder:text-muted/60"
       />
     </label>
-  );
-}
-
-/** Bascule « Opérations | Factures » (iPhone : Factures n'a plus d'onglet propre). */
-export function OpsTabs({ current }: { current: "operations" | "factures" }) {
-  const item = (key: "operations" | "factures", to: string, label: string) => (
-    <Link
-      to={to}
-      replace
-      data-tab
-      className={clsx("flex-1 rounded-[10px] py-1.5 text-center text-sm font-medium", current === key ? "bg-card text-ink shadow-sm" : "text-muted")}
-    >
-      {label}
-    </Link>
-  );
-  return (
-    <div className="mb-3 flex gap-1 rounded-xl bg-line/60 p-1 md:hidden">
-      {item("operations", "/operations", t("Opérations"))}
-      {item("factures", "/factures", t("Factures"))}
-    </div>
   );
 }

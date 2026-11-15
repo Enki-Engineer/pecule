@@ -3,7 +3,7 @@ import { origin } from "./env.ts";
 import { listMembers } from "./members.ts";
 import { logAudit, runAs } from "./journal.ts";
 import { RESOURCE_METADATA_URL } from "./oauth.ts";
-import { TOOLS, executeWrite, inputError, jsonSchema, runReadTool } from "./tools/index.ts";
+import { MCP_TOOLS as TOOLS, executeWrite, inputError, jsonSchema, runReadTool } from "./tools/index.ts";
 
 /*
  * Serveur MCP (Model Context Protocol, transport « Streamable HTTP » sans état, réponses JSON)
@@ -27,6 +27,7 @@ const INSTRUCTIONS_BASE = `Pécule est l'application de suivi bancaire et patrim
 Débits négatifs. Les catégories de type « interne » (C1, C2) sont des mouvements entre comptes du foyer. Référentiel : list_categories.
 Factures : search_invoices / get_invoice, find_payment_candidates pour trouver l'opération qui l'a payée, link_invoice pour la relier (les catégories des articles s'appliquent alors à l'opération).
 Contrats : compare_contracts réunit une offre du coffre (devis, proposition), le contrat en cours, son engagement du budget (échéance, préavis, dernier jour pour résilier) et ce qui a été prélevé sur douze mois ; sans contrat indiqué, il liste les candidats.
+Aide et réglages : read_manual donne le manuel de l'appli (sans paramètre : son sommaire ; par mots-clés ou par article ensuite), avec les adresses des écrans ; get_settings lit les réglages du membre et du foyer, update_settings et update_account les changent (langue, écrans affichés, jour retenu pour les achats par carte, nom d'un compte, compte masqué ou hors statistiques).
 Les actions (categorize_transactions, link_invoice, update_invoice, update_asset…) modifient les données immédiatement : vérifier avant d'agir.`;
 const adminInstructions = (holder: string, others: string[]) =>
   `${INSTRUCTIONS_BASE}\nVue : par défaut celle de ${holder} (titulaire du jeton).` +

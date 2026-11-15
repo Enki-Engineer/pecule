@@ -24,6 +24,34 @@ export class ActionError extends Error {
   }
 }
 
+export type AccountSettings = { id: string; name: string; displayName: string | null; hidden: boolean; excluded: boolean };
+
+/** Un compte et ses réglages tels que les voit un membre ; undefined s'il n'existe pas. */
+export async function accountSettings(userId: number, id: string): Promise<AccountSettings | undefined> {
+  const row = await one<{ id: string; name: string; display_name: string | null; hidden: number; excluded: number }>(
+    `SELECT a.id, a.name, a.display_name, COALESCE(p.hidden, a.hidden) AS hidden, COALESCE(p.excluded, a.excluded) AS excluded
+     FROM accounts a LEFT JOIN account_prefs p ON p.account_id = a.id AND p.user_id = ? WHERE a.id = ?`,
+    [userId, id],
+  );
+  return row && { id: row.id, name: row.name, displayName: row.display_name, hidden: !!row.hidden, excluded: !!row.excluded };
+}
+
+/**
+ * Règle un compte : le nom affiché est commun au foyer (null ou vide : celui de la banque) ; masquer le compte ou
+ * le sortir des statistiques ne vaut que pour le membre.
+ */
+export async function saveAccountSettings(userId: number, id: string, patch: { displayName?: string | null; hidden?: boolean; excluded?: boolean }) {
+  const current = await accountSettings(userId, id);
+  if (!current) throw new ActionError(404, t("Compte introuvable"));
+  if (patch.displayName !== undefined) await exec("UPDATE accounts SET display_name = ? WHERE id = ?", [patch.displayName?.trim() || null, id]);
+  if (patch.hidden !== undefined || patch.excluded !== undefined)
+    await exec(
+      `INSERT INTO account_prefs (user_id, account_id, hidden, excluded) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE hidden = VALUES(hidden), excluded = VALUES(excluded)`,
+      [userId, id, (patch.hidden ?? current.hidden) ? 1 : 0, (patch.excluded ?? current.excluded) ? 1 : 0],
+    );
+}
+
 /** Classe une opération ; `remember` crée une règle sur le libellé et l'applique aux opérations semblables. */
 export async function setTransactionCategory(id: string, categoryId: string | null, remember = false) {
   const tx = await one<{ id: string; label_key: string }>("SELECT id, label_key FROM transactions WHERE id = ?", [id]);

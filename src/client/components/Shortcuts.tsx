@@ -24,6 +24,7 @@ export const GO: { key: string; to: string; label: string }[] = [
   { key: "t", to: "/impots", label: t("Impôts") },
   { key: "k", to: "/documents", label: t("Coffre") },
   { key: "e", to: "/echeancier", label: t("Échéancier") },
+  { key: "m", to: "/manuel", label: t("Manuel") },
   { key: "s", to: "/reglages", label: t("Réglages") },
 ];
 

@@ -46,7 +46,7 @@ import { importsApi } from "./imports.ts";
 import { connectionsApi } from "./connections.ts";
 import { bankApi } from "./bank.ts";
 import { aiSettingsApi } from "./ai-settings.ts";
-import { ActionError, setTransactionCategory, setTransactionNote, updateAsset, updateCryptoPosition, userAccountsSql } from "../actions.ts";
+import { ActionError, saveAccountSettings, setTransactionCategory, setTransactionNote, updateAsset, updateCryptoPosition, userAccountsSql } from "../actions.ts";
 import { hourly } from "../limits.ts";
 import { memberIdByName } from "../members.ts";
 import { isDemo } from "../demo-context.ts";
@@ -120,23 +120,8 @@ api.patch("/accounts/:id", async (req, res) => {
   const body = z
     .object({ displayName: z.string().max(120).nullable().optional(), hidden: z.boolean().optional(), excluded: z.boolean().optional() })
     .parse(req.body);
-  if (!(await one("SELECT id FROM accounts WHERE id = ?", [req.params.id]))) return res.status(404).json({ error: tr("Compte introuvable") });
   // Le nom affiché est commun à la famille ; masquer / exclure ne vaut que pour soi.
-  if (body.displayName !== undefined) await exec("UPDATE accounts SET display_name = ? WHERE id = ?", [body.displayName || null, req.params.id]);
-  if (body.hidden !== undefined || body.excluded !== undefined) {
-    const current = await one<{ hidden: number; excluded: number }>(
-      `SELECT COALESCE(p.hidden, a.hidden) AS hidden, COALESCE(p.excluded, a.excluded) AS excluded
-       FROM accounts a LEFT JOIN account_prefs p ON p.account_id = a.id AND p.user_id = ? WHERE a.id = ?`,
-      [req.user!.id, req.params.id],
-    );
-    const hidden = body.hidden ?? !!current?.hidden;
-    const excluded = body.excluded ?? !!current?.excluded;
-    await exec(
-      `INSERT INTO account_prefs (user_id, account_id, hidden, excluded) VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE hidden = VALUES(hidden), excluded = VALUES(excluded)`,
-      [req.user!.id, req.params.id, hidden ? 1 : 0, excluded ? 1 : 0],
-    );
-  }
+  await saveAccountSettings(req.user!.id, req.params.id, body);
   res.json({ ok: true });
 });
 

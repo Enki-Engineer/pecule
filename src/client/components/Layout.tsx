@@ -5,7 +5,7 @@ import { DemoBadge } from "./DemoBadge.tsx";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarCheck, ChevronLeft, ChevronRight, Eye, EyeOff, House, ListOrdered, PanelLeftClose, PanelLeftOpen, PieChart, PiggyBank, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, CalendarCheck, ChevronLeft, ChevronRight, Eye, EyeOff, House, ListOrdered, PanelLeftClose, PanelLeftOpen, PieChart, PiggyBank, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
 import { Spinner } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import { api, useMe, useMonth, useSync } from "../api.ts";
@@ -59,6 +59,7 @@ const CRUMBS: [RegExp, { label: string; to?: string }[]][] = [
   [/^\/retraite/, [{ label: t("Situation") }, { label: t("Retraite"), to: "/retraite" }]],
   [/^\/documents/, [{ label: t("Documents") }, { label: t("Coffre"), to: "/documents" }]],
   [/^\/echeancier/, [{ label: t("Documents") }, { label: t("Échéancier"), to: "/echeancier" }]],
+  [/^\/manuel/, [{ label: t("Manuel"), to: "/manuel" }]],
   [/^\/reglages/, [{ label: t("Réglages"), to: "/reglages" }]],
   [/^\/assistant/, [{ label: t("Assistant") }]],
 ];
@@ -322,6 +323,10 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
             <Sparkles size={16} className="shrink-0" /> {!rail && "Assistant"}
           </NavLink>
         )}
+        <NavLink to="/manuel" viewTransition title={rail ? t("Manuel") : undefined} className={({ isActive }) => navItem(isActive, rail)}>
+          <BookOpen size={16} className="shrink-0" />
+          {!rail && <span>{t("Manuel")}</span>}
+        </NavLink>
         <div className="relative">
           <NavLink to="/reglages" viewTransition title={rail ? t("Réglages") : undefined} className={({ isActive }) => navItem(isActive, rail)}>
             <Settings size={16} className="shrink-0" />
@@ -576,7 +581,7 @@ function PeriodPicker({ operations, label }: { operations: boolean; label: strin
 
 type MobileTabDef = { to: string; label: string; icon: typeof House; match: (p: string) => boolean };
 const mobileTabs: MobileTabDef[] = [
-  { to: "/", label: t("Accueil"), icon: House, match: (p) => p === "/" || p.startsWith("/reglages") },
+  { to: "/", label: t("Accueil"), icon: House, match: (p) => p === "/" || p.startsWith("/reglages") || p.startsWith("/manuel") },
   { to: "/operations", label: t("Opérations"), icon: ListOrdered, match: (p) => p.startsWith("/operations") || p.startsWith("/factures") },
   { to: "/mois", label: t("Mois"), icon: PieChart, match: (p) => p.startsWith("/mois") },
   { to: "/patrimoine", label: t("Patrimoine"), icon: PiggyBank, match: (p) => p.startsWith("/patrimoine") || p.startsWith("/credits") },

@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 import { asAccent, birthdaysAt, DEFAULT_ACCENT, parseBirthdays, seasonAt, SEASONS, type Accent, type Birthday, type Season, type SeasonMode } from "../lib/seasons.ts";
 import { locale } from "../lib/i18n.ts";
 import { asFond, asHomeTheme, homeIconId, logoId, manifestSrc, tabIconSrc, touchIconSrc, type LogoFond, type LogoId } from "../lib/logo.ts";
+import type { Density, ThemePref } from "../lib/device-settings.ts";
 
-export type ThemePref = "auto" | "clair" | "sombre";
+export type { Density, ThemePref };
 const KEY = "pecule.theme";
 
 function apply(pref: ThemePref) {
@@ -33,14 +34,14 @@ export function useTheme(): [ThemePref, (p: ThemePref) => void] {
       mq.removeEventListener("change", onChange);
     };
   }, [pref]);
-  return [
-    pref,
-    (p) => {
-      localStorage.setItem(KEY, p);
-      setPref(p);
-      window.dispatchEvent(new Event("pecule-theme"));
-    },
-  ];
+  return [pref, setThemePref];
+}
+
+/** Change la préférence, d'un écran ou d'ailleurs (réglage demandé à l'assistant) : tous ceux qui l'affichent suivent. */
+export function setThemePref(p: ThemePref) {
+  localStorage.setItem(KEY, p);
+  apply(p);
+  window.dispatchEvent(new Event("pecule-theme"));
 }
 
 /* ---------- Couleur d'accent et thèmes de saison ---------- */
@@ -169,9 +170,17 @@ export function useSeasonGreeting(): string | null {
 
 /* ---------- Densité (ordinateur) ---------- */
 
-export type Density = "aeree" | "compacte";
 const DENSITY_KEY = "pecule.densite";
 const readDensity = (): Density => (localStorage.getItem(DENSITY_KEY) === "compacte" ? "compacte" : "aeree");
+
+/** Change la densité, d'un écran ou d'ailleurs (réglage demandé à l'assistant). */
+export function setDensityPref(d: Density) {
+  if (d === "compacte") localStorage.setItem(DENSITY_KEY, d);
+  else localStorage.removeItem(DENSITY_KEY);
+  if (d === "compacte") document.documentElement.dataset.density = "compact";
+  else delete document.documentElement.dataset.density;
+  window.dispatchEvent(new Event("pecule-density"));
+}
 
 /**
  * Densité de l'affichage sur ordinateur, mémorisée sur l'appareil (posée avant le premier rendu par
@@ -179,16 +188,26 @@ const readDensity = (): Density => (localStorage.getItem(DENSITY_KEY) === "compa
  */
 export function useDensity(): [Density, (d: Density) => void] {
   const [density, setDensity] = useState<Density>(readDensity);
-  return [
-    density,
-    (d) => {
-      if (d === "compacte") localStorage.setItem(DENSITY_KEY, d);
-      else localStorage.removeItem(DENSITY_KEY);
-      if (d === "compacte") document.documentElement.dataset.density = "compact";
-      else delete document.documentElement.dataset.density;
-      setDensity(d);
-    },
-  ];
+  useEffect(() => {
+    const sync = () => setDensity(readDensity());
+    window.addEventListener("pecule-density", sync);
+    return () => {
+      window.removeEventListener("pecule-density", sync);
+    };
+  }, []);
+  return [density, setDensityPref];
+}
+
+/** Change la couleur de l'appli, d'un écran ou d'ailleurs (réglage demandé à l'assistant). */
+export function setAccentPref(a: Accent) {
+  localStorage.setItem(ACCENT_KEY, a);
+  applyAppearance();
+}
+
+/** Change le réglage des thèmes de l'année, d'un écran ou d'ailleurs. */
+export function setSeasonModePref(mode: SeasonMode) {
+  localStorage.setItem(SEASONS_KEY, mode);
+  applyAppearance();
 }
 
 /** Réglages d'apparence de l'appareil : couleur, thèmes de saison, aperçu d'une saison. */
@@ -196,19 +215,22 @@ export function useAppearance() {
   const [accent, setAccentState] = useState<Accent>(() => asAccent(localStorage.getItem(ACCENT_KEY)));
   const [seasons, setSeasonsState] = useState<SeasonMode>(seasonMode);
   const [previewing, setPreviewing] = useState<Season | null>(preview);
+  // Le réglage peut changer ailleurs que sur cet écran (assistant) : il est relu à chaque application.
+  useEffect(() => {
+    const sync = () => {
+      setAccentState(asAccent(localStorage.getItem(ACCENT_KEY)));
+      setSeasonsState(seasonMode());
+    };
+    window.addEventListener("pecule-appearance", sync);
+    return () => {
+      window.removeEventListener("pecule-appearance", sync);
+    };
+  }, []);
   return {
     accent,
-    setAccent: (a: Accent) => {
-      localStorage.setItem(ACCENT_KEY, a);
-      setAccentState(a);
-      applyAppearance();
-    },
+    setAccent: setAccentPref,
     seasons,
-    setSeasons: (mode: SeasonMode) => {
-      localStorage.setItem(SEASONS_KEY, mode);
-      setSeasonsState(mode);
-      applyAppearance();
-    },
+    setSeasons: setSeasonModePref,
     previewing,
     setPreview: (s: Season | null) => {
       preview = s;

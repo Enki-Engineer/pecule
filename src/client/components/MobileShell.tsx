@@ -2,7 +2,7 @@ import { DemoBadge } from "./DemoBadge.tsx";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useLocation, useNavigate, useNavigationType } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
 import { toggleDiscreet, useDiscreet } from "../discret.ts";
 import { toast } from "sonner";
 import { api, useMe, useSync } from "../api.ts";
@@ -46,6 +46,8 @@ const ROUTES: [RegExp, Meta][] = [
   [/^\/retraite/, { title: t("Retraite"), parent: "/patrimoine" }],
   [/^\/documents/, { title: t("Coffre"), parent: "/" }],
   [/^\/echeancier/, { title: t("Échéancier"), parent: "/" }],
+  [/^\/manuel\/./, { title: t("Manuel"), parent: "/manuel" }],
+  [/^\/manuel/, { title: t("Manuel"), parent: "/" }],
   [/^\/reglages\/./, { title: t("Réglages"), parent: "/reglages" }],
   [/^\/reglages/, { title: t("Réglages"), parent: "/" }],
 ];
@@ -244,6 +246,7 @@ export function MenuSheet({ open, onClose }: { open: boolean; onClose: () => voi
         </button>
         <div className="card divide-y divide-line overflow-hidden">
           {row("/assistant", t("Assistant"), Sparkles)}
+          {row("/manuel", t("Manuel"), BookOpen)}
           {row("/reglages", t("Réglages"), Settings, counts.data?.alerts, true)}
         </div>
         {me.data?.user && <p className="text-center text-[12px] text-muted">Connecté : {me.data.user.name}</p>}

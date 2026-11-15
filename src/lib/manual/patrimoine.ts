@@ -1,0 +1,131 @@
+import { tk } from "../i18n.ts";
+import type { ManualTheme } from "../manual.ts";
+
+export const patrimoine: ManualTheme = {
+  id: "patrimoine",
+  title: tk("Patrimoine"),
+  hint: tk("Épargne, placements, immobilier, crédits, crypto, projections"),
+  articles: [
+    {
+      id: "patrimoine-vue-ensemble",
+      title: tk("Lire son patrimoine"),
+      summary: tk("Ce que tu possèdes, ce que tu dois, et comment cela évolue."),
+      body: [
+        tk("L'écran [[Patrimoine]] montre ta part : un compte, un bien ou un crédit commun y compte pour la quote-part enregistrée."),
+        {
+          list: [
+            tk("[[Patrimoine net]] : ce que tu possèdes moins ce que tu dois encore."),
+            tk("[[Actifs bruts]] : tout ce que tu possèdes, avant de retirer les crédits."),
+            tk("[[Crédits restants]] : le capital qu'il te reste à rembourser."),
+            tk("[[Disponible]] : comptes courants et épargne, ce qui se mobilise sans rien vendre."),
+          ],
+        },
+        tk("Le patrimoine se range en six poches : immobilier, crypto, placements, épargne, comptes et autres. Sur ordinateur, clique sur une poche pour filtrer le tableau des actifs, et sur une date de la courbe pour voir la répartition ce jour-là et l'écart depuis."),
+        tk("Les soldes des comptes viennent de la banque ; la crypto et les placements cotés suivent les cours du marché ; les autres valeurs se mettent à jour à la main. Un relevé du patrimoine est gardé chaque jour : c'est ce qui dessine la courbe."),
+      ],
+      links: [{ to: "/patrimoine", label: ["Patrimoine"] }],
+      words: tk("fortune richesse valeur nette actifs passifs évolution répartition combien je possède"),
+    },
+    {
+      id: "placements",
+      title: tk("Ajouter ou mettre à jour un placement"),
+      summary: tk("Livret, assurance vie, PEA, bien : saisir une valeur et la tenir à jour."),
+      body: [
+        {
+          steps: [
+            tk("Sur [[Patrimoine]], touche [[Ajouter un placement]]."),
+            tk("Donne son nom, sa poche (épargne, placements, immobilier ou autres), sa valeur actuelle et, si tu veux, l'établissement."),
+            tk("Touche [[Ajouter]]."),
+          ],
+        },
+        tk("Pour mettre une valeur à jour, touche la ligne du placement, saisis la nouvelle valeur et touche [[Enregistrer]]. Pour un placement coté, on saisit le nombre de parts et les espèces du compte : la valeur suit le cours."),
+        {
+          list: [
+            tk("Une valeur saisie il y a plus de trois mois est rappelée dans [[À traiter]], sur le tableau de bord."),
+            tk("Un relevé de placement déposé au coffre propose la nouvelle valeur, à valider."),
+            tk("L'assistant peut le faire : « mets mon livret A à 12 000 »."),
+          ],
+        },
+        { note: tk("Un placement ajouté ici t'est propre. Les comptes bancaires, eux, arrivent avec leur banque.") },
+      ],
+      links: [{ to: "/patrimoine", label: ["Patrimoine"] }],
+      words: tk("livret assurance vie pea compte titres actions épargne salariale valeur mettre à jour ajouter un actif"),
+    },
+    {
+      id: "immobilier",
+      title: tk("Suivre un bien immobilier"),
+      summary: tk("Valeur, crédits, équité, loyers et documents de chaque bien."),
+      module: "immobilier",
+      body: [
+        tk("L'écran [[Immobilier]] liste les biens du foyer. La fiche d'un bien réunit sa valeur estimée, le capital restant dû sur ses crédits, l'équité (la valeur moins ce qui reste dû), et, pour un bien loué, le loyer, le rendement brut et ce qu'il laisse chaque mois une fois le crédit et les charges payés."),
+        tk("Elle rattache aussi ce qui concerne le bien : ses crédits, son bail, sa taxe foncière, ses frais (les engagements du budget), ses documents et ses tâches."),
+        {
+          list: [
+            tk("Créer un bien : dépose son acte, son compromis ou son bail dans le coffre ; Pécule en lit les données et te les propose."),
+            tk("Mettre à jour sa valeur : sur [[Patrimoine]], touche sa ligne dans la poche immobilier."),
+            tk("Loyer, charges, bail, valeur : l'assistant peut les corriger — « passe le loyer de l'appartement d'Angers à 720 »."),
+          ],
+        },
+        { note: tk("Un bien commun est compté pour ta part dans ton patrimoine.") },
+      ],
+      links: [{ to: "/immobilier", label: ["Immobilier"] }],
+      words: tk("maison appartement résidence principale locatif loyer sci équité rendement bien immobilier valeur"),
+    },
+    {
+      id: "credits",
+      title: tk("Suivre un crédit"),
+      summary: tk("Capital restant dû, prochaine échéance, coût du crédit et tableau d'amortissement."),
+      body: [
+        tk("Les crédits figurent en bas de l'écran [[Patrimoine]]. La fiche d'un crédit montre le capital restant dû, ce qui est déjà remboursé, la mensualité, la date de fin, et le détail de la prochaine échéance : capital, intérêts, assurance."),
+        tk("Sur ordinateur s'y ajoutent ce que coûte chaque année, les conditions du prêt, le coût total du crédit et le tableau d'amortissement, année par année."),
+        {
+          list: [
+            tk("Ajouter un crédit : dépose son tableau d'amortissement ou son offre de prêt dans le coffre ; Pécule le lit et te propose le crédit, à valider."),
+            tk("Le capital restant dû est celui du tableau de la banque, à la dernière échéance passée."),
+            tk("La prochaine mensualité et la fin du crédit figurent dans l'échéancier."),
+          ],
+        },
+        { note: tk("Un prêt renégocié ou remboursé en partie se met à jour en déposant le nouveau tableau d'amortissement.") },
+      ],
+      links: [{ to: "/patrimoine", label: ["Patrimoine"] }],
+      words: tk("prêt emprunt immobilier mensualité amortissement capital restant dû intérêts assurance emprunteur"),
+    },
+    {
+      id: "crypto",
+      title: tk("Suivre ses cryptomonnaies"),
+      summary: tk("Positions, cours et portefeuilles, par CoinStats ou saisis à la main."),
+      module: "crypto",
+      body: [
+        tk("L'écran [[Crypto]] donne la valeur totale, la variation sur 24 heures, les positions par crypto et par portefeuille, et le journal des mouvements."),
+        {
+          list: [
+            tk("Avec CoinStats : les quantités de tous les portefeuilles de ton compte sont lues une fois par jour ; [[Synchroniser CoinStats]] les relit tout de suite."),
+            tk("Les cours viennent de CoinGecko et se rafraîchissent d'eux-mêmes."),
+            tk("Décoche un portefeuille pour l'écarter du total."),
+            tk("Sans CoinStats, les positions sont saisies à la main : demande à l'assistant d'en ajouter une, puis touche une crypto pour corriger sa quantité."),
+          ],
+        },
+        tk("Les clés de CoinStats et de CoinGecko se saisissent dans [[Réglages]] → [[Comptes et connexions]] ; elles sont réservées à l'administrateur du foyer."),
+        { note: tk("Une ligne saisie à la main que CoinStats couvre ensuite est archivée d'elle-même, pour ne pas compter deux fois.") },
+      ],
+      links: [
+        { to: "/patrimoine/crypto", label: ["Crypto"] },
+        { to: "/reglages/connexions?c=coinstats", label: ["Réglages", "Comptes et connexions"] },
+      ],
+      words: tk("bitcoin ethereum cryptomonnaie wallet portefeuille coinstats coingecko exchange staking"),
+    },
+    {
+      id: "projections",
+      title: tk("Projections de patrimoine"),
+      summary: tk("Ce que deviendrait ton patrimoine dans quelques années, selon trois scénarios."),
+      module: "projections",
+      body: [
+        tk("L'écran [[Projections]] montre ton patrimoine à un horizon de plusieurs années, poche par poche, selon trois scénarios : prudent, central et favorable. Chaque poche affiche son point de départ et les hypothèses de chaque scénario."),
+        tk("L'écran se lit ; les projections se construisent avec l'assistant, qui crée, modifie ou supprime une poche après ta confirmation : « ajoute aux projections 2031 une poche PEA : 45 000 en prudent, 60 000 en central, 75 000 en favorable »."),
+        { note: tk("Ce sont des hypothèses, pas des prévisions : revois-les de temps en temps. Une projection t'est propre, sauf si tu demandes qu'elle soit commune au foyer.") },
+      ],
+      links: [{ to: "/projections", label: ["Projections"] }],
+      words: tk("simulation futur scénario prévision horizon long terme hypothèses rendement"),
+    },
+  ],
+};

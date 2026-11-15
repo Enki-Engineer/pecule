@@ -29,6 +29,7 @@ import {
   Import,
   Income,
   LoanDetail,
+  Manual,
   Month,
   preloadScreens,
   Projections,
@@ -129,6 +130,8 @@ function App() {
         <Route path="importer" element={<Import />} />
         <Route path="reglages" element={<Settings />} />
         <Route path="reglages/:groupe" element={<Settings />} />
+        <Route path="manuel" element={<Manual />} />
+        <Route path="manuel/:id" element={<Manual />} />
         <Route path="assistant" element={<Assistant />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

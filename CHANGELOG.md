@@ -3,6 +3,31 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.12.0
+
+- **Manuel** (nouvel écran, entre « Assistant » et « Réglages » dans le menu ; dans « Tout Pécule » sur le
+  téléphone ; « g » puis « m » au clavier) : tout ce que sait faire Pécule, en douze thèmes et près de cent
+  articles — premiers pas, comptes et banques, opérations et classement, analyse et budget, factures, patrimoine,
+  revenus, impôts et retraite, coffre et échéancier, assistant, personnalisation, foyer, sécurité. Chaque article
+  donne les étapes, nomme les boutons comme l'écran les affiche, et ouvre l'écran ou le réglage dont il parle. Dans
+  les cinq langues.
+- **Recherche dans le manuel** : par mots-clés ou par une question entière (« comment relier ma banque »), sans tenir
+  compte des accents. La recherche générale (⌘K) propose aussi les articles du manuel.
+- **L'assistant connaît Pécule** : demande-lui comment faire, où se trouve un réglage ou ce que veut dire un
+  chiffre — il lit le manuel, répond par les étapes et donne le lien vers le bon écran. L'accueil de l'assistant
+  propose « Comment faire, dans Pécule, pour… ? ».
+- **Réglages par l'assistant**, toujours après confirmation : sur l'appareil — clair, sombre ou automatique, couleur,
+  thèmes de l'année, densité, montants masqués, ouverture instantanée ; pour toi — la langue, les équivalences
+  amusantes, le nom d'un compte, un compte masqué ou sorti des statistiques (l'alerte de solde bas l'était déjà) ; pour
+  le foyer, par son administrateur — le jour retenu pour les achats par carte et les écrans affichés. Ce qui touche à
+  la sécurité ou à un service extérieur (clés d'accès, membres, banque, fournisseur d'IA, notifications de l'appareil,
+  sauvegarde, pays et devise) reste à l'écran : l'assistant explique la marche à suivre et donne le lien.
+- **Liens vers une section des réglages** : une adresse comme `/reglages/notifications#solde` ouvre le groupe et
+  défile jusqu'à la section.
+- **Outils** `read_manual`, `get_settings`, `update_settings`, `update_account` (assistant et serveur MCP) et
+  `set_device_settings` (assistant seulement : il règle l'appareil de celui qui est devant l'écran).
+- L'écran d'autorisation d'une application dit désormais où retirer l'accès : Réglages → Comptes et connexions.
+
 ## 1.11.0
 
 - **Comparer une offre à son contrat**, par l'assistant : dépose un devis ou une proposition (électricité, gaz,

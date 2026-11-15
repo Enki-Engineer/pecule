@@ -56,6 +56,9 @@ export const SCREENS: [RegExp, string][] = [
   [/^\/impots/, "Impôts"],
   [/^\/retraite/, "Retraite"],
   [/^\/projections/, "Projections"],
+  [/^\/soldes/, "Soldes à venir"],
+  [/^\/objectifs/, "Objectifs"],
+  [/^\/manuel/, "Manuel"],
   [/^\/reglages/, "Réglages"],
 ];
 export const screenName = (path: string) => SCREENS.find(([re]) => re.test(path))?.[1];

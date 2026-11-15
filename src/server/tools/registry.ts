@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { locale, t as tr } from "../../lib/i18n.ts";
+import type { ClientEffect } from "../../lib/device-settings.ts";
 
 /*
  * Registre d'outils : un outil = un nom, une description, un schéma zod (validation + JSON Schema
@@ -19,6 +20,8 @@ type Base<S extends Input> = {
   progress?: string;
   /** Outil exécuté sans confirmation mais qui modifie des données (mémoire de l'assistant) : refusé à un accès en lecture seule. */
   mutates?: boolean;
+  /** Outil qui n'a de sens que devant l'écran de l'appli (réglage gardé par l'appareil) : absent du serveur MCP. */
+  screenOnly?: boolean;
 };
 export type ReadTool<S extends Input = Input> = Base<S> & { kind: "read"; run(ctx: ToolCtx, input: z.output<S>): Promise<unknown> };
 export type WriteTool<S extends Input = Input> = Base<S> & {
@@ -27,6 +30,8 @@ export type WriteTool<S extends Input = Input> = Base<S> & {
   describe(ctx: ToolCtx, input: z.output<S>): Promise<Described>;
   /** Exécution ; renvoie un compte rendu court pour Claude. */
   run(ctx: ToolCtx, input: z.output<S>): Promise<string>;
+  /** Ce que l'écran doit faire une fois l'action confirmée et exécutée (réglage de l'appareil à appliquer, identité à relire). */
+  effect?(input: z.output<S>): ClientEffect | undefined;
 };
 export type Tool = ReadTool | WriteTool;
 

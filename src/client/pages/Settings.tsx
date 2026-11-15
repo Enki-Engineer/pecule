@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { startRegistration } from "@simplewebauthn/browser";
 import { Activity, Bell, ChevronRight, Copy, House, KeyRound, Plug, LogOut, Palette, Presentation, ScanFace, Search, Smartphone, Sparkles, Tags, Trash2 } from "lucide-react";
@@ -49,6 +49,12 @@ export function Settings() {
   const [links, setLinks] = useState<Record<number, string>>({});
   const [ruleFilter, setRuleFilter] = useState("");
   const [theme, setTheme] = useTheme();
+  // Lien vers une section précise (« /reglages/notifications#solde », depuis le manuel ou l'assistant) : on y défile.
+  const { hash } = useLocation();
+  useEffect(() => {
+    const target = hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
+    if (target) requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [hash, groupe, desktop]);
 
   const invite = useMutation({
     mutationFn: (id: number) => api<{ link: string }>(`/auth/users/${id}/enrollment`, { method: "POST" }),

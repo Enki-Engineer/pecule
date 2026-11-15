@@ -57,7 +57,11 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 - Côté serveur, `t()` n'est juste que pendant une requête (jamais au chargement d'un module : `tk`). Une tâche de fond
   écrit dans la langue du membre : `runInLang(await memberLang(id), …)`.
 - On ne traduit ni « Pécule », ni une valeur comparée ou envoyée au serveur, ni ce que lit l'IA (consignes, outils,
-  résultats restent en français ; `languagePrompt()` lui fait répondre dans la langue du membre).
+  résultats restent en français ; `languagePrompt()` lui fait répondre dans la langue du membre). Seule exception :
+  le manuel, que l'assistant lit dans la langue du membre pour nommer les boutons comme son écran.
+- **Le manuel suit l'appli** (`src/lib/manual/`, `/manuel`) : une fonction ajoutée, déplacée ou renommée se reporte
+  dans son article, dans le même commit. Le nom d'un bouton, d'un menu ou d'un écran s'y écrit `[[texte passé à t()]]`,
+  jamais en toutes lettres : il est rendu dans la langue du membre, et un test échoue s'il n'existe plus.
 - Registre familier partout (tu, you, du, tú). Les noms de catégories sont des données : traduits à l'affichage par
   `td(nom)`, jamais dans les comparaisons.
 
@@ -111,5 +115,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Une fête ou un thème | `src/lib/seasons.ts`, recopié dans `public/theme-init.js` (un test compare) |
 | Une couleur proposée dans Réglages | `ACCENTS` (`src/lib/seasons.ts`) et son bloc `[data-accent="…"]`, clair et sombre (`src/styles/index.css`) |
 | Une devise (cotée par la BCE) ou un pays | `CURRENCIES` (`src/lib/currencies.ts`), `COUNTRIES` (`src/lib/countries.ts`) |
+| Un article du manuel | `src/lib/manual/<thème>.ts` : identifiant, titre, résumé, blocs, écrans à ouvrir, mots de recherche ; l'assistant et la recherche le trouvent seuls |
+| Un réglage que l'assistant peut changer | `src/server/tools/reglages.ts` ; s'il est gardé par l'appareil : `DeviceSettings` (`src/lib/device-settings.ts`) et `applyDeviceSettings` (`src/client/deviceSettings.ts`) |
 
 La logique qui peut être pure va dans `src/lib/` avec son test à côté (`*.test.ts`).

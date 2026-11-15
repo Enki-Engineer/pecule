@@ -22,7 +22,9 @@ carrière), et parle français, anglais, allemand, italien et espagnol. Le code 
   (bulletins, avis d'impôt, tableaux d'amortissement, relevés, actes, baux…), vérifie les comptes et propose les
   données. Rien n'est écrit avant votre validation, et tout import s'annule.
 - **Assistant** (facultatif) — posez vos questions, à la voix si vous voulez ; il peut agir, avec votre confirmation.
+  Il connaît aussi l'appli : il explique comment faire, renvoie au bon écran et change un réglage si vous le demandez.
   Pécule expose aussi un serveur MCP : votre propre assistant IA peut le lire et le tenir à jour.
+- **Manuel intégré** — tout ce que sait faire l'appli, par thème, avec une recherche, dans les cinq langues.
 - **Dans votre devise** — le foyer choisit son pays, sa devise et son fuseau horaire ; un compte tenu dans une autre
   devise est converti au cours de référence de la Banque centrale européenne du jour de chaque opération, et garde ses
   montants d'origine.

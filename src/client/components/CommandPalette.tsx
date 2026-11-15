@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BadgeEuro, Bitcoin, Building2, CalendarClock, Landmark, Sunset, TrendingUp, CreditCard, FileText, FolderOpen, LayoutDashboard, ListOrdered, PieChart, PiggyBank, Receipt, Search, Settings, Sparkles, Wallet } from "lucide-react";
+import { ArrowRight, BadgeEuro, Bitcoin, BookOpen, Building2, CalendarClock, Landmark, Sunset, TrendingUp, CreditCard, FileText, FolderOpen, LayoutDashboard, ListOrdered, PieChart, PiggyBank, Receipt, Search, Settings, Sparkles, Wallet } from "lucide-react";
 import { api } from "../api.ts";
 import { cn } from "../cn.ts";
 import { dateFr, money, moneyIn } from "../format.ts";
@@ -41,6 +41,7 @@ const PAGES: { label: string; to: string; icon: typeof Search; words: string }[]
   { label: t("Coffre"), to: "/documents", icon: FolderOpen, words: t("documents coffre contrats avis impot bail acte diagnostic") },
   { label: t("Importer des documents"), to: "/documents", icon: FolderOpen, words: t("importer dossier documents lot bulletins avis releves depot massif") },
   { label: t("Échéancier"), to: "/echeancier", icon: CalendarClock, words: t("echeancier echeances taches a faire rappels jalons calendrier") },
+  { label: t("Manuel"), to: "/manuel", icon: BookOpen, words: t("manuel aide mode d'emploi guide documentation comment faire") },
   { label: t("Réglages"), to: "/reglages", icon: Settings, words: t("reglages parametres preferences") },
   { label: `${t("Réglages")} · ${t("Compte et sécurité")}`, to: "/reglages/compte", icon: Settings, words: t("membres cles d'acces passkey face id inscription deconnexion securite") },
   { label: t("Mode démo"), to: "/reglages/demo", icon: Settings, words: t("demo demonstration montrer presenter donnees fictives discretion") },
@@ -93,6 +94,12 @@ export function CommandPalette() {
     };
   }, [text]);
 
+  // Le manuel se cherche aussi d'ici ; son texte n'est chargé qu'à la première ouverture de la palette.
+  const [manual, setManual] = useState<typeof import("../../lib/manual.ts") | null>(null);
+  useEffect(() => {
+    if (open && !manual) void import("../../lib/manual.ts").then(setManual, () => undefined);
+  }, [open, manual]);
+
   const search = useQuery({
     queryKey: ["search", debounced],
     queryFn: () => api<Results>(`/search?q=${encodeURIComponent(debounced)}`),
@@ -107,7 +114,8 @@ export function CommandPalette() {
     };
     const q = norm(text.trim());
     const out: Entry[] = pages.filter((p) => !q || norm(`${p.label} ${p.words}`).includes(q)).map((p) => ({
-      key: `p:${p.to}`,
+      // Deux entrées peuvent mener au même écran (« Coffre », « Importer des documents ») : le libellé les distingue.
+      key: `p:${p.to}:${p.label}`,
       group: t("Aller à"),
       icon: p.icon,
       label: p.label,
@@ -147,6 +155,17 @@ export function CommandPalette() {
         });
       for (const c of r.crypto) out.push({ key: `c:${c.symbol}`, group: t("Crypto"), icon: Bitcoin, label: `${c.name} (${c.symbol})`, run: go("/patrimoine/crypto") });
     }
+    // Articles du manuel : les plus proches de ce qui est tapé (« comment relier ma banque »).
+    if (manual && text.trim().length >= 3)
+      for (const h of manual.searchManual(text, { limit: 4 }))
+        out.push({
+          key: `m:${h.article.id}`,
+          group: t("Manuel"),
+          icon: BookOpen,
+          label: manual.manualText(h.article.title, undefined, false),
+          hint: manual.manualText(h.theme.title, undefined, false),
+          run: go(`/manuel/${h.article.id}`),
+        });
     if (text.trim().length >= 3)
       out.push({
         key: "ask",
@@ -159,7 +178,7 @@ export function CommandPalette() {
         },
       });
     return out;
-  }, [text, debounced, search.data, navigate, pages]);
+  }, [text, debounced, search.data, navigate, pages, manual]);
 
   useEffect(() => {
     setActive(0);

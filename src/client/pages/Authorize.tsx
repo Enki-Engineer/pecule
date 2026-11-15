@@ -17,7 +17,7 @@ const OPTIONS = [
 
 /**
  * Consentement OAuth : l'appli Claude demande l'accès au serveur MCP de Pécule. Le membre connecté choisit
- * lecture seule ou lecture et actions ; l'accès vaut pour sa vue, et se retire dans Réglages → Compte et sécurité.
+ * lecture seule ou lecture et actions ; l'accès vaut pour sa vue, et se retire dans Réglages → Comptes et connexions.
  */
 export function Authorize() {
   const me = useMe();
@@ -109,7 +109,7 @@ export function Authorize() {
             </button>
           </div>
           {error && <p className="mt-3 text-center text-sm text-neg">{error}</p>}
-          <p className="mt-4 text-center text-xs text-muted">{t("Tu pourras retirer cet accès à tout moment dans Réglages → Compte et sécurité.")}</p>
+          <p className="mt-4 text-center text-xs text-muted">{t("Tu pourras retirer cet accès à tout moment dans Réglages → Comptes et connexions.")}</p>
         </>
       )}
     </div>

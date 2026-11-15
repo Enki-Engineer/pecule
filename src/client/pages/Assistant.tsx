@@ -19,6 +19,8 @@ import { VoiceMode } from "../components/VoiceMode.tsx";
 import { SpeechStream, spokenDecision, spokenFarewell } from "../../lib/voice.ts";
 import { t } from "../../lib/i18n.ts";
 import { plainMarkdown } from "../../lib/markdown.ts";
+import type { ClientEffect } from "../../lib/device-settings.ts";
+import { applyEffects } from "../deviceSettings.ts";
 import "../../styles/assistant.css";
 
 const ChatChart = lazy(() => import("../components/ChatChart.tsx"));
@@ -36,7 +38,8 @@ type Item = {
   at?: string;
 };
 type PendingAction = { id: string | null; label: string; details: string[] };
-type ThreadState = { threadId: string; title?: string; pinned?: boolean; display: Item[]; pending: PendingAction[] | null; cost?: number };
+/** `effects` : ce que l'écran doit faire après une action tout juste confirmée (réglage de l'appareil, identité à relire). */
+type ThreadState = { threadId: string; title?: string; pinned?: boolean; display: Item[]; pending: PendingAction[] | null; cost?: number; effects?: ClientEffect[] };
 type Variant = "page" | "panel" | "full";
 
 const STORAGE = "pecule.assistant.thread";
@@ -52,6 +55,8 @@ const QUESTIONS: Suggestion[] = [
   { label: t("Où puis-je faire des économies ?"), text: t("Quelles dépenses devrais-je baisser pour faire des économies ?"), send: true },
   { label: t("Qu'est-ce qui m'attend ces prochaines semaines ?"), text: t("Qu'est-ce qui m'attend ces prochaines semaines ?"), send: true },
   { label: t("Comment évolue mon patrimoine ?"), text: t("Comment évolue mon patrimoine ?"), send: true },
+  // L'assistant guide aussi dans l'appli : il lit le manuel (src/lib/manual.ts) et renvoie aux écrans.
+  { label: t("Comment faire, dans Pécule, pour… ?"), text: t("Comment faire, dans Pécule, pour ") },
 ];
 
 /** Comparer une offre au contrat en cours : la phrase est prête, il reste à joindre le devis. */
@@ -69,6 +74,7 @@ const ACTIONS: Suggestion[] = [
   { label: t("Mettre à jour un placement"), text: t("Mets à jour la valeur de mon ") },
   { label: t("Me rappeler une échéance"), text: t("Rappelle-moi de ") },
   { label: t("Retenir une information"), text: t("Souviens-toi que ") },
+  { label: t("Changer un réglage"), text: t("Change ce réglage de Pécule : ") },
 ];
 
 /** Actions liées à l'écran ouvert (panneau ordinateur) ou à l'élément affiché. */
@@ -214,7 +220,7 @@ function ChatWelcome({ name, wide, actions, onSuggest }: { name?: string; wide: 
         </span>
         <p className={cn("font-semibold tracking-tight", wide ? "text-[26px]" : "text-[20px]")}>{name ? t("Bonjour {prenom}", { prenom: name }) : t("Bonjour")}</p>
         <p className="mt-1.5 max-w-md text-sm text-muted">
-          {t("Pose une question sur tes dépenses, tes comptes, ton patrimoine ou tes crédits, joins une facture ou un document (trombone) pour le ranger, ou demande une action. Chaque action t'est soumise avant d'être faite.")}
+          {t("Pose une question sur tes dépenses, tes comptes, ton patrimoine ou tes crédits, ou sur Pécule lui-même, joins une facture ou un document (trombone) pour le ranger, ou demande une action. Chaque action t'est soumise avant d'être faite.")}
         </p>
       </div>
       <div className="px-1 pt-1 text-[12.5px] font-medium text-muted">{t("Questions")}</div>
@@ -477,6 +483,7 @@ export function AssistantChat({
       localStorage.setItem(STORAGE, r.threadId);
       // Une action a pu modifier des données : on rafraîchit les écrans (et l'historique des conversations).
       qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+      applyEffects(r.effects, qc);
       return r;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("L'assistant ne répond pas"));

@@ -10,19 +10,23 @@ import { editionTools } from "./edition.ts";
 import { pilotageTools } from "./pilotage.ts";
 import { importsTools } from "./imports.ts";
 import { contratsTools } from "./contrats.ts";
+import { reglagesTools } from "./reglages.ts";
 import { ToolError, inputError, jsonSchema, type Described, type Tool, type ToolCtx } from "./registry.ts";
 import { tk } from "../../lib/i18n.ts";
+import type { ClientEffect } from "../../lib/device-settings.ts";
 
 /*
  * Outils de Pécule (registre unique) : définis une fois, utilisés par l'assistant intégré (écritures
  * confirmées à l'écran) et par le serveur MCP (écritures confirmées par le client, ex. Claude Code).
  */
 
-export const TOOLS: Tool[] = [...banqueTools, ...analyseTools, ...facturesTools, ...patrimoineTools, ...documentsTools, ...contratsTools, ...situationTools, ...editionTools, ...pilotageTools, ...importsTools];
+export const TOOLS: Tool[] = [...banqueTools, ...analyseTools, ...facturesTools, ...patrimoineTools, ...documentsTools, ...contratsTools, ...situationTools, ...editionTools, ...pilotageTools, ...reglagesTools, ...importsTools];
 const BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
 export const WRITE_NAMES = new Set(TOOLS.filter((t) => t.kind === "write").map((t) => t.name));
 /** Outils exécutés sans confirmation mais qui modifient des données (mémoire) : refusés quand personne n'est devant l'écran. */
 export const MUTATING_NAMES = new Set(TOOLS.filter((t) => t.mutates).map((t) => t.name));
+/** Outils offerts par le serveur MCP : tous, sauf ceux qui règlent l'appareil de celui qui est devant l'écran. */
+export const MCP_TOOLS: Tool[] = TOOLS.filter((t) => !t.screenOnly);
 
 export { ToolError, inputError, jsonSchema };
 export type { Tool, ToolCtx };
@@ -77,6 +81,14 @@ export function executeWrite(ctx: ToolCtx, w: { name: string; input: unknown; la
     await logAudit(`${via} ${w.name}`, null, { demande: w.label, details: w.details, parametres: w.input, ...(acting ? { vue: acting.view } : {}) });
     return out;
   });
+}
+
+/** Ce que l'écran doit faire après une écriture confirmée (rien pour la plupart des outils). */
+export function clientEffect(w: { name: string; input: unknown }): ClientEffect | undefined {
+  const t = BY_NAME.get(w.name);
+  if (t?.kind !== "write" || !t.effect) return undefined;
+  const input = t.input.safeParse(w.input ?? {});
+  return input.success ? t.effect(input.data) : undefined;
 }
 
 /** Libellé d'attente d'un outil (« Recherche des opérations… »). */

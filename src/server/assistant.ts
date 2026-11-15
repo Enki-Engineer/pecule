@@ -11,7 +11,7 @@ import { ActionError } from "./actions.ts";
 import { invoiceVisible } from "./invoices.ts";
 import { documentDetail } from "./documents.ts";
 import { z } from "zod";
-import { ANTHROPIC_TOOLS, MUTATING_NAMES, WRITE_NAMES, describeWrite, executeWrite, inputError, jsonSchema, progressLabel, runReadTool, type PendingWrite } from "./tools/index.ts";
+import { ANTHROPIC_TOOLS, MUTATING_NAMES, WRITE_NAMES, clientEffect, describeWrite, executeWrite, inputError, jsonSchema, progressLabel, runReadTool, type PendingWrite } from "./tools/index.ts";
 import { shortDate } from "./tools/registry.ts";
 import { dataCoverage, listMemories } from "./tools/analyse.ts";
 import { funPrompt } from "./fun.ts";
@@ -20,6 +20,8 @@ import { dataNames } from "./data-i18n.ts";
 import { currentLang, langInfo, t as tr, type Lang } from "../lib/i18n.ts";
 import { fold } from "../lib/markdown.ts";
 import { CONTRACT_KINDS, OFFER_KINDS } from "../lib/contracts.ts";
+import { manualOutline } from "../lib/manual.ts";
+import type { ClientEffect } from "../lib/device-settings.ts";
 
 /*
  * Assistant IA de Pécule : Claude (par le fournisseur réglé dans l'appli) avec les outils du registre
@@ -100,6 +102,15 @@ Comparaison de contrats : quand l'utilisateur demande si une offre vaut mieux qu
   }
 
 Situation : biens immobiliers (get_property), budget du foyer avec engagements récurrents et reste à vivre (get_budget, update_commitment), impôts (get_taxes), retraite (get_retirement, privée), revenus salariaux lus dans les fiches de paie (get_payslips, privé), projections (get_projections), mouvements crypto (get_crypto_events). Les fiches d'analyse reprises de Notion sont dans le coffre (search_documents).
+
+Aide sur Pécule : tu es aussi le guide de l'appli. Quand l'utilisateur demande comment faire quelque chose dans Pécule, où se trouve un écran, un bouton ou un réglage, ce que veut dire un chiffre affiché, ou ce que Pécule sait faire, lis le manuel (read_manual, par mots-clés ou par les identifiants du sommaire ci-dessous) avant de répondre.
+- Réponds par les étapes, courtes et numérotées s'il y en a plusieurs, avec les noms de menus et de boutons exactement comme le manuel les écrit (ce sont ceux de son écran), en gras. Ne décris jamais un menu, un bouton ou un réglage de mémoire ; si le manuel n'en parle pas, dis que tu ne sais pas plutôt que d'inventer.
+- Donne le lien vers l'écran ou le réglage : [Réglages → Apparence](/reglages/apparence). Seules les adresses de l'appli (elles commencent par « / ») sont cliquables ; reprends celles du manuel et de get_settings, n'en invente pas. Pour en savoir plus, renvoie à l'article : [nom de l'article](/manuel/identifiant).
+- Si l'utilisateur veut que tu fasses le réglage à sa place et que tu en as l'outil, fais-le (une confirmation lui est montrée) : update_settings (langue, équivalences amusantes ; pour le foyer : jour retenu pour les achats par carte, écrans affichés), set_device_settings (sur l'appareil qu'il utilise : clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée), set_balance_alert (solde bas), update_account (nom d'un compte, compte masqué ou hors statistiques), set_envelope, set_goal. get_settings donne les valeurs actuelles et l'adresse de chaque réglage.
+- Ce qui touche à la sécurité ou à un service extérieur ne se règle qu'à l'écran — clés d'accès, membres, connexion d'une banque, fournisseur d'IA, notifications de l'appareil, sauvegarde, pays et devise du foyer, mode démo : explique la marche à suivre et donne le lien. Un réglage réservé à l'administrateur du foyer se dit.
+- Une question sur ses chiffres (« combien ai-je dépensé ») reste une question de données : le manuel ne sert qu'à expliquer l'appli.
+Sommaire du manuel (identifiant — titre) :
+${manualOutline()}
 
 Un bloc « [Contexte] » indique l'écran ouvert par l'utilisateur : « cette opération », « cette facture », « ce mois » désignent l'élément indiqué.
 
@@ -246,7 +257,7 @@ export const publicThread = (t: Thread) => ({
   pending: t.pending ? t.pending.writes.map((w) => ({ id: w.actionId ?? null, label: w.label, details: w.details })) : null,
   cost: Math.round(t.cost * 10000) / 10000,
 });
-export type PublicThread = ReturnType<typeof publicThread>;
+export type PublicThread = ReturnType<typeof publicThread> & { effects?: ClientEffect[] };
 
 const toolResult = (id: string, content: unknown, isError = false): Anthropic.ToolResultBlockParam => ({
   type: "tool_result",
@@ -442,8 +453,11 @@ async function runLoop(t: Thread, emit?: Emit) {
   finish({ role: "assistant", text: answer(tr("Je n'ai pas réussi à terminer en un nombre raisonnable d'étapes. Reformule ou découpe la demande.")) });
 }
 
-/** Résout l'action en attente (acceptée ou refusée) et prépare les résultats d'outils. */
-async function resolvePending(t: Thread, approve: boolean, reason?: string): Promise<Anthropic.ToolResultBlockParam[]> {
+/**
+ * Résout l'action en attente (acceptée ou refusée) et prépare les résultats d'outils. `effects` reçoit ce que
+ * l'écran doit faire après une action exécutée (réglage de l'appareil à appliquer, identité à relire).
+ */
+async function resolvePending(t: Thread, approve: boolean, reason?: string, effects?: ClientEffect[]): Promise<Anthropic.ToolResultBlockParam[]> {
   if (!t.pending) return [];
   const results = [...t.pending.reads];
   for (const w of t.pending.writes) {
@@ -461,6 +475,8 @@ async function resolvePending(t: Thread, approve: boolean, reason?: string): Pro
     try {
       const out = await executeWrite({ userId: t.userId }, w, "assistant");
       await settle(w.actionId, "done", out);
+      const effect = clientEffect(w);
+      if (effect) effects?.push(effect);
       results.push(toolResult(w.id, out));
       t.display.push({ role: "action", text: w.label, details: w.details, status: "done" });
     } catch (e) {
@@ -573,7 +589,9 @@ export async function confirmPending(userId: number, threadId: string, approve: 
   const shown = t.pending.writes.map((w) => w.actionId ?? "");
   if (actionIds && (actionIds.length !== shown.length || actionIds.some((id, i) => id !== shown[i])))
     throw new ActionError(409, tr("L'action proposée a changé : recharge la conversation."));
-  const results = await resolvePending(t, approve);
+  // Effets des actions exécutées : rendus une fois, avec cette réponse (jamais gardés dans la conversation).
+  const effects: ClientEffect[] = [];
+  const results = await resolvePending(t, approve, undefined, effects);
   t.messages.push({ role: "user", content: results });
   await saveThread(t);
   try {
@@ -581,7 +599,7 @@ export async function confirmPending(userId: number, threadId: string, approve: 
   } finally {
     await saveThread(t);
   }
-  return publicThread(t);
+  return { ...publicThread(t), ...(effects.length ? { effects } : {}) };
 }
 
 export async function getThread(userId: number, threadId: string) {

@@ -107,6 +107,30 @@ Les conversations (`assistant_threads`) appartiennent à leur membre : lui seul 
 ou les supprime. Sur ordinateur, le panneau et le plein écran (`/assistant`) sont un seul composant monté par la
 coquille (`Layout`).
 
+## Le manuel
+
+Le manuel de l'appli (`/manuel`) est du contenu, pas du code d'écran : des thèmes et des articles écrits en français
+dans `src/lib/manual/` (un fichier par thème), traduits comme le reste par les dictionnaires. Le moteur est pur
+(`src/lib/manual.ts`) : rendu d'un article en Markdown, recherche (chaque mot pèse d'autant plus qu'il est rare dans le
+manuel et qu'il est trouvé dans le titre), sommaire. Trois lecteurs s'en servent : l'écran (`pages/Manual.tsx`), la
+palette de commandes, et l'assistant — son outil `read_manual` cherche et lit les articles, et le sommaire est joint à
+ses consignes.
+
+- **Un nom de bouton ne s'écrit pas, il se cite** : `[[Réglages]]` est le texte français que le code passe à `t()` ;
+  l'article affiche à sa place ce que l'écran montre dans la langue du membre. Un test échoue si le nom n'existe plus
+  dans le code, si un lien mène à une adresse inconnue (route, groupe de réglages, section, bloc de Connexions), ou si
+  une traduction a perdu un nom ou une adresse. Renommer un bouton oblige donc à relire l'article qui en parle.
+- **L'assistant lit le manuel dans la langue du membre** (exception à « ce que lit l'IA reste en français ») : les noms
+  de menus qu'il recopie sont ainsi ceux de l'écran du membre.
+- **Réglages par l'assistant** (`src/server/tools/reglages.ts`) : `get_settings`, `update_settings` (langue, équivalences,
+  jour retenu pour les achats par carte, écrans affichés — les deux derniers pour l'administrateur), `update_account`.
+  Un réglage gardé par l'appareil (clair ou sombre, couleur, thèmes, densité, mode discret, ouverture instantanée) n'est
+  pas connu du serveur : `set_device_settings` ne fait que le décrire, et l'action confirmée revient à l'écran avec un
+  « effet » (`ClientEffect`, `src/lib/device-settings.ts`) que `src/client/deviceSettings.ts` applique — une seule fois,
+  l'effet n'étant jamais gardé dans la conversation. Cet outil n'existe pas pour le serveur MCP (`screenOnly`).
+  Ce qui touche à la sécurité ou à un service extérieur ne se règle qu'à l'écran : l'assistant y renvoie.
+- Une section de Réglages s'ouvre par son ancre (`/reglages/notifications#solde`) : l'écran y défile.
+
 ## Démarrage
 
 Le port s'ouvre tout de suite ; les migrations suivent, sous verrou (une base vide reçoit le schéma de départ en une

@@ -61,6 +61,9 @@ export function translate(lang: Lang, text: string, vars?: Record<string, string
   return fill(typeof entry === "string" ? entry : visible(text), vars);
 }
 
+/** Traduction enregistrée d'un texte, sans repli sur le français : undefined en français, ou tant qu'elle manque. */
+export const dictEntry = (lang: Lang, text: string): Entry | undefined => (lang === "fr" ? undefined : dicts[lang]?.[text]);
+
 const rules = new Map<Lang, Intl.PluralRules>();
 const isOne = (lang: Lang, n: number) => {
   let r = rules.get(lang);

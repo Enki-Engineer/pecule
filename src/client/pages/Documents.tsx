@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, ChevronRight, ExternalLink, FolderUp, ListChecks, Lock, Plus, Search, Sparkles, TableProperties, Trash2, X } from "lucide-react";
+import { CalendarClock, ChevronRight, ExternalLink, FolderUp, ListChecks, Lock, Plus, Scale, Search, Sparkles, TableProperties, Trash2, X } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, invalidateDocuments, invalidateInvoices, uploadToInbox, useDemo, useDocument, useMe, type DocDetail, type DocSummary } from "../api.ts";
@@ -9,6 +9,7 @@ import { useProperties } from "../api-situation.ts";
 import { Card, Empty, ErrorBox, Field, PageHeader, Sheet, Spinner, Tabs } from "../components/ui.tsx";
 import { dateFr } from "../format.ts";
 import { DOMAIN_LABELS, KIND_LABELS } from "../../lib/documents.ts";
+import { CONTRACT_KINDS, OFFER_KINDS } from "../../lib/contracts.ts";
 import { FileIcon } from "./Invoices.tsx";
 import { Batch } from "./Import.tsx";
 import { droppedFiles, pickedFiles, startImport, type BatchLine, type Picked, type Progress } from "../importer.ts";
@@ -486,6 +487,9 @@ function AddDocumentButton(targets: DepositTargets) {
 
 /** Types de documents dont Pécule sait tirer des données (import massif) ; hors démo. */
 const EXTRACTABLE = new Set(["bulletin", "avis_impot", "taxe_fonciere", "pret", "acte", "bail", "releve", "assurance", "contrat"]);
+/** Une offre se compare au contrat en cours ; un contrat en cours, à l'offre qu'on joint à la demande. */
+const OFFERS = new Set<string>(OFFER_KINDS);
+const CONTRACTS = new Set<string>(CONTRACT_KINDS);
 
 function DocumentSheet({ id, onClose }: { id: number; onClose: () => void }) {
   const qc = useQueryClient();
@@ -583,6 +587,22 @@ function DocumentSheet({ id, onClose }: { id: number; onClose: () => void }) {
           >
             <Sparkles size={16} /> {t("Demander à l'assistant")}
           </button>
+          {(OFFERS.has(d.kind) || CONTRACTS.has(d.kind)) && (
+            <button
+              type="button"
+              onClick={() =>
+                askAssistant(
+                  OFFERS.has(d.kind)
+                    ? t("Compare l'offre du document n° {id} « {titre} » à mon contrat actuel et dis-moi laquelle est la plus avantageuse.", { id: d.id, titre: d.title })
+                    : t("Compare mon contrat du document n° {id} « {titre} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.", { id: d.id, titre: d.title }),
+                )
+              }
+              title={OFFERS.has(d.kind) ? undefined : t("Joins le devis à ta demande (trombone) avant de l'envoyer.")}
+              className="press mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-card py-2.5 text-sm font-semibold ring-1 ring-line"
+            >
+              <Scale size={16} /> {OFFERS.has(d.kind) ? t("Comparer à mon contrat actuel") : t("Comparer à une offre")}
+            </button>
+          )}
 
           {d.text && (
             <section className="mb-2">

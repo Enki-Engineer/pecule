@@ -43,7 +43,8 @@ const STORAGE = "pecule.assistant.thread";
 /** Plein écran : la colonne des conversations reste ouverte ou fermée comme on l'a laissée. */
 const HISTORY_KEY = "pecule.assistant.historique";
 const MAX_FILES = 3;
-type Suggestion = { label: string; text: string; send?: boolean };
+/** `attach` : la demande attend un fichier, le choix du fichier s'ouvre aussitôt. */
+type Suggestion = { label: string; text: string; send?: boolean; attach?: boolean };
 
 /** Questions : envoyées telles quelles. */
 const QUESTIONS: Suggestion[] = [
@@ -53,9 +54,13 @@ const QUESTIONS: Suggestion[] = [
   { label: t("Comment évolue mon patrimoine ?"), text: t("Comment évolue mon patrimoine ?"), send: true },
 ];
 
+/** Comparer une offre au contrat en cours : la phrase est prête, il reste à joindre le devis. */
+const COMPARE: Suggestion = { label: t("Comparer un devis à mon contrat"), text: t("Compare ce devis à mon contrat actuel et dis-moi lequel est le plus avantageux."), attach: true };
+
 /** Actions : la phrase est pré-remplie, l'utilisateur la complète (valeur, nom…) avant d'envoyer. */
 const ACTIONS: Suggestion[] = [
   { label: t("Classer mes opérations à classer"), text: t("Classe mes opérations à classer"), send: true },
+  COMPARE,
   { label: t("Mettre à jour la valeur d'un bien"), text: t("Mets à jour la valeur estimée de ") },
   { label: t("Modifier mon bonus de cette année"), text: t("Modifie mon bonus de cette année : ") },
   { label: t("Renommer ou déplacer une catégorie"), text: t("Renomme la catégorie ") },
@@ -72,12 +77,13 @@ function contextualActions(path: string, entity: { type: string; label: string }
   if (entity?.type === "facture") return [{ label: t("Relier cette facture"), text: t("Relie cette facture à son paiement"), send: true }, { label: t("Corriger cette facture"), text: t("Corrige cette facture : ") }];
   if (/^\/immobilier\/./.test(path) || entity?.type === "bien")
     return [{ label: t("Mettre à jour la valeur de ce bien"), text: t("Mets à jour la valeur estimée de ce bien : ") }, { label: t("Modifier le loyer"), text: t("Change le loyer de ce bien : ") }];
-  if (path.startsWith("/budget")) return [{ label: t("Ajouter un engagement"), text: t("Ajoute au budget ") }, { label: t("Modifier mon bonus de l'année"), text: t("Modifie mon bonus de cette année : ") }];
+  if (path.startsWith("/budget")) return [COMPARE, { label: t("Ajouter un engagement"), text: t("Ajoute au budget ") }, { label: t("Modifier mon bonus de l'année"), text: t("Modifie mon bonus de cette année : ") }];
+  if (path.startsWith("/documents")) return [COMPARE];
   if (path.startsWith("/revenus")) return [{ label: t("Modifier mon bonus de l'année"), text: t("Modifie mon bonus de cette année : ") }, { label: t("Mettre à jour mon salaire"), text: t("Mets à jour mon salaire net : ") }];
   if (path.startsWith("/patrimoine/crypto")) return [{ label: t("Corriger une position"), text: t("Corrige ma position ") }];
   if (path.startsWith("/patrimoine") || path.startsWith("/immobilier")) return [{ label: t("Mettre à jour un placement"), text: t("Mets à jour la valeur de mon ") }, { label: t("Mettre à jour la valeur d'un bien"), text: t("Mets à jour la valeur estimée de ") }];
   if (path.startsWith("/operations") || path.startsWith("/mois")) return [{ label: t("Classer mes opérations à classer"), text: t("Classe mes opérations à classer"), send: true }, { label: t("Renommer une catégorie"), text: t("Renomme la catégorie ") }];
-  if (path.startsWith("/echeancier")) return [{ label: t("Ajouter un rappel"), text: t("Rappelle-moi de ") }];
+  if (path.startsWith("/echeancier")) return [{ label: t("Ajouter un rappel"), text: t("Rappelle-moi de ") }, COMPARE];
   return [];
 }
 export { askAssistant, openThread } from "../assistantBus.ts";
@@ -628,6 +634,8 @@ export function AssistantChat({
   function suggest(sg: Suggestion) {
     if (sg.send) return void send(sg.text);
     setText(sg.text);
+    // Le choix du fichier doit s'ouvrir dans le geste même (un navigateur le refuse après coup).
+    if (sg.attach && files.length < MAX_FILES) picker.current?.click();
     requestAnimationFrame(() => {
       const el = inputRef.current;
       if (!el) return;

@@ -2798,4 +2798,13 @@ export const de: Dict = {
   "« Compacte » resserre les marges et les lignes pour montrer plus d'opérations par écran, sans réduire le texte. Sur ordinateur seulement ; choix mémorisé sur cet appareil.": "„Kompakt“ verringert Abstände und Zeilenhöhen, damit mehr Buchungen auf den Bildschirm passen, ohne den Text zu verkleinern. Nur am Computer; die Wahl wird auf diesem Gerät gespeichert.",
   "Tout ce que tu possèdes, avant de retirer ce que tu dois encore.": "Alles, was du besitzt, bevor abgezogen wird, was du noch schuldest.",
   "Comptes courants et épargne : ce qui se mobilise sans vendre un bien ni un placement.": "Girokonten und Erspartes: was verfügbar ist, ohne eine Immobilie oder Anlage zu verkaufen.",
+  "Compare mon engagement n° {id} « {nom} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.": "Vergleiche meine Verpflichtung Nr. {id} „{nom}“ mit dem Angebot, das ich dir anhänge, und sag mir, welches vorteilhafter ist.",
+  "Joins le devis à ta demande (trombone) avant de l'envoyer.": "Hänge das Angebot an deine Anfrage an (Büroklammer), bevor du sie abschickst.",
+  "Comparer à une offre": "Mit einem Angebot vergleichen",
+  "Comparer un devis à mon contrat": "Ein Angebot mit meinem Vertrag vergleichen",
+  "Compare ce devis à mon contrat actuel et dis-moi lequel est le plus avantageux.": "Vergleiche dieses Angebot mit meinem aktuellen Vertrag und sag mir, welches vorteilhafter ist.",
+  "Compare l'offre du document n° {id} « {titre} » à mon contrat actuel et dis-moi laquelle est la plus avantageuse.": "Vergleiche das Angebot aus Dokument Nr. {id} „{titre}“ mit meinem aktuellen Vertrag und sag mir, welches vorteilhafter ist.",
+  "Compare mon contrat du document n° {id} « {titre} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.": "Vergleiche meinen Vertrag aus Dokument Nr. {id} „{titre}“ mit dem Angebot, das ich dir anhänge, und sag mir, welches vorteilhafter ist.",
+  "Comparer à mon contrat actuel": "Mit meinem aktuellen Vertrag vergleichen",
+  "Lecture des contrats à comparer…": "Zu vergleichende Verträge werden gelesen…",
 };

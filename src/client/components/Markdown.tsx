@@ -64,6 +64,8 @@ function Table({ b }: { b: Extract<Block, { kind: "table" }> }) {
   // Colonne alignée à droite : demandé par le tableau (« ---: »), ou colonne de chiffres (sauf la première).
   const right = b.head.map((_, k) => b.align[k] === "right" || (b.align[k] !== "center" && k > 0 && b.rows.length > 0 && b.rows.every((r) => !r[k] || numericCell(r[k]))));
   const side = (k: number) => (right[k] ? "md-right" : b.align[k] === "center" ? "md-center" : undefined);
+  // Un chiffre ne se coupe pas ; un texte aligné à droite (« À partir de 50 km », dans une comparaison) peut passer à la ligne.
+  const cell = (k: number, text: string) => [side(k), numericCell(text) ? "md-digits" : null].filter(Boolean).join(" ") || undefined;
   return (
     <div className="md-table-wrap">
       <table className="md-table">
@@ -80,7 +82,7 @@ function Table({ b }: { b: Extract<Block, { kind: "table" }> }) {
           {b.rows.map((r, j) => (
             <tr key={j} className={totalRow(r) ? "md-total" : undefined}>
               {b.head.map((_, k) => (
-                <td key={k} className={side(k)}>
+                <td key={k} className={cell(k, r[k] ?? "")}>
                   {inline(r[k] ?? "", `c${j}-${k}`)}
                 </td>
               ))}

@@ -26,6 +26,7 @@ type RpcResponse = { jsonrpc: "2.0"; id: string | number | null; result?: unknow
 const INSTRUCTIONS_BASE = `Pécule est l'application de suivi bancaire et patrimonial du foyer : c'est la source de vérité des catégories.
 Débits négatifs. Les catégories de type « interne » (C1, C2) sont des mouvements entre comptes du foyer. Référentiel : list_categories.
 Factures : search_invoices / get_invoice, find_payment_candidates pour trouver l'opération qui l'a payée, link_invoice pour la relier (les catégories des articles s'appliquent alors à l'opération).
+Contrats : compare_contracts réunit une offre du coffre (devis, proposition), le contrat en cours, son engagement du budget (échéance, préavis, dernier jour pour résilier) et ce qui a été prélevé sur douze mois ; sans contrat indiqué, il liste les candidats.
 Les actions (categorize_transactions, link_invoice, update_invoice, update_asset…) modifient les données immédiatement : vérifier avant d'agir.`;
 const adminInstructions = (holder: string, others: string[]) =>
   `${INSTRUCTIONS_BASE}\nVue : par défaut celle de ${holder} (titulaire du jeton).` +

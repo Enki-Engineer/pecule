@@ -71,6 +71,12 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   `retirement_simulations`, `career_periods`, `projections`. Les indicateurs sont recalculés, jamais stockés.
 - **Documents** — `documents` (coffre, texte indexé, identifiants masqués par `src/lib/redact.ts`) et `agenda_items` ;
   les échéances des crédits, garanties et contrats sont calculées à la volée.
+- **Comparaison de contrats** — rien n'est gardé : l'outil `compare_contracts` (`src/server/contracts.ts`) réunit le
+  texte des offres et du contrat en cours (coffre), l'engagement du budget et ce qui a été prélevé sur douze mois
+  (`tx_lines`, motif de libellé de l'engagement) ; échéance, préavis et partage du texte entre documents sont des règles
+  pures (`src/lib/contracts.ts`). La méthode (périmètre égal, coût sur douze mois, verdict puis tableau) est dans les
+  consignes de l'assistant ; ce qui est propre à la France (résiliation à tout moment) n'y figure que pour un foyer
+  français.
 - **Import massif** — `import_batches`, `import_items` ; `src/server/imports/` : file de lecture, registre
   d'extracteurs (schéma pour l'IA, contrôles arithmétiques, écriture), journal d'écritures annulable.
 

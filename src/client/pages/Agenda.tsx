@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, CalendarClock, Check, ChevronDown, FileText, Flag, Landmark, Lock, Pencil, Plus, Receipt, Repeat, RotateCcw, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, Check, ChevronDown, FileText, Flag, Landmark, Lock, Pencil, Plus, Receipt, Repeat, RotateCcw, Scale, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, useAgenda, type AgendaEntry } from "../api.ts";
@@ -495,6 +495,17 @@ function AgendaSheet({ e, done, onClose, onToggle, onRemove, onSaved }: { e: Age
       >
         <Sparkles size={16} /> {t("Demander à l'assistant")}
       </button>
+      {/* Renouvellement d'un engagement du budget : c'est le moment de le comparer à une offre. */}
+      {/^contrat:\d+$/.test(e.key) && (
+        <button
+          type="button"
+          onClick={() => askAssistant(t("Compare mon engagement n° {id} « {nom} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.", { id: e.key.slice(8), nom: e.title.replace(/^.*? · /, "") }))}
+          title={t("Joins le devis à ta demande (trombone) avant de l'envoyer.")}
+          className="press mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-card py-2.5 text-sm font-semibold ring-1 ring-line"
+        >
+          <Scale size={16} /> {t("Comparer à une offre")}
+        </button>
+      )}
       {mine && (
         <button type="button" onClick={onRemove} className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-sm text-neg">
           <Trash2 size={15} /> {t("Supprimer")}

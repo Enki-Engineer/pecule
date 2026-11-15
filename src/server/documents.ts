@@ -148,8 +148,8 @@ export type Classification = z.infer<typeof classification>;
 const CLASSIFY_SCHEMA = {
   type: "object",
   properties: {
-    is_invoice: { type: "boolean", description: "true pour une facture ou un ticket d'achat d'un bien ou d'un service (à ranger dans les factures)" },
-    kind: { type: "string", enum: [...KINDS], description: "Type de document (facture = facture de travaux ou de service liée à un bien, conservée au coffre)" },
+    is_invoice: { type: "boolean", description: "true pour une facture ou un ticket d'achat d'un bien ou d'un service (à ranger dans les factures) ; false pour un devis, une offre ou une proposition de contrat, qui ne sont pas encore payés" },
+    kind: { type: "string", enum: [...KINDS], description: "Type de document (facture = facture de travaux ou de service liée à un bien, conservée au coffre ; devis = devis, offre ou proposition de contrat pas encore acceptés, d'un fournisseur d'énergie, d'un assureur, d'un opérateur, d'un artisan…)" },
     domain: { type: "string", enum: [...DOMAINS], description: "Domaine des finances de la famille concerné" },
     title: { type: "string", description: "Titre court et parlant (« Avis d'impôt 2026 sur les revenus 2025 », « Bail meublé du studio », « DPE de l'appartement 2019 »)" },
     doc_date: { type: ["string", "null"], description: "Date du document AAAA-MM-JJ" },
@@ -157,7 +157,7 @@ const CLASSIFY_SCHEMA = {
     summary: { type: "string", description: "2 à 4 phrases : de quoi il s'agit, montants et dates utiles. Jamais de numéro de compte, IBAN, n° de Sécurité sociale ou n° fiscal" },
     facts: {
       type: "array",
-      description: "Au plus 12 faits clés (montant, taux, échéance, parties, bien concerné…), sans identifiant sensible",
+      description: "Au plus 12 faits clés (montant, taux, échéance, parties, bien concerné… ; pour un contrat ou un devis : prix par mois et par an, prix unitaires, garanties et franchises, durée d'engagement, préavis), sans identifiant sensible",
       items: { type: "object", properties: { label: { type: "string" }, value: { type: "string" } }, required: ["label", "value"], additionalProperties: false },
     },
     transcription: { type: ["string", "null"], description: "Pour une photo ou un scan sans texte : transcription du texte utile (4 000 caractères au plus) ; sinon null" },

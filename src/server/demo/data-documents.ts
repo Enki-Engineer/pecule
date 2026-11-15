@@ -1,7 +1,8 @@
 /*
- * Coffre de la démo : dix documents fictifs avec résumé, faits clés, texte indexé (déjà sans
+ * Coffre de la démo : des documents fictifs avec résumé, faits clés, texte indexé (déjà sans
  * identifiant sensible) et un PDF d'une page. Les avis d'impôt et de taxe foncière sont reliés
- * aux lignes d'impôts ; échéances (expires_at) visibles dans l'échéancier.
+ * aux lignes d'impôts ; échéances (expires_at) visibles dans l'échéancier. Le devis d'assurance auto
+ * se compare au contrat en cours (outil compare_contracts de l'assistant).
  */
 import type * as schema from "../db/schema/index.ts";
 import { LOANS } from "./data-patrimoine.ts";
@@ -173,7 +174,34 @@ export function buildDocuments(s: Scenario, model: IncomeModel, [ua, uc]: readon
       expiresAt: s.macifRenewal,
       summary: "Assurance tous risques de la citadine électrique du foyer, échéance annuelle à venir (préavis de résiliation d'un mois).",
       facts: [["Véhicule", "Citadine électrique (2022)"], ["Formule", "Tous risques"], ["Cotisation", "573,60 € par an"], ["Bonus", "0,50"]],
-      lines: [`Souscripteurs : ${ua.name} et ${uc.name}`, "Véhicule : citadine électrique, première mise en circulation en 2022", "Formule tous risques, assistance 0 km, prêt de véhicule", "Cotisation annuelle : 573,60 €, prélevée chaque mois", `Échéance principale : ${dateFr(s.macifRenewal)}`],
+      lines: [
+        `Souscripteurs : ${ua.name} et ${uc.name}`,
+        "Véhicule : citadine électrique, première mise en circulation en 2022",
+        "Formule tous risques, assistance 0 km, prêt de véhicule",
+        "Franchise dommages tous accidents : 250 € ; bris de glace : sans franchise",
+        "Cotisation annuelle : 573,60 €, prélevée chaque mois",
+        `Échéance principale : ${dateFr(s.macifRenewal)}`,
+      ],
+    },
+    // Une offre concurrente, à comparer au contrat ci-dessus : moins chère, mais elle couvre un peu moins.
+    {
+      title: "Devis d'assurance auto — Matmut",
+      kind: "devis",
+      domain: "budget",
+      owner: null,
+      docDate: addDays(s.T, -2),
+      expiresAt: addDays(s.T, 28),
+      summary: "Proposition d'assurance tous risques pour la citadine électrique du foyer : 498,00 € par an, franchise de 380 €, assistance à partir de 50 km. Offre valable 30 jours.",
+      facts: [["Véhicule", "Citadine électrique (2022)"], ["Formule", "Tous risques"], ["Cotisation", "498,00 € par an"], ["Franchise dommages", "380 €"], ["Frais de dossier", "20,00 €"]],
+      lines: [
+        `Proposition établie pour : ${ua.name} et ${uc.name}`,
+        "Véhicule : citadine électrique, première mise en circulation en 2022, bonus 0,50",
+        "Formule tous risques, assistance à partir de 50 km du domicile",
+        "Prêt de véhicule : en option, 36,00 € par an (non comprise dans ce devis)",
+        "Franchise dommages tous accidents : 380 € ; bris de glace : 60 €",
+        "Cotisation annuelle : 498,00 €, soit 41,50 € par mois ; frais de dossier : 20,00 € la première année",
+        `Offre valable jusqu'au ${dateFr(addDays(s.T, 28))} ; résiliation de l'ancien contrat prise en charge`,
+      ],
     },
   ];
 

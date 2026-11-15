@@ -1,4 +1,5 @@
-import { householdCurrency, householdTimeZone, today } from "./region.ts";
+import { householdCurrency, householdTimeZone, region, today } from "./region.ts";
+import { isFrance } from "../lib/countries.ts";
 import { formatMoney } from "../lib/currencies.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomUUID } from "node:crypto";
@@ -18,6 +19,7 @@ import { householdSummary } from "./household.ts";
 import { dataNames } from "./data-i18n.ts";
 import { currentLang, langInfo, t as tr, type Lang } from "../lib/i18n.ts";
 import { fold } from "../lib/markdown.ts";
+import { CONTRACT_KINDS, OFFER_KINDS } from "../lib/contracts.ts";
 
 /*
  * Assistant IA de Pécule : Claude (par le fournisseur réglé dans l'appli) avec les outils du registre
@@ -85,6 +87,17 @@ Actions : tu peux classer des opérations (avec une note), noter des opérations
 Factures : un bloc « [Pièce jointe] » signale une facture que l'utilisateur vient de déposer ; elle est déjà enregistrée et lue. Si elle est déjà reliée à une opération, dis-le en une phrase (opération, catégorie appliquée) et mentionne la garantie s'il y en a une. Sinon appelle find_payment_candidates : une seule candidate au même montant et au même marchand → propose link_invoice ; plusieurs → présente-les brièvement (date, libellé, montant, compte) et demande laquelle ; aucune → explique pourquoi (achat récent pas encore débité : les cartes à débit différé sont prélevées le 1er du mois suivant ; montant différent ; autre moyen de paiement) et, si l'utilisateur confirme qu'elle a été payée hors des comptes suivis, propose update_invoice avec no_payment_expected. Si la lecture est incomplète (marchand « Inconnu », pas de date ou de total), demande ce qui manque et complète avec update_invoice. Bien durable neuf sans garantie renseignée : propose la garantie légale (2 ans après l'achat).
 
 Documents : le coffre range avis d'impôt, contrats, baux, actes, prêts, diagnostics, relevés et les fiches reprises de Notion (search_documents puis get_document pour lire le texte). Un document déposé (bloc « [Pièce jointe] » avec « Document n° ») est déjà rangé : confirme en une phrase ce que c'est, signale une échéance utile et propose un rappel (add_task) si une date compte (fin de bail, DPE, préavis, paiement). Échéancier : list_agenda (tâches, jalons, mensualités, garanties, documents qui expirent, calendrier fiscal) ; add_task pour un rappel, complete_task pour cocher. Ne recopie jamais d'IBAN, de numéro de compte, de numéro de Sécurité sociale ni d'identifiant fiscal.
+
+Comparaison de contrats : quand l'utilisateur demande si une offre vaut mieux que ce qu'il a (devis, proposition ou nouveau contrat d'électricité, de gaz, d'assurance, de box, de mobile, de crédit ou de location d'un véhicule…), ou veut départager plusieurs offres, appelle compare_contracts : les documents déposés ou cités en offer_document_ids, le contrat en cours par commitment_id (budget) et current_document_id (coffre). Sans contrat en cours indiqué, l'outil propose des candidats : choisis celui de même nature et rappelle-le ; s'il n'y en a pas, demande le contrat, le dernier avis d'échéance ou la dernière facture, ou compare les offres entre elles. Un devis rangé par erreur dans les factures se lit par get_invoice.
+- Compare à périmètre égal, et dis sur quelle base : pour l'énergie, la même consommation annuelle (celle de la dernière facture ou du contrat ; à défaut demande-la) et la même puissance, coût annuel = abonnement + consommation × prix du kWh, toutes taxes comprises ; pour une assurance, les mêmes garanties, plafonds et franchises ; pour un véhicule, la même durée, le même kilométrage et le coût total (apport, loyers, option d'achat, frais) ; pour un crédit, le coût total et le taux annuel effectif global.
+- Ramène tout à un coût sur douze mois : compte les frais de dossier, de mise en service et de résiliation, et distingue un prix promotionnel du prix qui suit. Pour le contrat en cours, pars de ce qui est réellement prélevé (« paid », surtout le dernier prélèvement) plutôt que du prix du jour de la signature ; si « partial_history » est vrai, le total ne couvre pas une année.
+- Réponds d'abord par le verdict en une phrase (oui, non, ou « moins cher mais couvre moins »), l'écart sur douze mois en gras et en couleur. Puis un tableau : première colonne « Critère », une colonne « Contrat actuel », une colonne par offre ; une ligne par critère qui compte (prix par mois, garanties ou caractéristiques principales, franchises, durée d'engagement et préavis, frais, prix après la promotion) et, en dernière ligne, « **Total sur 12 mois** ». « — » pour ce que le document ne dit pas : n'invente ni garantie ni prix.
+- Ensuite, en quelques lignes : ce que l'offre a en moins ou en plus (une garantie absente, une franchise plus haute, un prix indexé ou révisable se disent, même si elle est moins chère), les hypothèses et ce qui manque pour trancher (encadré « > [!NOTE] »). Si une donnée décisive manque, dis laquelle au lieu de conclure.
+- Si l'offre est meilleure, donne la marche à suivre : dernier jour pour résilier (« cancel_before » ; « assumed_yearly » signale une échéance déduite d'une reconduction annuelle, à vérifier), et propose un rappel (add_task). Une fois le changement fait, propose de mettre le budget à jour : update_commitment (statut resilie, end_date) pour l'ancien, add_commitment pour le nouveau.${
+    isFrance(region().country)
+      ? "\n- En France, rappelle la règle qui s'applique, à vérifier dans le contrat : assurances auto, habitation et complémentaire santé résiliables à tout moment après un an, le nouvel assureur s'occupant des démarches ; assurance emprunteur changeable à tout moment, à garanties équivalentes ; électricité et gaz d'un particulier : changement de fournisseur sans frais ni préavis ; box et mobile : frais de résiliation tant que court une période d'engagement."
+      : ""
+  }
 
 Situation : biens immobiliers (get_property), budget du foyer avec engagements récurrents et reste à vivre (get_budget, update_commitment), impôts (get_taxes), retraite (get_retirement, privée), revenus salariaux lus dans les fiches de paie (get_payslips, privé), projections (get_projections), mouvements crypto (get_crypto_events). Les fiches d'analyse reprises de Notion sont dans le coffre (search_documents).
 
@@ -463,6 +476,9 @@ async function resolvePending(t: Thread, approve: boolean, reason?: string): Pro
 
 /* ---------- Pièces jointes et contexte ---------- */
 
+/** Types de documents qui se comparent : une offre, ou un contrat en cours. */
+const COMPARABLE_KINDS = new Set<string>([...OFFER_KINDS, ...CONTRACT_KINDS]);
+
 export type ScreenContext = { path: string; screen?: string; entity?: { type: string; id: string; label?: string } };
 
 async function attachmentBlocks(userId: number, invoiceIds: number[], documentIds: number[]) {
@@ -497,7 +513,7 @@ async function attachmentBlocks(userId: number, invoiceIds: number[], documentId
       text:
         `[Pièce jointe] Document n° ${d.id} déposé à l'instant (fichier « ${d.file_name ?? "?"} ») et rangé dans le coffre : « ${d.title} » · type ${d.kind} · domaine ${d.domain}` +
         ` · date ${frDate(d.doc_date)}${d.expires_at ? ` · échéance ${frDate(d.expires_at)}` : ""}${d.summary ? `\nRésumé : ${d.summary}` : ""}${facts ? `\nFaits clés : ${facts}` : ""}` +
-        `\n(texte complet : get_document ; corriger le classement : update_document ; ajouter un rappel : add_task)`,
+        `\n(texte complet : get_document ; corriger le classement : update_document ; ajouter un rappel : add_task${COMPARABLE_KINDS.has(d.kind) ? " ; le comparer à un contrat en cours ou à une autre offre : compare_contracts" : ""})`,
     });
     attachments.push({ id: d.id, name: d.title, type: "document" });
   }

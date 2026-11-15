@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Check, Plus, Scale, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api } from "../api.ts";
@@ -13,6 +13,8 @@ import { useMedia } from "../useMedia.ts";
 import { BrandLogo, commitmentIcon } from "../components/Logo.tsx";
 import { EnvelopesSection } from "../components/Planning.tsx";
 import { t, td, tk, tn } from "../../lib/i18n.ts";
+import { askAssistant } from "../assistantBus.ts";
+import { COMPARABLE_COMMITMENTS } from "../../lib/contracts.ts";
 
 /*
  * Budget du foyer : engagements récurrents (frais fixes, contrats, abonnements, taxes, garde,
@@ -20,6 +22,8 @@ import { t, td, tk, tn } from "../../lib/i18n.ts";
  */
 
 const COUNTED = new Set(["actif", "a_verifier", "a_completer"]);
+/** Engagements qu'une offre peut remplacer : l'assistant les compare au devis joint. */
+const COMPARABLE = new Set<string>(COMPARABLE_COMMITMENTS);
 
 const COMMITMENT_COLUMNS: Column<Commitment>[] = [
   {
@@ -314,6 +318,19 @@ function CommitmentSheet({ c, onClose }: { c: Commitment | null; onClose: () => 
         <button type="submit" className="press w-full rounded-xl bg-accent py-3 font-semibold text-white">
           {t("Enregistrer")}
         </button>
+        {c && COMPARABLE.has(c.type) && COUNTED.has(c.status) && (
+          <button
+            type="button"
+            onClick={() => {
+              askAssistant(t("Compare mon engagement n° {id} « {nom} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.", { id: c.id, nom: c.label }));
+              onClose();
+            }}
+            title={t("Joins le devis à ta demande (trombone) avant de l'envoyer.")}
+            className="press flex w-full items-center justify-center gap-2 rounded-xl bg-accent-soft py-2.5 text-sm font-semibold text-accent"
+          >
+            <Scale size={16} /> {t("Comparer à une offre")}
+          </button>
+        )}
         {c && (
           <button type="button" onClick={remove} className="flex w-full items-center justify-center gap-1.5 py-2 text-sm text-neg">
             <Trash2 size={15} /> {t("Supprimer")}

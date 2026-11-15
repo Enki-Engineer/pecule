@@ -175,12 +175,16 @@
   border-top: 1px solid var(--color-line);
   padding: 0.5em 0.8em;
   vertical-align: top;
+  /* Une colonne garde la largeur de son mot le plus long : un tableau trop large défile, il ne coupe pas les mots. */
+  overflow-wrap: break-word;
 }
 .md-table tbody tr:nth-child(even) td {
   background: color-mix(in srgb, var(--color-line) 22%, var(--color-card));
 }
 .md-table .md-right {
   text-align: right;
+}
+.md-table .md-digits {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

@@ -2798,4 +2798,13 @@ export const es: Dict = {
   "« Compacte » resserre les marges et les lignes pour montrer plus d'opérations par écran, sans réduire le texte. Sur ordinateur seulement ; choix mémorisé sur cet appareil.": "«Compacta» reduce márgenes y filas para mostrar más operaciones por pantalla, sin encoger el texto. Solo en ordenador; la elección se guarda en este dispositivo.",
   "Tout ce que tu possèdes, avant de retirer ce que tu dois encore.": "Todo lo que tienes, antes de restar lo que aún debes.",
   "Comptes courants et épargne : ce qui se mobilise sans vendre un bien ni un placement.": "Cuentas corrientes y ahorro: lo que se puede usar sin vender un bien ni una inversión.",
+  "Compare mon engagement n° {id} « {nom} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.": "Compara mi compromiso n.º {id} «{nom}» con la oferta que te adjunto y dime cuál es la más ventajosa.",
+  "Joins le devis à ta demande (trombone) avant de l'envoyer.": "Adjunta el presupuesto a tu solicitud (clip) antes de enviarla.",
+  "Comparer à une offre": "Comparar con una oferta",
+  "Comparer un devis à mon contrat": "Comparar un presupuesto con mi contrato",
+  "Compare ce devis à mon contrat actuel et dis-moi lequel est le plus avantageux.": "Compara este presupuesto con mi contrato actual y dime cuál es el más ventajoso.",
+  "Compare l'offre du document n° {id} « {titre} » à mon contrat actuel et dis-moi laquelle est la plus avantageuse.": "Compara la oferta del documento n.º {id} «{titre}» con mi contrato actual y dime cuál es la más ventajosa.",
+  "Compare mon contrat du document n° {id} « {titre} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.": "Compara mi contrato del documento n.º {id} «{titre}» con la oferta que te adjunto y dime cuál es la más ventajosa.",
+  "Comparer à mon contrat actuel": "Comparar con mi contrato actual",
+  "Lecture des contrats à comparer…": "Leyendo los contratos que hay que comparar…",
 };

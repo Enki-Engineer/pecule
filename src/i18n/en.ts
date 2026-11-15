@@ -2798,4 +2798,13 @@ export const en: Dict = {
   "« Compacte » resserre les marges et les lignes pour montrer plus d'opérations par écran, sans réduire le texte. Sur ordinateur seulement ; choix mémorisé sur cet appareil.": "“Compact” tightens margins and rows to show more transactions per screen, without shrinking the text. On computers only; the choice is remembered on this device.",
   "Tout ce que tu possèdes, avant de retirer ce que tu dois encore.": "Everything you own, before taking off what you still owe.",
   "Comptes courants et épargne : ce qui se mobilise sans vendre un bien ni un placement.": "Current accounts and savings: what you can use without selling a property or an investment.",
+  "Compare mon engagement n° {id} « {nom} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.": "Compare my commitment no. {id} “{nom}” with the offer I'm attaching and tell me which one is the better deal.",
+  "Joins le devis à ta demande (trombone) avant de l'envoyer.": "Attach the quote to your request (paperclip) before sending it.",
+  "Comparer à une offre": "Compare with an offer",
+  "Comparer un devis à mon contrat": "Compare a quote with my contract",
+  "Compare ce devis à mon contrat actuel et dis-moi lequel est le plus avantageux.": "Compare this quote with my current contract and tell me which one is the better deal.",
+  "Compare l'offre du document n° {id} « {titre} » à mon contrat actuel et dis-moi laquelle est la plus avantageuse.": "Compare the offer in document no. {id} “{titre}” with my current contract and tell me which one is the better deal.",
+  "Compare mon contrat du document n° {id} « {titre} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.": "Compare my contract in document no. {id} “{titre}” with the offer I'm attaching and tell me which one is the better deal.",
+  "Comparer à mon contrat actuel": "Compare with my current contract",
+  "Lecture des contrats à comparer…": "Reading the contracts to compare…",
 };

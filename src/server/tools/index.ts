@@ -9,6 +9,7 @@ import { analyseTools } from "./analyse.ts";
 import { editionTools } from "./edition.ts";
 import { pilotageTools } from "./pilotage.ts";
 import { importsTools } from "./imports.ts";
+import { contratsTools } from "./contrats.ts";
 import { ToolError, inputError, jsonSchema, type Described, type Tool, type ToolCtx } from "./registry.ts";
 import { tk } from "../../lib/i18n.ts";
 
@@ -17,7 +18,7 @@ import { tk } from "../../lib/i18n.ts";
  * confirmées à l'écran) et par le serveur MCP (écritures confirmées par le client, ex. Claude Code).
  */
 
-export const TOOLS: Tool[] = [...banqueTools, ...analyseTools, ...facturesTools, ...patrimoineTools, ...documentsTools, ...situationTools, ...editionTools, ...pilotageTools, ...importsTools];
+export const TOOLS: Tool[] = [...banqueTools, ...analyseTools, ...facturesTools, ...patrimoineTools, ...documentsTools, ...contratsTools, ...situationTools, ...editionTools, ...pilotageTools, ...importsTools];
 const BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
 export const WRITE_NAMES = new Set(TOOLS.filter((t) => t.kind === "write").map((t) => t.name));
 /** Outils exécutés sans confirmation mais qui modifient des données (mémoire) : refusés quand personne n'est devant l'écran. */

@@ -21,7 +21,8 @@ French, English, German, Italian and Spanish. The code and its comments are writ
   notices, loan schedules, bank statements, deeds, leases…), checks the arithmetic, and proposes the data. Nothing is
   written before you validate it, and every import can be undone.
 - **Assistant** (optional) — ask questions about your finances, hands-free if you like; it can act, with your
-  confirmation. Pécule also exposes an MCP server so your own AI assistant can read and update it.
+  confirmation. Hand it a quote (energy, insurance, telecoms, car) and it tells you whether it beats the contract you
+  have, with a side-by-side table. Pécule also exposes an MCP server so your own AI assistant can read and update it.
 - **Any currency** — the household picks its country, currency and time zone; an account held in another currency is
   converted at the European Central Bank reference rate of each transaction's day and keeps its original amounts.
 - **For a household** — each member has their own view; shared accounts and private ones; passkeys instead of

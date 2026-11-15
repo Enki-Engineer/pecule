@@ -3,6 +3,27 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.11.0
+
+- **Comparer une offre à son contrat**, par l'assistant : dépose un devis ou une proposition (électricité, gaz,
+  assurance, box, mobile, véhicule, crédit) et demande s'il vaut mieux que ce que tu as. L'assistant retrouve le
+  contrat en cours dans le budget et dans le coffre, part de ce qui a réellement été prélevé sur douze mois, et
+  répond par un verdict, un tableau critère par critère (prix, garanties, franchises, engagement, frais, total sur
+  douze mois), ce que l'offre a en moins ou en plus, puis la marche à suivre : dernier jour pour résilier, rappel,
+  mise à jour du budget une fois le changement fait. Jusqu'à trois offres à la fois. S'il manque une donnée pour
+  trancher (la consommation annuelle d'électricité, par exemple), il la demande au lieu de conclure.
+- **Où le demander** : « Comparer un devis à mon contrat » dans l'assistant (le choix du fichier s'ouvre aussitôt),
+  « Comparer à mon contrat actuel » sur un devis du coffre, « Comparer à une offre » sur un contrat du coffre, sur un
+  engagement du budget et sur un renouvellement de l'échéancier.
+- **Outil `compare_contracts`** (assistant et serveur MCP) : en une lecture, les offres, le contrat en cours,
+  l'engagement du budget (montant, prochaine échéance, préavis, dernier jour pour résilier) et les prélèvements
+  réels. Il ne modifie rien.
+- **Devis** : un devis ou une proposition de contrat déposé est rangé au coffre comme devis, jamais parmi les
+  factures ; ses prix, garanties et durée d'engagement entrent dans ses faits clés.
+- **Tableaux de l'assistant** sur un téléphone : un texte aligné à droite passe à la ligne au lieu d'écraser la
+  première colonne, et un mot n'est plus coupé en son milieu ; un tableau trop large défile.
+- Démo : un devis d'assurance auto concurrent, à comparer au contrat de la famille.
+
 ## 1.10.0
 
 - **Mode discret** : un bouton (l'œil, dans la barre du haut ; « Masquer les montants » dans le menu du téléphone)

@@ -2798,4 +2798,13 @@ export const it: Dict = {
   "« Compacte » resserre les marges et les lignes pour montrer plus d'opérations par écran, sans réduire le texte. Sur ordinateur seulement ; choix mémorisé sur cet appareil.": "«Compatta» stringe margini e righe per mostrare più operazioni per schermata, senza rimpicciolire il testo. Solo su computer; scelta memorizzata su questo dispositivo.",
   "Tout ce que tu possèdes, avant de retirer ce que tu dois encore.": "Tutto ciò che possiedi, prima di togliere ciò che devi ancora.",
   "Comptes courants et épargne : ce qui se mobilise sans vendre un bien ni un placement.": "Conti correnti e risparmio: ciò che si può usare senza vendere un bene o un investimento.",
+  "Compare mon engagement n° {id} « {nom} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.": "Confronta il mio impegno n. {id} «{nom}» con l'offerta che ti allego e dimmi qual è la più conveniente.",
+  "Joins le devis à ta demande (trombone) avant de l'envoyer.": "Allega il preventivo alla tua richiesta (graffetta) prima di inviarla.",
+  "Comparer à une offre": "Confronta con un'offerta",
+  "Comparer un devis à mon contrat": "Confronta un preventivo con il mio contratto",
+  "Compare ce devis à mon contrat actuel et dis-moi lequel est le plus avantageux.": "Confronta questo preventivo con il mio contratto attuale e dimmi qual è il più conveniente.",
+  "Compare l'offre du document n° {id} « {titre} » à mon contrat actuel et dis-moi laquelle est la plus avantageuse.": "Confronta l'offerta del documento n. {id} «{titre}» con il mio contratto attuale e dimmi qual è la più conveniente.",
+  "Compare mon contrat du document n° {id} « {titre} » à l'offre que je te joins et dis-moi laquelle est la plus avantageuse.": "Confronta il mio contratto del documento n. {id} «{titre}» con l'offerta che ti allego e dimmi qual è la più conveniente.",
+  "Comparer à mon contrat actuel": "Confronta con il mio contratto attuale",
+  "Lecture des contrats à comparer…": "Lettura dei contratti da confrontare…",
 };

@@ -3,6 +3,21 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.13.0
+
+- **Répartition repensée** (Analyse, ordinateur). En tête, le solde de la période et trois jauges — revenus,
+  dépenses, épargne — puis trois anneaux : revenus, dépenses et, nouveau, **épargne par support**. Dessous, une
+  seule liste à pleine largeur, celle de l'anneau choisi : chaque poste a sa barre de couleur, sa part en %, son
+  montant et son écart à la période de référence ; un poste se déplie sur ses catégories. Survoler une ligne fait
+  ressortir sa part dans l'anneau, et inversement ; un clic sur un autre anneau change de liste. Plus de libellé
+  coupé ni de cartes de hauteurs inégales.
+- **« Comparer à »** : la référence se choisit — le mois précédent, la moyenne des trois derniers mois ou le même
+  mois de l'an dernier (réglage mémorisé sur l'appareil). Pour un mois terminé, l'écart s'écrit dans une étiquette
+  verte ou rouge ; pour le mois en cours, c'est un simple rappel — un mois entamé ne se compare pas à un mois entier.
+- **Enveloppes sur les barres** : quand un poste ou une catégorie a une enveloppe (Budget), un trait marque son
+  plafond sur la barre — rouge une fois dépassé ; au survol, le plafond et ce qu'il reste.
+- Le téléphone garde un anneau à la fois (écran Mois).
+
 ## 1.12.3
 
 - **Lecture des documents déposés** : depuis la 1.12.1, le fournisseur d'IA refusait le schéma de reconnaissance

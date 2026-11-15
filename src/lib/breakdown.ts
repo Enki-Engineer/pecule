@@ -100,6 +100,50 @@ export function incomeParts(rows: BreakdownRow[], previous: BreakdownRow[]): Par
   );
 }
 
+/** Versements d'épargne du mois par catégorie (un livret, une assurance-vie, un plan) ; les plus lourds portent une couleur. */
+export function savingsParts(rows: BreakdownRow[], previous: BreakdownRow[]): Part[] {
+  const savings = (list: BreakdownRow[]) => list.filter((r) => r.kind === "epargne");
+  const ranked = savings(rows)
+    .filter((r) => -Number(r.total) > 0)
+    .sort((a, b) => Number(a.total) - Number(b.total))
+    .map((r) => r.id);
+  return finish(
+    savings(rows).map((r) => {
+      const rank = ranked.indexOf(r.id) + 1;
+      return {
+        key: r.id ?? "a-classer",
+        label: r.name ?? tk("Épargne non classée"),
+        // Un versement sort du compte : montant négatif dans les données, positif ici.
+        total: -Number(r.total),
+        count: Number(r.count),
+        prev: -Number(savings(previous).find((x) => x.id === r.id)?.total ?? 0),
+        slot: rank >= 1 && rank <= MAX_COLORED ? rank : null,
+        unclassified: !r.id,
+        category: r.id ?? undefined,
+        items: [],
+      };
+    }),
+  );
+}
+
+/**
+ * Moyenne de plusieurs mois, catégorie par catégorie (un mois sans cette catégorie y compte pour zéro) : sert de
+ * période de référence à la place du seul mois précédent.
+ */
+export function averageRows(months: BreakdownRow[][]): BreakdownRow[] {
+  if (!months.length) return [];
+  const map = new Map<string, BreakdownRow>();
+  for (const rows of months)
+    for (const r of rows) {
+      const k = `${r.kind}|${r.id ?? ""}`;
+      const cur = map.get(k) ?? { ...r, total: 0, count: 0 };
+      cur.total += Number(r.total);
+      cur.count += Number(r.count);
+      map.set(k, cur);
+    }
+  return [...map.values()].map((r) => ({ ...r, total: r2(r.total / months.length), count: Math.round(r.count / months.length) }));
+}
+
 export type Arc = { key: string; label: string; value: number; slot: number | null; unclassified: boolean };
 
 /** Parts de l'anneau, dans l'ordre fixe des couleurs ; « Autres » puis « à classer » ferment la marche. */

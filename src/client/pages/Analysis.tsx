@@ -11,17 +11,16 @@ import { AxisTick, SELECTED_BAND } from "../components/StackedBars.tsx";
 import { useMedia } from "../useMedia.ts";
 import { usePeriod } from "../shell.ts";
 import { useFlows, useMerchants, useMonthDebits, useNatureTrend, useYearDebits, type Flows } from "../api-analysis.ts";
-import { addMonths, isYearPeriod, monthsOfPeriod, trendEnd } from "../../lib/periods.ts";
+import { addMonths, isYearPeriod, monthsOfPeriod, periodHasMonth, trendEnd } from "../../lib/periods.ts";
 import { NATURE_LABELS, SPEND_NATURES } from "../../lib/nature.ts";
 import { Month } from "./Month.tsx";
 import { CompareView } from "./Compare.tsx";
 import { natureColor } from "../charts.ts";
 import { BrandLogo } from "../components/Logo.tsx";
-import { Breakdown } from "../components/Breakdown.tsx";
+import { BreakdownBoard } from "../components/BreakdownBoard.tsx";
 import { TimelineTab } from "../components/MonthTimeline.tsx";
 import { CalendarTab } from "../components/MonthCalendar.tsx";
 import { useMonth } from "../api.ts";
-import { monthTotals } from "../../lib/month.ts";
 import { locale, t, td, tk } from "../../lib/i18n.ts";
 
 /*
@@ -87,33 +86,15 @@ export function Analysis() {
 
 /** Deux anneaux côte à côte : d'où vient l'argent de la période (par catégorie), où il part (par poste). */
 function BreakdownTab({ period }: { period: string }) {
-  const year = isYearPeriod(period);
   const { data, isLoading, error, isPlaceholderData } = useMonth(period);
-  const tot = data ? monthTotals(data.categories) : null;
   return (
     <>
       {error && <ErrorBox error={error} />}
-      {isLoading || !data || !tot ? (
+      {isLoading || !data ? (
         <Spinner />
       ) : (
         <div className={cn("transition-opacity duration-200", isPlaceholderData && "opacity-50")}>
-          <StatGrid>
-            <Stat label={t("Revenus")} info={t("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Les mouvements entre tes comptes n'en font pas partie.")} value={money(tot.revenus, true)} hint={year ? t("entrées de l'année, hors mouvements internes") : t("entrées du mois, hors mouvements internes")} />
-            <Stat label={t("Dépenses")} info={t("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne ni les mouvements entre tes comptes.")} value={money(tot.depenses, true)} hint={t("nettes des remboursements")} />
-            <Stat label={t("Épargne")} info={t("Ce qui est classé en épargne : les versements vers un livret, une assurance-vie, un plan d'épargne.")} value={money(tot.epargne, true)} hint={t("versements vers l'épargne")} />
-            <Stat label={year ? t("Solde de l'année") : t("Solde du mois")} info={t("Revenus moins dépenses. L'épargne n'en est pas retirée : c'est ce qui reste avant de mettre de côté.")} value={money(tot.revenus - tot.depenses, true)} tone={tot.revenus - tot.depenses >= 0 ? "pos" : "neg"} hint={t("revenus − dépenses")} />
-          </StatGrid>
-          <div className="grid grid-cols-12 items-start gap-4">
-            {(["depenses", "revenus"] as const).map((kind) => (
-              <Card key={kind} className="col-span-12 p-5 xl:col-span-6">
-                <div className="mb-4 flex items-baseline justify-between gap-3">
-                  <h2 className="text-[14px] font-semibold">{kind === "depenses" ? t("Dépenses par poste") : t("Revenus par catégorie")}</h2>
-                  <span className="text-[12px] text-muted">{kind === "depenses" ? t("Un poste se déplie sur ses catégories · clic sur l'anneau : les opérations") : t("Clic : les opérations")}</span>
-                </div>
-                <Breakdown kind={kind} data={data} />
-              </Card>
-            ))}
-          </div>
+          <BreakdownBoard data={data} current={periodHasMonth(period, thisMonth())} />
         </div>
       )}
     </>

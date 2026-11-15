@@ -21,8 +21,8 @@ import { t, td, tk, tn } from "../../lib/i18n.ts";
 export type BreakdownKind = "depenses" | "revenus";
 
 const OTHER = "#9aa5b4";
-const HATCH = "repeating-linear-gradient(45deg, var(--color-muted) 0 2px, var(--color-line) 2px 5px)";
-const colorOf = (slot: number | null) => (slot ? `var(--series-${slot})` : OTHER);
+export const HATCH = "repeating-linear-gradient(45deg, var(--color-muted) 0 2px, var(--color-line) 2px 5px)";
+export const colorOf = (slot: number | null) => (slot ? `var(--series-${slot})` : OTHER);
 
 function incomeIcon(name: string): LucideIcon {
   const n = name.toLowerCase();
@@ -34,16 +34,16 @@ function incomeIcon(name: string): LucideIcon {
   if (/sci\b|loyer|locati|immobili/.test(n)) return Building2;
   return CircleHelp;
 }
-const iconOf = (kind: BreakdownKind, p: { label: string; unclassified: boolean }) => (p.unclassified ? CircleHelp : kind === "revenus" ? incomeIcon(p.label) : categoryIcon(p.label));
+export const iconOf = (kind: BreakdownKind, p: { label: string; unclassified: boolean }) => (p.unclassified ? CircleHelp : kind === "revenus" ? incomeIcon(p.label) : categoryIcon(p.label));
 
-const share = (v: number, total: number) => {
+export const share = (v: number, total: number) => {
   if (v <= 0 || total <= 0) return null;
   const pct = (v / total) * 100;
   return pct < 1 ? "< 1 %" : `${Math.round(pct)} %`;
 };
 const ops = (n: number) => tn("{n} opération", "{n} opérations", n);
 
-function openPart(kind: BreakdownKind, month: string, p: Part) {
+export function openPart(kind: BreakdownKind, month: string, p: Part) {
   const sub = periodLabel(month);
   if (p.unclassified) openDrill(td(p.label), kind === "depenses" ? { month, uncategorized: true, debits: true } : { month, uncategorized: true, credits: true }, sub);
   else if (p.poste) openDrill(td(p.label), { month, poste: p.poste }, sub);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arcsOf, incomeParts, pickColored, spendingParts, type BreakdownRow } from "./breakdown.ts";
+import { arcsOf, averageRows, incomeParts, pickColored, savingsParts, spendingParts, type BreakdownRow } from "./breakdown.ts";
 
 const row = (id: string | null, name: string | null, poste: string | null, kind: string, total: number, count = 1): BreakdownRow => ({ id, name, poste, kind, total, count });
 
@@ -65,6 +65,44 @@ describe("incomeParts", () => {
       ["Revenus d'investissements", 4, "A4"],
     ]);
     expect(parts[0].prev).toBe(3405.47);
+  });
+});
+
+describe("savingsParts", () => {
+  const rows = [...october, row("B8-02", "Assurance-vie", "Epargne & Investissements", "epargne", -100), row("B8-03", "Plan d'épargne", "Epargne & Investissements", "epargne", 0)];
+  const before = [row("B8", "Épargne", "Epargne & Investissements", "epargne", -250)];
+  it("une part par support, montants positifs, couleur selon le poids", () => {
+    const parts = savingsParts(rows, before);
+    expect(parts.map((p) => [p.label, p.total, p.slot, p.category])).toEqual([
+      ["Épargne", 300, 1, "B8"],
+      ["Assurance-vie", 100, 2, "B8-02"],
+      ["Plan d'épargne", 0, null, "B8-03"],
+    ]);
+    expect(parts[0].prev).toBe(250);
+    expect(parts[1].prev).toBe(0);
+  });
+  it("ne prend ni les dépenses ni les mouvements internes", () => {
+    expect(savingsParts(october, []).map((p) => p.key)).toEqual(["B8"]);
+  });
+});
+
+describe("averageRows", () => {
+  it("fait la moyenne catégorie par catégorie, un mois sans elle comptant pour zéro", () => {
+    const avg = averageRows([september, october, []]);
+    const of = (id: string | null, kind: string) => avg.find((r) => r.id === id && r.kind === kind)?.total;
+    expect(of("A1", "revenu")).toBe(2245.07);
+    expect(of("B1-01", "depense")).toBe(-921.01);
+    expect(of("B7", "depense")).toBe(-544.67);
+    // Sans catégorie : les dépenses et les revenus non classés restent deux lignes distinctes.
+    expect(of(null, "depense")).toBe(-87.23);
+    expect(of(null, "revenu")).toBe(300.39);
+  });
+  it("rend une liste vide sans mois", () => {
+    expect(averageRows([])).toEqual([]);
+  });
+  it("sert de période de référence aux parts", () => {
+    const parts = spendingParts(october, averageRows([september, september]));
+    expect(parts.find((p) => p.label === "Logement")?.prev).toBe(1381.52);
   });
 });
 

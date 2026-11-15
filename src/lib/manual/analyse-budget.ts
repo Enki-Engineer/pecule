@@ -57,7 +57,7 @@ export const analyseBudget: ManualTheme = {
           list: [
             tk("[[Vue d'ensemble]] : revenus et dépenses sur douze mois, avec trois mois de prévision en pointillé, les chiffres de la période et la liste des postes."),
             tk("[[Calendrier]] : le mois jour par jour."),
-            tk("[[Répartition]] : les dépenses par poste et les revenus par catégorie."),
+            tk("[[Répartition]] : le solde de la période, puis trois anneaux — revenus, dépenses, épargne — et la liste de celui que tu choisis, avec une barre par poste. [[Comparer à]] choisit la référence : le mois précédent, la moyenne des trois derniers mois ou le même mois de l'an dernier. Un trait sur une barre marque le plafond de son enveloppe."),
             tk("[[Flux]] : d'où vient l'argent et où il part, et les sorties par nature sur douze mois."),
             tk("[[Frise]] : les paiements au fil du mois, par moyen de paiement."),
             tk("[[Marchands]] : les achats par carte, marchand par marchand, comparés à la période précédente."),

@@ -123,6 +123,21 @@ export async function updatePrefs(userId: number, endpoint: string, prefs: Notif
   await exec("UPDATE push_subscriptions SET prefs = ? WHERE endpoint_hash = ? AND user_id = ?", [JSON.stringify({ ...DEFAULT_PREFS, ...prefs }), sha(endpoint), userId]);
 }
 
+export type NotifDevice = { id: number; device: string | null; createdAt: string; prefs: NotifPrefs };
+
+/** Appareils du membre abonnés aux notifications, avec les types que chacun reçoit (le plus ancien d'abord). */
+export async function listDevices(userId: number): Promise<NotifDevice[]> {
+  const rows = await q<{ id: number; prefs: string | null; device: string | null; created_at: string }>("SELECT id, prefs, device, created_at FROM push_subscriptions WHERE user_id = ? ORDER BY id", [userId]);
+  return rows.map((r) => ({ id: r.id, device: r.device, createdAt: r.created_at, prefs: { ...DEFAULT_PREFS, ...(r.prefs ? JSON.parse(r.prefs) : {}) } as NotifPrefs }));
+}
+
+/** Coche ou décoche des types d'alerte sur des appareils du membre (ceux de `listDevices`) ; le reste de leurs réglages ne bouge pas. */
+export async function setDeviceTypes(userId: number, deviceIds: number[], types: Partial<Record<NotifType, boolean>>) {
+  const wanted = new Set(deviceIds);
+  for (const d of (await listDevices(userId)).filter((x) => wanted.has(x.id)))
+    await exec("UPDATE push_subscriptions SET prefs = ? WHERE id = ? AND user_id = ?", [JSON.stringify({ ...d.prefs, ...types }), d.id, userId]);
+}
+
 export async function unsubscribe(userId: number, endpoint: string) {
   await exec("DELETE FROM push_subscriptions WHERE endpoint_hash = ? AND user_id = ?", [sha(endpoint), userId]);
 }

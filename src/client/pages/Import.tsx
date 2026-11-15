@@ -101,8 +101,8 @@ export function Batch({ id, onBack }: { id: number; onBack: () => void }) {
         {!b.ai && b.status !== "annule" && (
           <Card className="p-4 text-sm">
             {t("L'IA n'est pas réglée : les fichiers sont rangés au coffre sans être lus (les exports de la banque, eux, sont lus).")}{" "}
-            <Link to="/reglages/assistant" className="font-medium text-accent">
-              {t("Réglages → Assistant")}
+            <Link to="/reglages/connexions?c=ia" className="font-medium text-accent">
+              {t("Réglages → Comptes et connexions")}
             </Link>
           </Card>
         )}

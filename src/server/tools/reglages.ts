@@ -5,12 +5,14 @@ import { isDemo, runReal } from "../demo-context.ts";
 import { funEnabled, setFunEnabled } from "../fun.ts";
 import { householdSettings, saveHouseholdSettings } from "../household.ts";
 import { memberLang, setMemberLang } from "../lang.ts";
+import { NOTIF_TYPES, listDevices, setDeviceTypes, type NotifDevice, type NotifType } from "../notify.ts";
 import { dateBasis, setDateBasis } from "../stat-dates.ts";
 import { aiEnabled } from "../ai.ts";
 import { ACCENTS } from "../../lib/seasons.ts";
 import { ACCENT_IDS, DENSITIES, DENSITY_LABELS, SEASON_MODES, SEASON_MODE_LABELS, THEME_LABELS, THEME_PREFS } from "../../lib/device-settings.ts";
 import { LANGS, LANG_IDS, currentLang, langInfo, t as tr, tk } from "../../lib/i18n.ts";
-import { articleMarkdown, findArticle, manualOutline, manualText, searchManual } from "../../lib/manual.ts";
+import { MANUAL, articleMarkdown, findArticle, manualOutline, manualText, searchManual } from "../../lib/manual.ts";
+import { fold } from "../../lib/markdown.ts";
 import { MODULES, MODULE_INFO, type ModuleId } from "../../lib/modules.ts";
 import { ToolError, change, field, readTool, writeTool, type Tool } from "./registry.ts";
 
@@ -33,7 +35,7 @@ const readManual = readTool({
     "Le texte est rendu dans la langue de l'utilisateur, avec les noms de boutons et de menus tels que son écran les affiche (en gras) et des liens vers les écrans ([nom](/adresse)) à reprendre tels quels dans ta réponse. À appeler avant d'expliquer une fonction de Pécule : ne décris jamais un menu ou un bouton de mémoire.",
   input: z.object({
     query: z.string().max(200).optional().describe("Mots-clés ou question (« changer la couleur », « relier ma banque »)"),
-    articles: z.array(z.string().max(80)).max(4).optional().describe("Identifiants d'articles du sommaire"),
+    articles: z.array(z.string().max(80)).max(4).optional().describe("Identifiants d'articles du sommaire (un identifiant de thème rend la liste de ses articles)"),
   }),
   async run(_ctx, i) {
     if (!i.query?.trim() && !i.articles?.length) return { outline: manualOutline(), usage: "Lire un article : articles: [identifiant] ; chercher : query." };
@@ -43,11 +45,17 @@ const readManual = readTool({
       if (!e) throw new ToolError(`Article inconnu : ${id} (voir le sommaire du manuel dans tes consignes)`);
       return { id, theme: manualText(e.theme.title, lang, false), address: `/manuel/${id}`, module: e.article.module, text: articleMarkdown(e.article, lang) };
     };
-    const asked = (i.articles ?? []).map(full);
+    // Un identifiant de thème (la page d'aide d'un écran peut en être un) : la liste de ses articles, à lire ensuite.
+    const themes = (i.articles ?? [])
+      .map((id) => MANUAL.find((th) => th.id === id))
+      .filter((th) => !!th)
+      .map((th) => ({ theme: th.id, title: manualText(th.title, lang, false), address: `/manuel/${th.id}`, articles: th.articles.map((a) => ({ id: a.id, title: manualText(a.title, lang, false), summary: manualText(a.summary, lang, false) })) }));
+    const asked = (i.articles ?? []).filter((id) => !themes.some((th) => th.theme === id)).map(full);
     // L'assistant formule sa recherche en français ou dans la langue du membre : on cherche dans les deux.
     const hits = i.query?.trim() ? searchManual(i.query, { limit: 8, langs: [lang, "fr"] }).filter((h) => !asked.some((a) => a.id === h.article.id)) : [];
     return {
       articles: [...asked, ...hits.slice(0, FULL_HITS).map((h) => full(h.article.id))],
+      ...(themes.length ? { themes } : {}),
       other_matches: hits.slice(FULL_HITS).map((h) => ({ id: h.article.id, title: manualText(h.article.title, lang, false), summary: manualText(h.article.summary, lang, false) })),
       ...(i.query?.trim() && !hits.length && !asked.length ? { note: "Aucun article ne correspond : reformule avec d'autres mots-clés, ou lis un article du sommaire. Si le manuel n'en parle pas, dis-le au lieu d'inventer." } : {}),
     };
@@ -102,7 +110,15 @@ const getSettings = readTool({
         where: "/reglages/apparence et /reglages/notifications",
         change_with: "set_device_settings",
       },
-      low_balance_alert: { read_with: "get_balance_alert", change_with: "set_balance_alert", where: "/reglages/notifications" },
+      notifications: isDemo()
+        ? { note: "Indisponibles en mode démo." }
+        : {
+            devices: (await listDevices(userId)).map((d) => ({ device: deviceName(d), since: d.createdAt, receives: NOTIF_IDS.filter((k) => d.prefs[k] !== false), muted: NOTIF_IDS.filter((k) => d.prefs[k] === false) })),
+            note: "Un appareil ne figure ici qu'une fois les notifications activées dessus : cela demande l'accord de l'utilisateur sur l'appareil, à l'écran (sur iPhone, depuis l'appli installée sur l'écran d'accueil).",
+            where: "/reglages/notifications#notifications",
+            change_with: "set_notification_types (types reçus, sur les appareils déjà abonnés)",
+          },
+      low_balance_alert: { read_with: "get_balance_alert", change_with: "set_balance_alert", where: "/reglages/notifications#solde" },
       accounts: { read_with: "list_accounts", change_with: "update_account", where: "/reglages/connexions" },
     };
   },
@@ -186,6 +202,72 @@ const updateAccount = writeTool({
   },
 });
 
+/* ---------- Notifications : types reçus par les appareils du membre ---------- */
+
+const NOTIF_IDS = Object.keys(NOTIF_TYPES) as NotifType[];
+/** Ce que chaque type annonce, pour l'IA (les libellés de l'écran, eux, sont traduits pendant la requête). */
+const NOTIF_MEANING: Record<NotifType, string> = {
+  aclasser: "opérations à classer (le soir)",
+  prelevement: "prélèvement nouveau ou inhabituel",
+  solde: "solde bas, aujourd'hui ou à venir",
+  loyer: "loyer pas encore reçu",
+  echeance: "échéances à sept jours et tâches du jour",
+  garantie: "garantie qui expire dans 30 jours",
+  enveloppe: "enveloppe à son seuil d'alerte ou dépassée",
+  resume: "résumé de la semaine (lundi matin)",
+};
+/** Nom d'un appareil abonné (« iPhone », « Mac »…), ou « Appareil » s'il n'en a pas donné. */
+const deviceName = (d: NotifDevice) => d.device?.trim() || tr("Appareil");
+const notifTypes = z.object(Object.fromEntries(NOTIF_IDS.map((k) => [k, z.boolean().optional()])) as Record<NotifType, z.ZodOptional<z.ZodBoolean>>);
+
+/** Appareils visés : tous ceux du membre, ou ceux dont le nom contient `device`. */
+async function targetDevices(userId: number, device?: string): Promise<NotifDevice[]> {
+  if (isDemo()) throw new ToolError("Indisponible en mode démo : les notifications ne concernent que les vrais appareils.");
+  const devices = await listDevices(userId);
+  if (!devices.length)
+    throw new ToolError(
+      "Aucun appareil de l'utilisateur n'a activé les notifications. Les activer demande son accord sur l'appareil : cela se fait à l'écran, dans Réglages → Notifications et appareil (/reglages/notifications#notifications) ; sur iPhone, depuis l'appli installée sur l'écran d'accueil. Lis l'article « notifications » du manuel pour la marche à suivre.",
+    );
+  if (!device?.trim()) return devices;
+  const wanted = fold(device.trim());
+  const found = devices.filter((d) => fold(deviceName(d)).includes(wanted));
+  if (!found.length) throw new ToolError(`Aucun appareil abonné ne s'appelle « ${device} ». Appareils abonnés : ${devices.map(deviceName).join(", ")}`);
+  return found;
+}
+
+const setNotificationTypes = writeTool({
+  name: "set_notification_types",
+  description:
+    "Choisit les types de notifications que reçoivent les appareils de l'utilisateur déjà abonnés (get_settings les liste) : `types` avec true pour recevoir, false pour ne plus recevoir — " +
+    NOTIF_IDS.map((k) => `${k} = ${NOTIF_MEANING[k]}`).join(" ; ") +
+    ". Sans `device`, le réglage vaut sur tous ses appareils abonnés ; `device` (« iPhone », « Mac », « Android »…) le limite à ceux de ce nom. Ne donner que les types qui changent. " +
+    "Tu ne peux pas activer les notifications sur un appareil qui ne les a pas : cela demande l'accord de l'utilisateur sur l'appareil, à l'écran. Pour le seuil et le délai de l'alerte de solde bas : set_balance_alert.",
+  input: z.object({
+    types: notifTypes,
+    device: z.string().max(60).optional().describe("Nom d'un appareil abonné ; absent : tous les appareils abonnés de l'utilisateur"),
+  }),
+  async describe({ userId }, i) {
+    const devices = await targetDevices(userId, i.device);
+    const given = NOTIF_IDS.filter((k) => i.types[k] !== undefined);
+    if (!given.length) throw new ToolError(`Rien à changer : donner au moins un type (${NOTIF_IDS.join(", ")})`);
+    // Ce qui change vraiment sur au moins un des appareils visés.
+    const changing = given.filter((k) => devices.some((d) => (d.prefs[k] !== false) !== i.types[k]));
+    if (!changing.length) throw new ToolError("Rien à changer : ces types sont déjà réglés ainsi sur les appareils visés.");
+    return {
+      label: tr("Régler les notifications"),
+      details: [
+        ...changing.map((k) => (i.types[k] ? tr("Recevoir : {type}", { type: NOTIF_TYPES[k] }) : tr("Ne plus recevoir : {type}", { type: NOTIF_TYPES[k] }))),
+        field(tr("Appareils"), devices.map(deviceName).join(", ")),
+      ],
+    };
+  },
+  async run({ userId }, i) {
+    const devices = await targetDevices(userId, i.device);
+    await setDeviceTypes(userId, devices.map((d) => d.id), Object.fromEntries(NOTIF_IDS.filter((k) => i.types[k] !== undefined).map((k) => [k, i.types[k]])));
+    return `Fait : types de notifications réglés sur ${devices.length} appareil${devices.length > 1 ? "s" : ""} (${devices.map(deviceName).join(", ")}).`;
+  },
+});
+
 const accentName = (id: string) => ACCENTS.find((a) => a.id === id)?.label ?? id;
 
 const setDeviceSettings = writeTool({
@@ -223,4 +305,4 @@ const setDeviceSettings = writeTool({
   effect: (i) => ({ device: { theme: i.theme, accent: i.accent, seasons: i.seasons, density: i.density, discreet: i.discreet, instantOpen: i.instant_open } }),
 });
 
-export const reglagesTools: Tool[] = [readManual, getSettings, updateSettings, updateAccount, setDeviceSettings];
+export const reglagesTools: Tool[] = [readManual, getSettings, updateSettings, updateAccount, setNotificationTypes, setDeviceSettings];

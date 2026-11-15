@@ -21,6 +21,7 @@ import { currentLang, langInfo, t as tr, type Lang } from "../lib/i18n.ts";
 import { fold } from "../lib/markdown.ts";
 import { CONTRACT_KINDS, OFFER_KINDS } from "../lib/contracts.ts";
 import { manualOutline } from "../lib/manual.ts";
+import { helpFor } from "../lib/manual-help.ts";
 import type { ClientEffect } from "../lib/device-settings.ts";
 
 /*
@@ -106,13 +107,13 @@ Situation : biens immobiliers (get_property), budget du foyer avec engagements r
 Aide sur Pécule : tu es aussi le guide de l'appli. Quand l'utilisateur demande comment faire quelque chose dans Pécule, où se trouve un écran, un bouton ou un réglage, ce que veut dire un chiffre affiché, ou ce que Pécule sait faire, lis le manuel (read_manual, par mots-clés ou par les identifiants du sommaire ci-dessous) avant de répondre.
 - Réponds par les étapes, courtes et numérotées s'il y en a plusieurs, avec les noms de menus et de boutons exactement comme le manuel les écrit (ce sont ceux de son écran), en gras. Ne décris jamais un menu, un bouton ou un réglage de mémoire ; si le manuel n'en parle pas, dis que tu ne sais pas plutôt que d'inventer.
 - Donne le lien vers l'écran ou le réglage : [Réglages → Apparence](/reglages/apparence). Seules les adresses de l'appli (elles commencent par « / ») sont cliquables ; reprends celles du manuel et de get_settings, n'en invente pas. Pour en savoir plus, renvoie à l'article : [nom de l'article](/manuel/identifiant).
-- Si l'utilisateur veut que tu fasses le réglage à sa place et que tu en as l'outil, fais-le (une confirmation lui est montrée) : update_settings (langue, équivalences amusantes ; pour le foyer : jour retenu pour les achats par carte, écrans affichés), set_device_settings (sur l'appareil qu'il utilise : clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée), set_balance_alert (solde bas), update_account (nom d'un compte, compte masqué ou hors statistiques), set_envelope, set_goal. get_settings donne les valeurs actuelles et l'adresse de chaque réglage.
-- Ce qui touche à la sécurité ou à un service extérieur ne se règle qu'à l'écran — clés d'accès, membres, connexion d'une banque, fournisseur d'IA, notifications de l'appareil, sauvegarde, pays et devise du foyer, mode démo : explique la marche à suivre et donne le lien. Un réglage réservé à l'administrateur du foyer se dit.
+- Si l'utilisateur veut que tu fasses le réglage à sa place et que tu en as l'outil, fais-le (une confirmation lui est montrée) : update_settings (langue, équivalences amusantes ; pour le foyer : jour retenu pour les achats par carte, écrans affichés), set_device_settings (sur l'appareil qu'il utilise : clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée), set_balance_alert (solde bas), set_notification_types (types de notifications reçus par ses appareils déjà abonnés), update_account (nom d'un compte, compte masqué ou hors statistiques), set_envelope, set_goal. get_settings donne les valeurs actuelles et l'adresse de chaque réglage.
+- Ce qui touche à la sécurité ou à un service extérieur ne se règle qu'à l'écran — clés d'accès, membres, connexion d'une banque, fournisseur d'IA, activation des notifications sur un appareil, sauvegarde, pays et devise du foyer, mode démo : explique la marche à suivre et donne le lien. Un réglage réservé à l'administrateur du foyer se dit.
 - Une question sur ses chiffres (« combien ai-je dépensé ») reste une question de données : le manuel ne sert qu'à expliquer l'appli.
 Sommaire du manuel (identifiant — titre) :
 ${manualOutline()}
 
-Un bloc « [Contexte] » indique l'écran ouvert par l'utilisateur : « cette opération », « cette facture », « ce mois » désignent l'élément indiqué.
+Un bloc « [Contexte] » indique l'écran ouvert par l'utilisateur : « cette opération », « cette facture », « ce mois » désignent l'élément indiqué. Il donne aussi la page du manuel de cet écran (un article, ou un thème dont read_manual liste alors les articles par le sommaire) : « comment ça marche ici ? », « à quoi sert cet écran ? » se lisent là.
 
 Référentiel des catégories (id — nom — poste — type) :
 ${cats.map((c) => `${c.id} — ${c.name} — ${c.poste ?? ""} — ${c.kind}`).join("\n")}`;
@@ -539,7 +540,9 @@ async function attachmentBlocks(userId: number, invoiceIds: number[], documentId
 function contextBlock(c: ScreenContext): { block: Anthropic.TextBlockParam; label?: string } {
   const where = `${c.screen ? `l'écran « ${c.screen} »` : "un écran"} (${c.path})`;
   const what = c.entity ? ` ; élément ouvert : ${c.entity.type} id=${c.entity.id}${c.entity.label ? ` (${c.entity.label})` : ""}` : "";
-  return { block: { type: "text", text: `[Contexte] L'utilisateur est sur ${where}${what}.` }, label: c.entity?.label };
+  // Page du manuel qui explique cet écran : « comment ça marche ici ? » se lit là.
+  const help = helpFor(c.path);
+  return { block: { type: "text", text: `[Contexte] L'utilisateur est sur ${where}${what}${help ? ` ; page du manuel de cet écran : ${help}` : ""}.` }, label: c.entity?.label };
 }
 
 /** Message dicté en mode vocal : la réponse sera lue à voix haute, elle doit donc se dire, pas se lire. */

@@ -2,11 +2,15 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { NextFunction, Request, Response } from "express";
 import { exec, one } from "./db.ts";
 import { runReal } from "./demo-context.ts";
-import { DEFAULT_LANG, isLang, registerDict, setLangResolver, type Lang } from "../lib/i18n.ts";
+import { DEFAULT_LANG, extendDict, isLang, registerDict, setLangResolver, type Lang } from "../lib/i18n.ts";
 import { de } from "../i18n/de.ts";
 import { en } from "../i18n/en.ts";
 import { es } from "../i18n/es.ts";
 import { it } from "../i18n/it.ts";
+import { de as manualDe } from "../i18n/manual/de.ts";
+import { en as manualEn } from "../i18n/manual/en.ts";
+import { es as manualEs } from "../i18n/manual/es.ts";
+import { it as manualIt } from "../i18n/manual/it.ts";
 
 /*
  * Langue côté serveur : chaque requête s'exécute dans la langue de l'écran qui l'envoie (en-tête
@@ -21,6 +25,11 @@ registerDict("en", en);
 registerDict("de", de);
 registerDict("it", it);
 registerDict("es", es);
+// Textes du manuel : rangés à part pour l'appareil (chargés avec l'écran Manuel), tous connus du serveur.
+extendDict("en", manualEn);
+extendDict("de", manualDe);
+extendDict("it", manualIt);
+extendDict("es", manualEs);
 
 const store = new AsyncLocalStorage<Lang>();
 setLangResolver(() => store.getStore() ?? DEFAULT_LANG);

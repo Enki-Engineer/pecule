@@ -1,4 +1,5 @@
 import { DemoBadge } from "./DemoBadge.tsx";
+import { HelpLink } from "./HelpLink.tsx";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useLocation, useNavigate, useNavigationType } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -165,6 +166,7 @@ export function MobileHeader({ title, subtitle, right }: { title: string; subtit
           </div>
           <div className="relative z-10 flex items-center justify-end">
             <DemoBadge />
+            <HelpLink size={20} className="press size-10 text-ink" />
             <button type="button" onClick={openPalette} aria-label={t("Rechercher")} className="press grid size-10 place-items-center rounded-full text-ink">
               <Search size={20} />
             </button>

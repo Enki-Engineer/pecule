@@ -704,8 +704,8 @@ export function AssistantChat({
         <div className="card p-4 text-sm">
           <p className="font-medium">{t("L'assistant n'est pas branché")}</p>
           <p className="mt-1 text-muted">{t("Pécule fonctionne sans IA : seules la lecture automatique des factures et des documents et les réponses à tes questions en dépendent. Pour les activer, ajoute la clé de ton fournisseur d'IA.")}</p>
-          <Link to="/reglages/assistant" className="mt-2 inline-block font-medium text-accent">
-            {t("Réglages → Assistant")}
+          <Link to="/reglages/connexions?c=ia" className="mt-2 inline-block font-medium text-accent">
+            {t("Réglages → Comptes et connexions")}
           </Link>
         </div>
       )}

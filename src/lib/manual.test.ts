@@ -6,11 +6,16 @@ import { de } from "../i18n/de.ts";
 import { en } from "../i18n/en.ts";
 import { es } from "../i18n/es.ts";
 import { it as italien } from "../i18n/it.ts";
-import { registerDict, type Dict } from "./i18n.ts";
+import { de as manualDe } from "../i18n/manual/de.ts";
+import { en as manualEn } from "../i18n/manual/en.ts";
+import { es as manualEs } from "../i18n/manual/es.ts";
+import { it as manualIt } from "../i18n/manual/it.ts";
+import { extendDict, registerDict, type Dict } from "./i18n.ts";
 import { MANUAL, articleBody, articleMarkdown, blockTexts, findArticle, linkLabel, manualEntries, manualNames, manualOutline, manualTargets, manualText, searchManual, searchWords } from "./manual.ts";
 import { MODULES } from "./modules.ts";
 
-const DICTS: Record<string, Dict> = { en, de, it: italien, es };
+// Une langue = le dictionnaire de l'appli et celui du manuel, rangé à part (src/i18n/manual/).
+const DICTS: Record<string, Dict> = { en: { ...en, ...manualEn }, de: { ...de, ...manualDe }, it: { ...italien, ...manualIt }, es: { ...es, ...manualEs } };
 const keys = collectKeys();
 const known = (k: string) => keys.texts.has(k) || keys.plurals.has(k);
 const read = (file: string) => readFileSync(file, "utf8");
@@ -86,6 +91,7 @@ describe("contenu du manuel", () => {
 
 describe("texte d'un article", () => {
   registerDict("en", en);
+  extendDict("en", manualEn);
   const entry = findArticle("apparence")!;
 
   it("remplace un nom d'élément par ce que l'écran affiche, dans la langue demandée", () => {

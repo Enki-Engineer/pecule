@@ -11,7 +11,7 @@ import { currentLang, t as tr } from "../lib/i18n.ts";
 
 /*
  * Claude : assistant, lecture des factures, des documents et des bulletins. Le fournisseur qui le sert
- * (Microsoft Foundry par défaut), son adresse, son modèle et sa clé se règlent dans Réglages → Assistant
+ * (Microsoft Foundry par défaut), son adresse, son modèle et sa clé se règlent dans Réglages → Comptes et connexions
  * (`ai-config.ts`) ; tous parlent l'API Messages, le reste du code ne voit que `aiClient()` et `aiModel()`.
  */
 

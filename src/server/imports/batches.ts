@@ -211,7 +211,7 @@ export async function readVaultDocument(userId: number, documentId: number) {
   );
   if (!doc) throw new ActionError(404, t("Document introuvable"));
   if (!doc.file_mime) throw new ActionError(400, t("Ce document n'a pas de fichier à lire."));
-  if (!aiEnabled()) throw new ActionError(400, t("L'IA n'est pas réglée : Réglages → Assistant."));
+  if (!aiEnabled()) throw new ActionError(400, t("L'IA n'est pas réglée : Réglages → Comptes et connexions."));
   if (!pickExtractor(doc)) throw new ActionError(400, t("Pécule ne sait pas encore tirer de données de ce type de document."));
   const open = await one<{ id: number }>("SELECT id FROM import_batches WHERE user_id = ? AND source = 'coffre' AND status = 'ouvert' ORDER BY id DESC LIMIT 1", [userId]);
   const batchId = open?.id ?? (await exec("INSERT INTO import_batches (user_id, name, source) VALUES (?, ?, 'coffre')", [userId, t("Documents du coffre")])).insertId;

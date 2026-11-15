@@ -52,7 +52,7 @@ Un document d'un autre type reste simplement au coffre, avec son titre, son rés
 
 ## Coût et confidentialité
 
-La lecture passe par **votre** fournisseur d'IA (Réglages → Assistant) : les documents lui sont envoyés. Le coût est
+La lecture passe par **votre** fournisseur d'IA (Réglages → Comptes et connexions → Intelligence artificielle) : les documents lui sont envoyés. Le coût est
 estimé avant l'envoi, mesuré appel par appel et **plafonné par lot** (5 € par défaut ; la lecture se met en pause au
 plafond et reprend si vous l'élevez). Ordres de grandeur : quelques centimes pour un bulletin ou un avis, quelques
 dizaines de centimes pour un échéancier de 300 lignes. Sans fournisseur d'IA, les fichiers sont rangés au coffre sans

@@ -3,6 +3,25 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.14.0
+
+- **Aide de l'écran ouvert** : un « ? » dans la barre du haut (ordinateur et téléphone) ouvre la page du manuel
+  qui explique l'écran affiché — l'article du budget depuis Budget, celui de la frise depuis Analyse → Frise,
+  « Relier une banque » depuis le bloc Enable Banking des réglages. Dans le panneau de l'assistant, « à quoi sert
+  cet écran ? » ou « comment ça marche ici ? » se rapporte à l'écran ouvert.
+- **Notifications par l'assistant** : il peut cocher ou décocher un type de notification, sur tous tes appareils
+  abonnés ou sur un seul — « ne m'envoie plus le résumé de la semaine sur l'iPhone », « quelles notifications est-ce
+  que je reçois ? ». Activer les notifications sur un appareil demande toujours ton accord, à l'écran. Outil
+  `set_notification_types` (assistant et serveur MCP) ; `get_settings` liste les appareils abonnés et ce qu'ils
+  reçoivent.
+- **Démarrage plus léger dans une autre langue que le français** : les traductions du manuel ne sont plus
+  téléchargées à l'ouverture de l'appli, mais avec le manuel — le dictionnaire chargé au démarrage est presque deux
+  fois plus petit.
+- **Fournisseur d'IA** : l'encadré « L'assistant n'est pas branché », l'import d'un dossier et le message d'une
+  extraction refusée renvoient désormais au bon endroit, Réglages → Comptes et connexions (bloc Intelligence
+  artificielle) ; les guides d'installation aussi.
+- L'outil `read_manual` accepte l'identifiant d'un thème et rend alors la liste de ses articles.
+
 ## 1.13.0
 
 - **Répartition repensée** (Analyse, ordinateur). En tête, le solde de la période et trois jauges — revenus,

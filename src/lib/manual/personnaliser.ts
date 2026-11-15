@@ -134,6 +134,7 @@ export const personnaliser: ManualTheme = {
         },
         tk("Le réglage vaut pour l'appareil : active les notifications sur chacun de ceux où tu veux les recevoir. Les dernières notifications reçues sont rappelées dans la même section."),
         { warning: tk("Sur iPhone et iPad, il faut d'abord installer Pécule sur l'écran d'accueil, puis l'ouvrir depuis son icône. Activer les notifications demande ton accord sur l'appareil : l'assistant ne peut pas le faire à ta place. Indisponible en mode démo.") },
+        { tip: tk("Une fois les notifications activées, l'assistant peut cocher ou décocher un type pour toi, sur tous tes appareils ou sur un seul : « ne m'envoie plus le résumé de la semaine sur l'iPhone ».") },
       ],
       links: [{ to: "/reglages/notifications#notifications", label: ["Réglages", "Notifications et appareil"] }],
       words: tk("alertes push notifier prévenir activer désactiver les notifications iphone"),

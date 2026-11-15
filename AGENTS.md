@@ -49,7 +49,7 @@ Tout le reste se règle dans l'appli, par la personne ou avec elle :
 - **Banques** : Réglages → Comptes et connexions. Enable Banking demande un compte et une application à son nom, puis un
   accord donné auprès de sa banque : guide `docs/connecteurs/enable-banking.md`. Sans cela : import d'un fichier
   (OFX, QIF, CSV) ou compte tenu à la main.
-- **IA** : Réglages → Assistant → Fournisseur d'IA (clé chiffrée en base). Facultatif.
+- **IA** : Réglages → Comptes et connexions → Intelligence artificielle (clé chiffrée en base). Facultatif.
 - **Écrans** : Réglages → Foyer.
 
 ## Charger des documents

@@ -21,6 +21,22 @@ function* files(dir: string): Generator<string> {
   }
 }
 
+/** Dossier du texte du manuel (src/lib/manual.ts) : ses traductions vivent à part, voir `manualOnlyKeys`. */
+export const MANUAL_DIR = path.join("src", "lib", "manual");
+const inManual = (file: string) => file.startsWith(MANUAL_DIR + path.sep);
+
+/**
+ * Textes qui ne servent qu'au manuel : leurs traductions sont rangées dans `src/i18n/manual/<langue>.ts`, que
+ * l'appareil ne charge qu'en ouvrant le manuel. Un texte du manuel que le reste du code emploie aussi (le nom d'un
+ * bouton pris pour titre d'article) reste dans le dictionnaire de l'appli.
+ */
+export function manualOnlyKeys(root = "src"): Set<string> {
+  const all = [...files(root)];
+  const manual = collectKeys(root, all.filter(inManual));
+  const rest = collectKeys(root, all.filter((f) => !inManual(f)));
+  return new Set([...manual.texts, ...manual.plurals.keys()].filter((k) => !rest.texts.has(k) && !rest.plurals.has(k)));
+}
+
 /** `only` : ne relever que ces fichiers (chemins depuis la racine du dépôt). */
 export function collectKeys(root = "src", only?: string[]): Keys {
   const texts = new Set<string>();

@@ -37,7 +37,7 @@ export const premiersPas: ManualTheme = {
       body: [
         tk("À gauche, le menu range les écrans par groupes : [[Au quotidien]], [[Patrimoine]], [[Situation]], [[Documents]]. En bas du menu : [[Assistant]], [[Manuel]], [[Réglages]], puis [[Replier]], qui ne garde que les icônes."),
         tk("Un nombre à droite d'une ligne du menu compte ce qui t'attend (opérations à classer, comptes signalés, factures à rapprocher, tâches en retard). Clique sur le nombre : l'écran s'ouvre déjà filtré."),
-        tk("La barre du haut porte, de gauche à droite : le chemin de l'écran ouvert, la période (sur [[Analyse]] et [[Opérations]]), le choix [[Foyer]] ou [[Moi]], la recherche, l'œil qui masque les montants, la synchronisation des banques et l'assistant."),
+        tk("La barre du haut porte, de gauche à droite : le chemin de l'écran ouvert, la période (sur [[Analyse]] et [[Opérations]]), le choix [[Foyer]] ou [[Moi]], la recherche, l'œil qui masque les montants, le « ? » qui ouvre la page du manuel de l'écran affiché, la synchronisation des banques et l'assistant."),
         {
           list: [
             tk("Une ligne cliquée ouvre sa fiche dans un tiroir à droite : clique à côté ou appuie sur Échap pour la fermer."),
@@ -63,7 +63,7 @@ export const premiersPas: ManualTheme = {
             tk("Tire l'écran vers le bas pour synchroniser les banques et rafraîchir."),
             tk("Une fiche s'ouvre depuis le bas : tire-la vers le bas pour la fermer."),
             tk("Sur une opération, balaie vers la gauche pour la classer, ou garde le doigt appuyé pour toutes ses actions."),
-            tk("La loupe, en haut à droite, cherche partout."),
+            tk("La loupe, en haut à droite, cherche partout ; le « ? », à côté, ouvre la page du manuel de l'écran affiché."),
           ],
         },
         { tip: tk("Installée sur l'écran d'accueil, Pécule s'ouvre comme une appli et peut envoyer des notifications : voir [Installer Pécule sur son téléphone](/manuel/installer-telephone).") },

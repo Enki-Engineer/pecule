@@ -76,7 +76,7 @@ clé d'accès. L'accueil affiche ensuite « Bien démarrer » :
   si votre navigateur en indique d'autres, « Bien démarrer » propose de les adopter — puis les écrans utiles. Un
   compte peut être tenu dans une autre devise que celle du foyer : ses montants sont convertis au cours de référence
   de la Banque centrale européenne et gardent leur valeur d'origine ;
-- **brancher l'assistant** (Réglages → Assistant → Fournisseur d'IA), facultatif ;
+- **brancher l'assistant** (Réglages → Comptes et connexions → Intelligence artificielle), facultatif ;
 - **importer vos documents** (Documents → Coffre, zone de dépôt) : voir [`importer-des-documents.md`](importer-des-documents.md).
 
 Les autres membres du foyer s'ajoutent dans Réglages → Compte et sécurité : chacun reçoit un lien d'inscription et

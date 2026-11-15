@@ -9,6 +9,7 @@ import { txTitle } from "../../lib/labels.ts";
 import { askAssistant } from "../assistantBus.ts";
 import { t } from "../../lib/i18n.ts";
 import { useEnabled } from "../modules.ts";
+import { loadManualDict } from "../i18n.ts";
 
 /** Ouvre la palette depuis n'importe où (bouton loupe, raccourci ⌘K). */
 export const openPalette = () => window.dispatchEvent(new Event("pecule-palette"));
@@ -97,7 +98,8 @@ export function CommandPalette() {
   // Le manuel se cherche aussi d'ici ; son texte n'est chargé qu'à la première ouverture de la palette.
   const [manual, setManual] = useState<typeof import("../../lib/manual.ts") | null>(null);
   useEffect(() => {
-    if (open && !manual) void import("../../lib/manual.ts").then(setManual, () => undefined);
+    // Son dictionnaire d'abord : la recherche se fait dans la langue du membre.
+    if (open && !manual) void loadManualDict().then(() => import("../../lib/manual.ts")).then(setManual, () => undefined);
   }, [open, manual]);
 
   const search = useQuery({

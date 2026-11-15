@@ -128,13 +128,25 @@ ses consignes.
 - **L'assistant lit le manuel dans la langue du membre** (exception à « ce que lit l'IA reste en français ») : les noms
   de menus qu'il recopie sont ainsi ceux de l'écran du membre.
 - **Réglages par l'assistant** (`src/server/tools/reglages.ts`) : `get_settings`, `update_settings` (langue, équivalences,
-  jour retenu pour les achats par carte, écrans affichés — les deux derniers pour l'administrateur), `update_account`.
+  jour retenu pour les achats par carte, écrans affichés — les deux derniers pour l'administrateur), `update_account`,
+  `set_notification_types`.
   Un réglage gardé par l'appareil (clair ou sombre, couleur, thèmes, densité, mode discret, ouverture instantanée) n'est
   pas connu du serveur : `set_device_settings` ne fait que le décrire, et l'action confirmée revient à l'écran avec un
   « effet » (`ClientEffect`, `src/lib/device-settings.ts`) que `src/client/deviceSettings.ts` applique — une seule fois,
   l'effet n'étant jamais gardé dans la conversation. Cet outil n'existe pas pour le serveur MCP (`screenOnly`).
   Ce qui touche à la sécurité ou à un service extérieur ne se règle qu'à l'écran : l'assistant y renvoie.
 - Une section de Réglages s'ouvre par son ancre (`/reglages/notifications#solde`) : l'écran y défile.
+- **Aide de l'écran ouvert** (`src/lib/manual-help.ts`, sans le texte du manuel) : une table adresse → article ou
+  thème. Le « ? » de la barre du haut y mène (`components/HelpLink.tsx`), et le contexte d'écran envoyé à l'assistant
+  la nomme : « à quoi sert cet écran ? » se lit là. Un test vérifie que chaque route et chaque groupe de réglages a
+  sa page.
+- **Notifications par l'assistant** : `set_notification_types` coche ou décoche des types d'alerte sur les appareils
+  du membre déjà abonnés (tous, ou ceux d'un nom donné) ; activer les notifications sur un appareil demande son accord
+  et reste à l'écran.
+- **Dictionnaires** : les traductions des textes qui ne servent qu'au manuel sont rangées à part
+  (`src/i18n/manual/<langue>.ts`, près de la moitié du volume traduit) ; l'appareil ne les charge qu'avec l'écran
+  Manuel ou la recherche dans la palette (`loadManualDict`, `src/client/i18n.ts`), le serveur les connaît toutes. Le
+  rangement est fait par `scripts/i18n/ecrire.py` ; un test refuse qu'un texte employé ailleurs y soit rangé.
 
 ## Démarrage
 

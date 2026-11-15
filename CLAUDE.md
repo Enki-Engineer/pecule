@@ -53,7 +53,8 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   sont ajoutées dans le même commit. `pnpm i18n:manquants --json` liste ce qui manque ; on écrit un lot JSON
   (`["français", "anglais", "allemand", "italien", "espagnol"]` par ligne, des couples pour un pluriel), contrôlé par
   `scripts/i18n/verifier-lot.py` et fusionné par `scripts/i18n/ecrire.py`. Un test échoue si une traduction manque,
-  ne sert plus ou n'a pas les mêmes variables.
+  ne sert plus ou n'a pas les mêmes variables. Les textes qui ne servent qu'au manuel sont rangés à part par
+  `ecrire.py` (`src/i18n/manual/<langue>.ts`, chargé avec le manuel) : rien à faire à la main.
 - Côté serveur, `t()` n'est juste que pendant une requête (jamais au chargement d'un module : `tk`). Une tâche de fond
   écrit dans la langue du membre : `runInLang(await memberLang(id), …)`.
 - On ne traduit ni « Pécule », ni une valeur comparée ou envoyée au serveur, ni ce que lit l'IA (consignes, outils,
@@ -78,7 +79,8 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 ## Interface
 
 - Un écran passe par `PageHeader` (il porte le titre, le retour et la zone sûre du téléphone). Ajouter un écran =
-  sa route (`src/client/app.tsx`), `ROUTES` (`components/MobileShell.tsx`) et `NAV` (`src/client/nav.ts`).
+  sa route (`src/client/app.tsx`), `ROUTES` (`components/MobileShell.tsx`), `NAV` (`src/client/nav.ts`) et sa page
+  d'aide (`HELP_RULES`, `src/lib/manual-help.ts` : le « ? » de la barre du haut y mène ; un test le vérifie).
 - Mise en page différente sur ordinateur : un composant `…Desktop` choisi par `useMedia("(min-width: 768px)")`
   **après** tous les hooks. Ne jamais définir un composant à l'intérieur d'un autre.
 - Une requête dont la clé change avec un réglage de l'écran porte `placeholderData: keepPreviousData` ; l'écran ne

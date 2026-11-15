@@ -1,13 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { collectKeys, placeholders } from "./collect.ts";
+import { collectKeys, manualOnlyKeys, placeholders } from "./collect.ts";
 import { de } from "./de.ts";
 import { en } from "./en.ts";
 import { es } from "./es.ts";
 import { it as italien } from "./it.ts";
+import { de as manualDe } from "./manual/de.ts";
+import { en as manualEn } from "./manual/en.ts";
+import { es as manualEs } from "./manual/es.ts";
+import { it as manualIt } from "./manual/it.ts";
 import type { Dict } from "../lib/i18n.ts";
 
-const DICTS: Record<string, Dict> = { en, de, it: italien, es };
+/** Par langue : le dictionnaire de l'appli (chargé au démarrage) et celui du manuel (chargé avec le manuel). */
+const PARTS: Record<string, { app: Dict; manual: Dict }> = { en: { app: en, manual: manualEn }, de: { app: de, manual: manualDe }, it: { app: italien, manual: manualIt }, es: { app: es, manual: manualEs } };
+const DICTS: Record<string, Dict> = Object.fromEntries(Object.entries(PARTS).map(([lang, p]) => [lang, { ...p.app, ...p.manual }]));
 const keys = collectKeys();
+const manualOnly = manualOnlyKeys();
+
+describe.each(Object.entries(PARTS))("rangement du dictionnaire %s", (_lang, { app, manual }) => {
+  it("garde dans le dictionnaire de l'appli tout texte employé hors du manuel", () => {
+    // Un texte rangé avec le manuel n'est pas connu au démarrage : il resterait en français sur les autres écrans.
+    expect(Object.keys(manual).filter((k) => !manualOnly.has(k))).toEqual([]);
+  });
+  it("range avec le manuel les textes qui ne servent qu'à lui", () => {
+    expect(Object.keys(app).filter((k) => manualOnly.has(k))).toEqual([]);
+  });
+});
 
 describe.each(Object.entries(DICTS))("dictionnaire %s", (_lang, dict) => {
   it("traduit tous les textes passés à t, tk et tn", () => {

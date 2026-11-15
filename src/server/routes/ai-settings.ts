@@ -12,7 +12,7 @@ import { AI_PROVIDERS, AI_PROVIDER_INFO, aiStatusOf, normalizeAiUrl, type AiProv
 import { t } from "../../lib/i18n.ts";
 
 /*
- * Réglages → Assistant → Fournisseur d'IA : choisir qui sert Claude, avec son adresse, son modèle et sa clé.
+ * Réglages → Comptes et connexions → Intelligence artificielle : choisir qui sert Claude, avec son adresse, son modèle et sa clé.
  * Sous /api, pour un membre connecté dans son navigateur ou le jeton d'administration ; interdit en démo
  * (BLOCKED, demo.ts). Une clé n'est jamais renvoyée, ni journalisée : ces routes sont hors de l'audit
  * automatique (qui garde le corps des demandes) et tracent elles-mêmes ce qui a changé.

@@ -1,5 +1,6 @@
 import { lazy, useState, type ComponentType } from "react";
 import { loadChunk } from "./reload.ts";
+import { loadManualDict } from "./i18n.ts";
 
 /*
  * Écrans chargés à la demande, mais préchargés quand l'appareil est au repos. Un React.lazy classique
@@ -40,7 +41,8 @@ export const Transactions = screen(() => import("./pages/Transactions.tsx").then
 export const OperationSheet = screen(() => import("./pages/Transactions.tsx").then((m) => m.OperationSheet));
 export const Invoices = screen(() => import("./pages/Invoices.tsx").then((m) => m.Invoices));
 export const Settings = screen(() => import("./pages/Settings.tsx").then((m) => m.Settings));
-export const Manual = screen(() => import("./pages/Manual.tsx").then((m) => m.Manual));
+// Le manuel a son dictionnaire, chargé avec lui : les articles s'affichent dans la langue du membre dès le premier rendu.
+export const Manual = screen(() => Promise.all([import("./pages/Manual.tsx"), loadManualDict()]).then(([m]) => m.Manual));
 export const Import = screen(() => import("./pages/Import.tsx").then((m) => m.Import));
 // Pages à graphiques (Recharts) chargées à la demande : l'accueil s'ouvre plus vite.
 export const Month = screen(() => import("./pages/Analysis.tsx").then((m) => m.Analysis));

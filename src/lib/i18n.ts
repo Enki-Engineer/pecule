@@ -40,6 +40,11 @@ export function registerDict(lang: Lang, dict: Dict) {
   dicts[lang] = dict;
 }
 
+/** Ajoute des textes à un dictionnaire déjà en place (ceux du manuel, chargés à part sur l'appareil). */
+export function extendDict(lang: Lang, dict: Dict) {
+  dicts[lang] = { ...dicts[lang], ...dict };
+}
+
 let resolver: () => Lang = () => DEFAULT_LANG;
 /** Branche la langue courante (constante sur l'appareil, contexte de la requête sur le serveur). */
 export function setLangResolver(fn: () => Lang) {

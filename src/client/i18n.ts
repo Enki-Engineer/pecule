@@ -1,4 +1,4 @@
-import { DEFAULT_LANG, isLang, registerData, registerDict, setLangResolver, type Dict, type Lang } from "../lib/i18n.ts";
+import { DEFAULT_LANG, extendDict, isLang, registerData, registerDict, setLangResolver, type Dict, type Lang } from "../lib/i18n.ts";
 
 /*
  * Langue de Pécule sur cet appareil. Elle est choisie par le membre (Réglages → Apparence → Langue, gardée
@@ -23,6 +23,30 @@ const DICTS: Record<Exclude<Lang, "fr">, () => Promise<Dict>> = {
   it: () => import("../i18n/it.ts").then((m) => m.it),
   es: () => import("../i18n/es.ts").then((m) => m.es),
 };
+
+/** Textes du manuel : un dictionnaire à part, chargé seulement quand on ouvre le manuel ou qu'on y cherche. */
+const MANUAL_DICTS: Record<Exclude<Lang, "fr">, () => Promise<Dict>> = {
+  en: () => import("../i18n/manual/en.ts").then((m) => m.en),
+  de: () => import("../i18n/manual/de.ts").then((m) => m.de),
+  it: () => import("../i18n/manual/it.ts").then((m) => m.it),
+  es: () => import("../i18n/manual/es.ts").then((m) => m.es),
+};
+let manualDict: Promise<void> | null = null;
+
+/**
+ * Met en place les traductions du manuel (une fois) ; à attendre avant d'afficher un article ou d'y chercher.
+ * Injoignables (hors ligne) : le manuel s'affiche en français, et un nouvel essai est fait au passage suivant.
+ */
+export function loadManualDict(): Promise<void> {
+  const wanted = lang;
+  if (wanted === "fr") return Promise.resolve();
+  return (manualDict ??= MANUAL_DICTS[wanted]().then(
+    (dict) => extendDict(wanted, dict),
+    () => {
+      manualDict = null;
+    },
+  ));
+}
 
 /** Langue de l'appli sur cet appareil. */
 export const appLang = (): Lang => lang;

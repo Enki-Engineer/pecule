@@ -1,6 +1,7 @@
 import { toggleDiscreet, useDiscreet } from "../discret.ts";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AssistantChat } from "../screens.tsx";
+import { HelpLink } from "./HelpLink.tsx";
 import { DemoBadge } from "./DemoBadge.tsx";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -453,6 +454,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
       >
         {discreet ? <EyeOff size={15} /> : <Eye size={15} />}
       </button>
+      <HelpLink className="size-8 text-muted hover:bg-card hover:text-ink" />
       <button type="button" onClick={refresh} disabled={sync.isPending} title={t("Synchroniser les banques")} className="grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-bg hover:text-ink disabled:opacity-50">
         <RefreshCw size={15} className={sync.isPending ? "animate-spin" : ""} />
       </button>

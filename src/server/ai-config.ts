@@ -6,7 +6,7 @@ import { AI_PROVIDER_INFO, normalizeAiUrl, resolveAiConfig, type AiConfig, type 
 
 /*
  * Configuration de l'IA : fournisseur choisi et, par fournisseur, adresse, modèle et clé d'accès.
- * Réglée depuis Réglages → Assistant et gardée dans `app_kv` (clé `ai:config`), les clés chiffrées.
+ * Réglée depuis Réglages → Comptes et connexions (bloc « Intelligence artificielle ») et gardée dans `app_kv` (clé `ai:config`), les clés chiffrées.
  * Les variables d'environnement (AI_FOUNDRY_RESOURCE, AI_FOUNDRY_API_KEY, AI_MODEL) restent les valeurs
  * de départ de Foundry : tant que rien n'est enregistré, rien ne change.
  *

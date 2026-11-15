@@ -196,7 +196,7 @@ function MobileHome() {
                   <>
           {groups.map((g) => (
             <section key={g.owner}>
-              <h2 className="mb-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted">{ownerLabel(g.owner)}</h2>
+              <h2 className="mb-2 px-1 text-[15px] font-semibold text-ink">{ownerLabel(g.owner)}</h2>
               <Card className="divide-y divide-line">
                 {g.list.map((a) => (
                   <AccountRow key={a.id} account={a} />

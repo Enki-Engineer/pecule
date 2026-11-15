@@ -195,12 +195,20 @@ export function decorDue(season: Season, last: { season: string; at: number } | 
   return since < 0 || since >= DECOR_EVERY_MS[SEASONS[season].kind];
 }
 
-/** Couleurs d'accent proposées (mémorisées sur l'appareil) ; l'indigo est celui d'origine. */
+/**
+ * Couleurs proposées (mémorisées sur l'appareil). L'encre est celle d'origine depuis la direction « papier » ;
+ * l'indigo des versions précédentes reste proposé (son ancien nom mémorisé, « indigo », vaut « pas de choix »).
+ */
 export const ACCENTS = [
-  localized({ id: "indigo", label: tk("Indigo"), light: "#5a50f0", dark: "#8f88ff" }, "label"),
+  localized({ id: "encre", label: tk("Encre"), light: "#141413", dark: "#f0efe9" }, "label"),
+  localized({ id: "vert", label: tk("Vert"), light: "#04761a", dark: "#3ecf5a" }, "label"),
+  localized({ id: "violet", label: tk("Indigo"), light: "#5a50f0", dark: "#8f88ff" }, "label"),
   localized({ id: "ocean", label: tk("Océan"), light: "#1863c2", dark: "#4d94ea" }, "label"),
   localized({ id: "sauge", label: tk("Sauge"), light: "#1f7a5c", dark: "#3fae86" }, "label"),
   localized({ id: "corail", label: tk("Corail"), light: "#b83e33", dark: "#e5675a" }, "label"),
   localized({ id: "ardoise", label: tk("Ardoise"), light: "#3d4a5c", dark: "#7a879a" }, "label"),
 ] as const;
+export const DEFAULT_ACCENT = "encre";
+/** Couleur mémorisée, ramenée à une couleur proposée (une valeur inconnue ou d'une ancienne version : celle d'origine). */
+export const asAccent = (v: string | null): Accent => ACCENTS.find((a) => a.id === v)?.id ?? DEFAULT_ACCENT;
 export type Accent = (typeof ACCENTS)[number]["id"];

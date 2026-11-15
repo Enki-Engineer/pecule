@@ -56,7 +56,7 @@ export function Part({ title, aside, children, flush = false }: { title?: string
     <section className="border-t border-line first:border-t-0">
       {(title || aside) && (
         <header className="flex items-center justify-between gap-3 px-4 pt-3.5">
-          {title && <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted">{title}</h3>}
+          {title && <h3 className="text-[12.5px] font-medium text-muted">{title}</h3>}
           {aside}
         </header>
       )}

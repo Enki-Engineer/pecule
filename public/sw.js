@@ -4,7 +4,7 @@
 // fermée, 7 jours, effacées à la déconnexion, désactivables).
 // Changer ce nom vide l'ancien cache : à faire quand un fichier de /icons est redessiné sans changer de nom, ou quand
 // des réponses gardées à tort doivent partir (v4 : une page avait pu être gardée à la place d'un fichier disparu).
-const CACHE = "pecule-v4";
+const CACHE = "pecule-v5";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {

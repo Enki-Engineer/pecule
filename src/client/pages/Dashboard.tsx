@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, RefreshCw, ShieldCheck, Tags, Wallet } from "lucide-react";
+import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, Info, RefreshCw, ShieldCheck, Tags, Wallet } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { api, useAccounts, useDemo, useMe, useMonth, useSummary, useSync, useWealth, type Transaction, type WealthCategory } from "../api.ts";
@@ -101,14 +101,14 @@ export function Dashboard() {
     <div className="space-y-4">
       <header className="flex items-end justify-between gap-3 pb-2">
         <div>
-          <h1 className="text-[24px] font-semibold leading-tight tracking-tight">{t("Bonjour {nom}", { nom: me.data?.user?.name ?? "" })}</h1>
-          <div className="text-sm text-muted">
+          <h1 className="text-[34px] font-semibold leading-tight tracking-[-0.03em]">{t("Bonjour {nom}", { nom: me.data?.user?.name ?? "" })}</h1>
+          <div className="text-[15px] text-muted">
             {greeting && <span className="font-medium text-accent">{greeting} · </span>}
             {demo ? t("Données fictives (mode démo)") : t("Banques synchronisées {quand}", { quand: timeAgo(s?.lastSync?.finished_at ?? s?.lastSync?.started_at) })}
             {s?.lastSync?.status === "error" && <span className="text-neg"> · {t("erreur")}</span>}
           </div>
         </div>
-        <button type="button" onClick={refresh} disabled={sync.isPending} className="press card flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-accent">
+        <button type="button" onClick={refresh} disabled={sync.isPending} className="press flex items-center gap-2 rounded-full bg-card px-4 py-2.5 text-sm font-semibold text-ink shadow-[0_1px_2px_rgb(20_20_19/0.1)]">
           <RefreshCw size={16} className={cn(sync.isPending && "animate-spin")} /> {t("Synchroniser")}
         </button>
       </header>
@@ -118,13 +118,14 @@ export function Dashboard() {
       <div className={cn("grid grid-cols-2 gap-4", outstanding ? "lg:grid-cols-3 2xl:grid-cols-6" : "lg:grid-cols-5")}>
         <Kpi
           label={t("Patrimoine net")}
+          info={t("Ce que tu possèdes (comptes, épargne, biens, crypto) moins ce que tu dois encore. Les biens et les crédits communs comptent pour ta part.")}
           value={w ? money(w.net, true) : "…"}
           delta={w && net30 != null ? w.net - net30 : null}
           deltaLabel={t("sur 30 jours")}
           source={w ? t("cours {quand}", { quand: timeAgo(w.crypto.pricesAt) }) : undefined}
           to="/patrimoine"
         />
-        <Kpi label={t("Disponible")} value={accounts.data ? money(cash, true) : "…"} source={t("comptes courants, hors cartes")} to="/operations" />
+        <Kpi label={t("Disponible")} value={accounts.data ? money(cash, true) : "…"} source={t("comptes courants, hors cartes")} to="/operations" info={t("Ce qu'il y a sur tes comptes aujourd'hui. Les achats par carte à débit différé pas encore prélevés n'en sont pas déduits.")} />
         {outstanding && (
           <Kpi
             label={t("Cartes à débit différé")}
@@ -147,7 +148,7 @@ export function Dashboard() {
           invert
           to="/mois"
         />
-        <Kpi label={t("Solde du mois")} value={totals ? money(totals.revenus - totals.depenses, true) : "…"} source={totals ? t("revenus {montant}", { montant: money(totals.revenus, true) }) : undefined} to="/mois" />
+        <Kpi label={t("Solde du mois")} tone={totals ? (totals.revenus - totals.depenses >= 0 ? "pos" : "neg") : undefined} info={t("Revenus du mois moins dépenses du mois. Les mouvements entre tes comptes et les versements d'épargne ne comptent pas.")} value={totals ? money(totals.revenus - totals.depenses, true) : "…"} source={totals ? t("revenus {montant}", { montant: money(totals.revenus, true) }) : undefined} to="/mois" />
         <Kpi label={t("Dettes restantes")} value={w ? money(w.debts, true) : "…"} source={w ? tn("{n} crédit, ta part", "{n} crédits, ta part", w.loans.length) : undefined} to="/patrimoine" />
       </div>
 
@@ -200,7 +201,7 @@ export function Dashboard() {
             <div className="space-y-1">
               {todo.map((x, i) => (
                 <Link key={i} to={x.to} className="press flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-bg text-ink">
                     <x.icon size={16} />
                   </span>
                   <span className="min-w-0 flex-1 text-sm">{x.label}</span>
@@ -324,7 +325,7 @@ export function Dashboard() {
           <h2 className="px-5 pb-1 pt-4 font-semibold">{t("Comptes")}</h2>
           {groups.map((g) => (
             <div key={g.owner} className="px-5 py-2">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{ownerLabel(g.owner)}</div>
+              <div className="text-[12.5px] font-medium text-muted">{ownerLabel(g.owner)}</div>
               {g.list.map((a) => (
                 <Link key={a.id} to={`/operations?compte=${encodeURIComponent(a.id)}`} className="flex items-center justify-between gap-3 py-1 text-sm hover:text-accent">
                   <span className="min-w-0 truncate">{a.display_name ?? a.name}</span>
@@ -342,19 +343,29 @@ export function Dashboard() {
   );
 }
 
-function Kpi({ label, value, delta, deltaLabel, invert, source, to }: { label: string; value: string; delta?: number | null; deltaLabel?: string; invert?: boolean; source?: string; to: string }) {
+function Kpi({ label, value, delta, deltaLabel, invert, source, to, info, tone }: { label: string; value: string; delta?: number | null; deltaLabel?: string; invert?: boolean; source?: string; to: string; info?: string; tone?: "pos" | "neg" }) {
   const good = delta == null ? null : invert ? delta <= 0 : delta >= 0;
   return (
-    <Link to={to} className="press card block p-4 hover:ring-1 hover:ring-accent/30">
-      <div className="text-sm text-muted">{label}</div>
-      <div className="tnum mt-1 text-2xl font-bold tracking-tight">{value}</div>
+    <Link to={to} className="press card @container block p-4 transition-shadow 2xl:p-5 hover:shadow-[0_1px_1px_rgb(20_20_19/0.04),0_16px_32px_-18px_rgb(20_20_19/0.28)]">
+      <div className="flex items-center gap-1.5 text-[14px] text-muted @[150px]:text-[15px]">
+        <span className="min-w-0 truncate">{label}</span>
+        {info && (
+          <span data-tip={info} tabIndex={0} className="grid size-4 shrink-0 place-items-center rounded-full text-muted/70 hover:text-ink">
+            <Info size={13} />
+          </span>
+        )}
+      </div>
+      <div className={cn("figure mt-1.5 text-[21px] @[140px]:text-[25px] @[180px]:text-[30px]", tone === "pos" && "text-pos", tone === "neg" && "text-neg")}>{value}</div>
       {delta != null && (
-        <div className={cn("tnum mt-0.5 text-xs", good ? "text-pos" : "text-neg")}>
-          {delta >= 0 ? "+" : ""}
-          {money(delta, true)} {deltaLabel}
+        <div className="mt-2">
+          <span className={cn("chip tnum text-[12.5px]", good ? "chip-pos" : "chip-neg")}>
+            {delta >= 0 ? "+" : ""}
+            {money(delta, true)}
+          </span>
+          <span className="ml-1.5 text-[12.5px] text-muted">{deltaLabel}</span>
         </div>
       )}
-      {source && <div className="mt-1 truncate text-[11px] text-muted">{source}</div>}
+      {source && <div className="mt-1.5 truncate text-[12.5px] text-muted">{source}</div>}
     </Link>
   );
 }
@@ -384,7 +395,7 @@ function MonthNatures() {
         <div className="text-sm text-muted">{t("Pas encore de dépenses ce mois-ci.")}</div>
       ) : (
         <>
-          <div className="flex h-9 w-full gap-0.5 overflow-hidden rounded-md">
+          <div className="flex h-10 w-full gap-1 overflow-hidden rounded-xl">
             {parts.map((p) => (
               <button
                 key={p.nature}

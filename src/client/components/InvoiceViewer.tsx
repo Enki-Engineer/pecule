@@ -145,7 +145,7 @@ function Pane({ id, onClose }: { id: number; onClose: () => void }) {
           )}
           {d.items.length > 0 && (
             <>
-              <h3 className="mb-1 mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted">{t("Articles")}</h3>
+              <h3 className="mb-1 mt-4 text-[12.5px] font-medium text-muted">{t("Articles")}</h3>
               <ul className="divide-y divide-line text-[13px]">
                 {d.items.map((it) => (
                   <li key={it.id} className="flex justify-between gap-3 py-1.5">

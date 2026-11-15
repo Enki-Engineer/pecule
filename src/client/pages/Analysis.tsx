@@ -19,6 +19,7 @@ import { natureColor } from "../charts.ts";
 import { BrandLogo } from "../components/Logo.tsx";
 import { Breakdown } from "../components/Breakdown.tsx";
 import { TimelineTab } from "../components/MonthTimeline.tsx";
+import { CalendarTab } from "../components/MonthCalendar.tsx";
 import { useMonth } from "../api.ts";
 import { monthTotals } from "../../lib/month.ts";
 import { locale, t, td, tk, tn } from "../../lib/i18n.ts";
@@ -29,9 +30,10 @@ import { locale, t, td, tk, tn } from "../../lib/i18n.ts";
  * cliquable et ouvre les opérations correspondantes. Sur l'iPhone, l'écran « Mois » reste tel quel.
  */
 
-type Tab = "synthese" | "repartition" | "flux" | "frise" | "prelevements" | "marchands" | "comparer";
+type Tab = "synthese" | "calendrier" | "repartition" | "flux" | "frise" | "prelevements" | "marchands" | "comparer";
 const TABS: { value: Tab; label: string }[] = [
   { value: "synthese", label: t("Vue d'ensemble") },
+  { value: "calendrier", label: t("Calendrier") },
   { value: "repartition", label: t("Répartition") },
   { value: "flux", label: t("Flux") },
   { value: "frise", label: t("Frise") },
@@ -61,6 +63,7 @@ export function Analysis() {
       <PageHeader title={t("Analyse")} subtitle={isYearPeriod(period) ? t("Année {annee}", { annee: period }) : periodLabel(period)} />
       <Tabs value={tab} options={TABS} onChange={setTab} />
       {tab === "synthese" && <Month bare />}
+      {tab === "calendrier" && <CalendarTab period={period} />}
       {tab === "repartition" && <BreakdownTab period={period} />}
       {tab === "flux" && <FlowsTab period={period} />}
       {tab === "frise" && <TimelineTab period={period} />}

@@ -1,34 +1,57 @@
 @import "tailwindcss";
+@import "@fontsource-variable/figtree/index.css";
 
-/* Palette « outil pro » (façon Stripe), commune à l'ordinateur et à l'iPhone depuis la phase 16. */
+/* Palette « papier » : fond chaud, cartes blanches sans filet, encre presque noire. La couleur d'origine est
+   l'encre elle-même (boutons, liens, courbes) : le vert et le rouge sont réservés à l'argent — ce qui entre, ce
+   qui sort, ce qu'on met de côté. Commune à l'ordinateur et à l'iPhone. */
 @theme {
-  --color-bg: #f6f8fa;
+  --color-bg: #f3f2ee;
   --color-card: #ffffff;
-  --color-ink: #1a1f36;
-  --color-muted: #5e6a7c;
-  --color-line: #e3e8ee;
-  --color-accent: #5a50f0;
-  --color-accent-soft: #efeffe;
-  --color-pos: #0b7a54;
-  --color-neg: #d9304e;
-  --color-warn: #a05200;
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --radius-card: 0.875rem;
+  --color-ink: #141413;
+  --color-muted: #66655f;
+  --color-line: #e7e5df;
+  --color-accent: #141413;
+  --color-accent-soft: #eceae4;
+  --color-pos: #04761a;
+  --color-pos-soft: #e2f4e3;
+  --color-pos-ink: #0c5a16;
+  --color-neg: #bf0f2b;
+  --color-neg-soft: #fde5e4;
+  --color-neg-ink: #8f1320;
+  --color-warn: #8a5200;
+  --font-sans: "Figtree Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --radius-card: 1.5rem;
+  --radius-sm: 0.4rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
 }
 
 /* Thème sombre : posé par public/theme-init.js (Réglages → Apparence : auto, clair ou sombre). */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-bg: #0e1320;
-  --color-card: #161c2b;
-  --color-ink: #e6eaf2;
-  --color-muted: #8b95a8;
-  --color-line: #262f42;
-  --color-accent: #8f88ff;
-  --color-accent-soft: #24264a;
-  --color-pos: #34d399;
-  --color-neg: #f87171;
+  --color-bg: #141413;
+  --color-card: #1f1e1c;
+  --color-ink: #f0efe9;
+  --color-muted: #a3a299;
+  --color-line: #2f2e2a;
+  --color-accent: #f0efe9;
+  --color-accent-soft: #2b2a27;
+  --color-pos: #3ecf5a;
+  --color-pos-soft: #17301b;
+  --color-pos-ink: #9be8aa;
+  --color-neg: #ff6b6b;
+  --color-neg-soft: #3a1c1c;
+  --color-neg-ink: #ffb3b3;
   --color-warn: #f0a04b;
+}
+/* Couleur d'origine (l'encre) : un lien ou un bouton de texte n'a pas de couleur pour se distinguer du texte
+   qui l'entoure, il est donc un peu plus gras. */
+:root:not([data-accent], [data-season]) :is(a, button).text-accent {
+  font-weight: 600;
+}
+/* Sur un aplat d'accent clair (sombre), le texte posé dessus est foncé. */
+:root[data-theme="dark"] .bg-accent.text-white {
+  color: #10140f;
 }
 
 html,
@@ -42,6 +65,7 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.003em;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
@@ -54,8 +78,54 @@ body {
   background: var(--color-card);
   border-radius: var(--radius-card);
   box-shadow:
-    0 0 0 1px var(--color-line),
-    0 1px 2px rgb(26 31 54 / 0.05);
+    0 1px 1px rgb(20 20 19 / 0.03),
+    0 10px 28px -18px rgb(20 20 19 / 0.14);
+}
+/* Chiffre mis en avant : grand, serré, comme un titre. */
+.figure {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+/* Étiquettes d'un montant : pastille pâle (entrée, sortie, neutre) ou pleine (ce qu'on met en avant). */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--color-line) 70%, transparent);
+  color: var(--color-ink);
+}
+.chip-pos {
+  background: var(--color-pos-soft);
+  color: var(--color-pos-ink);
+}
+.chip-neg {
+  background: var(--color-neg-soft);
+  color: var(--color-neg-ink);
+}
+.chip-solid {
+  background: var(--color-pos);
+  color: #fff;
+}
+.chip-dashed {
+  background: none;
+  color: var(--color-muted);
+  font-weight: 500;
+  outline: 1px dashed color-mix(in srgb, var(--color-muted) 55%, transparent);
+  outline-offset: -1px;
+}
+/* Titre d'une carte : un cran au-dessus du texte. */
+.card h2.font-semibold:not([class*="text-"]) {
+  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
+}
+:root[data-theme="dark"] .chip-solid {
+  color: #10140f;
 }
 :root[data-theme="dark"] .card {
   box-shadow: 0 0 0 1px var(--color-line);
@@ -87,10 +157,10 @@ body {
 /* Ordinateur et tablette (≥ 768 px) : même palette, plus compact (rayon, taille du texte, survols). */
 @media (min-width: 768px) {
   :root {
-    --radius-card: 0.5rem;
+    --radius-card: 1.25rem;
   }
   body {
-    font-size: 14px;
+    font-size: 14.5px;
   }
   /* Pas d'effet « appui » de téléphone à la souris : un survol discret à la place. */
   .press:active {
@@ -335,6 +405,22 @@ body {
 
 /* ---------- Couleur d'accent (Réglages → Apparence, mémorisée sur l'appareil) ---------- */
 /* Les couleurs des graphiques (--series-*) ne changent jamais : elles identifient les données. */
+:root[data-accent="vert"] {
+  --color-accent: #04761a;
+  --color-accent-soft: #e2f4e3;
+}
+:root[data-theme="dark"][data-accent="vert"] {
+  --color-accent: #3ecf5a;
+  --color-accent-soft: #17301b;
+}
+:root[data-accent="violet"] {
+  --color-accent: #5a50f0;
+  --color-accent-soft: #efeffe;
+}
+:root[data-theme="dark"][data-accent="violet"] {
+  --color-accent: #8f88ff;
+  --color-accent-soft: #24264a;
+}
 :root[data-accent="ocean"] {
   --color-accent: #1863c2;
   --color-accent-soft: #e8f1fc;
@@ -814,8 +900,8 @@ body {
 
 /* Rappel « Démo » (mode démo : données fictives). */
 .demo-badge {
-  color: #0f766e;
-  background: color-mix(in srgb, #0f766e 12%, transparent);
+  color: #0b5f58;
+  background: color-mix(in srgb, #0b5f58 12%, transparent);
 }
 :root[data-theme="dark"] .demo-badge {
   color: #5eead4;

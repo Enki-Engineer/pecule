@@ -19,7 +19,7 @@ export function FilePreview({ url, mime }: { url: string; mime: string }) {
   };
   return (
     <section className="mb-4">
-      <button type="button" onClick={toggle} className="mb-1.5 flex items-center gap-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted hover:text-ink">
+      <button type="button" onClick={toggle} className="mb-1.5 flex items-center gap-1.5 px-1 text-[12.5px] font-medium text-muted hover:text-ink">
         {open ? <EyeOff size={12} /> : <Eye size={12} />} {t("Aperçu")}
       </button>
       {open &&

@@ -325,12 +325,12 @@ export function Settings() {
         <nav className="sticky top-20 self-start" aria-label={t("Groupes de réglages")}>
           {GROUP_SECTIONS.map((sec) => (
             <div key={sec.title} className="mb-3">
-              <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">{sec.title}</div>
+              <div className="px-3 pb-1 text-[12.5px] font-medium text-muted">{sec.title}</div>
               {GROUPS.filter((x) => sec.ids.includes(x.id)).map((x) => (
                 <Link
                   key={x.id}
                   to={`/reglages/${x.id}`}
-                  className={clsx("flex h-8 items-center gap-2.5 rounded-md px-3 text-[13.5px] font-medium", x.id === g.id ? "bg-card text-accent shadow-[0_0_0_1px_var(--color-line)]" : "text-muted hover:text-ink")}
+                  className={clsx("flex h-9 items-center gap-2.5 rounded-xl px-3 text-[14px] font-medium", x.id === g.id ? "bg-card font-semibold text-ink shadow-[0_1px_1px_rgb(20_20_19/0.04),0_6px_16px_-10px_rgb(20_20_19/0.18)]" : "text-muted hover:bg-card/70 hover:text-ink")}
                 >
                   <x.icon size={15} className="shrink-0" />
                   <span className="flex-1 truncate">{x.label}</span>

@@ -380,7 +380,7 @@ function InvoiceSheet({ id, onClose }: { id: number; onClose: () => void }) {
 
           {d.items.length > 0 && (
             <section className="mb-4">
-              <h3 className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted">{t("Articles")}</h3>
+              <h3 className="mb-1.5 px-1 text-[12.5px] font-medium text-muted">{t("Articles")}</h3>
               <Card className="divide-y divide-line">
                 {d.items.map((it) => (
                   <ItemRow key={it.id} item={it} currency={d.invoice.currency} categories={categories.data?.categories ?? []} onCategory={(c) => setItemCategory(it, c)} />
@@ -458,7 +458,7 @@ function LinkedTransactions({ id, noMatch, txs, onLink, onUnlink }: { id: number
   if (noMatch && !txs.length && !looking)
     return (
       <section>
-        <h3 className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted">{t("Opérations reliées")}</h3>
+        <h3 className="mb-1.5 px-1 text-[12.5px] font-medium text-muted">{t("Opérations reliées")}</h3>
         <p className="px-1 text-sm text-muted">{t("Aucune opération attendue dans Pécule.")}</p>
         <button type="button" onClick={() => setLooking(true)} className="w-full py-2 text-sm text-accent">
           {t("Relier quand même une opération")}
@@ -467,7 +467,7 @@ function LinkedTransactions({ id, noMatch, txs, onLink, onUnlink }: { id: number
     );
   return (
     <section>
-      <h3 className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted">{t("Opérations reliées")}</h3>
+      <h3 className="mb-1.5 px-1 text-[12.5px] font-medium text-muted">{t("Opérations reliées")}</h3>
       {txs.length > 0 ? (
         <Card className="mb-2 divide-y divide-line">
           {txs.map((tx) => (

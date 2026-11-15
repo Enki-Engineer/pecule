@@ -273,7 +273,7 @@ function Review({ id, onClose, onChange }: { id: number; onClose: () => void; on
 
           {d.checks.length > 0 && (
             <div className="space-y-1">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Contrôles")}</h3>
+              <h3 className="text-[12.5px] font-medium text-muted">{t("Contrôles")}</h3>
               {d.checks.map((c) => (
                 <div key={c.label} className="flex items-start gap-2 text-sm">
                   {c.ok ? <Check size={16} className="mt-0.5 shrink-0 text-pos" /> : <X size={16} className="mt-0.5 shrink-0 text-neg" />}
@@ -284,7 +284,7 @@ function Review({ id, onClose, onChange }: { id: number; onClose: () => void; on
           )}
           {d.doubts.length > 0 && (
             <div className="space-y-1">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{t("Points à vérifier")}</h3>
+              <h3 className="text-[12.5px] font-medium text-muted">{t("Points à vérifier")}</h3>
               {d.doubts.map((x) => (
                 <p key={x} className="flex items-start gap-2 text-sm text-muted">
                   <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" /> {x}
@@ -294,7 +294,7 @@ function Review({ id, onClose, onChange }: { id: number; onClose: () => void; on
           )}
           {d.table && (
             <div>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+              <h3 className="mb-1 text-[12.5px] font-medium text-muted">
                 {d.table.title} · {tn("{n} ligne##tableau", "{n} lignes##tableau", d.table.total, { n: d.table.total })}
               </h3>
               <div className="overflow-x-auto rounded-xl border border-line">

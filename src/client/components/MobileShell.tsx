@@ -228,7 +228,7 @@ export function MenuSheet({ open, onClose }: { open: boolean; onClose: () => voi
         {me.data?.user?.scopeChoice !== false && scopeSwitch}
         {nav.map((g, i) => (
           <section key={i}>
-            {g.title && <h3 className="mb-1.5 px-1 text-[12px] font-semibold uppercase tracking-wide text-muted">{g.title}</h3>}
+            {g.title && <h3 className="mb-1.5 px-1 text-[12.5px] font-medium text-muted">{g.title}</h3>}
             <div className="card divide-y divide-line overflow-hidden">
               {g.items.map((t) => row(t.to, t.to === "/" ? "Accueil" : t.label, t.icon, t.count ? counts.data?.[t.count] : undefined, t.count === "tasksOverdue"))}
             </div>

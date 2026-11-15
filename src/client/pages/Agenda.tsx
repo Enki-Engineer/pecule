@@ -456,7 +456,7 @@ function AgendaSheet({ e, done, onClose, onToggle, onRemove, onSaved }: { e: Age
 
       {e.notes && (
         <Card className="mb-3 p-4">
-          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{t("Notes")}</div>
+          <div className="mb-1 text-[12.5px] font-medium text-muted">{t("Notes")}</div>
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{e.notes}</p>
         </Card>
       )}
@@ -663,31 +663,31 @@ function AgendaCalendar({
   const undated = entries.filter((e) => !e.date && !e.overdue);
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-      <Card className="p-4">
-        <div className="mb-3 flex items-center justify-between">
+      <Card className="p-6">
+        <div className="mb-4 flex items-center justify-between">
           <button type="button" onClick={() => shift(-1)} className="rounded-md px-2 py-1 text-muted hover:bg-bg hover:text-ink" aria-label={t("Mois précédent")}>
             ‹
           </button>
-          <div className="text-[14px] font-semibold capitalize">{new Date(y, m - 1, 15).toLocaleDateString(locale(), { month: "long", year: "numeric" })}</div>
+          <div className="text-[22px] font-semibold capitalize tracking-[-0.02em]">{new Date(y, m - 1, 15).toLocaleDateString(locale(), { month: "long", year: "numeric" })}</div>
           <button type="button" onClick={() => shift(1)} className="rounded-md px-2 py-1 text-muted hover:bg-bg hover:text-ink" aria-label={t("Mois suivant")}>
             ›
           </button>
         </div>
-        <div className="grid grid-cols-7 gap-px overflow-hidden rounded-md bg-line text-[11.5px]">
+        <div className="grid grid-cols-7 text-[12.5px]">
           {weekdays().map((d) => (
-            <div key={d} className="bg-bg px-2 py-1 font-medium text-muted">
+            <div key={d} className="px-2 pb-2 text-[13px] text-muted">
               {d}
             </div>
           ))}
           {Array.from({ length: lead }, (_, i) => (
-            <div key={`l${i}`} className="min-h-24 bg-bg/60" />
+            <div key={`l${i}`} className="min-h-24 border-t border-line" />
           ))}
           {Array.from({ length: days }, (_, i) => {
             const date = `${month}-${String(i + 1).padStart(2, "0")}`;
             const list = byDay.get(date) ?? [];
             return (
-              <div key={date} className={clsx("min-h-24 bg-card p-1.5", date === today && "ring-2 ring-inset ring-accent")}>
-                <div className={clsx("mb-1 text-[11px]", date === today ? "font-semibold text-accent" : "text-muted")}>{i + 1}</div>
+              <div key={date} className="min-h-24 border-t border-line p-1.5">
+                <div className={clsx("tnum mb-1 text-[15px]", date === today ? "grid size-7 place-items-center rounded-full bg-ink text-[13.5px] font-semibold text-card" : "px-1 text-ink")}>{i + 1}</div>
                 <div className="space-y-0.5">
                   {list.slice(0, 3).map((e) => {
                     const task = e.kind === "tache" && e.id != null;

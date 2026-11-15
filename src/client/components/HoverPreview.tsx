@@ -97,7 +97,7 @@ function TxPreview({ t }: { t: Transaction }) {
       {t.note && <div className="mt-2 rounded bg-bg px-2 py-1 text-[12px]">{t.note}</div>}
       {d.data && d.data.items.length > 0 && (
         <div className="mt-2 border-t border-line pt-2">
-          <div className="mb-1 flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <div className="mb-1 flex items-center gap-1 text-[12.5px] font-medium text-muted">
             <Paperclip size={11} /> {tr("Facture")}
           </div>
           {d.data.items.slice(0, 4).map((i) => (

@@ -201,7 +201,7 @@ export function CommandPalette() {
         <div className="overflow-y-auto py-2">
           {entries.map((e, i) => (
             <div key={e.key}>
-              {(i === 0 || entries[i - 1].group !== e.group) && <div className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted">{e.group}</div>}
+              {(i === 0 || entries[i - 1].group !== e.group) && <div className="px-4 pb-1 pt-2 text-[12.5px] font-medium text-muted">{e.group}</div>}
               <button
                 type="button"
                 onMouseMove={() => setActive(i)}

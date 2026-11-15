@@ -65,7 +65,7 @@ function LegalPage({ title, intro, sections, other }: { title: string; intro: st
       <p className="mt-3 text-[15px] leading-relaxed">{intro}</p>
       {sections.map((s) => (
         <section key={s.title} className="mt-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{s.title}</h2>
+          <h2 className="text-[15px] font-semibold text-ink">{s.title}</h2>
           <p className="mt-1.5 text-[15px] leading-relaxed">{s.text}</p>
         </section>
       ))}

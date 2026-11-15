@@ -523,7 +523,7 @@ function AssetsTable({ w, filter, onFilter, onEdit }: { w: Wealth; filter: Wealt
         return (
           <span className={cn(d > 0.5 ? "text-pos" : d < -0.5 ? "text-neg" : "text-muted")}>
             {d > 0 ? "+" : ""}
-            {money(d, true)} <span className="text-[11px] opacity-80">({pct((d / l.invested) * 100, 0)})</span>
+            {money(d, true)} <span className="text-[11px]">({pct((d / l.invested) * 100, 0)})</span>
           </span>
         );
       },

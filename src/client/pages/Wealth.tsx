@@ -179,7 +179,7 @@ function Section({ id, title, total, children }: { id?: string; title: string; t
   return (
     <section id={id} className="scroll-mt-16">
       <div className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{title}</h2>
+        <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
         <span className="tnum text-sm font-semibold text-muted">{money(total, true)}</span>
       </div>
       <Card className="divide-y divide-line">{children}</Card>

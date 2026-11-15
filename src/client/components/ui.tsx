@@ -26,8 +26,8 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
   return (
     <header className="flex items-end justify-between gap-3 pb-5">
       <div className="min-w-0">
-        <h1 className="page-title text-[22px] font-semibold leading-tight tracking-tight">{title}</h1>
-        {subtitle && <div className="mt-0.5 text-[13px] text-muted">{subtitle}</div>}
+        <h1 className="page-title text-[30px] font-semibold leading-tight tracking-[-0.025em]">{title}</h1>
+        {subtitle && <div className="mt-0.5 text-[15px] text-muted">{subtitle}</div>}
       </div>
       {right}
     </header>
@@ -91,12 +91,12 @@ export function Segmented<T extends string>({ value, options, onChange }: { valu
     };
   }, [i, options.length]);
   return (
-    <div ref={track} className="relative flex rounded-[10px] bg-line/70 p-0.5 md:rounded-md">
+    <div ref={track} className="relative flex rounded-full bg-line/70 p-0.5">
       {/* Pastille qui glisse sous l'option choisie. Posée une fois mesurée (avant le premier affichage) : elle n'arrive donc pas en glissant. */}
       {pill && (
         <span
           aria-hidden
-          className="absolute inset-y-0.5 left-0 rounded-[8px] bg-card shadow-[0_1px_3px_rgb(26_31_54/0.12)] transition-[transform,width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] md:rounded-[5px]"
+          className="absolute inset-y-0.5 left-0 rounded-full bg-card shadow-[0_1px_3px_rgb(20_20_19/0.14)] transition-[transform,width] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
           style={{ width: pill.width, transform: `translateX(${pill.left}px)` }}
         />
       )}
@@ -109,7 +109,7 @@ export function Segmented<T extends string>({ value, options, onChange }: { valu
           aria-disabled={o.disabled || undefined}
           title={o.title}
           className={clsx(
-            "relative z-10 flex-1 whitespace-nowrap rounded-[8px] px-2 py-1.5 text-[14px] font-semibold transition-colors md:px-3 md:py-1 md:text-[13px] md:font-medium",
+            "relative z-10 flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[14px] font-semibold transition-colors md:px-4 md:py-1 md:text-[13px] md:font-medium",
             value === o.value ? "text-ink" : o.disabled ? "cursor-not-allowed text-muted/45" : "text-muted",
           )}
         >
@@ -158,11 +158,11 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         <aside
           role="dialog"
           aria-label={title}
-          className="drawer absolute inset-y-0 right-0 flex w-[min(560px,48vw)] flex-col border-l border-line bg-bg shadow-[-12px_0_32px_rgb(26_31_54/0.12)]"
+          className="drawer absolute inset-y-0 right-0 flex w-[min(560px,48vw)] flex-col bg-bg shadow-[-16px_0_40px_-8px_rgb(20_20_19/0.18)]"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-line bg-card px-5">
-            <h2 className="text-[15px] font-semibold">{title}</h2>
+          <div className="flex h-[56px] shrink-0 items-center justify-between px-5">
+            <h2 className="text-[17px] font-semibold tracking-[-0.01em]">{title}</h2>
             <button type="button" onClick={onClose} className="grid size-8 place-items-center rounded-md text-muted hover:bg-bg hover:text-ink" aria-label={t("Fermer (Échap)")} title={t("Fermer (Échap)")}>
               <X size={16} />
             </button>
@@ -237,7 +237,7 @@ function MobileSheet({ title, onClose, children }: { title?: string; onClose: ()
 /** Onglets d'une page (ordinateur et iPhone) ; la valeur vit dans l'adresse (?onglet=…) pour le retour arrière. */
 export function Tabs<T extends string>({ value, options, onChange }: { value: T; options: { value: T; label: string; count?: number }[]; onChange: (v: T) => void }) {
   return (
-    <div className="mb-5 flex gap-5 overflow-x-auto border-b border-line" role="tablist">
+    <div className="mb-5 flex gap-1 overflow-x-auto" role="tablist">
       {options.map((o) => (
         <button
           key={o.value}
@@ -246,8 +246,8 @@ export function Tabs<T extends string>({ value, options, onChange }: { value: T;
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
           className={clsx(
-            "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 pb-2.5 pt-1 text-[13.5px] font-medium transition-colors",
-            value === o.value ? "border-accent text-ink" : "border-transparent text-muted hover:text-ink",
+            "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[14px] font-medium transition-colors",
+            value === o.value ? "bg-ink text-card" : "text-muted hover:bg-line/60 hover:text-ink",
           )}
         >
           {o.label}
@@ -293,7 +293,7 @@ export function Row({ label, value }: { label: ReactNode; value: ReactNode }) {
 
 export function ProgressBar({ value, className }: { value: number; className?: string }) {
   return (
-    <div className={clsx("h-2 overflow-hidden rounded-full bg-accent-soft", className)}>
+    <div className={clsx("h-2.5 overflow-hidden rounded-full bg-line/80", className)}>
       <div className="h-full rounded-full bg-accent" style={{ width: `${Math.round(value * 1000) / 10}%` }} />
     </div>
   );

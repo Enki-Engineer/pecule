@@ -1,3 +1,4 @@
+import { MobileCalendar } from "../components/MonthCalendar.tsx";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
@@ -120,6 +121,7 @@ export function Month({ bare = false }: { bare?: boolean }) {
 
           {/* iPhone : répartition en anneau (dépenses ou revenus), chaque poste se déplie sur ses catégories ; puis la frise. */}
           {!bare && <BreakdownSwitch data={data} />}
+          {!bare && !year && <MobileCalendar month={p} />}
           {!bare && <MobileTimeline period={p} />}
 
           {/* Grand écran : le cumul de la période à gauche, les postes à droite. */}
@@ -271,7 +273,7 @@ function MonthTrend({ period, onSelect }: { period: string; onSelect: (m: string
         </span>
         <span className="flex flex-wrap items-center gap-3 text-xs text-muted">
           <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-pos" /> {t("revenus")}</span>
-          <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-accent" /> {t("dépenses")}</span>
+          <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-ink" /> {t("dépenses")}</span>
           {planned && (
             <span className="flex items-center gap-1">
               <svg width="12" height="10" aria-hidden>
@@ -303,8 +305,8 @@ function MonthTrend({ period, onSelect }: { period: string; onSelect: (m: string
             {selected && <ReferenceArea x1={selected} x2={selected} {...SELECTED_BAND} />}
             <Bar dataKey="revenus" stackId="r" fill="var(--color-pos)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
             <Bar dataKey="revenusPrevus" stackId="r" fill="var(--color-pos)" fillOpacity={0.16} stroke="var(--color-pos)" strokeDasharray="3 2" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-            <Bar dataKey="depenses" stackId="d" fill="var(--color-accent)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-            <Bar dataKey="depensesPrevues" stackId="d" fill="var(--color-accent)" fillOpacity={0.16} stroke="var(--color-accent)" strokeDasharray="3 2" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+            <Bar dataKey="depenses" stackId="d" fill="var(--color-ink)" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+            <Bar dataKey="depensesPrevues" stackId="d" fill="var(--color-ink)" fillOpacity={0.16} stroke="var(--color-ink)" strokeDasharray="3 2" radius={[3, 3, 0, 0]} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -341,7 +343,7 @@ function TrendTip({ active, payload, now }: Partial<TooltipContentProps<number, 
         {row.month > now ? ` · ${t("prévision")}` : row.month === now ? ` · ${t("en cours")}` : ""}
       </div>
       {line(t("Revenus"), row.revenus, row.revenusPrevus, "var(--color-pos)")}
-      {line(t("Dépenses"), row.depenses, row.depensesPrevues, "var(--color-accent)")}
+      {line(t("Dépenses"), row.depenses, row.depensesPrevues, "var(--color-ink)")}
       {!!row.forecast?.items.length && (
         <div className="mt-1 border-t border-line pt-1">
           {row.forecast.items.slice(0, 6).map((x, i) => (

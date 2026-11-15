@@ -348,7 +348,7 @@ function Journal() {
   if (!list.length) return null;
   return (
     <section>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="mb-1.5 flex w-full items-center justify-between px-1 text-sm font-semibold uppercase tracking-wide text-muted">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="mb-1.5 flex w-full items-center justify-between px-1 text-[15px] font-semibold text-ink">
         {t("Journal des mouvements ({n})", { n: list.length })}
         <ChevronDown size={16} className={clsx("transition", open && "rotate-180")} />
       </button>

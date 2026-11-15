@@ -14,7 +14,7 @@ export function Section({ id, title, children }: { id: string; title: string; ch
   if (bare) return <div id={id}>{children}</div>;
   return (
     <section id={id} className="scroll-mt-20">
-      <h2 className="mb-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted">{title}</h2>
+      <h2 className="mb-2 px-1 text-[15px] font-semibold text-ink">{title}</h2>
       {children}
     </section>
   );

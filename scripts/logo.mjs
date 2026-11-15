@@ -336,8 +336,8 @@ const manifest = (id) =>
       start_url: "/",
       scope: "/",
       display: "standalone",
-      background_color: "#eef2fa",
-      theme_color: "#eef2fa",
+      background_color: "#f3f2ee",
+      theme_color: "#f3f2ee",
       icons: [
         { src: `/icons/coffre/${id}-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
         { src: `/icons/coffre/${id}-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },

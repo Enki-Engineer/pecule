@@ -84,7 +84,14 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   `useSearchParams()` ni `useLocation()` (un écran masqué y lirait l'adresse de l'autre, et tous deux seraient rendus
   à chaque bascule).
 - Couleurs : `var(--color-accent)` et les variables `--series-1…8` des graphiques, jamais de couleur en dur.
-  Contraste de 4,5 au moins. Pas de script en ligne (la CSP l'interdit).
+  Contraste de 4,5 au moins. Pas de script en ligne (la CSP l'interdit). Le vert et le rouge (`--color-pos`,
+  `--color-neg`) sont réservés à l'argent : ce qui entre, ce qui sort, ce qui est mis de côté. La couleur choisie
+  dans Réglages peut elle-même être verte : une série posée à côté d'un vert prend `--color-ink`, pas l'accent.
+- Un chiffre mis en avant porte `.figure` ; un montant étiqueté porte `.chip` et son ton (`.chip-pos`, `.chip-neg`,
+  `.chip-solid` pour l'épargne, `.chip-dashed` pour ce qui est attendu). Pas de titre en capitales.
+- Infobulle : un `title` (ou `data-tip`) suffit, la bulle de l'appli le remplace partout (`components/Tooltip.tsx`) ;
+  un raccourci écrit entre parenthèses à la fin (« Rechercher (⌘K) ») est rendu comme une touche. Pour expliquer un
+  chiffre : une pastille `<span data-tip={…} tabIndex={0}>` (elle s'ouvre aussi au toucher).
 - Un `useEffect(() => expr)` qui renvoie une valeur casse l'écran : toujours des accolades.
 
 ## Étendre Pécule
@@ -97,6 +104,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Un fournisseur d'IA qui parle l'API Messages | `src/lib/ai-providers.ts` et `buildClient` (`src/server/ai.ts`) |
 | Un écran facultatif | `MODULE_INFO` dans `src/lib/modules.ts` |
 | Une fête ou un thème | `src/lib/seasons.ts`, recopié dans `public/theme-init.js` (un test compare) |
+| Une couleur proposée dans Réglages | `ACCENTS` (`src/lib/seasons.ts`) et son bloc `[data-accent="…"]`, clair et sombre (`src/styles/index.css`) |
 | Une devise (cotée par la BCE) ou un pays | `CURRENCIES` (`src/lib/currencies.ts`), `COUNTRIES` (`src/lib/countries.ts`) |
 
 La logique qui peut être pure va dans `src/lib/` avec son test à côté (`*.test.ts`).

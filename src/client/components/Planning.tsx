@@ -65,7 +65,7 @@ export function EnvelopesSection() {
     <section id="enveloppes" className="mb-6 scroll-mt-20">
       <div className="mb-2 flex items-end justify-between px-1">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted md:text-[15px] md:normal-case md:tracking-normal md:text-ink">{t("Enveloppes du mois")}</h2>
+          <h2 className="text-[15px] font-semibold text-ink md:text-[15px] md:normal-case md:tracking-normal md:text-ink">{t("Enveloppes du mois")}</h2>
           {list.length > 0 && (
             <p className="text-[12px] text-muted">
               {t("{depense} dépensés sur {prevu} prévus", { depense: money(spent, true), prevu: money(total, true) })}

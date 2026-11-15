@@ -31,7 +31,7 @@ export function LanguageSettings() {
 
   return (
     <section id="langue" className="scroll-mt-20">
-      <h2 className="mb-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted">{t("Langue")}</h2>
+      <h2 className="mb-2 px-1 text-[15px] font-semibold text-ink">{t("Langue")}</h2>
       <Card className="divide-y divide-line">
         {LANGS.map((l) => (
           <label key={l.id} className="flex cursor-pointer items-center gap-3 px-4 py-2.5">

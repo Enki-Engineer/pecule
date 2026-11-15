@@ -586,7 +586,7 @@ function DocumentSheet({ id, onClose }: { id: number; onClose: () => void }) {
 
           {d.text && (
             <section className="mb-2">
-              <button type="button" onClick={() => setShowText((s) => !s)} className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+              <button type="button" onClick={() => setShowText((s) => !s)} className="px-1 text-[12.5px] font-medium text-muted">
                 {showText ? t("Masquer le texte") : t("Texte extrait ({n} k caractères)", { n: Math.round(d.text_length / 1000) })}
               </button>
               {showText && <pre className="card mt-1.5 max-h-96 overflow-y-auto whitespace-pre-wrap p-4 font-sans text-xs leading-relaxed">{d.text}</pre>}

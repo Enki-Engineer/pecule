@@ -112,7 +112,7 @@ export function Shortcuts() {
                 <Group title={t("Partout")} rows={GENERAL} />
                 <Group title={t("Tableaux et graphiques")} rows={TABLES} />
                 <div className="col-span-2">
-                  <h3 className="mb-2 text-[11.5px] font-medium uppercase tracking-wide text-muted">{t("Aller à (g puis…)")}</h3>
+                  <h3 className="mb-2 text-[12.5px] font-medium text-muted">{t("Aller à (g puis…)")}</h3>
                   <div className="grid grid-cols-3 gap-x-6 gap-y-1">
                     {shown.map((g) => (
                       <div key={g.key} className="flex items-center gap-2">
@@ -135,7 +135,7 @@ export function Shortcuts() {
 function Group({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
     <div>
-      <h3 className="mb-2 text-[11.5px] font-medium uppercase tracking-wide text-muted">{title}</h3>
+      <h3 className="mb-2 text-[12.5px] font-medium text-muted">{title}</h3>
       <div className="space-y-1.5">
         {rows.map(([k, label]) => (
           <div key={k} className="flex items-center justify-between gap-3">

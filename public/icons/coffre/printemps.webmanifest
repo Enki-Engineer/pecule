@@ -6,8 +6,8 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#eef2fa",
-  "theme_color": "#eef2fa",
+  "background_color": "#f3f2ee",
+  "theme_color": "#f3f2ee",
   "icons": [
     {
       "src": "/icons/coffre/printemps-192.png",

@@ -211,7 +211,7 @@ function ChatWelcome({ name, wide, actions, onSuggest }: { name?: string; wide: 
           {t("Pose une question sur tes dépenses, tes comptes, ton patrimoine ou tes crédits, joins une facture ou un document (trombone) pour le ranger, ou demande une action. Chaque action t'est soumise avant d'être faite.")}
         </p>
       </div>
-      <div className="px-1 pt-1 text-[12px] font-semibold uppercase tracking-wide text-muted">{t("Questions")}</div>
+      <div className="px-1 pt-1 text-[12.5px] font-medium text-muted">{t("Questions")}</div>
       <div className={cn("grid gap-2", wide && "grid-cols-2")}>
         {QUESTIONS.map((sg) => (
           <button key={sg.label} type="button" onClick={() => onSuggest(sg)} className="press card block w-full px-4 py-3 text-left text-[15px] md:py-2.5 md:text-[14px]">
@@ -219,7 +219,7 @@ function ChatWelcome({ name, wide, actions, onSuggest }: { name?: string; wide: 
           </button>
         ))}
       </div>
-      <div className="px-1 pt-3 text-[12px] font-semibold uppercase tracking-wide text-muted">{t("Actions")}</div>
+      <div className="px-1 pt-3 text-[12.5px] font-medium text-muted">{t("Actions")}</div>
       <div className="flex flex-wrap gap-2">
         {actions.map((sg) => (
           <button key={sg.label} type="button" onClick={() => onSuggest(sg)} className="press rounded-full bg-card px-3.5 py-2 text-[14px] text-accent ring-1 ring-line md:py-1.5 md:text-[13px]">
@@ -235,7 +235,7 @@ function ChatWelcome({ name, wide, actions, onSuggest }: { name?: string; wide: 
 function PendingCard({ pending, onConfirm }: { pending: PendingAction[]; onConfirm: (approve: boolean) => void }) {
   return (
     <div className="card chat-in space-y-3 border border-accent/30 p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-accent">{t("Action proposée")}</div>
+      <div className="text-[12.5px] font-medium text-accent">{t("Action proposée")}</div>
       {pending.map((p, i) => (
         <div key={p.id ?? i}>
           <div className="font-semibold">{p.label}</div>

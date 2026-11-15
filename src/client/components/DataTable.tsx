@@ -90,7 +90,7 @@ export function DataTable<T>({
                 key={c.key}
                 style={c.width ? { width: c.width } : undefined}
                 className={cn(
-                  "h-9 select-none whitespace-nowrap px-3 text-[11.5px] font-medium uppercase tracking-wide text-muted",
+                  "h-9 select-none whitespace-nowrap px-3 text-[12.5px] font-medium text-muted",
                   c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "text-left",
                   c.hideBelow && HIDE[c.hideBelow],
                   c.sort && "cursor-pointer hover:text-ink",

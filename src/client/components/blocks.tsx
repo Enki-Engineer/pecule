@@ -14,22 +14,22 @@ import { locale } from "../../lib/i18n.ts";
 /** Tuile de chiffre clé. */
 export function Stat({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "pos" | "neg" }) {
   return (
-    <Card className="p-4">
-      <div className="text-xs font-medium text-muted">{label}</div>
-      <div className={cn("tnum mt-1 text-xl font-bold", tone === "pos" && "text-pos", tone === "neg" && "text-neg")}>{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-muted">{hint}</div>}
+    <Card className="@container p-4 2xl:p-5">
+      <div className="text-[14px] text-muted @[150px]:text-[15px]">{label}</div>
+      <div className={cn("figure mt-1.5 text-[21px] @[140px]:text-[24px] @[180px]:text-[28px]", tone === "pos" && "text-pos", tone === "neg" && "text-neg")}>{value}</div>
+      {hint && <div className="mt-1.5 text-[12.5px] text-muted">{hint}</div>}
     </Card>
   );
 }
 
 export function StatGrid({ children }: { children: ReactNode }) {
-  return <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-4">{children}</div>;
+  return <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">{children}</div>;
 }
 
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <div className="mb-1.5 mt-5 flex items-end justify-between px-1">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{children}</h2>
+      <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-ink">{children}</h2>
       {right}
     </div>
   );

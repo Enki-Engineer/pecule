@@ -1,6 +1,6 @@
 import { region } from "./region.ts";
 import { useEffect, useState } from "react";
-import { birthdaysAt, parseBirthdays, seasonAt, SEASONS, type Accent, type Birthday, type Season, type SeasonMode } from "../lib/seasons.ts";
+import { asAccent, birthdaysAt, DEFAULT_ACCENT, parseBirthdays, seasonAt, SEASONS, type Accent, type Birthday, type Season, type SeasonMode } from "../lib/seasons.ts";
 import { locale } from "../lib/i18n.ts";
 import { asFond, asHomeTheme, homeIconId, logoId, manifestSrc, tabIconSrc, touchIconSrc, type LogoFond, type LogoId } from "../lib/logo.ts";
 
@@ -77,8 +77,8 @@ export function seasonMode(): SeasonMode {
 /** Applique couleur et thème de l'année (aperçu prioritaire, sinon celui du jour selon le réglage). */
 export function applyAppearance() {
   const root = document.documentElement;
-  const accent = localStorage.getItem(ACCENT_KEY) as Accent | null;
-  if (accent && accent !== "indigo") root.dataset.accent = accent;
+  const accent = asAccent(localStorage.getItem(ACCENT_KEY));
+  if (accent !== DEFAULT_ACCENT) root.dataset.accent = accent;
   else delete root.dataset.accent;
   const season = preview ?? seasonAt(new Date(), seasonMode(), storedBirthdays(), region().country);
   if (season) root.dataset.season = season;
@@ -169,7 +169,7 @@ export function useSeasonGreeting(): string | null {
 
 /** Réglages d'apparence de l'appareil : couleur, thèmes de saison, aperçu d'une saison. */
 export function useAppearance() {
-  const [accent, setAccentState] = useState<Accent>(() => (localStorage.getItem(ACCENT_KEY) as Accent | null) ?? "indigo");
+  const [accent, setAccentState] = useState<Accent>(() => asAccent(localStorage.getItem(ACCENT_KEY)));
   const [seasons, setSeasonsState] = useState<SeasonMode>(seasonMode);
   const [previewing, setPreviewing] = useState<Season | null>(preview);
   return {

@@ -242,7 +242,7 @@ export function Layout() {
       <Shortcuts />
 
       {/* Barre d'onglets (mobile) : 4 onglets et l'assistant au centre ; Factures est dans Opérations, Réglages dans l'accueil. */}
-      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/85 backdrop-blur-xl md:hidden">
+      <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 bg-card/90 shadow-[0_-1px_0_var(--color-line)] backdrop-blur-xl md:hidden">
         <div className="mx-auto flex max-w-lg items-center justify-around pt-1">
           {mobileTabs.slice(0, 2).map((t) => (
             <MobileTab key={t.to} tab={t} active={t.match(pathname)} />
@@ -271,9 +271,9 @@ export function Layout() {
 
 const navItem = (active: boolean, rail: boolean) =>
   cn(
-    "group relative flex h-8 items-center gap-2.5 rounded-md text-[13.5px] font-medium transition-colors",
+    "group relative flex h-9 items-center gap-2.5 rounded-xl text-[14px] font-medium transition-colors",
     rail ? "justify-center px-0" : "px-2.5",
-    active ? "bg-card text-accent shadow-[0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-card/70 hover:text-ink",
+    active ? "bg-card font-semibold text-ink shadow-[0_1px_1px_rgb(20_20_19/0.04),0_6px_16px_-10px_rgb(20_20_19/0.18)] [&>svg]:text-accent" : "text-muted hover:bg-card/70 hover:text-ink",
   );
 
 function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; onRail: () => void; xl: boolean; panelOpen: boolean; onAssistant: () => void }) {
@@ -303,14 +303,14 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
     );
   };
   return (
-    <aside className="sticky top-0 hidden h-screen flex-col overflow-y-auto border-r border-line bg-bg px-2.5 pb-3 pt-3.5 md:flex">
+    <aside className="sticky top-0 hidden h-screen flex-col overflow-y-auto bg-bg px-3 pb-3 pt-4 md:flex">
       <Link to="/" viewTransition className={cn("mb-3 flex h-8 items-center gap-2", rail ? "justify-center" : "px-1.5")}>
         <AppLogo className="size-7 rounded-md" />
-        {!rail && <span className="text-[16px] font-semibold tracking-tight">Pécule</span>}
+        {!rail && <span className="text-[18px] font-semibold tracking-tight">Pécule</span>}
       </Link>
       {nav.map((g, i) => (
         <div key={i} className="mb-2">
-          {g.title && !rail && <div className="px-2.5 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted">{g.title}</div>}
+          {g.title && !rail && <div className="px-2.5 pb-1 pt-3 text-[12px] font-medium text-muted">{g.title}</div>}
           {g.title && rail && <div className="mx-3 my-2 border-t border-line" />}
           {g.items.map((it) => (
             <div key={it.to} className="relative">
@@ -383,7 +383,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
   const navigate = useNavigate();
   const canGoBack = ((window.history.state as { idx?: number } | null)?.idx ?? 0) > 0;
   return (
-    <header className={cn("sticky top-0 z-30 hidden h-[52px] items-center border-b border-line bg-card/85 backdrop-blur-md md:flex", panelOpen ? "gap-2 px-4 2xl:gap-3 2xl:px-6" : "gap-2 px-4 xl:gap-3 xl:px-6")}>
+    <header className={cn("sticky top-0 z-30 hidden h-[52px] items-center bg-bg/80 backdrop-blur-md md:flex", panelOpen ? "gap-2 px-4 2xl:gap-3 2xl:px-6" : "gap-2 px-4 xl:gap-3 xl:px-6")}>
       <button type="button" onClick={() => navigate(-1)} disabled={!canGoBack} aria-label={t("Retour")} title={t("Retour")} className="-ml-2 hidden size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-bg hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent lg:grid">
         <ArrowLeft size={17} />
       </button>
@@ -418,7 +418,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
           tous les comptes sont ceux du membre (« Moi » et « Foyer » diraient la même chose). */}
       {scopeChoice && (
       <div
-        className={cn("flex shrink-0 rounded-md bg-bg p-0.5 text-[12.5px] font-medium shadow-[inset_0_0_0_1px_var(--color-line)]", !scoped && "cursor-not-allowed opacity-45")}
+        className={cn("flex shrink-0 rounded-full bg-line/70 p-0.5 text-[12.5px] font-medium", !scoped && "cursor-not-allowed opacity-45")}
         title={scoped ? t("Foyer : tous les comptes · Moi : mes comptes, sans le compte commun") : t("Foyer / Moi : sans effet sur cet écran, qui ne dépend pas des comptes")}
       >
         {(["foyer", "moi"] as const).map((s) => (
@@ -428,7 +428,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
             disabled={!scoped}
             aria-pressed={scope === s}
             onClick={() => setScope(s)}
-            className={cn("rounded px-2.5 py-1 disabled:pointer-events-none", scope === s ? (scoped ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-line)]" : "text-ink") : "text-muted enabled:hover:text-ink")}
+            className={cn("rounded-full px-3 py-1 disabled:pointer-events-none", scope === s ? (scoped ? "bg-card text-ink shadow-[0_1px_2px_rgb(20_20_19/0.12)]" : "text-ink") : "text-muted enabled:hover:text-ink")}
           >
             {s === "foyer" ? t("Foyer") : t("Moi")}
           </button>
@@ -442,7 +442,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
         title={t("Rechercher (⌘K)")}
         aria-label={t("Rechercher…")}
         className={cn(
-          "flex h-8 shrink-0 items-center gap-2 rounded-md bg-bg text-[13px] text-muted shadow-[inset_0_0_0_1px_var(--color-line)] hover:text-ink",
+          "flex h-8 shrink-0 items-center gap-2 rounded-full bg-card text-[13px] text-muted shadow-[0_1px_2px_rgb(20_20_19/0.08)] hover:text-ink",
           showPeriod || panelOpen ? "w-8 justify-center 2xl:w-48 2xl:justify-start 2xl:px-2.5" : "w-8 justify-center lg:w-56 lg:justify-start lg:px-2.5",
           showPeriod && panelOpen && "2xl:w-8 2xl:justify-center 2xl:px-0",
         )}
@@ -459,7 +459,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
         onClick={onAssistant}
         title={t("Assistant (⌘J)")}
         aria-label={t("Assistant")}
-        className={cn("flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium", panelOpen ? "bg-accent text-white" : "text-accent hover:bg-accent-soft")}
+        className={cn("flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold", panelOpen ? "bg-accent-soft text-ink shadow-[inset_0_0_0_1px_var(--color-line)]" : "bg-ink text-card hover:opacity-90")}
       >
         <Sparkles size={14} /> <span className={label}>{t("Assistant")}</span>
       </button>
@@ -514,7 +514,7 @@ function PeriodPicker({ operations, label }: { operations: boolean; label: strin
       window.removeEventListener("keydown", onKey);
     };
   });
-  const frame = "flex h-8 items-center rounded-md bg-bg text-[13px] shadow-[inset_0_0_0_1px_var(--color-line)]";
+  const frame = "flex h-8 items-center rounded-full bg-card text-[13px] shadow-[0_1px_2px_rgb(20_20_19/0.08)]";
   return (
     <div className="flex shrink-0 items-center gap-1.5">
       <div className={cn(frame, "hidden p-0.5 text-[12.5px] font-medium lg:flex")} role="group" aria-label={t("Pas de la période")}>
@@ -525,7 +525,7 @@ function PeriodPicker({ operations, label }: { operations: boolean; label: strin
             onClick={() => setUnit(y)}
             aria-pressed={!!value && year === y}
             title={y ? t("Une année entière") : t("Un mois")}
-            className={cn("h-full rounded px-2", value && year === y ? "bg-card text-ink shadow-[0_0_0_1px_var(--color-line)]" : "text-muted hover:text-ink")}
+            className={cn("h-full rounded-full px-2.5", value && year === y ? "bg-ink text-card" : "text-muted hover:text-ink")}
           >
             {y ? t("Année") : t("Mois##pas")}
           </button>

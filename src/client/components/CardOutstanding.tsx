@@ -47,7 +47,7 @@ export function CardOutstandingBlock() {
   if (!cards.length) return null;
   return (
     <div className="border-t border-line px-5 py-2">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t("Encours des cartes à débit différé")}</div>
+      <div className="text-[12.5px] font-medium text-muted">{t("Encours des cartes à débit différé")}</div>
       <Rows cards={cards} />
     </div>
   );
@@ -59,7 +59,7 @@ export function CardOutstandingSection() {
   if (!cards.length) return null;
   return (
     <section>
-      <h2 className="mb-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted">{t("Encours des cartes à débit différé")}</h2>
+      <h2 className="mb-2 px-1 text-[15px] font-semibold text-ink">{t("Encours des cartes à débit différé")}</h2>
       <Card className="px-4 py-1.5">
         <Rows cards={cards} />
       </Card>

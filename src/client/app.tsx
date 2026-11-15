@@ -1,4 +1,5 @@
 import { Fragment, StrictMode, useEffect, useState } from "react";
+import { TooltipLayer } from "./components/Tooltip.tsx";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import { Toaster } from "sonner";
@@ -142,6 +143,7 @@ createRoot(document.getElementById("root")!).render(
       </BrowserRouter>
       <OfflineBanner />
       <Toaster position="top-center" richColors />
+      <TooltipLayer />
     </OfflineProvider>
   </StrictMode>,
 );

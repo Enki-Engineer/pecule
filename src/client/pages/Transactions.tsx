@@ -176,7 +176,7 @@ export function Transactions() {
           {byDay.map((g) => (
             <section key={g.day}>
               <h2 className="mb-1.5 px-1 text-sm font-semibold first-letter:uppercase text-muted">{dayLabel(g.day)}</h2>
-              <Card className="divide-y divide-line">
+              <Card className="divide-y divide-line overflow-hidden">
                 {g.items.map((t) => (
                   <div key={t.id} data-tx={t.id}>
                     <SwipeTxRow t={t} onOpen={() => setSelected(t)} onSearch={setSearch}>
@@ -314,7 +314,7 @@ function TransactionSheet({ t, categories, onClose, panel = false }: { t: Transa
       {/* Suggestions : la façon la plus rapide de classer (règle, facture, même libellé, même marchand). */}
       {(suggestions.data?.suggestions.length ?? 0) > 0 && (
         <div className="mb-3">
-          <div className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted">{tr("Suggestions")}</div>
+          <div className="mb-1.5 px-1 text-[12.5px] font-medium text-muted">{tr("Suggestions")}</div>
           {/* grid-cols-1 : sans lui la colonne prend la largeur du texte le plus long et déborde de la feuille sur iPhone. */}
           <div className="grid grid-cols-1 gap-2">
             {suggestions.data!.suggestions.map((sg, i) => (
@@ -367,7 +367,7 @@ function TransactionSheet({ t, categories, onClose, panel = false }: { t: Transa
       <div className={clsx("space-y-3", !showAll && !filter && "hidden")}>
         {groups.map(([poste, list]) => (
           <div key={poste}>
-            <div className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted">{td(poste)}</div>
+            <div className="mb-1.5 px-1 text-[12.5px] font-medium text-muted">{td(poste)}</div>
             <div className="flex flex-wrap gap-2">
               {list.map((c) => (
                 <button
@@ -435,7 +435,7 @@ function TxInvoices({ t }: { t: Transaction }) {
     <section className="mb-3">
       {d?.splits.length ? (
         <Card className="mb-2 divide-y divide-line">
-          <div className="px-4 pt-3 pb-2 text-xs font-semibold uppercase tracking-wide text-muted">{tr("Ventilation")}</div>
+          <div className="px-4 pt-3 pb-2 text-[12.5px] font-medium text-muted">{tr("Ventilation")}</div>
           {d.splits.map((s) => (
             <div key={s.id} className="flex items-start justify-between gap-3 px-4 py-2.5">
               <div className="min-w-0">
@@ -701,7 +701,7 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
 
         {list.error ? <ErrorBox error={list.error} /> : null}
         <Card>
-          <div className={cn("sticky top-[52px] z-10 grid items-center gap-3 rounded-t-[inherit] border-b border-line bg-card px-4 py-2 text-[11.5px] font-medium uppercase tracking-wide text-muted", cols)}>
+          <div className={cn("sticky top-[52px] z-10 grid items-center gap-3 rounded-t-[inherit] border-b border-line bg-card px-4 py-2 text-[12.5px] font-medium text-muted", cols)}>
             <input
               type="checkbox"
               aria-label={tr("Tout sélectionner")}

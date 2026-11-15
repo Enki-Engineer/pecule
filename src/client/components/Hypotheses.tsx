@@ -57,7 +57,7 @@ export function HypothesisCard({ poche, color, rows, scenarios, className }: { p
           const own = split.specific[s.key] ?? [];
           return (
             <section key={s.key} className={cn("min-w-0 rounded-lg bg-bg", compact ? "p-2.5" : "p-3")}>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">{s.label}</div>
+              <div className="text-[12.5px] font-medium text-muted">{s.label}</div>
               <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
                 <span className={cn("tnum font-bold", compact ? "text-[15px] @lg:text-[17px]" : "text-[17px]")}>{money(value == null ? null : Number(value), true)}</span>
                 {d && <span className={cn("tnum text-[12px] font-medium", d.pct > 0 ? "text-pos" : d.pct < 0 ? "text-neg" : "text-muted")}>{d.text}</span>}
@@ -73,7 +73,7 @@ export function HypothesisCard({ poche, color, rows, scenarios, className }: { p
       </div>
       {split.common.length > 0 && (
         <div className="mt-3">
-          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">{compact ? t("Mêmes hypothèses dans tous les scénarios") : t("Dans tous les scénarios")}</div>
+          <div className="mb-1.5 text-[12.5px] font-medium text-muted">{compact ? t("Mêmes hypothèses dans tous les scénarios") : t("Dans tous les scénarios")}</div>
           <Bullets items={split.common} muted />
         </div>
       )}

@@ -31,7 +31,7 @@ const timeZones = (): string[] => {
 };
 
 const split = (text: string) => [...new Set(text.split(/[,;\n]/).map((v) => v.trim()).filter(Boolean))];
-const title = "mb-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted";
+const title = "mb-2 px-1 text-[15px] font-semibold text-ink";
 
 /**
  * Réglages → Foyer : les écrans facultatifs que le foyer garde, les personnes qui ne se connectent pas (un enfant)

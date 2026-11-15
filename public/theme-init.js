@@ -7,7 +7,8 @@
     var dark = pref === "sombre" || (pref === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     root.dataset.theme = dark ? "dark" : "light";
     var accent = localStorage.getItem("pecule.accent");
-    if (accent && accent !== "indigo") root.dataset.accent = accent;
+    // « encre » est la couleur d'origine ; « indigo » est l'ancien nom de « pas de choix ».
+    if (accent && accent !== "encre" && accent !== "indigo") root.dataset.accent = accent;
     var mode = localStorage.getItem("pecule.seasons");
     mode = mode === "off" || mode === "aucun" ? "aucun" : mode === "fetes" ? "fetes" : "tout";
     // Pays du foyer (recopié sur l'appareil par l'appli) : hors de France, pas de fête propre à la France ;

@@ -141,7 +141,7 @@ export function NotificationsSettings() {
       )}
       {(recent.data?.notifications.length ?? 0) > 0 && (
         <div className="px-4 py-3">
-          <div className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-muted">{t("Dernières notifications")}</div>
+          <div className="mb-1 text-[12.5px] font-medium text-muted">{t("Dernières notifications")}</div>
           {recent.data!.notifications.slice(0, 6).map((n, i) => (
             <div key={i} className="flex justify-between gap-3 py-1 text-[13px]">
               <span className="min-w-0 truncate">

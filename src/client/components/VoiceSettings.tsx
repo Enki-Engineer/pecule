@@ -62,7 +62,7 @@ export function VoiceSettings() {
 
   return (
     <section id="voix" className="scroll-mt-20">
-      <h2 className="mb-2 px-1 text-sm font-semibold uppercase tracking-wide text-muted">{t("Mode vocal")}</h2>
+      <h2 className="mb-2 px-1 text-[15px] font-semibold text-ink">{t("Mode vocal")}</h2>
       <Card className="divide-y divide-line">
         {voices.map((v) => (
           <div key={v.id} className="flex items-center gap-3 px-4 py-2.5">

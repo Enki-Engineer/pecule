@@ -48,7 +48,7 @@ describe("contenu du manuel", () => {
   it("ne renvoie qu'à des adresses qui existent", () => {
     const routes = new Set(["", ...[...read("src/client/app.tsx").matchAll(/path="\/?([^"/:*]+)/g)].map((m) => m[1])]);
     const settings = read("src/client/pages/Settings.tsx");
-    const groups = new Set([...settings.matchAll(/\{ id: "(\w+)", label:/g)].map((m) => m[1]));
+    const groups = new Set([...settings.matchAll(/\{ id: "([\w-]+)", label:/g)].map((m) => m[1]));
     const blocks = new Set([...read("src/client/components/ConnectionsSettings.tsx").matchAll(/block\("(\w+)"\)/g)].map((m) => m[1]));
     const anchors = new Set(sources("src/client").flatMap((f) => [...read(f).matchAll(/<(?:Section|section|div) id="([\w-]+)"/g)].map((m) => m[1])));
     const tabs = new Set([...read("src/client/pages/Analysis.tsx").matchAll(/"(calendrier|repartition|flux|frise|marchands|comparer)"/g)].map((m) => m[1]));

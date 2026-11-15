@@ -8,6 +8,7 @@ import { exec, one, q } from "./db.ts";
 import { userAccountsSql } from "./actions.ts";
 import { agenda } from "./agenda.ts";
 import { balanceForecast } from "./balance.ts";
+import { budgetStatus } from "./ai-cost.ts";
 import { listEnvelopes } from "./planning.ts";
 import { STAT_SCOPE } from "./stats.ts";
 import { labelShape, natureOf } from "../lib/nature.ts";
@@ -35,11 +36,14 @@ export const NOTIF_TYPES = labels({
   garantie: tk("Garantie qui expire dans 30 jours"),
   enveloppe: tk("Enveloppe à 80 % ou dépassée"),
   resume: tk("Résumé de la semaine (lundi, 8 h)"),
+  ia: tk("Coût de l'IA à 80 % du plafond du mois, ou dépassé"),
 });
+/** Types qui ne concernent que l'administrateur du foyer (il règle le plafond de l'IA) : proposés à lui seul. */
+export const ADMIN_NOTIF_TYPES: ReadonlySet<string> = new Set(["ia"]);
 export type NotifType = keyof typeof NOTIF_TYPES;
 /** `lowBalance` : ancien seuil par appareil, repris une fois par la règle du membre (src/server/balance.ts). */
 export type NotifPrefs = Partial<Record<NotifType, boolean>> & { lowBalance?: number };
-export const DEFAULT_PREFS: NotifPrefs = { aclasser: true, prelevement: true, solde: true, loyer: true, echeance: true, garantie: true, enveloppe: true, resume: true };
+export const DEFAULT_PREFS: NotifPrefs = { aclasser: true, prelevement: true, solde: true, loyer: true, echeance: true, garantie: true, enveloppe: true, resume: true, ia: true };
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const parisNow = () => {
@@ -54,6 +58,8 @@ const parisNow = () => {
 const shortDate = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString(locale(), { day: "numeric", month: "long", timeZone: "UTC" });
 /** Montant d'une notification, au format de la langue du membre. */
 const eur = (n: number) => money(n, Math.abs(n) >= 100);
+/** Coût de l'IA : en euros (la facture du fournisseur), au format de la langue du membre. */
+const aiEur = (n: number) => new Intl.NumberFormat(locale(), { style: "currency", currency: "EUR" }).format(n);
 
 /* ---------- Clés et abonnements ---------- */
 
@@ -271,6 +277,19 @@ async function checksFor(userId: number) {
           ? t("{depense} dépensés sur {plafond}, reste {reste}.", { depense: eur(e.spent), plafond: eur(e.monthly), reste: eur(e.left) })
           : t("{depense} dépensés sur {plafond}.", { depense: eur(e.spent), plafond: eur(e.monthly) }),
       url: "/budget#enveloppes",
+    });
+  }
+
+  // 7. Coût de l'IA : plafond du mois à 80 % ou atteint — pour l'administrateur, qui le règle (Réglages → Coût de l'IA).
+  const budget = await budgetStatus();
+  if (budget.monthly && budget.state !== "ok" && (await one<{ role: string }>("SELECT role FROM users WHERE id = ?", [userId]))?.role === "admin") {
+    // Le coût de l'IA se compte en euros, quelle que soit la devise du foyer.
+    const amounts = { depense: aiEur(budget.spent), plafond: aiEur(budget.monthly) };
+    await notify(userId, "ia", `ia:${month}:${budget.state}`, {
+      title: budget.state === "depasse" ? t("Coût de l'IA : plafond du mois atteint") : t("Coût de l'IA : {pct} % du plafond du mois", { pct: Math.round((budget.spent / budget.monthly) * 100) }),
+      body: budget.paused ? t("{depense} sur {plafond} : les imports de dossier et les traductions attendent.", amounts) : t("{depense} sur {plafond} depuis le début du mois.", amounts),
+      url: "/reglages/cout-ia",
+      tag: "ia",
     });
   }
 }

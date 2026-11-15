@@ -49,7 +49,7 @@ export function Batch({ id, onBack }: { id: number; onBack: () => void }) {
   const batch = useQuery({
     queryKey: ["import", id],
     queryFn: () => api<ImportBatch>(`/imports/${id}`),
-    refetchInterval: (q) => (q.state.data && !q.state.data.capped && q.state.data.items.some((i) => isPending(i.status)) ? 2000 : false),
+    refetchInterval: (q) => (q.state.data && !q.state.data.capped && !q.state.data.budgetPaused && q.state.data.items.some((i) => isPending(i.status)) ? 2000 : false),
   });
   const [open, setOpen] = useState<number | null>(null);
   const [filter, setFilter] = useState<"tout" | "a_relire" | "autres">("tout");
@@ -85,7 +85,7 @@ export function Batch({ id, onBack }: { id: number; onBack: () => void }) {
         subtitle={
           <>
             {tn("{n} fichier", "{n} fichiers", b.items.length, { n: b.items.length })}
-            {reading > 0 && !b.capped && ` · ${t("{n} en cours de lecture", { n: reading })}`}
+            {reading > 0 && !b.capped && !b.budgetPaused && ` · ${t("{n} en cours de lecture", { n: reading })}`}
             {review > 0 && ` · ${t("{n} à relire", { n: review })}`}
             {b.ai && ` · ${t("coût de l'IA {montant}", { montant: money(b.costEur) })}`}
           </>
@@ -113,6 +113,15 @@ export function Batch({ id, onBack }: { id: number; onBack: () => void }) {
             <button type="button" disabled={busy} className={ghost} onClick={() => act(() => api(`/imports/${id}`, { method: "PATCH", json: { costCapEur: b.costCapEur + 5 } }))}>
               {t("Autoriser 5 € de plus")}
             </button>
+          </Card>
+        )}
+        {b.budgetPaused && b.status !== "annule" && (
+          <Card className="flex flex-wrap items-center gap-3 p-4 text-sm">
+            <AlertTriangle size={18} className="shrink-0 text-warn" />
+            <span className="min-w-0 flex-1">{t("Plafond du mois de l'IA atteint : la lecture est en pause jusqu'au mois prochain, ou jusqu'à ce que le plafond soit relevé.")}</span>
+            <Link to="/reglages/cout-ia" className={ghost}>
+              {t("Voir le coût de l'IA")}
+            </Link>
           </Card>
         )}
         {b.status !== "annule" && (

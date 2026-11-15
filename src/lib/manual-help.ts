@@ -53,6 +53,7 @@ export const HELP_RULES: readonly HelpRule[] = [
   { path: "/reglages/apparence", to: "personnaliser" },
   { path: "/reglages/notifications", to: "notifications" },
   { path: "/reglages/assistant", to: "assistant" },
+  { path: "/reglages/cout-ia", to: "assistant-cout" },
   { path: "/reglages/suivi", to: "suivi-technique" },
   { path: "/reglages", to: "personnaliser" },
   { path: "/", to: "tableau-de-bord" },

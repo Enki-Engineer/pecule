@@ -4,6 +4,7 @@ import { exec, q } from "./db.ts";
 import { isDemo, runDemo, runReal } from "./demo-context.ts";
 import { requireApiToken, requireAuth } from "./auth.ts";
 import { aiClient, aiEnabled, aiModel, recordUsage } from "./ai.ts";
+import { backgroundPaused } from "./ai-cost.ts";
 import { recordAlert } from "./journal.ts";
 import { LANGS, LANG_IDS, currentLang, registerData, type Lang } from "../lib/i18n.ts";
 
@@ -110,6 +111,8 @@ let lastFailure = 0;
  */
 async function translateMissing(names: string[]) {
   if (translating || !aiEnabled() || Date.now() - lastFailure < 10 * 60_000) return;
+  // Plafond du mois atteint, lectures de fond arrêtées (Réglages → Coût de l'IA) : les noms attendent leur traduction.
+  if (await backgroundPaused()) return;
   await ensureLoaded();
   const known = await runReal(() => q<{ source: string; n: number }>("SELECT source, COUNT(*) AS n FROM data_translations GROUP BY source"));
   const done = new Set(known.filter((r) => Number(r.n) >= LANGS.length).map((r) => r.source));

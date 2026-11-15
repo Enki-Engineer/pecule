@@ -3,6 +3,26 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.17.0
+
+- **Coût de l'IA, un écran à part** : Réglages → Coût de l'IA montre la dépense du mois et ce qu'elle donnerait à la
+  fin du mois au même rythme, le mois dernier (entier, et à la même date), douze mois en barres colorées par usage,
+  puis le détail du mois choisi — par usage (avec le coût moyen d'une conversation, d'une facture lue, d'un document
+  ou d'un bulletin), par membre et par modèle —, ce que le cache a fait économiser, et tes conversations et imports
+  de dossier les plus coûteux. Les sessions de démo ont leur ligne. Réglages → Assistant en garde le résumé.
+- **Plafond du mois** : l'administrateur fixe une dépense à ne pas dépasser. Il est prévenu par une notification à
+  80 % du plafond, puis quand il est atteint ; s'il le choisit, les lectures de fond (imports de dossier, traduction
+  des noms) attendent alors le mois suivant ou un plafond relevé. L'assistant et les fichiers déposés un à un
+  répondent toujours. Le plafond se règle aussi en le demandant à l'assistant.
+- **Le mode vocal est compté** : la lecture à voix haute (au caractère lu) et la transcription (à l'audio transcrit)
+  étaient enregistrées à 0 €. Les appels passés restent sans coût.
+- **Tarifs des modèles** : un modèle ou un déploiement que Pécule ne reconnaît pas n'est plus compté en silence au
+  tarif d'Opus : il est marqué « tarif estimé », et son tarif se saisit (les appels déjà comptés sont recalculés).
+  Un déploiement qui porte le nom d'un modèle connu (« claude-sonnet-5-5-… ») prend son tarif.
+- **L'assistant connaît le coût de l'IA** : « combien m'a coûté l'IA ce mois-ci ? », « qu'est-ce qui consomme le
+  plus ? ». Outil `get_ai_usage` (assistant et serveur MCP) ; `update_settings` règle le plafond.
+- La démo a un historique de coût fictif sur douze mois.
+
 ## 1.16.0
 
 - **Opérations rangées par mois** : la liste se lit en une boîte par mois, avec son bilan en tête — nombre

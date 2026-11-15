@@ -78,4 +78,8 @@ export const momentLabel = (iso: string) => {
 };
 
 /** Coût de l'IA : compté en euros quelle que soit la devise du foyer (c'est la facture du fournisseur). */
-export const aiCost = (n: number) => (n < 0.01 ? "< 0,01 €" : new Intl.NumberFormat(locale(), { style: "currency", currency: "EUR", maximumFractionDigits: n < 1 ? 3 : 2 }).format(n));
+export const aiCost = (n: number) => {
+  const eur = (v: number, digits = 2) => new Intl.NumberFormat(locale(), { style: "currency", currency: "EUR", maximumFractionDigits: digits }).format(v);
+  // Moins d'un centime : « < 0,01 € » plutôt qu'un zéro trompeur.
+  return n > 0 && n < 0.01 ? `< ${eur(0.01)}` : eur(n, n > 0 && n < 1 ? 3 : 2);
+};

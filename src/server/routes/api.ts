@@ -23,7 +23,7 @@ import { getLogo, logoKeyAllowed, logoStatus, refreshWeakLogos, resetLogo } from
 import { registerUndo, runUndo, snapshotTransactions } from "../undo.ts";
 import { suggestCategories } from "../suggest.ts";
 import { generateSummary, latestSummary } from "../weekly.ts";
-import { NOTIF_TYPES, getSubscription, notify, recentNotifications, subscribe, unsubscribe, updatePrefs, vapidKeys, type NotifPrefs } from "../notify.ts";
+import { ADMIN_NOTIF_TYPES, NOTIF_TYPES, getSubscription, notify, recentNotifications, subscribe, unsubscribe, updatePrefs, vapidKeys, type NotifPrefs } from "../notify.ts";
 import { deleteEnvelope, deleteGoal, envelopeCandidates, listEnvelopes, listGoals, saveEnvelope, saveGoal } from "../planning.ts";
 import { recordAlert } from "../journal.ts";
 import { agenda } from "../agenda.ts";
@@ -46,6 +46,7 @@ import { importsApi } from "./imports.ts";
 import { connectionsApi } from "./connections.ts";
 import { bankApi } from "./bank.ts";
 import { aiSettingsApi } from "./ai-settings.ts";
+import { aiCostApi } from "./ai-cost.ts";
 import { ActionError, saveAccountSettings, setTransactionCategory, setTransactionNote, updateAsset, updateCryptoPosition, userAccountsSql } from "../actions.ts";
 import { hourly } from "../limits.ts";
 import { memberIdByName } from "../members.ts";
@@ -85,6 +86,7 @@ api.use(importsApi);
 api.use(connectionsApi);
 api.use(bankApi);
 api.use(aiSettingsApi);
+api.use(aiCostApi);
 
 api.get("/sync/runs", async (_req, res) => {
   res.json({ runs: await lastSyncRuns(15) });
@@ -667,18 +669,6 @@ api.post("/assistant/confirm", assistantLimiter, async (req, res) => {
   await assistantReply(req, res, (emit) => confirmPending(req.user!.id, body.threadId, body.approve, ids, emit));
 });
 
-/** Coût de l'IA (Foundry) : mois en cours et précédent, par usage, pour le membre et pour la famille. */
-api.get("/assistant/usage", async (req, res) => {
-  const rows = await q<{ month: string; feature: string; mine: number; total: number; calls: number }>(
-    `SELECT DATE_FORMAT(created_at, '%Y-%m') AS month, feature,
-            ROUND(SUM(CASE WHEN user_id = ? THEN cost_eur ELSE 0 END), 4) AS mine, ROUND(SUM(cost_eur), 4) AS total, COUNT(*) AS calls
-     FROM ai_usage WHERE created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)
-     GROUP BY month, feature ORDER BY month DESC, total DESC`,
-    [req.user!.id],
-  );
-  res.json({ rows });
-});
-
 /* ---------- Administration (jeton d'API) : imports et invitations ---------- */
 
 export const admin = Router();
@@ -1133,8 +1123,10 @@ const notifPrefs = z.object(
   Object.fromEntries([...Object.keys(NOTIF_TYPES).map((k) => [k, z.boolean().optional()]), ["lowBalance", z.number().min(0).max(100000).optional()]]),
 ) as z.ZodType<NotifPrefs>;
 
-api.get("/push/key", async (_req, res) => {
-  res.json({ publicKey: (await vapidKeys()).publicKey, types: NOTIF_TYPES });
+api.get("/push/key", async (req, res) => {
+  // Le plafond de l'IA se règle par l'administrateur : son alerte n'est proposée qu'à lui.
+  const types = Object.fromEntries(Object.entries(NOTIF_TYPES).filter(([k]) => req.user!.admin || !ADMIN_NOTIF_TYPES.has(k)));
+  res.json({ publicKey: (await vapidKeys()).publicKey, types });
 });
 api.post("/push/subscribe", async (req, res) => {
   const b = z.object({ subscription: pushSub, device: z.string().max(120).nullable().optional() }).parse(req.body);

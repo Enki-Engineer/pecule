@@ -4,10 +4,11 @@ import { z } from "zod";
 import { env } from "./env.ts";
 import { ActionError } from "./actions.ts";
 import { requireAuth } from "./auth.ts";
-import { aiEnabled, foundryAccess, recordUsage } from "./ai.ts";
+import { aiEnabled, foundryAccess, recordCost } from "./ai.ts";
 import { recordAlert } from "./journal.ts";
 import { isDemo } from "./demo-context.ts";
 import { VOICES, VOICE_IDS, isPhantom, speechSsml, speechText, voiceFor, type VoiceId } from "../lib/voice.ts";
+import { speechCostUsd, transcriptionCost, type TranscriptionUsage } from "../lib/ai-usage.ts";
 import { currentLang, t } from "../lib/i18n.ts";
 
 /*
@@ -72,9 +73,11 @@ export async function transcribe(audio: Buffer, mime: string): Promise<string> {
     res = await send();
   }
   if (!res.ok) return failure("La transcription est", t("La transcription est indisponible pour l'instant."), res);
-  const out = (await res.json()) as { text?: string };
-  void recordUsage("voix : transcription", env.AI_STT_DEPLOYMENT, { input_tokens: 0, output_tokens: 0 });
+  const out = (await res.json()) as { text?: string; usage?: TranscriptionUsage };
   const text = (out.text ?? "").trim();
+  // Coût : d'après le décompte du service quand il en donne un, sinon d'après la durée estimée de la phrase.
+  const cost = transcriptionCost(out.usage, text);
+  void recordCost("voix : transcription", env.AI_STT_DEPLOYMENT, cost.usd, { input_tokens: cost.inputTokens, output_tokens: cost.outputTokens });
   // Sur un bruit ou un silence, la transcription invente parfois un générique de sous-titres : rien n'a été dit.
   return isPhantom(text) ? "" : text;
 }
@@ -94,7 +97,9 @@ export async function speak(text: string, voice: VoiceId = voiceOf()): Promise<R
     signal: AbortSignal.timeout(60_000),
   });
   if (!res.ok || !res.body) return failure("La voix de l'assistant est", t("La voix de l'assistant est indisponible pour l'instant."), res);
-  void recordUsage("voix : lecture", VOICES.find((v) => v.id === voice)!.name, { input_tokens: 0, output_tokens: 0 });
+  // Coût : la lecture est facturée au caractère lu.
+  const name = VOICES.find((v) => v.id === voice)!.name;
+  void recordCost("voix : lecture", name, speechCostUsd(name, text.length));
   return res;
 }
 

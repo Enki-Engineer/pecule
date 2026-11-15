@@ -8,13 +8,16 @@ import { memberLang, setMemberLang } from "../lang.ts";
 import { NOTIF_TYPES, listDevices, setDeviceTypes, type NotifDevice, type NotifType } from "../notify.ts";
 import { dateBasis, setDateBasis } from "../stat-dates.ts";
 import { aiEnabled } from "../ai.ts";
+import { MAX_BUDGET, aiBudget, saveAiBudget } from "../ai-cost.ts";
+import { usageReport } from "../ai-usage.ts";
+import { kick as kickImports } from "../imports/batches.ts";
 import { ACCENTS } from "../../lib/seasons.ts";
 import { ACCENT_IDS, DENSITIES, DENSITY_LABELS, SEASON_MODES, SEASON_MODE_LABELS, THEME_LABELS, THEME_PREFS } from "../../lib/device-settings.ts";
-import { LANGS, LANG_IDS, currentLang, langInfo, t as tr, tk } from "../../lib/i18n.ts";
+import { LANGS, LANG_IDS, currentLang, langInfo, locale, t as tr, tk } from "../../lib/i18n.ts";
 import { MANUAL, articleMarkdown, findArticle, manualOutline, manualText, searchManual } from "../../lib/manual.ts";
 import { fold } from "../../lib/markdown.ts";
 import { MODULES, MODULE_INFO, type ModuleId } from "../../lib/modules.ts";
-import { ToolError, change, field, readTool, writeTool, type Tool } from "./registry.ts";
+import { ToolError, change, field, month, readTool, writeTool, type Tool } from "./registry.ts";
 
 /*
  * Aide et réglages : le manuel de Pécule (src/lib/manual.ts), que l'assistant lit avant d'expliquer un écran ou
@@ -80,7 +83,7 @@ const getSettings = readTool({
     "Les réglages gardés par l'appareil (clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée, notifications) ne se lisent pas d'ici. Alerte de solde bas : get_balance_alert ; comptes masqués ou hors statistiques : list_accounts.",
   input: z.object({}),
   async run({ userId }) {
-    const [household, basis, lang, fun, admin] = await Promise.all([householdSettings(), dateBasis(), memberLang(userId), funEnabled(userId), isAdmin(userId)]);
+    const [household, basis, lang, fun, admin, budget] = await Promise.all([householdSettings(), dateBasis(), memberLang(userId), funEnabled(userId), isAdmin(userId), aiBudget()]);
     return {
       member: {
         administrator: admin,
@@ -105,6 +108,13 @@ const getSettings = readTool({
       },
       demo_mode: isDemo(),
       ai_configured: aiEnabled(),
+      ai_cost: {
+        monthly_budget_eur: isDemo() ? null : budget.monthly,
+        pause_background_when_reached: isDemo() ? false : budget.pauseBackground,
+        read_with: "get_ai_usage",
+        where: "/reglages/cout-ia",
+        change_with: "update_settings (administrateur) pour le plafond du mois ; le tarif d'un modèle se saisit à l'écran",
+      },
       device: {
         note: "Réglages gardés par l'appareil, non lisibles d'ici : apparence (auto, clair, sombre), couleur, thèmes de l'année, densité (ordinateur), montants masqués (mode discret), ouverture instantanée.",
         where: "/reglages/apparence et /reglages/notifications",
@@ -124,6 +134,22 @@ const getSettings = readTool({
   },
 });
 
+/** Coût de l'IA : en euros (la facture du fournisseur), au format de la langue du membre. */
+const aiEur = (n: number) => new Intl.NumberFormat(locale(), { style: "currency", currency: "EUR" }).format(n);
+
+const getAiUsage = readTool({
+  name: "get_ai_usage",
+  progress: tk("Lecture du coût de l'IA…"),
+  description:
+    "Ce que l'IA de Pécule a coûté, en euros, pour tout le foyer — une estimation : le décompte du fournisseur (jetons, caractères lus, audio transcrit) au tarif public du modèle. " +
+    "`current` : le mois en cours (dépense, `projection` de fin de mois au rythme constaté, mois précédent entier et `previousToDate` à la même date, part des sessions de démo) ; `months` : les douze derniers mois ; " +
+    "`selected` : le détail d'un mois (`month` AAAA-MM, par défaut le mois en cours) par usage (`kinds` : assistant, import = import de dossier, facture = lecture de factures, classement = classement d'articles, document = rangement de documents, bulletin = lecture de bulletins de paie, voix = mode vocal, traduction = noms de catégories, test = essai d'un fournisseur, demo = sessions de démo) avec le coût moyen d'une unité (`unitCost` par conversation ou par appel), par membre, par modèle (`source` « estime » : tarif inconnu, compté à celui du modèle de référence), effet du cache (`cache.share` : part de l'entrée relue en cache, `cache.saved` : euros économisés), conversations et imports les plus coûteux de l'utilisateur ; " +
+    "`budget` : plafond du mois, état (ok, alerte à 80 %, depasse) et lectures de fond en pause ou non ; `prices` : tarif de chaque modèle en dollars par million de jetons. " +
+    "L'usage de Pécule depuis l'appli Claude (serveur MCP) n'y figure pas : il est facturé par l'abonnement Claude de l'utilisateur. Le plafond se change par update_settings (administrateur) ; le tarif d'un modèle se saisit à l'écran.",
+  input: z.object({ month: month.optional().describe("Mois détaillé dans `selected` (douze derniers mois)") }),
+  run: async ({ userId }, i) => ({ ...(await usageReport(userId, i.month)), currency: "EUR", where: "/reglages/cout-ia" }),
+});
+
 const screens = z.array(z.enum(MODULES)).max(MODULES.length);
 
 const updateSettings = writeTool({
@@ -131,6 +157,7 @@ const updateSettings = writeTool({
   description:
     "Change un réglage gardé par Pécule, à la demande de l'utilisateur. Pour lui : `language` (fr, en, de, it, es : la langue de l'appli sur tous ses appareils, réponses de l'assistant et voix comprises ; l'écran se recharge) et `fun_equivalences` (équivalences amusantes). " +
     "Pour tout le foyer, administrateur seulement : `card_purchase_day` (« achat » : un achat par carte compte au jour de l'achat ; « debit » : au jour où la banque le prélève — tous les chiffres datés du foyer changent de jour ; libre en mode démo), `show_screens` et `hide_screens` (écrans facultatifs : immobilier, crypto, projections, revenus, impots, retraite ; retirer un écran ne supprime aucune donnée). " +
+    "Coût de l'IA, administrateur seulement, indisponible en mode démo : `ai_monthly_budget` (plafond de dépense du mois, en euros ; null pour le retirer — à 80 % puis au plafond, l'administrateur est prévenu par une notification) et `ai_pause_background` (une fois le plafond atteint, mettre en pause les lectures de fond : imports de dossier et traduction des noms ; l'assistant et les fichiers déposés un à un répondent toujours). " +
     "Ne donner que ce qui change. Lire d'abord get_settings pour connaître la valeur actuelle.",
   input: z.object({
     language: z.enum(LANG_IDS).optional(),
@@ -138,6 +165,8 @@ const updateSettings = writeTool({
     card_purchase_day: z.enum(["achat", "debit"]).optional(),
     show_screens: screens.optional(),
     hide_screens: screens.optional(),
+    ai_monthly_budget: z.number().min(0).max(MAX_BUDGET).nullable().optional(),
+    ai_pause_background: z.boolean().optional(),
   }),
   async describe({ userId }, i) {
     const details: string[] = [];
@@ -156,7 +185,18 @@ const updateSettings = writeTool({
       if (i.show_screens?.length) details.push(field(tr("Écrans affichés"), i.show_screens.map(moduleName).join(", ")));
       if (i.hide_screens?.length) details.push(field(tr("Écrans retirés du menu"), i.hide_screens.map(moduleName).join(", ")), tr("Aucune donnée n'est supprimée."));
     }
-    if (!details.length) throw new ToolError("Rien à changer : donner language, fun_equivalences, card_purchase_day, show_screens ou hide_screens");
+    if (i.ai_monthly_budget !== undefined || i.ai_pause_background !== undefined) {
+      if (isDemo()) throw new ToolError("Indisponible en mode démo : le plafond du coût de l'IA est un réglage du vrai foyer");
+      if (!(await isAdmin(userId))) throw new ToolError("Réservé à l'administrateur du foyer : le plafond du coût de l'IA se règle dans Réglages → Coût de l'IA (/reglages/cout-ia)");
+      const now = await aiBudget();
+      const monthly = i.ai_monthly_budget !== undefined ? i.ai_monthly_budget || null : now.monthly;
+      if (i.ai_pause_background && !monthly) throw new ToolError("ai_pause_background demande un plafond : donner aussi ai_monthly_budget");
+      const shown = (n: number | null) => (n ? aiEur(n) : tr("aucun"));
+      if (i.ai_monthly_budget !== undefined) details.push(change(tr("Plafond du mois pour l'IA"), shown(now.monthly), shown(monthly)));
+      if (i.ai_pause_background !== undefined)
+        details.push(i.ai_pause_background ? tr("Plafond atteint : les imports de dossier et la traduction des noms attendent.") : tr("Plafond atteint : rien n'est mis en pause, tu es seulement prévenu."));
+    }
+    if (!details.length) throw new ToolError("Rien à changer : donner language, fun_equivalences, card_purchase_day, show_screens, hide_screens, ai_monthly_budget ou ai_pause_background");
     return { label: tr("Modifier les réglages"), details };
   },
   async run({ userId }, i) {
@@ -168,6 +208,11 @@ const updateSettings = writeTool({
       for (const m of i.show_screens ?? []) off.delete(m);
       for (const m of i.hide_screens ?? []) off.add(m);
       await saveHouseholdSettings({ modulesOff: [...off] });
+    }
+    if (i.ai_monthly_budget !== undefined || i.ai_pause_background !== undefined) {
+      await saveAiBudget({ ...(i.ai_monthly_budget !== undefined ? { monthly: i.ai_monthly_budget || null } : {}), ...(i.ai_pause_background !== undefined ? { pauseBackground: i.ai_pause_background } : {}) });
+      // Un plafond relevé ou retiré : les imports en attente reprennent.
+      kickImports();
     }
     return "Fait : réglages enregistrés." + (i.language ? " L'écran de l'utilisateur se recharge dans la nouvelle langue : réponds désormais dans cette langue." : "");
   },
@@ -215,6 +260,7 @@ const NOTIF_MEANING: Record<NotifType, string> = {
   garantie: "garantie qui expire dans 30 jours",
   enveloppe: "enveloppe à son seuil d'alerte ou dépassée",
   resume: "résumé de la semaine (lundi matin)",
+  ia: "coût de l'IA à 80 % du plafond du mois ou dépassé (reçu par l'administrateur seulement)",
 };
 /** Nom d'un appareil abonné (« iPhone », « Mac »…), ou « Appareil » s'il n'en a pas donné. */
 const deviceName = (d: NotifDevice) => d.device?.trim() || tr("Appareil");
@@ -305,4 +351,4 @@ const setDeviceSettings = writeTool({
   effect: (i) => ({ device: { theme: i.theme, accent: i.accent, seasons: i.seasons, density: i.density, discreet: i.discreet, instantOpen: i.instant_open } }),
 });
 
-export const reglagesTools: Tool[] = [readManual, getSettings, updateSettings, updateAccount, setNotificationTypes, setDeviceSettings];
+export const reglagesTools: Tool[] = [readManual, getSettings, getAiUsage, updateSettings, updateAccount, setNotificationTypes, setDeviceSettings];

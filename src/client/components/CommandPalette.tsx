@@ -52,6 +52,7 @@ const PAGES: { label: string; to: string; icon: typeof Search; words: string }[]
   { label: `${t("Réglages")} · ${t("Apparence")}`, to: "/reglages/apparence", icon: Settings, words: t("theme sombre clair couleur saisons noel halloween paques") },
   { label: `${t("Réglages")} · ${t("Notifications et appareil")}`, to: "/reglages/notifications", icon: Settings, words: t("notifications alertes push appareil hors ligne ouverture instantanee") },
   { label: `${t("Réglages")} · ${t("Assistant")}`, to: "/reglages/assistant", icon: Settings, words: t("memoire assistant voix cout ia") },
+  { label: `${t("Réglages")} · ${t("Coût de l'IA")}`, to: "/reglages/cout-ia", icon: Settings, words: t("cout ia depense consommation jetons tokens plafond budget tarif modele facture fournisseur") },
   { label: `${t("Réglages")} · ${t("Suivi technique")}`, to: "/reglages/suivi", icon: Settings, words: t("alertes techniques journal audit synchronisation banque") },
 ];
 

@@ -102,7 +102,17 @@ Facultative, et toujours avec la clé du foyer (`src/lib/ai-providers.ts`, régl
 lire un document (sortie JSON structurée), l'assistant (boucle d'outils : les lectures s'exécutent, les écritures
 attendent une confirmation), et les traductions des noms de catégories. Les outils sont déclarés une fois
 (`src/server/tools/`) et servent à l'assistant comme au **serveur MCP** (`POST /api/mcp`, jeton d'administration ou
-OAuth 2.1 pour un assistant extérieur). Le coût de chaque appel est enregistré (`ai_usage`).
+OAuth 2.1 pour un assistant extérieur).
+
+Le coût de chaque appel est enregistré (`ai_usage`, une ligne par appel : `recordUsage` pour un appel compté en
+jetons, `recordCost` pour le mode vocal, compté au caractère lu et à l'audio transcrit), en dollars et en euros au
+cours du jour. Les tarifs, le rangement d'un appel dans son usage et les calculs (projection du mois, économie du
+cache, état du plafond) sont purs, dans `src/lib/ai-usage.ts` ; `src/server/ai-usage.ts` en tire le rapport que
+lisent l'écran Réglages → Coût de l'IA (`GET /api/assistant/usage`) et l'outil `get_ai_usage`. Le plafond du mois et
+le tarif saisi pour un modèle inconnu vivent dans `app_kv` (`ai:budget`, `ai:prices`, `src/server/ai-cost.ts`) :
+au plafond, l'administrateur est prévenu (notification « ia ») et, si le foyer l'a choisi, les lectures de fond —
+file de l'import massif, traduction des noms — attendent (`backgroundPaused()`). Ce qu'un membre demande lui-même
+n'est jamais coupé.
 
 Une réponse de l'assistant est du Markdown, enrichi de trois marques que ses consignes lui apprennent : encadrés
 (`> [!IMPORTANT]`, `[!WARNING]`, `[!TIP]`, `[!NOTE]`), surlignage (`==…==`) et couleur selon le sens pour le foyer
@@ -128,8 +138,8 @@ ses consignes.
 - **L'assistant lit le manuel dans la langue du membre** (exception à « ce que lit l'IA reste en français ») : les noms
   de menus qu'il recopie sont ainsi ceux de l'écran du membre.
 - **Réglages par l'assistant** (`src/server/tools/reglages.ts`) : `get_settings`, `update_settings` (langue, équivalences,
-  jour retenu pour les achats par carte, écrans affichés — les deux derniers pour l'administrateur), `update_account`,
-  `set_notification_types`.
+  jour retenu pour les achats par carte, écrans affichés, plafond du mois de l'IA — les trois derniers pour
+  l'administrateur), `update_account`, `set_notification_types`, et `get_ai_usage` pour lire le coût de l'IA.
   Un réglage gardé par l'appareil (clair ou sombre, couleur, thèmes, densité, mode discret, ouverture instantanée) n'est
   pas connu du serveur : `set_device_settings` ne fait que le décrire, et l'action confirmée revient à l'écran avec un
   « effet » (`ClientEffect`, `src/lib/device-settings.ts`) que `src/client/deviceSettings.ts` applique — une seule fois,

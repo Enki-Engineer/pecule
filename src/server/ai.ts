@@ -4,9 +4,11 @@ import { isDemo, runReal } from "./demo-context.ts";
 import Anthropic from "@anthropic-ai/sdk";
 import { AnthropicFoundry } from "@anthropic-ai/foundry-sdk";
 import { activeConnector, aiConfig } from "./ai-config.ts";
+import { addSpent, customPrices } from "./ai-cost.ts";
 import { exec, one } from "./db.ts";
 import { currentActor } from "./journal.ts";
 import { AI_PROVIDER_INFO, foundryResource, type AiConnector } from "../lib/ai-providers.ts";
+import { DEMO_SUFFIX, usageCostUsd, type Usage } from "../lib/ai-usage.ts";
 import { currentLang, t as tr } from "../lib/i18n.ts";
 
 /*
@@ -162,24 +164,8 @@ function demoParams<P>(params: P): P {
 
 /* ---------- Coût ---------- */
 
-/** Tarifs en dollars par million de jetons (écriture en cache 5 min = 1,25 × l'entrée). */
-const PRICES: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
-  "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
-  "claude-opus-5": { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
-  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
-  // Lecture du cache de Haiku 5.5 : estimée au dixième de l'entrée (tarif non publié à part).
-  "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
-};
-
-export type Usage = { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null };
-
-export function usageCostUsd(model: string, u: Usage): number {
-  const p = PRICES[model] ?? PRICES["claude-opus-5-5"];
-  return (
-    (u.input_tokens * p.input + (u.cache_creation_input_tokens ?? 0) * p.cacheWrite + (u.cache_read_input_tokens ?? 0) * p.cacheRead + u.output_tokens * p.output) /
-    1_000_000
-  );
-}
+// Tarifs et calcul : src/lib/ai-usage.ts (purs, partagés avec l'écran du coût).
+export { usageCostUsd, type Usage } from "../lib/ai-usage.ts";
 
 let fx: { rate: number; at: number } | null = null;
 /**
@@ -214,16 +200,27 @@ export async function meterCost<T>(fn: () => Promise<T>): Promise<{ value: T | u
 
 /** Enregistre la consommation d'un appel à Claude ; renvoie son coût en euros. Ne fait jamais échouer l'appelant. */
 export async function recordUsage(feature: string, model: string, u: Usage, threadId?: string | null): Promise<number> {
+  const custom = await customPrices().catch(() => ({}));
+  return recordCost(feature, model, usageCostUsd(model, u, custom), u, threadId);
+}
+
+const NO_TOKENS: Usage = { input_tokens: 0, output_tokens: 0 };
+
+/**
+ * Enregistre un appel dont le coût en dollars est déjà connu (mode vocal : lecture comptée au caractère,
+ * transcription à l'audio) ; renvoie son coût en euros. Ne fait jamais échouer l'appelant.
+ */
+export async function recordCost(feature: string, model: string, usd: number, u: Usage = NO_TOKENS, threadId?: string | null): Promise<number> {
   // Le coût d'une démo est un vrai coût : il est compté dans la vraie base (sans la conversation, restée en démo).
-  if (isDemo()) return runReal(() => recordUsage(`${feature} (démo)`, model, u, null));
-  const usd = usageCostUsd(model, u);
+  if (isDemo()) return runReal(() => recordCost(`${feature}${DEMO_SUFFIX}`, model, usd, u, null));
   try {
     const eur = usd * (await usdToEur());
     await exec(
       `INSERT INTO ai_usage (user_id, thread_id, feature, model, input_tokens, cache_write_tokens, cache_read_tokens, output_tokens, cost_usd, cost_eur)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [currentActor().userId, threadId ?? null, feature, model, u.input_tokens, u.cache_creation_input_tokens ?? 0, u.cache_read_input_tokens ?? 0, u.output_tokens, usd, eur],
+      [currentActor().userId, threadId ?? null, feature.slice(0, 24), model.slice(0, 64), u.input_tokens, u.cache_creation_input_tokens ?? 0, u.cache_read_input_tokens ?? 0, u.output_tokens, usd, eur],
     );
+    addSpent(eur);
     const m = meter.getStore();
     if (m) m.eur += eur;
     return eur;

@@ -15,7 +15,7 @@ describe("aide de l'écran ouvert", () => {
     const routes = [...app.slice(app.indexOf("<Route index")).matchAll(/path="([^"*:]+)/g)].map((m) => `/${m[1].replace(/\/$/, "")}`);
     expect(routes.length).toBeGreaterThan(15);
     expect(routes.filter((r) => !r.startsWith("/manuel") && !helpFor(r))).toEqual([]);
-    const groups = [...readFileSync("src/client/pages/Settings.tsx", "utf8").matchAll(/\{ id: "(\w+)", label:/g)].map((m) => m[1]);
+    const groups = [...readFileSync("src/client/pages/Settings.tsx", "utf8").matchAll(/\{ id: "([\w-]+)", label:/g)].map((m) => m[1]);
     expect(groups.filter((g) => !HELP_RULES.some((r) => r.path === `/reglages/${g}`))).toEqual([]);
   });
 

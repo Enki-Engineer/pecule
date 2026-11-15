@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { startRegistration } from "@simplewebauthn/browser";
-import { Activity, Bell, ChevronRight, Copy, House, KeyRound, Plug, LogOut, Palette, Presentation, ScanFace, Search, Smartphone, Sparkles, Tags, Trash2 } from "lucide-react";
+import { Activity, Bell, ChevronRight, Coins, Copy, House, KeyRound, Plug, LogOut, Palette, Presentation, ScanFace, Search, Smartphone, Sparkles, Tags, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
 import { api, useMe } from "../api.ts";
@@ -23,6 +23,7 @@ import { LanguageSettings } from "../components/LanguageSettings.tsx";
 import { BackupSettings } from "../components/BackupSettings.tsx";
 import { HouseholdSettings } from "../components/HouseholdSettings.tsx";
 import { ConnectionsSettings } from "../components/ConnectionsSettings.tsx";
+import { AiCostScreen, AiCostSummary } from "../components/AiCost.tsx";
 import { Section } from "../components/SettingsSection.tsx";
 import { region } from "../region.ts";
 import { ACCENTS, SEASONS, SOUTHERN, seasonAt, upcomingSeasons, type Season, type SeasonMode } from "../../lib/seasons.ts";
@@ -263,7 +264,7 @@ export function Settings() {
       <>
         <VoiceSettings />
         <MemorySection />
-        <AiCostSection />
+        <AiCostSummary />
         <p className="px-1 text-xs text-muted">
           {t("Le fournisseur d'IA (adresse, modèle, clé) se règle dans")}{" "}
           <Link to="/reglages/connexions?c=ia" className="font-medium text-accent">
@@ -273,6 +274,7 @@ export function Settings() {
         </p>
       </>
     ),
+    "cout-ia": <AiCostScreen />,
     suivi: <>
         <AlertsSection />
         <Section id="synchro" title={t("Synchronisations bancaires")}>
@@ -366,7 +368,7 @@ export function Settings() {
   );
 }
 
-type GroupId = "compte" | "foyer" | "connexions" | "demo" | "classement" | "apparence" | "notifications" | "assistant" | "suivi";
+type GroupId = "compte" | "foyer" | "connexions" | "demo" | "classement" | "apparence" | "notifications" | "assistant" | "cout-ia" | "suivi";
 /** Anciennes adresses de groupes, gardées valides (liens déjà enregistrés, notifications). */
 const GROUP_ALIASES: Record<string, GroupId> = { appareil: "notifications", comptes: "connexions" };
 const GROUPS: { id: GroupId; label: string; hint: string; icon: typeof Bell; tone: string }[] = [
@@ -378,13 +380,14 @@ const GROUPS: { id: GroupId; label: string; hint: string; icon: typeof Bell; ton
   { id: "apparence", label: t("Apparence"), hint: t("Langue, clair ou sombre, couleur, thèmes de l'année"), icon: Palette, tone: "bg-[#b83e33]" },
   { id: "notifications", label: t("Notifications et appareil"), hint: t("Solde bas, alertes de cet appareil, ouverture instantanée"), icon: Bell, tone: "bg-[#c2410c]" },
   { id: "assistant", label: t("Assistant"), hint: t("Mode vocal, mémoire, coût de l'IA"), icon: Sparkles, tone: "bg-accent" },
+  { id: "cout-ia", label: t("Coût de l'IA"), hint: t("Dépense du mois, par usage, par membre et par modèle, plafond, tarifs"), icon: Coins, tone: "bg-[#6b4fa3]" },
   { id: "suivi", label: t("Suivi technique"), hint: t("Alertes, synchronisations, journal des modifications"), icon: Activity, tone: "bg-[#5e6a7c]" },
 ];
 const GROUP_SECTIONS: { title: string; ids: GroupId[] }[] = [
   { title: t("Compte"), ids: ["compte", "foyer", "demo"] },
   { title: t("Données"), ids: ["connexions", "classement"] },
   { title: t("Affichage et alertes"), ids: ["apparence", "notifications"] },
-  { title: t("Assistant et suivi"), ids: ["assistant", "suivi"] },
+  { title: t("Assistant et suivi"), ids: ["assistant", "cout-ia", "suivi"] },
 ];
 
 type AlertRow = { id: number; at: string; lastAt: string; level: string; source: string; message: string; occurrences: number; resolvedAt: string | null };
@@ -542,45 +545,6 @@ function ShortcutSection() {
           </ol>
         )}
       </Card>
-    </Section>
-  );
-}
-
-const FEATURES: Record<string, string> = { assistant: t("Assistant"), facture: t("Lecture de factures"), classement: t("Classement d'articles"), document: t("Rangement de documents"), "fiche de paie": t("Lecture de bulletins"), test: t("Essai d'un fournisseur") };
-type UsageRow = { month: string; feature: string; mine: number; total: number; calls: number };
-
-/** Coût de Claude (fournisseur choisi dans les réglages) : mois en cours et précédent, par usage. */
-function AiCostSection() {
-  const usage = useQuery({ queryKey: ["ai-usage"], queryFn: () => api<{ rows: UsageRow[] }>("/assistant/usage") });
-  const rows = usage.data?.rows ?? [];
-  const months = [...new Set(rows.map((r) => r.month))];
-  const eur = (n: number) => new Intl.NumberFormat(locale(), { style: "currency", currency: "EUR" }).format(n);
-  return (
-    <Section id="ia" title={t("Coût de l'IA")}>
-      <Card className="divide-y divide-line">
-        {months.map((m) => {
-          const lines = rows.filter((r) => r.month === m);
-          const total = lines.reduce((s, r) => s + Number(r.total), 0);
-          return (
-            <div key={m} className="px-4 py-3 text-sm">
-              <div className="flex items-baseline justify-between font-medium">
-                <span className="capitalize">{new Date(`${m}-15T12:00:00`).toLocaleDateString(locale(), { month: "long", year: "numeric" })}</span>
-                <span className="tnum">{eur(total)}</span>
-              </div>
-              {lines.map((r) => (
-                <div key={r.feature} className="mt-1 flex justify-between text-muted">
-                  <span>
-                    {FEATURES[r.feature] ?? r.feature} · {tn("{n} appel", "{n} appels", r.calls)}
-                  </span>
-                  <span className="tnum">{eur(Number(r.total))}</span>
-                </div>
-              ))}
-            </div>
-          );
-        })}
-        {usage.data && !rows.length && <div className="px-4 py-3 text-sm text-muted">{t("Aucun appel à Claude enregistré pour l'instant.")}</div>}
-      </Card>
-      <p className="mt-1.5 px-1 text-xs text-muted">{t("Tarif public du modèle, converti en euros au taux du jour ; toute la famille.")}</p>
     </Section>
   );
 }

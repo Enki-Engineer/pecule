@@ -21,7 +21,7 @@ import { DEFAULT_LANG, isLang, t, tk, translate } from "../lib/i18n.ts";
 import { loadAiConfig } from "./ai-config.ts";
 import { readEnableBankingNow, syncBanks } from "./bank-sync.ts";
 import { seedStarter } from "./starter.ts";
-import { resumeImports } from "./imports/batches.ts";
+import { kick as kickImports, resumeImports } from "./imports/batches.ts";
 import { loadServiceKeys } from "./service-keys.ts";
 import { loadRegion } from "./region.ts";
 import { fillPurchaseDates } from "./stat-dates.ts";
@@ -230,7 +230,9 @@ function scheduleSync() {
       .finally(() => refreshWealth().catch((e) => console.error("[patrimoine] échec", e)))
       // Après chaque synchro : nouveaux prélèvements, soldes, enveloppes… (une alerte n'est jamais envoyée deux fois).
       .finally(() => runNotifications().catch((e) => console.error("[notifications] échec", e)))
-      .finally(() => runWeeklySummaries().catch((e) => console.error("[résumé] échec", e)));
+      .finally(() => runWeeklySummaries().catch((e) => console.error("[résumé] échec", e)))
+      // Imports mis en pause par le plafond du mois de l'IA : ils repartent d'eux-mêmes quand il n'est plus atteint (mois suivant).
+      .finally(() => kickImports());
   setTimeout(runAll, 60_000);
   setInterval(runAll, env.SYNC_INTERVAL_MINUTES * 60_000);
 }

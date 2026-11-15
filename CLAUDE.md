@@ -112,6 +112,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Un type de document lu par l'import massif | `src/server/imports/extractors/` + une ligne dans `EXTRACTORS` |
 | Une marque (logo, reconnaissance d'un libellé) | une ligne dans `src/lib/brands.ts` |
 | Un fournisseur d'IA qui parle l'API Messages | `src/lib/ai-providers.ts` et `buildClient` (`src/server/ai.ts`) |
+| Un appel à l'IA d'un nouveau genre, ou le tarif d'un modèle | `recordUsage(nom, …)` après l'appel ; son usage dans `usageKind` et `KIND_GROUP`, le tarif dans `MODEL_PRICES` (`src/lib/ai-usage.ts`) ; son libellé dans `components/AiCost.tsx` |
 | Un écran facultatif | `MODULE_INFO` dans `src/lib/modules.ts` |
 | Un bloc du tableau de bord ou de l'accueil du téléphone | `DASH_CARDS` et `blocks` (`pages/Dashboard.tsx`), `HOME_CARDS` (`pages/Home.tsx`) : il devient déplaçable et masquable (`components/CardLayout.tsx`) |
 | Une fête ou un thème | `src/lib/seasons.ts`, recopié dans `public/theme-init.js` (un test compare) |

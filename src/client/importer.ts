@@ -31,6 +31,8 @@ export type ImportBatch = {
   costCapEur: number;
   costEur: number;
   capped: boolean;
+  /** Plafond du mois de l'IA atteint, lectures de fond en pause (Réglages → Coût de l'IA). */
+  budgetPaused: boolean;
   ai: boolean;
   counts: Partial<Record<ItemStatus, number>>;
   safe: number;

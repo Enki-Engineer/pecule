@@ -97,6 +97,7 @@ export const documents: ManualTheme = {
             tk("400 fichiers au plus par import, 20 Mo par fichier."),
             tk("Un fichier déjà connu de Pécule n'est pas envoyé une seconde fois."),
             tk("Le coût de la lecture par l'IA est affiché et plafonné pour chaque import ; au plafond, la lecture se met en pause jusqu'à ce que tu l'autorises à continuer."),
+            tk("Si le foyer a fixé un [plafond du mois](/manuel/assistant-cout) pour l'IA et choisi d'y arrêter les lectures de fond, un import attend aussi quand ce plafond est atteint."),
             tk("Le bouton des fichiers non importés télécharge la liste de ceux qui ont été écartés, avec la raison."),
           ],
         },

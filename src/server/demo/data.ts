@@ -11,6 +11,7 @@ import { Ops, monthsOf } from "./context.ts";
 import { accountDefs, accountRows, categoryRows } from "./data-banque.ts";
 import { balanceRows, brandRows, classify, ruleRows, transactionRows } from "./data-classement.ts";
 import { buildDocuments } from "./data-documents.ts";
+import { buildAiUsage } from "./data-ia.ts";
 import { buildInvoices, invoiceSpecs } from "./data-factures.ts";
 import { generateOperations } from "./data-operations.ts";
 import { LOANS, buildWealth } from "./data-patrimoine.ts";
@@ -59,6 +60,7 @@ export const DEMO_TABLES = [
   "envelopes",
   "goals",
   "agendaItems",
+  "aiUsage",
 ] as const;
 export type DemoTable = (typeof DEMO_TABLES)[number];
 export type DemoData = { [K in DemoTable]: (typeof schema)[K]["$inferInsert"][] };
@@ -121,5 +123,6 @@ export function buildDemoData(today: Date, users: DemoUser[]): DemoData {
     documentFiles: docs.documentFiles,
     ...situation,
     ...buildPilotage(s, members, final),
+    ...buildAiUsage(s, members),
   };
 }

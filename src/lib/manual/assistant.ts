@@ -218,20 +218,33 @@ export const assistant: ManualTheme = {
     {
       id: "assistant-cout",
       title: tk("Ce que coûte l'IA"),
-      summary: tk("Le coût de chaque réponse et le total du mois, par usage."),
+      summary: tk("La dépense du mois et sa projection, douze mois par usage, par membre et par modèle, un plafond et les tarifs."),
       body: [
-        tk("L'IA est facturée par ton fournisseur, à l'usage. Pécule estime ce coût à partir du tarif public du modèle, converti en euros."),
+        tk("L'IA est facturée par ton fournisseur, à l'usage. Pécule note chaque appel avec ce que le fournisseur a compté — jetons lus et écrits, caractères lus à voix haute, audio transcrit — et l'estime à son tarif public, converti en euros. Tout le foyer est compté ensemble : c'est une seule facture."),
+        tk("**Suivre la dépense.** [[Réglages]] → [[Coût de l'IA]] réunit tout :"),
         {
           list: [
-            tk("Sous chaque réponse de l'assistant : le coût de cette réponse."),
-            tk("Dans [[Réglages]] → [[Assistant]], section [[Coût de l'IA]] : le total du mois en cours et du mois précédent, pour tout le foyer, par usage — assistant, lecture de factures, rangement de documents, lecture de bulletins."),
-            tk("Dans un import de dossier : le coût de la lecture, plafonné pour chaque import."),
+            tk("[[Ce mois-ci]] : la dépense depuis le 1er, ce qu'elle donnerait à la fin du mois au même rythme, le mois dernier (entier, et à la même date), et la part des sessions de démo."),
+            tk("[[Douze mois]] : une barre par mois, colorée par usage. Touche un mois pour le détailler dessous."),
+            tk("Le détail du mois choisi, [[Par usage]] (assistant, import de dossier, lecture de factures, classement d'articles, rangement de documents, lecture de bulletins, mode vocal, traduction des noms), avec le coût moyen d'une conversation, d'une facture lue ou d'un document ; [[Par membre]] ; [[Par modèle]]."),
+            tk("L'effet du cache : la part de ce que l'IA relit à prix réduit, et ce que cela a fait économiser."),
+            tk("Tes conversations et tes imports de dossier les plus coûteux du mois : touche une ligne pour l'ouvrir. Ceux des autres membres ne sont pas montrés."),
           ],
         },
-        { note: tk("C'est une estimation : la facture de ton fournisseur fait foi.") },
+        tk("Ailleurs : sous chaque réponse de l'assistant, le coût de cette réponse ; dans un import de dossier, le coût de sa lecture, plafonné pour chaque import. Tu peux aussi demander à l'assistant « combien m'a coûté l'IA ce mois-ci ? »."),
+        tk("**Fixer un plafond.** Pour ne pas dépasser une dépense dans le mois :"),
+        {
+          steps: [
+            tk("Dans [[Réglages]] → [[Coût de l'IA]], section [[Plafond du mois]], saisis la dépense à ne pas dépasser (en euros). Vide : aucun plafond."),
+            tk("Coche [[Au plafond, mettre en pause les lectures de fond]] pour que les imports de dossier et la traduction des noms attendent le mois suivant, ou un plafond relevé."),
+          ],
+        },
+        tk("L'administrateur reçoit une notification à 80 % du plafond, puis quand il est atteint. L'assistant, une facture ou un document déposé un à un répondent toujours : le plafond ne coupe jamais ce que tu demandes toi-même. Le plafond se règle par l'administrateur, à l'écran ou en le demandant à l'assistant."),
+        tk("**Les tarifs.** La section [[Tarifs des modèles]] montre le prix compté pour chaque modèle, en dollars par million de jetons. Un modèle ou un déploiement que Pécule ne reconnaît pas est compté au tarif d'un modèle de référence et marqué « tarif estimé » : [[Modifier]] permet de saisir le sien, et ses appels déjà comptés sont alors recalculés."),
+        { note: tk("C'est une estimation : la facture de ton fournisseur fait foi. Interroger Pécule depuis l'appli Claude ne coûte rien ici : c'est ton abonnement Claude qui le porte.") },
       ],
-      links: [{ to: "/reglages/assistant#ia", label: ["Réglages", "Assistant"] }],
-      words: tk("prix tarif facturation consommation dépense ia jetons tokens combien coûte"),
+      links: [{ to: "/reglages/cout-ia", label: ["Réglages", "Coût de l'IA"] }],
+      words: tk("prix tarif facturation consommation dépense ia jetons tokens combien coûte plafond budget cache projection modèle membre"),
     },
     {
       id: "claude-mcp",

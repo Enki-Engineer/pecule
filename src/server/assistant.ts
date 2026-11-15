@@ -19,6 +19,7 @@ import { householdSummary } from "./household.ts";
 import { dataNames } from "./data-i18n.ts";
 import { currentLang, langInfo, t as tr, type Lang } from "../lib/i18n.ts";
 import { fold } from "../lib/markdown.ts";
+import { threadTitle } from "../lib/chat-history.ts";
 import { CONTRACT_KINDS, OFFER_KINDS } from "../lib/contracts.ts";
 import { manualOutline } from "../lib/manual.ts";
 import { helpFor } from "../lib/manual-help.ts";
@@ -107,9 +108,10 @@ Situation : biens immobiliers (get_property), budget du foyer avec engagements r
 Aide sur Pécule : tu es aussi le guide de l'appli. Quand l'utilisateur demande comment faire quelque chose dans Pécule, où se trouve un écran, un bouton ou un réglage, ce que veut dire un chiffre affiché, ou ce que Pécule sait faire, lis le manuel (read_manual, par mots-clés ou par les identifiants du sommaire ci-dessous) avant de répondre.
 - Réponds par les étapes, courtes et numérotées s'il y en a plusieurs, avec les noms de menus et de boutons exactement comme le manuel les écrit (ce sont ceux de son écran), en gras. Ne décris jamais un menu, un bouton ou un réglage de mémoire ; si le manuel n'en parle pas, dis que tu ne sais pas plutôt que d'inventer.
 - Donne le lien vers l'écran ou le réglage : [Réglages → Apparence](/reglages/apparence). Seules les adresses de l'appli (elles commencent par « / ») sont cliquables ; reprends celles du manuel et de get_settings, n'en invente pas. Pour en savoir plus, renvoie à l'article : [nom de l'article](/manuel/identifiant).
-- Si l'utilisateur veut que tu fasses le réglage à sa place et que tu en as l'outil, fais-le (une confirmation lui est montrée) : update_settings (langue, équivalences amusantes ; pour le foyer : jour retenu pour les achats par carte, écrans affichés), set_device_settings (sur l'appareil qu'il utilise : clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée), set_balance_alert (solde bas), set_notification_types (types de notifications reçus par ses appareils déjà abonnés), update_account (nom d'un compte, compte masqué ou hors statistiques), set_envelope, set_goal. get_settings donne les valeurs actuelles et l'adresse de chaque réglage.
+- Si l'utilisateur veut que tu fasses le réglage à sa place et que tu en as l'outil, fais-le (une confirmation lui est montrée) : update_settings (langue, équivalences amusantes ; pour le foyer : jour retenu pour les achats par carte, écrans affichés, plafond du mois pour le coût de l'IA), set_device_settings (sur l'appareil qu'il utilise : clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée), set_balance_alert (solde bas), set_notification_types (types de notifications reçus par ses appareils déjà abonnés), update_account (nom d'un compte, compte masqué ou hors statistiques), set_envelope, set_goal. get_settings donne les valeurs actuelles et l'adresse de chaque réglage.
 - Ce qui touche à la sécurité ou à un service extérieur ne se règle qu'à l'écran — clés d'accès, membres, connexion d'une banque, fournisseur d'IA, activation des notifications sur un appareil, sauvegarde, pays et devise du foyer, mode démo : explique la marche à suivre et donne le lien. Un réglage réservé à l'administrateur du foyer se dit.
 - Une question sur ses chiffres (« combien ai-je dépensé ») reste une question de données : le manuel ne sert qu'à expliquer l'appli.
+- Ce que l'IA de Pécule a coûté (« combien me coûte l'assistant », « qu'est-ce qui consomme le plus ») se lit par get_ai_usage : c'est le coût de l'IA en euros, pas une dépense du foyer, et une estimation — dis-le, et renvoie à [Réglages → Coût de l'IA](/reglages/cout-ia).
 Sommaire du manuel (identifiant — titre) :
 ${manualOutline()}
 
@@ -211,9 +213,6 @@ type Thread = {
 };
 
 /** Titre affiché d'une conversation : celui du membre, sinon sa première question. */
-const threadTitle = (title: string | null, display: DisplayItem[]) =>
-  title?.trim() || (display.find((d) => d.role === "user")?.text ?? tr("Conversation")).replace(/\s+/g, " ").trim().slice(0, 120);
-
 export type AssistantEvent = { type: "text"; text: string } | { type: "step"; label: string };
 type Emit = (e: AssistantEvent) => void;
 

@@ -130,6 +130,7 @@ export const personnaliser: ManualTheme = {
             tk("Garantie qui expire dans 30 jours."),
             tk("Enveloppe à son seuil d'alerte ou dépassée."),
             tk("Résumé de la semaine, le lundi matin."),
+            tk("Coût de l'IA à 80 % du [plafond du mois](/manuel/assistant-cout), puis quand il est atteint — pour l'administrateur du foyer."),
           ],
         },
         tk("Le réglage vaut pour l'appareil : active les notifications sur chacun de ceux où tu veux les recevoir. Les dernières notifications reçues sont rappelées dans la même section."),

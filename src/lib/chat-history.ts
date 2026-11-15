@@ -1,7 +1,13 @@
 /*
  * Historique des conversations de l'assistant : rangement par ancienneté (« Aujourd'hui », « Hier »…),
- * les épinglées en tête. Fonction pure : le jour est celui de l'appareil.
+ * les épinglées en tête, et titre d'une conversation. Fonctions pures : le jour est celui de l'appareil.
  */
+
+import { t } from "./i18n.ts";
+
+/** Titre d'une conversation : celui que le membre lui a donné, sinon sa première question. */
+export const threadTitle = (title: string | null, display: readonly { role: string; text: string }[]): string =>
+  title?.trim() || (display.find((d) => d.role === "user")?.text ?? t("Conversation")).replace(/\s+/g, " ").trim().slice(0, 120);
 
 export type HistoryGroup = "pinned" | "today" | "yesterday" | "week" | "month" | "older";
 

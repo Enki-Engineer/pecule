@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { ActionError } from "../actions.ts";
 import { aiEnabled, aiModel, meterCost, usageCostUsd, usdToEur } from "../ai.ts";
+import { backgroundPaused } from "../ai-cost.ts";
 import { parseBankFile, fileAccounts } from "../../lib/bank-files.ts";
 import { exec, one, q } from "../db.ts";
 import { runReal } from "../demo-context.ts";
@@ -117,6 +118,8 @@ export async function batchView(userId: number, batchId: number) {
     costEur,
     /** Plafond atteint : des fichiers attendent, la lecture reprendra quand le plafond sera relevé. */
     capped: costEur >= Number(b.cost_cap_eur) && (counts.attente ?? 0) > 0,
+    /** Plafond du mois atteint (Réglages → Coût de l'IA), avec l'arrêt des lectures de fond : les fichiers attendent. */
+    budgetPaused: (counts.attente ?? 0) > 0 && aiEnabled() && (await backgroundPaused()),
     ai: aiEnabled(),
     counts,
     safe: items.filter((i) => i.safe).length,
@@ -247,6 +250,9 @@ export async function resumeImports() {
 
 async function next(): Promise<void> {
   for (;;) {
+    // Plafond du mois atteint, et le foyer a choisi d'arrêter là les lectures de fond : la file attend
+    // (elle repart quand le plafond est relevé, au mois suivant, ou au prochain dépôt).
+    if (aiEnabled() && (await backgroundPaused())) return;
     // Un lot qui a atteint son plafond de dépense attend ; les autres avancent.
     const item = await runReal(() =>
       one<ItemRow & { user_id: number }>(

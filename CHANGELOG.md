@@ -3,6 +3,22 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.16.0
+
+- **Opérations rangées par mois** : la liste se lit en une boîte par mois, avec son bilan en tête — nombre
+  d'opérations, celles qui restent à classer, dépenses et solde du mois (revenus et épargne aussi sur un écran
+  large). Ce sont les chiffres de l'Analyse, calculés par le serveur sur toutes les opérations du mois, même celles
+  que la liste n'a pas encore chargées ; filtrée ou en recherche, la liste donne le bilan de ce qu'elle garde, et une
+  ligne « Total » réunit les mois. Sur ordinateur, le bandeau du mois reste collé sous l'en-tête des colonnes et un
+  clic le replie ; triée par montant, la liste redevient d'un seul tenant. Sur téléphone, chaque mois a son titre et
+  son bilan au-dessus de ses jours. L'étiquette « à classer » d'un mois filtre la liste sur ces opérations.
+- **Une liste plus lisible** : la date n'est écrite qu'à la première opération du jour (elle revient au survol) ; un
+  mouvement entre tes comptes est écrit en gris, puisqu'il ne compte ni en revenu ni en dépense ; une opération à
+  classer porte un liseré orangé à gauche ; devant la catégorie d'une dépense, une pastille prend la couleur de son
+  poste, la même que sur l'anneau des dépenses de l'Analyse. La nature d'une ligne (carte, prélèvement, virement…)
+  se reconnaît désormais à une icône, la couleur étant réservée au poste.
+- Le nombre d'opérations affiché sous le titre est celui de toute la liste filtrée, plus celui des lignes chargées.
+
 ## 1.15.0
 
 - **L'assistant depuis la fiche d'une opération** : un bouton [Assistant] en haut de la fiche ouvre l'assistant sur

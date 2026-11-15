@@ -57,11 +57,11 @@ export function Amount({ value, className, colored = true, round = false }: { va
  * Montant d'une opération, avec en dessous son montant d'origine quand le compte n'est pas dans la devise du foyer
  * (« −45,00 $US »). Pour un compte dans la devise du foyer : le montant seul, comme `Amount`.
  */
-export function TxAmount({ tx, className }: { tx: { amount: number; original_amount?: number | null; original_currency?: string | null }; className?: string }) {
-  if (tx.original_amount == null || !tx.original_currency) return <Amount value={tx.amount} className={className} />;
+export function TxAmount({ tx, className, colored = true }: { tx: { amount: number; original_amount?: number | null; original_currency?: string | null }; className?: string; colored?: boolean }) {
+  if (tx.original_amount == null || !tx.original_currency) return <Amount value={tx.amount} className={className} colored={colored} />;
   return (
     <span className="flex flex-col items-end">
-      <Amount value={tx.amount} className={className} />
+      <Amount value={tx.amount} className={className} colored={colored} />
       <span className="tnum whitespace-nowrap text-xs font-normal text-muted">{moneyIn(tx.original_amount, tx.original_currency)}</span>
     </span>
   );

@@ -2879,4 +2879,6 @@ export const de: Dict = {
   "Que peux-tu me dire sur cette opération ?": "Was kannst du mir zu dieser Buchung sagen?",
   "Voir les opérations semblables": "Ähnliche Buchungen ansehen",
   "Montre-moi les opérations semblables à celle-ci et dis-moi comment elles sont classées.": "Zeig mir die Buchungen, die dieser ähneln, und sag mir, wie sie kategorisiert sind.",
+  "Voir les opérations à classer de ce mois": "Die zu kategorisierenden Buchungen dieses Monats anzeigen",
+  "{n} à classer": ["{n} zu kategorisieren", "{n} zu kategorisieren"],
 };

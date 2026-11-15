@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ChevronDown, Eye, Search, Tags, X, Sparkles, Paperclip, ShieldCheck, PanelRight, CheckSquare, Store, Tag, CalendarDays, Shapes, Copy, MessageSquare } from "lucide-react";
+import { ArrowDown, ArrowDownLeft, ArrowLeftRight, ArrowUp, Banknote, ChevronDown, CreditCard, Eye, Landmark, Repeat, Search, Send, Tags, Undo2, X, Sparkles, Paperclip, ShieldCheck, PanelRight, CheckSquare, Store, Tag, CalendarDays, Shapes, Copy, MessageSquare, type LucideIcon } from "lucide-react";
 import { ContextMenu, useContextMenu } from "../components/ContextMenu.tsx";
 import { TxLogo } from "../components/Logo.tsx";
 import { undoToast } from "../undo.ts";
@@ -10,7 +10,8 @@ import { AddOperationButton, DeleteManualOperation } from "../components/ManualE
 import { HoverPreview } from "../components/HoverPreview.tsx";
 import { openInvoiceViewer } from "../components/InvoiceViewer.tsx";
 import { NATURE_LABELS, natureOf, merchantName, type Nature } from "../../lib/nature.ts";
-import { natureColor } from "../charts.ts";
+import { colorOf } from "../charts.ts";
+import { isDiscreet } from "../discret.ts";
 import { askAssistant, PANEL_MEDIA } from "../assistantBus.ts";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMedia } from "../useMedia.ts";
@@ -18,7 +19,7 @@ import { cn } from "../cn.ts";
 import { Link } from "react-router";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { api, transactionListQuery, useAccounts, useCategories, useSuggestions, useTransactionDetails, useUpdateTransaction, type Category, type Transaction, type TxFilters } from "../api.ts";
+import { api, transactionListQuery, transactionMonthsQuery, useAccounts, useCategories, useSuggestions, useTransactionDetails, useUpdateTransaction, type Category, type Transaction, type TxFilters, type TxMonth } from "../api.ts";
 import { AddInvoiceButton, FileIcon } from "./Invoices.tsx";
 import { Amount, Card, Empty, ErrorBox, PageHeader, Sheet, Spinner, TxAmount } from "../components/ui.tsx";
 import { OpsTabs, useListSearch, useTabParams, useTabState } from "../components/OpsSection.tsx";
@@ -26,6 +27,7 @@ import { dateFr, dateShort, dayLabel, money, moneyIn, monthLabel, periodLabel, p
 import { operationEntity, txDateHint, txSubline } from "../txInfo.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
 import { txTitle } from "../../lib/labels.ts";
+import { balanceOf, groupByMonth, isInternal, posteSlot, sumMonths, type MonthTotals } from "../../lib/tx-groups.ts";
 import { useAssistantEntity } from "../assistantContext.ts";
 import { t as tr, td, tk, tn } from "../../lib/i18n.ts";
 
@@ -47,6 +49,12 @@ export function Transactions() {
   const filters: TxFilters = { account, category, poste, month, nature, uncategorized, q: debounced };
   // Filtres, recherche : la liste reste affichée pendant le chargement de la suivante (pas de squelette).
   const list = useInfiniteQuery({ ...transactionListQuery(filters), placeholderData: keepPreviousData });
+
+  // Bilan de chaque mois : calculé par le serveur sur toute la liste filtrée (elle n'est chargée ici que par pages).
+  const monthly = useQuery({ ...transactionMonthsQuery(filters), placeholderData: keepPreviousData });
+  const totals = useMemo(() => new Map((monthly.data?.months ?? []).map((m) => [m.month, m])), [monthly.data]);
+  const colored = monthly.data?.colored;
+  const filtered = !!(account || category || poste || month || nature || uncategorized || debounced);
 
   const rows = useMemo(() => list.data?.pages.flatMap((p) => p.transactions) ?? [], [list.data]);
   // Opération choisie dans la recherche ⌘K : on l'ouvre dès qu'elle apparaît dans la liste.
@@ -76,15 +84,7 @@ export function Transactions() {
       () => done(null),
     );
   }, [openTx, rows, list.isLoading, list.isPlaceholderData, list.hasNextPage, list.isFetchingNextPage, list.fetchNextPage]);
-  const byDay = useMemo(() => {
-    const groups: { day: string; items: Transaction[] }[] = [];
-    for (const t of rows) {
-      const last = groups.at(-1);
-      if (last?.day === t.date) last.items.push(t);
-      else groups.push({ day: t.date, items: [t] });
-    }
-    return groups;
-  }, [rows]);
+  const byMonth = useMemo(() => groupByMonth(rows), [rows]);
 
   const chips: { key: string; label: string }[] = [];
   if (account) chips.push({ key: "compte", label: accounts.data?.accounts.find((a) => a.id === account)?.display_name ?? accounts.data?.accounts.find((a) => a.id === account)?.name ?? tr("Compte") });
@@ -99,12 +99,17 @@ export function Transactions() {
     next.delete(key);
     setParams(next, { replace: true });
   };
-  const setParam = (key: string, value: string | null) => {
+  const setFilters = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
     setParams(next, { replace: true });
   };
+  const setParam = (key: string, value: string | null) => setFilters({ [key]: value });
+  // « 3 à classer » d'un mois : ne garder que celles-là (sans objet quand la liste est déjà filtrée ainsi).
+  const onlyUncategorized = uncategorized ? undefined : (m: string) => setFilters({ mois: m, a_classer: "1" });
 
   const desktop = useMedia("(min-width: 1024px)");
   if (desktop)
@@ -116,6 +121,10 @@ export function Transactions() {
         setSearch={setSearch}
         params={{ account, category, month, nature, uncategorized }}
         setParam={setParam}
+        monthly={monthly.data?.months}
+        colored={colored}
+        filtered={filtered}
+        onlyUncategorized={onlyUncategorized}
         accounts={accounts.data?.accounts ?? []}
         categories={categories.data?.categories ?? []}
         selected={selected}
@@ -173,19 +182,24 @@ export function Transactions() {
         <Empty>{tr("Aucune opération.")}</Empty>
       ) : (
         <div className={clsx("space-y-4 transition-opacity duration-200", list.isPlaceholderData && "opacity-50")}>
-          {byDay.map((g) => (
-            <section key={g.day}>
-              <h2 className="mb-1.5 px-1 text-sm font-semibold first-letter:uppercase text-muted">{dayLabel(g.day)}</h2>
-              <Card className="divide-y divide-line overflow-hidden">
-                {g.items.map((t) => (
-                  <div key={t.id} data-tx={t.id}>
-                    <SwipeTxRow t={t} onOpen={() => setSelected(t)} onSearch={setSearch}>
-                      <TxRow t={t} onClick={() => setSelected(t)} />
-                    </SwipeTxRow>
-                  </div>
-                ))}
-              </Card>
-            </section>
+          {byMonth.map((m) => (
+            <Fragment key={m.month}>
+              <MonthTitle month={m.month} totals={totals.get(m.month)} onUncategorized={onlyUncategorized && (() => onlyUncategorized(m.month))} />
+              {m.days.map((g) => (
+                <section key={g.day}>
+                  <h3 className="mb-1.5 px-1 text-sm font-semibold first-letter:uppercase text-muted">{dayLabel(g.day)}</h3>
+                  <Card className="divide-y divide-line overflow-hidden">
+                    {g.items.map((t) => (
+                      <div key={t.id} data-tx={t.id}>
+                        <SwipeTxRow t={t} onOpen={() => setSelected(t)} onSearch={setSearch}>
+                          <TxRow t={t} colored={colored} onClick={() => setSelected(t)} />
+                        </SwipeTxRow>
+                      </div>
+                    ))}
+                  </Card>
+                </section>
+              ))}
+            </Fragment>
           ))}
           {list.hasNextPage && (
             <button type="button" onClick={() => list.fetchNextPage()} disabled={list.isFetchingNextPage} className="press card w-full py-3 font-medium text-accent">
@@ -200,14 +214,85 @@ export function Transactions() {
   );
 }
 
-function TxRow({ t, onClick }: { t: Transaction; onClick: () => void }) {
+/** Pastille du poste d'une dépense, de la couleur de sa part sur l'anneau des dépenses (gris : un poste sans couleur). */
+function PosteDot({ t, colored, spacer = false }: { t: Transaction; colored: string[] | undefined; spacer?: boolean }) {
+  // `spacer` : dans une colonne, la place de la pastille est gardée pour que les noms restent alignés.
+  if (t.category_kind !== "depense" || !t.category_poste) return spacer ? <span className="size-2 shrink-0" /> : null;
+  return <span title={td(t.category_poste)} className="size-2 shrink-0 rounded-sm" style={{ background: colorOf(posteSlot(colored, t)) }} />;
+}
+
+/** Sans catégorie ni ventilation : un liseré à gauche la signale dans la liste. */
+const toClassify = (t: Transaction) => !t.category_name && !t.split_count;
+const TO_CLASSIFY_EDGE = "shadow-[inset_3px_0_0_var(--color-warn)]";
+
+const signed = (n: number) => `${n > 0 && !isDiscreet() ? "+" : ""}${money(n, true)}`;
+
+/**
+ * Bilan d'un mois (ou de toute la liste filtrée), avec les définitions de l'Analyse. `full` : revenus, dépenses,
+ * épargne et solde ; sinon l'essentiel, dépenses et solde. Un chiffre nul n'est pas écrit : filtrée sur un poste, la
+ * liste ne donne que ses dépenses.
+ */
+function MonthFigures({ m, full = false, className }: { m: MonthTotals; full?: boolean; className?: string }) {
+  const both = m.revenus !== 0 && m.depenses !== 0;
+  const balance = balanceOf(m);
+  const tone = (c: string) => (isDiscreet() ? "" : c);
+  const figure = (label: string, tip: string, value: string, chip: string) => (
+    <span className="flex items-center gap-1.5 whitespace-nowrap" data-tip={tip} tabIndex={0}>
+      <span className="text-muted">{label}</span>
+      <span className={cn("chip tnum", chip)}>{value}</span>
+    </span>
+  );
   return (
-    <button type="button" onClick={onClick} className="press flex w-full items-center gap-3 px-4 py-3 text-left">
-      <TxLogo t={t} />
+    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", className)}>
+      {(full || !both) && m.revenus !== 0 && figure(tr("Revenus"), tr("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Les mouvements entre tes comptes n'en font pas partie."), signed(m.revenus), tone("chip-pos"))}
+      {m.depenses !== 0 && figure(tr("Dépenses"), tr("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne ni les mouvements entre tes comptes."), money(m.depenses, true), "")}
+      {full && m.epargne !== 0 && figure(tr("Épargne"), tr("Ce qui est classé en épargne : les versements vers un livret, une assurance-vie, un plan d'épargne."), money(m.epargne, true), tone("chip-solid"))}
+      {both && figure(tr("Solde"), tr("Revenus moins dépenses. L'épargne n'en est pas retirée : c'est ce qui reste avant de mettre de côté."), signed(balance), tone(balance >= 0 ? "chip-pos" : "chip-neg"))}
+    </div>
+  );
+}
+
+/** « 3 à classer » d'un mois ; un clic ne garde que ces opérations-là. Sans `onClick` (liste déjà filtrée ainsi), rien : tout l'est. */
+function ToClassify({ n, onClick }: { n: number; onClick?: () => void }) {
+  if (!n || !onClick) return null;
+  return (
+    <button type="button" onClick={onClick} title={tr("Voir les opérations à classer de ce mois")} className="chip chip-warn text-[12px]">
+      {tn("{n} à classer", "{n} à classer", n)}
+    </button>
+  );
+}
+
+/** Téléphone : titre d'un mois de la liste, avec son bilan. */
+function MonthTitle({ month, totals, onUncategorized }: { month: string; totals: TxMonth | undefined; onUncategorized?: () => void }) {
+  return (
+    <div className="flex items-end justify-between gap-3 px-1 pt-2">
+      <div className="min-w-0">
+        <h2 className="text-[17px] font-semibold">{monthLabel(month)}</h2>
+        {totals && (
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+            <span>{tn("{n} opération", "{n} opérations", totals.count)}</span>
+            <ToClassify n={totals.uncategorized} onClick={onUncategorized} />
+          </div>
+        )}
+      </div>
+      {totals && <MonthFigures m={totals} className="justify-end text-[12.5px]" />}
+    </div>
+  );
+}
+
+function TxRow({ t, colored, onClick }: { t: Transaction; colored: string[] | undefined; onClick: () => void }) {
+  // Un mouvement entre deux comptes du foyer ne compte pas dans le bilan du mois : sa ligne s'efface.
+  const internal = isInternal(t);
+  return (
+    <button type="button" onClick={onClick} className={clsx("press flex w-full items-center gap-3 px-4 py-3 text-left", toClassify(t) && TO_CLASSIFY_EDGE)}>
+      <span className={clsx("flex shrink-0", internal && "opacity-60")}>
+        <TxLogo t={t} />
+      </span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[15px] font-medium">{txTitle(t)}</div>
+        <div className={clsx("truncate text-[15px]", internal ? "text-muted" : "font-medium")}>{txTitle(t)}</div>
         {txSubline(t) && <div className="truncate text-xs text-muted">{txSubline(t)}</div>}
         <div className="flex items-center gap-1 truncate text-xs text-muted">
+          <PosteDot t={t} colored={colored} />
           {t.split_count ? (
             <span>{tr("Ventilée · {n} catégories", { n: t.split_count })}</span>
           ) : t.category_name ? (
@@ -221,7 +306,7 @@ function TxRow({ t, onClick }: { t: Transaction; onClick: () => void }) {
           {!!t.invoice_count && <Paperclip size={12} className="shrink-0 text-accent" aria-label={tr("Facture jointe")} />}
         </div>
       </div>
-      <TxAmount tx={t} className="text-[15px] font-semibold" />
+      <TxAmount tx={t} colored={!internal} className={clsx("text-[15px]", internal ? "text-muted" : "font-semibold")} />
     </button>
   );
 }
@@ -514,6 +599,13 @@ type DesktopProps = {
   setSearch: (v: string) => void;
   params: { account?: string; category?: string; month?: string; nature?: string; uncategorized: boolean };
   setParam: (key: string, value: string | null) => void;
+  /** Bilan de chaque mois de la liste filtrée (serveur) ; absent tant qu'il n'est pas arrivé. */
+  monthly: TxMonth[] | undefined;
+  /** Postes colorés, dans l'ordre de leurs couleurs. */
+  colored: string[] | undefined;
+  /** Un filtre ou une recherche est en cours. */
+  filtered: boolean;
+  onlyUncategorized: ((month: string) => void) | undefined;
   accounts: { id: string; name: string; display_name: string | null; hidden: 0 | 1 }[];
   categories: Category[];
   selected: Transaction | null;
@@ -541,7 +633,7 @@ function useWidth() {
   return [ref, width] as const;
 }
 
-function DesktopOperations({ rows, list, search, setSearch, params, setParam, accounts, categories, selected, setSelected }: DesktopProps) {
+function DesktopOperations({ rows, list, search, setSearch, params, setParam, monthly, colored, filtered, onlyUncategorized, accounts, categories, selected, setSelected }: DesktopProps) {
   const qc = useQueryClient();
   const [ref, width] = useWidth();
   // Fiche à droite seulement s'il reste au moins ~680 px au tableau ; sinon elle s'ouvre en fenêtre.
@@ -553,6 +645,8 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [bulkCategory, setBulkCategory] = useState("");
   const [lastChecked, setLastChecked] = useState<string | null>(null);
+  // Mois repliés (bandeau seul) : le temps de l'écran.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const sorted = useMemo(
     () =>
@@ -561,6 +655,24 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
       ),
     [rows, sort],
   );
+  // Triée par date, la liste se range en une boîte par mois ; triée par montant, elle reste d'un seul tenant.
+  const grouped = sort.key === "date";
+  const groups = useMemo(() => (grouped ? groupByMonth(sorted) : []), [grouped, sorted]);
+  const totals = useMemo(() => new Map((monthly ?? []).map((m) => [m.month, m])), [monthly]);
+  const overall = useMemo(() => (monthly ? sumMonths(monthly) : null), [monthly]);
+  // Lignes affichées : celles que le clavier parcourt.
+  const shown = useMemo(() => (grouped && collapsed.size ? sorted.filter((r) => !collapsed.has(r.date.slice(0, 7))) : sorted), [grouped, collapsed, sorted]);
+  const toggleMonth = (m: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(m)) next.add(m);
+      return next;
+    });
+  // Une opération ouverte d'ailleurs (recherche ⌘K) dans un mois replié : il se déplie.
+  const selectedMonth = selected?.date.slice(0, 7);
+  useEffect(() => {
+    if (selectedMonth) setCollapsed((prev) => (prev.has(selectedMonth) ? new Set([...prev].filter((m) => m !== selectedMonth)) : prev));
+  }, [selectedMonth, selected?.id]);
 
   // Clavier : ↑/↓ pour parcourir, Échap pour fermer la fiche, x pour cocher.
   useEffect(() => {
@@ -569,13 +681,13 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       // ⌘K (recherche), ⌘J (assistant)… ne sont pas des raccourcis du tableau.
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const i = selected ? sorted.findIndex((r) => r.id === selected.id) : -1;
+      const i = selected ? shown.findIndex((r) => r.id === selected.id) : -1;
       if (e.key === "ArrowDown" || e.key === "j") {
         e.preventDefault();
-        setSelected(sorted[Math.min(i + 1, sorted.length - 1)] ?? null);
+        setSelected(shown[Math.min(i + 1, shown.length - 1)] ?? null);
       } else if (e.key === "ArrowUp" || e.key === "k") {
         e.preventDefault();
-        setSelected(sorted[Math.max(i - 1, 0)] ?? null);
+        setSelected(shown[Math.max(i - 1, 0)] ?? null);
       } else if (e.key === "Escape") setSelected(null);
       else if (e.key === "x" && selected) toggle(selected.id, false);
     };
@@ -636,11 +748,79 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
     </button>
   );
 
+  const row = (t: Transaction, firstOfDay: boolean) => {
+    // Un mouvement entre deux comptes du foyer ne compte pas dans le bilan du mois : sa ligne s'efface.
+    const internal = isInternal(t);
+    const current = selected?.id === t.id;
+    return (
+      <div
+        key={t.id}
+        data-tx={t.id}
+        onClick={() => setSelected(t)}
+        onContextMenu={(e) => ctx.open(e, rowMenu(t))}
+        className={cn(
+          "group grid cursor-pointer items-center gap-3 px-4 py-2 text-[13px] hover:bg-bg",
+          cols,
+          toClassify(t) && TO_CLASSIFY_EDGE,
+          internal && "text-muted",
+          current && "bg-accent-soft hover:bg-accent-soft",
+        )}
+      >
+        <input
+          type="checkbox"
+          aria-label={tr("Sélectionner")}
+          checked={checked.has(t.id)}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => toggle(t.id, (e.nativeEvent as MouseEvent).shiftKey)}
+          className="size-4 accent-[var(--color-accent)]"
+        />
+        {/* La date n'est écrite qu'à la première ligne du jour ; les suivantes la montrent au survol. */}
+        <span className={cn("tnum text-muted", !firstOfDay && !current && "opacity-0 group-hover:opacity-100")}>{dateShort(t.date)}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span className={cn("flex shrink-0", internal && "opacity-60")}>
+            <TxLogo t={t} size="sm" />
+          </span>
+          <span className="min-w-0">
+            <span className={cn("block truncate", !internal && "font-medium")}>{txTitle(t)}</span>
+            {txSubline(t) && <span className="block truncate text-xs text-muted">{txSubline(t)}</span>}
+          </span>
+        </span>
+        {wideTable && <NatureBadge n={natureOf(t.label, Number(t.amount))} />}
+        {wideTable && <span className="truncate text-muted">{t.account_name}</span>}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <PosteDot t={t} colored={colored} spacer />
+          <span className={cn("truncate", toClassify(t) && "font-medium text-warn", t.category_source === "auto" && "italic")}>
+            {t.split_count ? tr("Ventilée · {n}", { n: t.split_count }) : td(t.category_name ?? tk("À classer"))}
+          </span>
+        </span>
+        <TxAmount tx={t} colored={!internal} className={cn("text-right", internal ? "text-muted" : t.status === "pending" ? "font-normal" : "font-semibold")} />
+        {t.invoice_count ? (
+          <HoverPreview target={{ kind: "operation", t }}>
+            <button
+              type="button"
+              title={tr("Voir la facture")}
+              aria-label={tr("Voir la facture")}
+              onClick={(e) => {
+                e.stopPropagation();
+                openInvoiceViewer({ transactionId: t.id, title: txTitle(t) });
+              }}
+              className="grid size-7 place-items-center rounded-md text-accent hover:bg-accent-soft"
+            >
+              <Paperclip size={14} />
+            </button>
+          </HoverPreview>
+        ) : (
+          <span />
+        )}
+      </div>
+    );
+  };
+
   const allChecked = sorted.length > 0 && sorted.every((r) => checked.has(r.id));
   return (
     <div ref={ref} className={cn("grid gap-6", selected && sidePanel ? "grid-cols-[minmax(0,1fr)_400px]" : "grid-cols-1")}>
       <div className="min-w-0">
-        <PageHeader title={tr("Opérations")} subtitle={`${tn("{n} opération", "{n} opérations", rows.length, { n: `${rows.length}${list.hasNextPage ? "+" : ""}` })} · ${tr("↑↓ pour parcourir, x pour cocher")}`}
+        <PageHeader title={tr("Opérations")} subtitle={`${overall ? tn("{n} opération", "{n} opérations", overall.count) : tn("{n} opération", "{n} opérations", rows.length, { n: `${rows.length}${list.hasNextPage ? "+" : ""}` })} · ${tr("↑↓ pour parcourir, x pour cocher")}`}
           right={
             <div className="flex items-center gap-2">
               <AddOperationButton />
@@ -694,10 +874,10 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
           </button>
         </div>
 
-        {!list.hasNextPage && rows.length > 0 && <Totals rows={rows} />}
+        {rows.length > 0 && <ListTotals totals={overall && filtered && (monthly!.length > 1 || !grouped) ? overall : null} />}
 
         {checked.size > 0 && (
-          <div className="card sticky top-[60px] z-20 mb-3 flex items-center gap-3 border border-accent/30 px-4 py-2.5">
+          <div className="card sticky top-[60px] z-20 mb-3 flex h-12 items-center gap-3 border border-accent/30 px-4">
             <span className="text-sm font-medium">{tn("{n} sélectionnée", "{n} sélectionnées", checked.size)}</span>
             <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} aria-label={tr("Classer la sélection dans")} className="rounded-lg border border-line bg-card px-2 py-1.5 text-sm">
               <option value="">{tr("Classer dans…")}</option>
@@ -718,8 +898,9 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
         )}
 
         {list.error ? <ErrorBox error={list.error} /> : null}
-        <Card>
-          <div className={cn("sticky top-[52px] z-10 grid items-center gap-3 rounded-t-[inherit] border-b border-line bg-card px-4 py-2 text-[12.5px] font-medium text-muted", cols)}>
+        {/* En-tête des colonnes, collé sous la barre du haut ; le bandeau du mois en cours de lecture se colle dessous. */}
+        <div className="sticky top-[52px] z-10 bg-bg pb-2">
+          <div className={cn("card grid h-9 items-center gap-3 px-4 text-[12.5px] font-medium text-muted", cols)}>
             <input
               type="checkbox"
               aria-label={tr("Tout sélectionner")}
@@ -735,69 +916,40 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
             {head("amount", tr("Montant"), "justify-end")}
             <span />
           </div>
-          {list.isLoading ? (
+        </div>
+        {list.isLoading ? (
+          <Card>
             <Spinner />
-          ) : sorted.length === 0 ? (
+          </Card>
+        ) : sorted.length === 0 ? (
+          <Card>
             <Empty>{tr("Aucune opération.")}</Empty>
-          ) : (
-            <div className={cn("divide-y divide-line transition-opacity duration-200", list.isPlaceholderData && "opacity-50")}>
-              {sorted.map((t) => (
-                <div
-                  key={t.id}
-                  data-tx={t.id}
-                  onClick={() => setSelected(t)}
-                  onContextMenu={(e) => ctx.open(e, rowMenu(t))}
-                  className={cn(
-                    "grid cursor-pointer items-center gap-3 px-4 py-2 text-[13px] hover:bg-bg",
-                    cols,
-                    selected?.id === t.id && "bg-accent-soft hover:bg-accent-soft",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    aria-label={tr("Sélectionner")}
-                    checked={checked.has(t.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => toggle(t.id, (e.nativeEvent as MouseEvent).shiftKey)}
-                    className="size-4 accent-[var(--color-accent)]"
+          </Card>
+        ) : grouped ? (
+          <div className={cn("space-y-4 transition-opacity duration-200", list.isPlaceholderData && "opacity-50")}>
+            {groups.map((g) => {
+              const open = !collapsed.has(g.month);
+              return (
+                // `overflow-clip` : la boîte arrondit ses coins sans devenir une zone de défilement (le bandeau reste collant).
+                <Card key={g.month} className="overflow-clip">
+                  <MonthBand
+                    month={g.month}
+                    totals={totals.get(g.month)}
+                    loaded={g.count}
+                    open={open}
+                    onToggle={() => toggleMonth(g.month)}
+                    full={wideTable}
+                    stuck={checked.size > 0 ? "top-[calc(60px+3.25rem)]" : "top-[calc(52px+2.75rem)]"}
+                    onUncategorized={onlyUncategorized && (() => onlyUncategorized(g.month))}
                   />
-                  <span className="tnum text-muted">{dateShort(t.date)}</span>
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <TxLogo t={t} size="sm" />
-                    <span className="min-w-0">
-                      <span className="block truncate font-medium">{txTitle(t)}</span>
-                      {txSubline(t) && <span className="block truncate text-xs text-muted">{txSubline(t)}</span>}
-                    </span>
-                  </span>
-                  {wideTable && <NatureBadge n={natureOf(t.label, Number(t.amount))} />}
-                  {wideTable && <span className="truncate text-muted">{t.account_name}</span>}
-                  <span className={cn("truncate", !t.category_name && !t.split_count && "font-medium text-warn", t.category_source === "auto" && "italic")}>
-                    {t.split_count ? tr("Ventilée · {n}", { n: t.split_count }) : td(t.category_name ?? tk("À classer"))}
-                  </span>
-                  <TxAmount tx={t} className="text-right font-semibold" />
-                  {t.invoice_count ? (
-                    <HoverPreview target={{ kind: "operation", t }}>
-                      <button
-                        type="button"
-                        title={tr("Voir la facture")}
-                        aria-label={tr("Voir la facture")}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openInvoiceViewer({ transactionId: t.id, title: txTitle(t) });
-                        }}
-                        className="grid size-7 place-items-center rounded-md text-accent hover:bg-accent-soft"
-                      >
-                        <Paperclip size={14} />
-                      </button>
-                    </HoverPreview>
-                  ) : (
-                    <span />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+                  {open && <div className="divide-y divide-line">{g.days.flatMap((d) => d.items.map((t, i) => row(t, i === 0)))}</div>}
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <Card className={cn("divide-y divide-line overflow-clip transition-opacity duration-200", list.isPlaceholderData && "opacity-50")}>{sorted.map((t) => row(t, true))}</Card>
+        )}
         {list.hasNextPage && (
           <button type="button" onClick={() => list.fetchNextPage()} disabled={list.isFetchingNextPage} className="press card mt-3 w-full py-3 font-medium text-accent">
             {list.isFetchingNextPage ? tr("Chargement…") : tr("Afficher plus")}
@@ -829,32 +981,74 @@ const NATURE_SHORT: Record<Nature, string> = {
   entree: tr("Entrée##nature"),
 };
 
+/* La couleur d'une ligne dit son poste (pastille de la catégorie) ; sa nature se reconnaît à son icône. */
+const NATURE_ICONS: Record<Nature, LucideIcon> = {
+  carte: CreditCard,
+  prelevement: Repeat,
+  virement: Send,
+  retrait: Banknote,
+  frais: Landmark,
+  interne: ArrowLeftRight,
+  remboursement: Undo2,
+  entree: ArrowDownLeft,
+};
+
 function NatureBadge({ n }: { n: Nature }) {
-  const spend = n === "carte" || n === "prelevement" || n === "virement" || n === "retrait" || n === "frais";
+  const Icon = NATURE_ICONS[n];
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-[12px] text-muted">
-      <span className="size-2 shrink-0 rounded-sm" style={{ background: spend ? natureColor(n) : "var(--color-line)" }} />
+      <Icon size={13} className="shrink-0" aria-hidden />
       <span className="truncate">{NATURE_SHORT[n]}</span>
     </span>
   );
 }
 
-/** Totaux des opérations affichées (quand toute la liste est chargée). */
-function Totals({ rows }: { rows: Transaction[] }) {
-  const counted = rows.filter((t) => t.status !== "duplicate");
-  const inflow = counted.filter((t) => Number(t.amount) > 0).reduce((s, t) => s + Number(t.amount), 0);
-  const outflow = counted.filter((t) => Number(t.amount) < 0).reduce((s, t) => s + Number(t.amount), 0);
+/**
+ * Ordinateur : bandeau d'un mois, en tête de sa boîte. Il reste collé sous l'en-tête des colonnes tant qu'on lit ce
+ * mois ; un clic replie ou déplie ses lignes. `loaded` : lignes chargées, à défaut du nombre donné par le serveur.
+ */
+function MonthBand({
+  month,
+  totals,
+  loaded,
+  open,
+  onToggle,
+  full,
+  stuck,
+  onUncategorized,
+}: {
+  month: string;
+  totals: TxMonth | undefined;
+  loaded: number;
+  open: boolean;
+  onToggle: () => void;
+  full: boolean;
+  stuck: string;
+  onUncategorized?: () => void;
+}) {
   return (
-    <div className="mb-2 flex flex-wrap gap-x-5 px-1 text-[12px] text-muted">
-      <span>
-        {tr("Entrées")} <span className="tnum font-medium text-pos">{money(inflow, true)}</span>
-      </span>
-      <span>
-        {tr("Sorties")} <span className="tnum font-medium text-ink">{money(outflow, true)}</span>
-      </span>
-      <span>
-        {tr("Solde")} <span className={cn("tnum font-medium", inflow + outflow >= 0 ? "text-pos" : "text-neg")}>{money(inflow + outflow, true)}</span>
-      </span>
+    <div className={cn("sticky z-[5] flex min-h-11 items-center gap-3 bg-card px-4 py-1.5", stuck, open && "border-b border-line")}>
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-2 self-stretch text-left">
+        <ChevronDown size={15} className={cn("shrink-0 text-muted transition-transform", !open && "-rotate-90")} aria-hidden />
+        <span className="truncate text-[14.5px] font-semibold">{monthLabel(month)}</span>
+        <span className="whitespace-nowrap text-[12.5px] text-muted">{tn("{n} opération", "{n} opérations", totals?.count ?? loaded)}</span>
+      </button>
+      <ToClassify n={totals?.uncategorized ?? 0} onClick={onUncategorized} />
+      {totals && <MonthFigures m={totals} full={full} className="justify-end text-[12.5px]" />}
+    </div>
+  );
+}
+
+/** Bilan de toute la liste filtrée, quand elle couvre plusieurs mois, et rappel du clic droit. */
+function ListTotals({ totals }: { totals: MonthTotals | null }) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12px] text-muted">
+      {totals && (
+        <>
+          <span className="font-medium text-ink">{tr("Total")}</span>
+          <MonthFigures m={totals} full />
+        </>
+      )}
       <span className="ml-auto">{tr("Clic droit sur une ligne : filtrer, demander à l'assistant…")}</span>
     </div>
   );

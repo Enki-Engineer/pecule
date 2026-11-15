@@ -1,6 +1,7 @@
 import type { Region } from "../lib/countries.ts";
-import { infiniteQueryOptions, keepPreviousData, QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { infiniteQueryOptions, keepPreviousData, QueryClient, queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ModuleId } from "../lib/modules.ts";
+import type { MonthTotals } from "../lib/tx-groups.ts";
 import type { LoanSummary, ScheduleRow } from "../lib/loans.ts";
 import type { AccountKind, Owner } from "../lib/labels.ts";
 import { prepareFile } from "./upload.ts";
@@ -480,22 +481,32 @@ export const invalidateDocuments = (qc: QueryClient) => Promise.all(["documents"
 
 export type TxFilters = { account?: string; category?: string; poste?: string; month?: string; nature?: string; uncategorized: boolean; q: string };
 const TX_PAGE = 80;
+/** Filtres de la liste, tels que le serveur les lit. */
+function txParams(f: TxFilters, extra: Record<string, string> = {}) {
+  const sp = new URLSearchParams(extra);
+  if (f.account) sp.set("account", f.account);
+  if (f.category) sp.set("category", f.category);
+  if (f.poste) sp.set("poste", f.poste);
+  if (f.month) sp.set("month", f.month);
+  if (f.nature) sp.set("nature", f.nature);
+  if (f.uncategorized) sp.set("uncategorized", "1");
+  if (f.q) sp.set("q", f.q);
+  return sp;
+}
 export const transactionListQuery = (f: TxFilters) =>
   infiniteQueryOptions({
     queryKey: ["transactions", f],
     initialPageParam: 0,
-    queryFn: ({ pageParam }) => {
-      const sp = new URLSearchParams({ limit: String(TX_PAGE), offset: String(pageParam) });
-      if (f.account) sp.set("account", f.account);
-      if (f.category) sp.set("category", f.category);
-      if (f.poste) sp.set("poste", f.poste);
-      if (f.month) sp.set("month", f.month);
-      if (f.nature) sp.set("nature", f.nature);
-      if (f.uncategorized) sp.set("uncategorized", "1");
-      if (f.q) sp.set("q", f.q);
-      return api<{ transactions: Transaction[]; hasMore: boolean }>(`/transactions?${sp}`);
-    },
+    queryFn: ({ pageParam }) => api<{ transactions: Transaction[]; hasMore: boolean }>(`/transactions?${txParams(f, { limit: String(TX_PAGE), offset: String(pageParam) })}`),
     getNextPageParam: (last, all) => (last.hasMore ? all.length * TX_PAGE : undefined),
+  });
+/** Bilan d'un mois de la liste filtrée (toutes ses opérations, chargées ou non). */
+export type TxMonth = MonthTotals & { month: string };
+/** Bilan mois par mois de la liste filtrée, et postes colorés (les mêmes que sur l'anneau des dépenses). */
+export const transactionMonthsQuery = (f: TxFilters) =>
+  queryOptions({
+    queryKey: ["transactions", "months", f],
+    queryFn: () => api<{ months: TxMonth[]; colored: string[] }>(`/transactions/months?${txParams(f)}`),
   });
 /** Liste d'opérations sans filtre (premier écran d'Opérations). */
 export const DEFAULT_TX_FILTERS: TxFilters = { account: undefined, category: undefined, poste: undefined, month: undefined, nature: undefined, uncategorized: false, q: "" };

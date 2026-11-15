@@ -2879,4 +2879,6 @@ export const en: Dict = {
   "Que peux-tu me dire sur cette opération ?": "What can you tell me about this transaction?",
   "Voir les opérations semblables": "See similar transactions",
   "Montre-moi les opérations semblables à celle-ci et dis-moi comment elles sont classées.": "Show me the transactions similar to this one and tell me how they are categorised.",
+  "Voir les opérations à classer de ce mois": "See this month's transactions to categorise",
+  "{n} à classer": ["{n} to categorise", "{n} to categorise"],
 };

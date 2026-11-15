@@ -11,12 +11,23 @@ export const operations: ManualTheme = {
       title: tk("Parcourir et filtrer les opérations"),
       summary: tk("Toutes les opérations de tes comptes, à chercher et à filtrer."),
       body: [
-        tk("L'écran [[Opérations]] liste les opérations de tous tes comptes, les plus récentes d'abord. Chaque ligne donne le marchand ou le libellé, la catégorie, le compte et le montant ; un trombone signale une facture jointe."),
+        tk("L'écran [[Opérations]] liste les opérations de tous tes comptes, les plus récentes d'abord, rangées par mois. Chaque ligne donne le marchand ou le libellé, la catégorie, le compte et le montant ; un trombone signale une facture jointe."),
+        tk("Chaque mois a son bilan en tête : le nombre d'opérations, celles qui restent à classer, les dépenses et le solde du mois — sur un écran large, les revenus et l'épargne aussi. Ce sont les chiffres de l'Analyse, calculés sur toutes les opérations du mois, même celles que la liste n'a pas encore chargées. Quand la liste est filtrée, le bilan est celui de ce qu'elle garde, et une ligne [[Total]] réunit les mois."),
+        {
+          list: [
+            tk("Sur ordinateur, le bandeau du mois reste en haut de l'écran pendant que ses lignes défilent ; un clic dessus replie ou déplie le mois."),
+            tk("Un mois qui compte des opérations à classer le dit dans son bilan : touche cette étiquette pour ne garder que celles-là."),
+            tk("Une opération à classer porte un liseré orangé à gauche."),
+            tk("Un mouvement entre tes comptes est écrit en gris : il ne compte ni dans les revenus ni dans les dépenses."),
+            tk("Devant la catégorie d'une dépense, une pastille prend la couleur de son poste, la même que sur l'anneau des dépenses de l'Analyse ; grise, le poste n'a pas de couleur à lui."),
+            tk("Sur ordinateur, la date n'est écrite qu'à la première opération du jour ; elle réapparaît au survol d'une ligne."),
+          ],
+        },
         {
           list: [
             tk("Recherche : un libellé, un marchand, une note, ou un article d'une facture reliée."),
             tk("Filtres : par compte, par catégorie, par nature (achats carte, prélèvements, virements, espèces, frais bancaires, mouvements internes, remboursements, entrées), par mois, et [[À classer]] pour ne voir que ce qui attend."),
-            tk("Sur ordinateur, un clic sur [[Date]] ou [[Montant]] trie les lignes affichées ; un clic droit sur une ligne filtre sur sa catégorie, sa nature ou son mois."),
+            tk("Sur ordinateur, un clic sur [[Date]] ou [[Montant]] trie les lignes affichées (triée par montant, la liste n'est plus rangée par mois) ; un clic droit sur une ligne filtre sur sa catégorie, sa nature ou son mois."),
             tk("Sur téléphone, les filtres en cours sont des pastilles : touche-en une pour la retirer."),
           ],
         },
@@ -24,7 +35,7 @@ export const operations: ManualTheme = {
         { note: tk("Les opérations d'un compte sorti des statistiques ne s'affichent que si tu filtres sur ce compte.") },
       ],
       links: [{ to: "/operations", label: ["Opérations"] }],
-      words: tk("transactions mouvements dépenses liste chercher filtre trier relevé débit crédit"),
+      words: tk("transactions mouvements dépenses liste chercher filtre trier relevé débit crédit mois bilan solde replier couleur pastille gris"),
     },
     {
       id: "classer-une-operation",

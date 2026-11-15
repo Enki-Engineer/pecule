@@ -2879,4 +2879,6 @@ export const es: Dict = {
   "Que peux-tu me dire sur cette opération ?": "¿Qué puedes decirme sobre este movimiento?",
   "Voir les opérations semblables": "Ver los movimientos parecidos",
   "Montre-moi les opérations semblables à celle-ci et dis-moi comment elles sont classées.": "Muéstrame los movimientos parecidos a este y dime cómo están clasificados.",
+  "Voir les opérations à classer de ce mois": "Ver los movimientos por clasificar de este mes",
+  "{n} à classer": ["{n} por clasificar", "{n} por clasificar"],
 };

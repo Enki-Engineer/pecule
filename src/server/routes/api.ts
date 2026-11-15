@@ -29,7 +29,7 @@ import { recordAlert } from "../journal.ts";
 import { agenda } from "../agenda.ts";
 import { searchDocuments } from "../documents.ts";
 import { day } from "../tools/registry.ts";
-import { coloredPostes, comparePeriods, comparisonSpan, forecast, monthDebits, monthFlows, monthlyTrend, monthMerchants, monthTimeline, natureTrend, yearDebits } from "../flows.ts";
+import { coloredPostes, comparePeriods, comparisonSpan, forecast, listMonths, monthDebits, monthFlows, monthlyTrend, monthMerchants, monthTimeline, natureTrend, yearDebits } from "../flows.ts";
 import { debitSeries, nameDebits, refreshDebitNames, resetDebitNames } from "../debits.ts";
 import { importBankLabels } from "../bank-labels.ts";
 import { importBankHistory, removeBankHistory } from "../bank-history.ts";
@@ -183,53 +183,71 @@ api.delete("/rules/:id", async (req, res) => {
 
 /* ---------- Opérations ---------- */
 
-api.get("/transactions", async (req, res) => {
-  const f = z
-    .object({
-      /** Mois ou année entière : le jour retenu est celui des statistiques (jour d'achat ou d'écriture, selon le foyer). */
-      month: period.optional(),
-      /** Une opération précise (arrivée depuis un graphique ou la recherche). */
-      id: z.string().max(160).optional(),
-      account: z.string().optional(),
-      category: z.string().optional(),
-      poste: z.string().optional(),
-      q: z.string().max(100).optional(),
-      uncategorized: z.enum(["1"]).optional(),
-      /** Nature (carte, prélèvement…) : filtre du forage des graphiques de l'Analyse. */
-      nature: z.enum(["carte", "prelevement", "virement", "retrait", "frais", "interne", "remboursement", "entree"]).optional(),
-      /** Marchand exact (nom affiché), pour le forage « Marchands ». */
-      merchant: z.string().max(160).optional(),
-      /** Débits seulement. */
-      debits: z.enum(["1"]).optional(),
-      /** Crédits seulement. */
-      credits: z.enum(["1"]).optional(),
-      limit: z.coerce.number().int().min(1).max(500).default(100),
-      offset: z.coerce.number().int().min(0).default(0),
-    })
-    .parse(req.query);
-  const where = ["t.status IN ('posted', 'pending')"];
+/** Filtres de la liste des opérations (écran Opérations, forage des graphiques). */
+const txFilters = z.object({
+  /** Mois ou année entière : le jour retenu est celui des statistiques (jour d'achat ou d'écriture, selon le foyer). */
+  month: period.optional(),
+  /** Une opération précise (arrivée depuis un graphique ou la recherche). */
+  id: z.string().max(160).optional(),
+  account: z.string().optional(),
+  category: z.string().optional(),
+  poste: z.string().optional(),
+  q: z.string().max(100).optional(),
+  uncategorized: z.enum(["1"]).optional(),
+  /** Nature (carte, prélèvement…) : filtre du forage des graphiques de l'Analyse. */
+  nature: z.enum(["carte", "prelevement", "virement", "retrait", "frais", "interne", "remboursement", "entree"]).optional(),
+  /** Marchand exact (nom affiché), pour le forage « Marchands ». */
+  merchant: z.string().max(160).optional(),
+  /** Débits seulement. */
+  debits: z.enum(["1"]).optional(),
+  /** Crédits seulement. */
+  credits: z.enum(["1"]).optional(),
+});
+
+/**
+ * Conditions d'une liste d'opérations, les mêmes pour la liste et pour son bilan mois par mois. `x` : alias de
+ * `transactions` (a = comptes du membre, `STAT_DATE_JOIN` joint). Le marchand, lui, se filtre après la lecture.
+ */
+function txWhere(req: Request, f: z.infer<typeof txFilters>, x = "t") {
+  const where = [`${x}.status IN ('posted', 'pending')`];
   const params: unknown[] = [];
-  const day = statDate("t");
+  const day = statDate(x);
   if (f.month) {
     const r = periodRange(f.month);
     where.push(`${day} >= ? AND ${day} < ?`), params.push(r.start, r.end);
   }
-  if (f.id) where.push("t.id = ?"), params.push(f.id);
-  if (f.account) where.push("t.account_id = ?"), params.push(f.account);
+  if (f.id) where.push(`${x}.id = ?`), params.push(f.id);
+  if (f.account) where.push(`${x}.account_id = ?`), params.push(f.account);
   // Une opération ventilée répond aux catégories de ses lignes.
-  if (f.category) where.push("t.id IN (SELECT l.id FROM tx_lines l WHERE l.category_id = ?)"), params.push(f.category);
-  if (f.poste) where.push("t.id IN (SELECT l.id FROM tx_lines l JOIN categories lc ON lc.id = l.category_id WHERE lc.poste = ?)"), params.push(f.poste);
-  if (f.uncategorized) where.push("t.category_id IS NULL AND a.excluded = 0");
-  if (f.nature) where.push(`${natureSql("t")} = ?`), params.push(f.nature);
-  if (f.debits) where.push("t.amount < 0");
-  if (f.credits) where.push("t.amount > 0");
+  if (f.category) where.push(`${x}.id IN (SELECT l.id FROM tx_lines l WHERE l.category_id = ?)`), params.push(f.category);
+  if (f.poste) where.push(`${x}.id IN (SELECT l.id FROM tx_lines l JOIN categories lc ON lc.id = l.category_id WHERE lc.poste = ?)`), params.push(f.poste);
+  if (f.uncategorized) where.push(`${x}.category_id IS NULL AND a.excluded = 0`);
+  if (f.nature) where.push(`${natureSql(x)} = ?`), params.push(f.nature);
+  if (f.debits) where.push(`${x}.amount < 0`);
+  if (f.credits) where.push(`${x}.amount > 0`);
   if (f.q)
     where.push(
-      `(t.label LIKE ? OR t.merchant LIKE ? OR t.bank_label LIKE ? OR t.note LIKE ? OR t.id IN (SELECT it.transaction_id FROM invoice_transactions it JOIN invoices i ON i.id = it.invoice_id
+      `(${x}.label LIKE ? OR ${x}.merchant LIKE ? OR ${x}.bank_label LIKE ? OR ${x}.note LIKE ? OR ${x}.id IN (SELECT it.transaction_id FROM invoice_transactions it JOIN invoices i ON i.id = it.invoice_id
          LEFT JOIN invoice_items ii ON ii.invoice_id = i.id WHERE (i.owner_user_id IS NULL OR i.owner_user_id = ${Number(req.user!.id)}) AND (i.title LIKE ? OR ii.label LIKE ?)))`,
     ),
       params.push(...Array(6).fill(`%${f.q}%`));
   if (!f.account && !f.id) where.push("a.excluded = 0");
+  return { where, params };
+}
+
+/** Bilan mois par mois de la liste filtrée (bandeau de chaque mois de l'écran Opérations) et postes colorés. */
+api.get("/transactions/months", async (req, res) => {
+  const f = txFilters.omit({ merchant: true }).parse(req.query);
+  const { where, params } = txWhere(req, f, "tr");
+  res.json({ months: await listMonths(userAccounts(req), where, params, f), colored: await coloredPostes(userAccounts(req)) });
+});
+
+api.get("/transactions", async (req, res) => {
+  const f = txFilters
+    .extend({ limit: z.coerce.number().int().min(1).max(500).default(100), offset: z.coerce.number().int().min(0).default(0) })
+    .parse(req.query);
+  const { where, params } = txWhere(req, f);
+  const day = statDate("t");
   const raw = await q<{ label: string; merchant: string | null }>(
     `SELECT t.id, t.account_id, ${day} AS date, t.date AS booked_date, t.purchase_date, t.amount, t.original_amount, t.original_currency, t.label, t.merchant, t.bank_label, t.status, t.category_id, t.category_source, t.note,
             c.name AS category_name, c.poste AS category_poste, c.kind AS category_kind,

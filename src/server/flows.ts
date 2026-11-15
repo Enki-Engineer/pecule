@@ -53,6 +53,32 @@ export async function monthFlows(accountsSql: string, period: string) {
   };
 }
 
+/**
+ * Bilan mois par mois d'une liste d'opérations (écran Opérations) : leur nombre, celles qui restent à classer, et
+ * leurs lignes comptées comme partout — revenus, dépenses nettes, épargne ; un mouvement interne ne compte pas.
+ * `where` : conditions de la liste (tr = transactions, a = comptes du membre). Filtrée sur une catégorie ou un poste,
+ * la liste ne compte que les lignes qui y sont rangées (une opération ventilée n'y entre que pour sa part).
+ */
+export async function listMonths(accountsSql: string, where: string[], params: unknown[], only: { category?: string; poste?: string } = {}) {
+  const conds = [...where];
+  const values = [...params];
+  if (only.category) conds.push("t.category_id = ?"), values.push(only.category);
+  if (only.poste) conds.push("c.poste = ?"), values.push(only.poste);
+  const rows = await q<{ month: string; count: number; uncategorized: number; revenus: number; depenses: number; epargne: number }>(
+    `SELECT DATE_FORMAT(t.date, '%Y-%m') AS month, COUNT(DISTINCT tr.id) AS count,
+            COUNT(DISTINCT CASE WHEN tr.category_id IS NULL AND t.split_id = 0 THEN tr.id END) AS uncategorized,
+            SUM(CASE WHEN ${LINE_KIND} = 'revenu' THEN t.amount ELSE 0 END) AS revenus,
+            -SUM(CASE WHEN ${LINE_KIND} = 'depense' THEN t.amount ELSE 0 END) AS depenses,
+            -SUM(CASE WHEN c.kind = 'epargne' THEN t.amount ELSE 0 END) AS epargne
+     FROM tx_lines t JOIN transactions tr ON tr.id = t.id JOIN ${accountsSql} a ON a.id = tr.account_id
+     LEFT JOIN categories c ON c.id = t.category_id ${STAT_DATE_JOIN}
+     WHERE ${conds.map((w) => `(${w})`).join(" AND ")}
+     GROUP BY month ORDER BY month DESC`,
+    values,
+  );
+  return rows.map((r) => ({ month: r.month, count: Number(r.count), uncategorized: Number(r.uncategorized), revenus: r2(Number(r.revenus)), depenses: r2(Number(r.depenses)), epargne: r2(Number(r.epargne)) }));
+}
+
 /** Revenus, dépenses et épargne mois par mois, du mois `from` au mois `to` compris (un mois sans opération n'a pas de ligne). */
 export async function monthlyTrend(accountsSql: string, from: string, to: string) {
   return q<{ month: string; revenus: number; depenses: number; epargne: number }>(

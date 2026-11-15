@@ -5,6 +5,7 @@ import { Donut } from "./Donut.tsx";
 import { Tile, categoryIcon } from "./Logo.tsx";
 import { openDrill } from "./DrillDrawer.tsx";
 import { cn } from "../cn.ts";
+import { colorOf } from "../charts.ts";
 import { money, periodLabel } from "../format.ts";
 import { useMedia } from "../useMedia.ts";
 import type { MonthStats } from "../api.ts";
@@ -20,9 +21,8 @@ import { t, td, tk, tn } from "../../lib/i18n.ts";
 
 export type BreakdownKind = "depenses" | "revenus";
 
-const OTHER = "#9aa5b4";
 export const HATCH = "repeating-linear-gradient(45deg, var(--color-muted) 0 2px, var(--color-line) 2px 5px)";
-export const colorOf = (slot: number | null) => (slot ? `var(--series-${slot})` : OTHER);
+export { colorOf };
 
 function incomeIcon(name: string): LucideIcon {
   const n = name.toLowerCase();

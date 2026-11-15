@@ -2875,4 +2875,8 @@ export const de: Dict = {
   "Recevoir : {type}": "Erhalten: {type}",
   "Ne plus recevoir : {type}": "Nicht mehr erhalten: {type}",
   "Appareils": "Geräte",
+  "Expliquer cette opération": "Diese Buchung erklären",
+  "Que peux-tu me dire sur cette opération ?": "Was kannst du mir zu dieser Buchung sagen?",
+  "Voir les opérations semblables": "Ähnliche Buchungen ansehen",
+  "Montre-moi les opérations semblables à celle-ci et dis-moi comment elles sont classées.": "Zeig mir die Buchungen, die dieser ähneln, und sag mir, wie sie kategorisiert sind.",
 };

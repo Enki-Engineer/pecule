@@ -113,7 +113,7 @@ Aide sur Pécule : tu es aussi le guide de l'appli. Quand l'utilisateur demande 
 Sommaire du manuel (identifiant — titre) :
 ${manualOutline()}
 
-Un bloc « [Contexte] » indique l'écran ouvert par l'utilisateur : « cette opération », « cette facture », « ce mois » désignent l'élément indiqué. Il donne aussi la page du manuel de cet écran (un article, ou un thème dont read_manual liste alors les articles par le sommaire) : « comment ça marche ici ? », « à quoi sert cet écran ? » se lisent là.
+Un bloc « [Contexte] » indique l'écran ouvert par l'utilisateur, ou l'élément à propos duquel il pose sa question : « cette opération », « cette facture », « ce mois » désignent l'élément indiqué (une opération se lit par get_transaction avec son id). Il donne aussi la page du manuel de cet écran (un article, ou un thème dont read_manual liste alors les articles par le sommaire) : « comment ça marche ici ? », « à quoi sert cet écran ? » se lisent là.
 
 Référentiel des catégories (id — nom — poste — type) :
 ${cats.map((c) => `${c.id} — ${c.name} — ${c.poste ?? ""} — ${c.kind}`).join("\n")}`;
@@ -538,8 +538,12 @@ async function attachmentBlocks(userId: number, invoiceIds: number[], documentId
 }
 
 function contextBlock(c: ScreenContext): { block: Anthropic.TextBlockParam; label?: string } {
+  const entity = c.entity ? `${c.entity.type} id=${c.entity.id}${c.entity.label ? ` (${c.entity.label})` : ""}` : "";
+  // Conversation en plein écran : aucun écran derrière elle, seulement l'élément joint par « Demander à l'assistant ».
+  if (entity && /^\/assistant(\?|$)/.test(c.path))
+    return { block: { type: "text", text: `[Contexte] L'utilisateur pose sa question à propos de cet élément : ${entity}.` }, label: c.entity?.label };
   const where = `${c.screen ? `l'écran « ${c.screen} »` : "un écran"} (${c.path})`;
-  const what = c.entity ? ` ; élément ouvert : ${c.entity.type} id=${c.entity.id}${c.entity.label ? ` (${c.entity.label})` : ""}` : "";
+  const what = entity ? ` ; élément ouvert : ${entity}` : "";
   // Page du manuel qui explique cet écran : « comment ça marche ici ? » se lit là.
   const help = helpFor(c.path);
   return { block: { type: "text", text: `[Contexte] L'utilisateur est sur ${where}${what}${help ? ` ; page du manuel de cet écran : ${help}` : ""}.` }, label: c.entity?.label };

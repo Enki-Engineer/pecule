@@ -11,6 +11,7 @@ import { dateFr, plainMoney } from "../format.ts";
 import { txTitle } from "../../lib/labels.ts";
 import { undoToast } from "../undo.ts";
 import { askAssistant } from "../assistantBus.ts";
+import { operationEntity } from "../txInfo.ts";
 import { useMedia } from "../useMedia.ts";
 import { t as tr, td, tn } from "../../lib/i18n.ts";
 
@@ -183,7 +184,7 @@ export function Triage() {
             </button>
             <button
               type="button"
-              onClick={() => askAssistant(tr("Aide-moi à classer l'opération « {titre} » du {date} ({montant}, libellé « {libelle} »).", { titre: txTitle(t), date: dateFr(t.date), montant: plainMoney(t.amount), libelle: t.label }))}
+              onClick={() => askAssistant(tr("Aide-moi à classer l'opération « {titre} » du {date} ({montant}, libellé « {libelle} »).", { titre: txTitle(t), date: dateFr(t.date), montant: plainMoney(t.amount), libelle: t.label }), operationEntity(t))}
               className="press card flex flex-col items-center gap-1 py-2.5 text-[12px] font-medium"
             >
               <MessageSquare size={17} /> {tr("Assistant")}

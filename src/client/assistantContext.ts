@@ -1,9 +1,10 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 /*
- * Contexte de l'assistant en panneau : l'élément ouvert à l'écran (opération, facture, mois…).
- * Les pages le déclarent avec useAssistantEntity ; le panneau le joint au message suivant, pour
- * que « cette opération » ou « cette facture » désigne la bonne chose.
+ * Contexte de l'assistant : l'élément ouvert à l'écran (opération, facture, mois…), que les pages déclarent avec
+ * useAssistantEntity et que le panneau joint au message suivant, et l'élément joint par un bouton « Demander à
+ * l'assistant » (pinEntity), qui vaut aussi en plein écran. Ainsi « cette opération » ou « cette facture » désigne
+ * la bonne chose.
  */
 
 export type AssistantEntity = { type: "operation" | "facture" | "mois" | "annee" | "credit" | "placement" | "document" | "bien"; id: string; label: string };
@@ -11,10 +12,33 @@ export type AssistantEntity = { type: "operation" | "facture" | "mois" | "annee"
 let current: AssistantEntity | null = null;
 const listeners = new Set<() => void>();
 
+/*
+ * Élément joint à la question par un bouton « Demander à l'assistant » (askAssistant). Il suit la conversation même
+ * quand sa fiche se ferme — sur téléphone ou dans une fenêtre étroite, l'assistant prend tout l'écran — jusqu'à
+ * l'envoi du message, la croix de la pastille, ou l'ouverture d'un autre élément.
+ */
+let pinned: AssistantEntity | null = null;
+
+export const sameEntity = (a: AssistantEntity | null, b: AssistantEntity | null) => !!a && !!b && a.type === b.type && a.id === b.id;
+
 function set(e: AssistantEntity | null) {
   current = e;
+  // Un autre élément s'ouvre : celui qu'on avait joint sans envoyer de message ne suit plus.
+  if (e && pinned && !sameEntity(e, pinned)) pinned = null;
   for (const l of listeners) l();
 }
+
+export function pinEntity(e: AssistantEntity | null) {
+  pinned = e;
+  for (const l of listeners) l();
+}
+
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => listeners.delete(l);
+};
+
+export const usePinnedEntity = (): AssistantEntity | null => useSyncExternalStore(subscribe, () => pinned);
 
 /** Déclare l'élément ouvert tant que le composant est affiché (null : rien d'ouvert). */
 export function useAssistantEntity(entity: AssistantEntity | null) {
@@ -30,13 +54,7 @@ export function useAssistantEntity(entity: AssistantEntity | null) {
 }
 
 export function useCurrentEntity(): AssistantEntity | null {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => current,
-  );
+  return useSyncExternalStore(subscribe, () => current);
 }
 
 /** Nom des écrans, pour le contexte envoyé à l'assistant. */

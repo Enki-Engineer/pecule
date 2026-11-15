@@ -2875,4 +2875,8 @@ export const en: Dict = {
   "Recevoir : {type}": "Receive: {type}",
   "Ne plus recevoir : {type}": "Stop receiving: {type}",
   "Appareils": "Devices",
+  "Expliquer cette opération": "Explain this transaction",
+  "Que peux-tu me dire sur cette opération ?": "What can you tell me about this transaction?",
+  "Voir les opérations semblables": "See similar transactions",
+  "Montre-moi les opérations semblables à celle-ci et dis-moi comment elles sont classées.": "Show me the transactions similar to this one and tell me how they are categorised.",
 };

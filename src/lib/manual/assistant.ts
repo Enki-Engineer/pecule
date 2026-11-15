@@ -16,6 +16,7 @@ export const assistant: ManualTheme = {
             tk("Sur ordinateur : ⌘J, ou le bouton [[Assistant]] de la barre du haut. Sur un grand écran il s'ouvre en panneau à droite, à côté de ce que tu regardes ; ⌘⇧J l'ouvre en plein écran."),
             tk("Sur téléphone : le bouton rond au centre de la barre du bas."),
             tk("Depuis un autre écran : [[Demander à l'assistant]] prépare la question sur l'élément ouvert."),
+            tk("Depuis la fiche d'une opération : le bouton [[Assistant]] joint l'opération à ta question. Sur un grand écran, le panneau s'ouvre à côté de la fiche, qui reste ouverte ; sur téléphone, l'assistant prend l'écran et l'opération reste jointe, en pastille au-dessus du champ."),
           ],
         },
         tk("Écris ta question et envoie avec Entrée (Maj + Entrée va à la ligne). Une conversation vide propose des questions et des actions toutes prêtes."),

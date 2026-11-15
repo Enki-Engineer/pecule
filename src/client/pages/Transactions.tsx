@@ -11,7 +11,7 @@ import { HoverPreview } from "../components/HoverPreview.tsx";
 import { openInvoiceViewer } from "../components/InvoiceViewer.tsx";
 import { NATURE_LABELS, natureOf, merchantName, type Nature } from "../../lib/nature.ts";
 import { natureColor } from "../charts.ts";
-import { askAssistant } from "../assistantBus.ts";
+import { askAssistant, PANEL_MEDIA } from "../assistantBus.ts";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMedia } from "../useMedia.ts";
 import { cn } from "../cn.ts";
@@ -23,7 +23,7 @@ import { AddInvoiceButton, FileIcon } from "./Invoices.tsx";
 import { Amount, Card, Empty, ErrorBox, PageHeader, Sheet, Spinner, TxAmount } from "../components/ui.tsx";
 import { OpsTabs, useListSearch, useTabParams, useTabState } from "../components/OpsSection.tsx";
 import { dateFr, dateShort, dayLabel, money, moneyIn, monthLabel, periodLabel, plainMoney } from "../format.ts";
-import { txDateHint, txSubline } from "../txInfo.ts";
+import { operationEntity, txDateHint, txSubline } from "../txInfo.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
 import { txTitle } from "../../lib/labels.ts";
 import { useAssistantEntity } from "../assistantContext.ts";
@@ -240,7 +240,7 @@ function TransactionSheet({ t, categories, onClose, panel = false }: { t: Transa
   const [filter, setFilter] = useState("");
   const [showAll, setShowAll] = useState(false);
   const suggestions = useSuggestions(t?.id);
-  useAssistantEntity(t ? { type: "operation", id: t.id, label: tr("Opération du {date} · {titre} · {montant}", { date: dateFr(t.date), titre: txTitle(t), montant: money(t.amount) }) } : null);
+  useAssistantEntity(t ? operationEntity(t) : null);
   useEffect(() => {
     setNote(t?.note ?? "");
     setRemember(false);
@@ -275,10 +275,28 @@ function TransactionSheet({ t, categories, onClose, panel = false }: { t: Transa
     }
   }
 
+  /** L'assistant s'ouvre sur cette opération, jointe à la question : en panneau à côté de la fiche, qui reste ouverte. */
+  function ask() {
+    if (!t) return;
+    askAssistant("", operationEntity(t));
+    // Sans la place du panneau (téléphone, fenêtre étroite), l'assistant prend tout l'écran : la fiche lui laisse la place.
+    if (!window.matchMedia(PANEL_MEDIA).matches) onClose();
+  }
+
   const content = (
     <>
       <Card className="mb-3 p-4">
-        <div className="text-[15px] font-semibold">{txTitle(t)}</div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 text-[15px] font-semibold">{txTitle(t)}</div>
+          <button
+            type="button"
+            onClick={ask}
+            title={tr("Demander à l'assistant")}
+            className="press -mr-1 -mt-0.5 flex shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent"
+          >
+            <Sparkles size={13} /> {tr("Assistant")}
+          </button>
+        </div>
         {/* Libellé de la banque, ligne par ligne : son intitulé, puis ce que le créancier a écrit et ses références. */}
         {t.bank_label && t.bank_label.toLowerCase() !== t.label.toLowerCase() && (
           <div className="mt-0.5 whitespace-pre-line break-words text-xs text-muted" title={tr("Libellé de la banque")}>
@@ -295,7 +313,7 @@ function TransactionSheet({ t, categories, onClose, panel = false }: { t: Transa
         </div>
         {Number(t.amount) < 0 && t.category_kind !== "interne" && <Equivalence amount={Number(t.amount)} className="mt-1 text-right" />}
         <div className="mt-3 flex items-center gap-2 text-sm">
-          <span className="text-muted">{tr("Catégorie :")}</span>
+          <span className="shrink-0 text-muted">{tr("Catégorie :")}</span>
           {t.split_count ? (
             <span className="font-medium">{tr("Ventilée · {n} catégories", { n: t.split_count })}</span>
           ) : t.category_name ? (
@@ -606,7 +624,7 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
       { label: tr("Nature : {nom}", { nom: NATURE_LABELS[n] }), icon: <Shapes size={14} />, onSelect: () => setParam("nature", n) },
       { label: tr("Mois : {mois}", { mois: monthLabel(t.date.slice(0, 7)) }), icon: <CalendarDays size={14} />, onSelect: () => setParam("mois", t.date.slice(0, 7)) },
       "separator" as const,
-      { label: tr("Demander à l'assistant"), icon: <MessageSquare size={14} />, onSelect: () => askAssistant(tr("Que peux-tu me dire sur l'opération « {titre} » du {date} ({montant}) ?", { titre: txTitle(t), date: dateFr(t.date), montant: plainMoney(Number(t.amount)) })) },
+      { label: tr("Demander à l'assistant"), icon: <MessageSquare size={14} />, onSelect: () => askAssistant(tr("Que peux-tu me dire sur l'opération « {titre} » du {date} ({montant}) ?", { titre: txTitle(t), date: dateFr(t.date), montant: plainMoney(Number(t.amount)) }), operationEntity(t)) },
       { label: tr("Copier le libellé"), icon: <Copy size={14} />, onSelect: () => navigator.clipboard.writeText(t.label).then(() => toast.success(tr("Libellé copié"))) },
     ];
   };

@@ -1,6 +1,7 @@
 import type { Transaction } from "./api.ts";
-import { dateFr } from "./format.ts";
-import { bankMotif } from "../lib/labels.ts";
+import type { AssistantEntity } from "./assistantContext.ts";
+import { dateFr, money } from "./format.ts";
+import { bankMotif, txTitle } from "../lib/labels.ts";
 import { t } from "../lib/i18n.ts";
 
 /*
@@ -30,3 +31,10 @@ export function txDateHint(tx: Dated): string | null {
 export function txSubline(tx: Dated & Pick<Transaction, "bank_label">): string | null {
   return [bankMotif(tx.bank_label), txDateHint(tx)].filter(Boolean).join(" · ") || null;
 }
+
+/** Une opération telle que l'assistant la reçoit : son identifiant, et le texte de la pastille « À propos de ». */
+export const operationEntity = (tx: Transaction): AssistantEntity => ({
+  type: "operation",
+  id: tx.id,
+  label: t("Opération du {date} · {titre} · {montant}", { date: dateFr(tx.date), titre: txTitle(tx), montant: money(tx.amount) }),
+});

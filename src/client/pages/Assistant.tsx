@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { api, apiStream, invalidateDocuments, invalidateInvoices, uploadToInbox, useMe } from "../api.ts";
 import { PageHeader } from "../components/ui.tsx";
 import { cn } from "../cn.ts";
-import { screenName, useCurrentEntity } from "../assistantContext.ts";
+import { pinEntity, sameEntity, screenName, useCurrentEntity, usePinnedEntity } from "../assistantContext.ts";
 import { Markdown, calloutLabel } from "../components/Markdown.tsx";
 import { AssistantHistory } from "../components/AssistantHistory.tsx";
 import { ErrorBoundary } from "../components/ErrorBoundary.tsx";
@@ -77,10 +77,23 @@ const ACTIONS: Suggestion[] = [
   { label: t("Changer un réglage"), text: t("Change ce réglage de Pécule : ") },
 ];
 
-/** Actions liées à l'écran ouvert (panneau ordinateur) ou à l'élément affiché. */
-function contextualActions(path: string, entity: { type: string; label: string } | null): Suggestion[] {
-  if (entity?.type === "operation") return [{ label: t("Classer cette opération"), text: t("Classe cette opération dans ") }, { label: t("Noter cette opération"), text: t("Ajoute une note à cette opération : ") }];
+/** Ce qu'on demande le plus souvent sur l'élément joint à la question (pastille « À propos de »). */
+function entityActions(entity: { type: string; label: string } | null): Suggestion[] {
+  if (entity?.type === "operation")
+    return [
+      { label: t("Expliquer cette opération"), text: t("Que peux-tu me dire sur cette opération ?"), send: true },
+      { label: t("Classer cette opération"), text: t("Classe cette opération dans ") },
+      { label: t("Noter cette opération"), text: t("Ajoute une note à cette opération : ") },
+      { label: t("Voir les opérations semblables"), text: t("Montre-moi les opérations semblables à celle-ci et dis-moi comment elles sont classées."), send: true },
+    ];
   if (entity?.type === "facture") return [{ label: t("Relier cette facture"), text: t("Relie cette facture à son paiement"), send: true }, { label: t("Corriger cette facture"), text: t("Corrige cette facture : ") }];
+  return [];
+}
+
+/** Actions liées à l'élément affiché ou, à défaut, à l'écran ouvert (panneau ordinateur). */
+function contextualActions(path: string, entity: { type: string; label: string } | null): Suggestion[] {
+  const own = entityActions(entity);
+  if (own.length) return own;
   if (/^\/immobilier\/./.test(path) || entity?.type === "bien")
     return [{ label: t("Mettre à jour la valeur de ce bien"), text: t("Mets à jour la valeur estimée de ce bien : ") }, { label: t("Modifier le loyer"), text: t("Change le loyer de ce bien : ") }];
   if (path.startsWith("/budget")) return [COMPARE, { label: t("Ajouter un engagement"), text: t("Ajoute au budget ") }, { label: t("Modifier mon bonus de l'année"), text: t("Modifie mon bonus de cette année : ") }];
@@ -211,7 +224,20 @@ const ChatMessages = memo(function ChatMessages({ items }: { items: Item[] }) {
   );
 });
 
-function ChatWelcome({ name, wide, actions, onSuggest }: { name?: string; wide: boolean; actions: Suggestion[]; onSuggest: (sg: Suggestion) => void }) {
+function ChatWelcome({
+  name,
+  wide,
+  about,
+  actions,
+  onSuggest,
+}: {
+  name?: string;
+  wide: boolean;
+  /** Élément joint à la question : ce qu'on peut en demander passe devant les questions générales. */
+  about?: { label: string; actions: Suggestion[] };
+  actions: Suggestion[];
+  onSuggest: (sg: Suggestion) => void;
+}) {
   return (
     <div className={cn("chat-in space-y-2", wide ? "pt-[7vh]" : "pt-4")}>
       <div className="mb-5 flex flex-col items-center text-center">
@@ -219,10 +245,24 @@ function ChatWelcome({ name, wide, actions, onSuggest }: { name?: string; wide: 
           <Sparkles size={24} />
         </span>
         <p className={cn("font-semibold tracking-tight", wide ? "text-[26px]" : "text-[20px]")}>{name ? t("Bonjour {prenom}", { prenom: name }) : t("Bonjour")}</p>
-        <p className="mt-1.5 max-w-md text-sm text-muted">
-          {t("Pose une question sur tes dépenses, tes comptes, ton patrimoine ou tes crédits, ou sur Pécule lui-même, joins une facture ou un document (trombone) pour le ranger, ou demande une action. Chaque action t'est soumise avant d'être faite.")}
-        </p>
+        {!about && (
+          <p className="mt-1.5 max-w-md text-sm text-muted">
+            {t("Pose une question sur tes dépenses, tes comptes, ton patrimoine ou tes crédits, ou sur Pécule lui-même, joins une facture ou un document (trombone) pour le ranger, ou demande une action. Chaque action t'est soumise avant d'être faite.")}
+          </p>
+        )}
       </div>
+      {about && (
+        <>
+          <div className="truncate px-1 pt-1 text-[12.5px] font-medium text-accent">{about.label}</div>
+          <div className={cn("grid gap-2 pb-2", wide && "grid-cols-2")}>
+            {about.actions.map((sg) => (
+              <button key={sg.label} type="button" onClick={() => onSuggest(sg)} className="press card block w-full px-4 py-3 text-left text-[15px] md:py-2.5 md:text-[14px]">
+                {sg.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <div className="px-1 pt-1 text-[12.5px] font-medium text-muted">{t("Questions")}</div>
       <div className={cn("grid gap-2", wide && "grid-cols-2")}>
         {QUESTIONS.map((sg) => (
@@ -328,7 +368,26 @@ export function AssistantChat({
   const panel = variant === "panel";
   const full = variant === "full";
   const entityKey = entity ? `${entity.type}:${entity.id}` : null;
-  const activeEntity = panel && entity && dismissed !== entityKey ? entity : null;
+  // L'élément joint par « Demander à l'assistant » passe devant celui de l'écran, et vaut aussi hors du panneau.
+  const pinned = usePinnedEntity();
+  const activeEntity = pinned ?? (panel && entity && dismissed !== entityKey ? entity : null);
+  /** Croix de la pastille : l'élément joint est retiré ; s'il est aussi celui de l'écran, il ne revient pas à sa place. */
+  function dismissEntity() {
+    if (!pinned || sameEntity(pinned, entity)) setDismissed(entityKey);
+    pinEntity(null);
+  }
+  // Une question arrive d'un autre écran (élément joint, phrase préparée) : le champ est prêt. Sur le téléphone, le
+  // clavier ne s'ouvre pas tout seul.
+  const hasPinned = !!pinned;
+  useEffect(() => {
+    if (variant === "page") return;
+    const focus = () => requestAnimationFrame(() => inputRef.current?.focus());
+    if (hasPinned) focus();
+    window.addEventListener("pecule-ask", focus);
+    return () => {
+      window.removeEventListener("pecule-ask", focus);
+    };
+  }, [hasPinned, variant]);
 
   /* ---------- Historique ---------- */
   // Plein écran assez large : les conversations tiennent dans une colonne à gauche. Ailleurs, la liste prend la place de la conversation.
@@ -527,9 +586,10 @@ export function AssistantChat({
         (r.type === "invoice" ? invoiceIds : documentIds).push(r.id);
       }
       if (staged.length) void Promise.all([invalidateInvoices(qc), invalidateDocuments(qc)]);
-      const context = panel
-        ? { path: location.pathname + location.search, screen: screenName(location.pathname), entity: activeEntity ?? undefined }
-        : undefined;
+      const about = activeEntity;
+      const context = panel || about ? { path: location.pathname + location.search, screen: screenName(location.pathname), entity: about ?? undefined } : undefined;
+      // L'élément joint part avec ce message : il ne s'attache pas aux suivants.
+      if (pinned) pinEntity(null);
       const ok = await call("/assistant/message", {
         threadId: thread?.threadId || undefined,
         text: v,
@@ -541,12 +601,14 @@ export function AssistantChat({
         // Les factures jointes restent enregistrées (écran Factures) ; on rend la main pour réessayer.
         setThread(before);
         setText(value);
+        if (pinned) pinEntity(pinned);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Envoi impossible"));
       setThread(before);
       setText(value);
       setFiles(staged);
+      if (pinned) pinEntity(pinned);
     } finally {
       setBusy(false);
       setStep(null);
@@ -619,7 +681,8 @@ export function AssistantChat({
         r = await call("/assistant/confirm", { threadId: cur.thread.threadId, approve: decision, actionIds: cur.thread.pending?.map((p) => p.id) }, onText);
       } else {
         setThread((t) => ({ threadId: t?.threadId ?? "", title: t?.title, pinned: t?.pinned, display: [...(t?.display ?? []), { role: "user", text: spoken }], pending: null, cost: t?.cost }));
-        const context = panel ? { path: location.pathname + location.search, screen: screenName(location.pathname), entity: activeEntity ?? undefined } : undefined;
+        const context = panel || activeEntity ? { path: location.pathname + location.search, screen: screenName(location.pathname), entity: activeEntity ?? undefined } : undefined;
+        if (pinned) pinEntity(null);
         r = await call("/assistant/message", { threadId: cur.thread?.threadId || undefined, text: spoken, voice: true, context }, onText);
         if (!r) setThread(cur.thread);
       }
@@ -676,7 +739,10 @@ export function AssistantChat({
 
   const items = thread?.display ?? [];
   const contextual = contextualActions(location.pathname, activeEntity);
-  const welcomeActions = [...contextual, ...ACTIONS].filter((sg, i, all) => all.findIndex((x) => x.label === sg.label) === i);
+  // Accueil : ce qui se demande sur l'élément joint passe en tête, sous son nom ; le reste suit.
+  const own = entityActions(activeEntity);
+  const about = activeEntity && own.length ? { label: activeEntity.label, actions: own } : undefined;
+  const welcomeActions = [...(about ? [] : contextual), ...ACTIONS].filter((sg, i, all) => all.findIndex((x) => x.label === sg.label) === i);
   const firstName = me.data?.user?.name?.trim().split(/\s+/)[0];
   const canReset = items.length > 0 || listing;
 
@@ -718,7 +784,7 @@ export function AssistantChat({
         </div>
       ) : (
         <>
-          {items.length === 0 && !busy && <ChatWelcome name={firstName} wide={full} actions={welcomeActions} onSuggest={suggest} />}
+          {items.length === 0 && !busy && <ChatWelcome name={firstName} wide={full} about={about} actions={welcomeActions} onSuggest={suggest} />}
           <ChatMessages items={items} />
           {busy && stream && <Markdown text={stream} streaming className="w-full" />}
           {thread?.pending && !busy && <PendingCard pending={thread.pending} onConfirm={(approve) => void confirm(approve)} />}
@@ -766,7 +832,7 @@ export function AssistantChat({
           {activeEntity && (
             <span className="flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-1 pl-3 pr-1 text-xs font-medium text-accent">
               <span className="truncate">{t("À propos de : {element}", { element: activeEntity.label })}</span>
-              <button type="button" onClick={() => setDismissed(entityKey)} aria-label={t("Ne pas joindre ce contexte")} className="grid size-5 place-items-center rounded-full hover:bg-accent/15">
+              <button type="button" onClick={dismissEntity} aria-label={t("Ne pas joindre ce contexte")} className="grid size-5 place-items-center rounded-full hover:bg-accent/15">
                 <X size={12} />
               </button>
             </span>

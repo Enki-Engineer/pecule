@@ -12,6 +12,7 @@ import { cn } from "../cn.ts";
 import { api, useMe, useMonth, useSync } from "../api.ts";
 import { useTheme } from "../theme.ts";
 import { CommandPalette, openPalette } from "./CommandPalette.tsx";
+import { PANEL_MEDIA } from "../assistantBus.ts";
 import { DrillDrawer } from "./DrillDrawer.tsx";
 import { InvoiceViewer } from "./InvoiceViewer.tsx";
 import { Shortcuts } from "./Shortcuts.tsx";
@@ -67,9 +68,9 @@ const CRUMBS: [RegExp, { label: string; to?: string }[]][] = [
 
 const PANEL_KEY = "pecule.assistant.panel";
 const useWideScreen = () => {
-  const [wide, setWide] = useState(() => window.matchMedia("(min-width: 1280px)").matches);
+  const [wide, setWide] = useState(() => window.matchMedia(PANEL_MEDIA).matches);
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1280px)");
+    const mq = window.matchMedia(PANEL_MEDIA);
     const on = () => setWide(mq.matches);
     mq.addEventListener("change", on);
     return () => {
@@ -162,7 +163,7 @@ export function Layout() {
       else if (xl) {
         togglePanel(true);
         setPrefill(q);
-      } else navigate(`/assistant?q=${encodeURIComponent(q)}`);
+      } else navigate(q ? `/assistant?q=${encodeURIComponent(q)}` : "/assistant");
     };
     // Conversation existante (résumé de la semaine) : panneau sur grand écran, page sinon.
     const onThread = () => {

@@ -2875,4 +2875,8 @@ export const it: Dict = {
   "Recevoir : {type}": "Ricevere: {type}",
   "Ne plus recevoir : {type}": "Non ricevere più: {type}",
   "Appareils": "Dispositivi",
+  "Expliquer cette opération": "Spiegare questo movimento",
+  "Que peux-tu me dire sur cette opération ?": "Cosa puoi dirmi su questo movimento?",
+  "Voir les opérations semblables": "Vedere i movimenti simili",
+  "Montre-moi les opérations semblables à celle-ci et dis-moi comment elles sont classées.": "Mostrami i movimenti simili a questo e dimmi come sono classificati.",
 };

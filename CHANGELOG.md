@@ -3,6 +3,17 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.15.0
+
+- **L'assistant depuis la fiche d'une opération** : un bouton [Assistant] en haut de la fiche ouvre l'assistant sur
+  cette opération, jointe à la question (pastille « À propos de »). Sur un grand écran, le panneau s'ouvre à côté de
+  la fiche, qui reste ouverte ; sur téléphone ou dans une fenêtre étroite, l'assistant prend l'écran et l'opération
+  reste jointe jusqu'à l'envoi du message. Une conversation vide propose d'abord ce qui se demande sur elle :
+  l'expliquer, la classer, la noter, voir les opérations semblables.
+- « Demander à l'assistant » (clic droit sur une ligne, menu d'une ligne sur téléphone, tri rapide) joint désormais
+  l'opération elle-même : l'assistant la lit par son identifiant au lieu de la rechercher d'après son libellé.
+- Fiche d'une opération sur téléphone : « Catégorie : » ne se coupe plus en deux lignes devant un nom long.
+
 ## 1.14.0
 
 - **Aide de l'écran ouvert** : un « ? » dans la barre du haut (ordinateur et téléphone) ouvre la page du manuel

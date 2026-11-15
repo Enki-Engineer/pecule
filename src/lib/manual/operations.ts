@@ -45,6 +45,7 @@ export const operations: ManualTheme = {
             tk("Annuler : juste après un classement, un bandeau propose [[Annuler##retour en arrière]] pendant quelques secondes."),
             tk("Sur téléphone : balaie une ligne vers la gauche pour la classer dans la première suggestion."),
             tk("Une catégorie en italique a été devinée d'après une opération semblable : choisis-en une pour la confirmer ou la corriger."),
+            tk("Un doute : le bouton [[Assistant]] de la fiche ouvre l'assistant sur cette opération. Demande-lui ce qu'elle est, de la classer, de la noter ou de te montrer les opérations semblables."),
           ],
         },
         { tip: tk("Pour que Pécule classe seul les prochaines opérations du même libellé, coche la case de règle avant de choisir la catégorie : voir [Les règles de classement](/manuel/regles-de-classement).") },

@@ -7,6 +7,7 @@ import { Sheet } from "./ui.tsx";
 import { undoToast } from "../undo.ts";
 import { askAssistant } from "../assistantBus.ts";
 import { txTitle } from "../../lib/labels.ts";
+import { operationEntity } from "../txInfo.ts";
 import { merchantName } from "../../lib/nature.ts";
 import { dateFr, money, plainMoney } from "../format.ts";
 import { cn } from "../cn.ts";
@@ -134,7 +135,7 @@ export function SwipeTxRow({ t, children, onOpen, onSearch }: { t: Transaction; 
               <ActionRow
                 icon={<MessageSquare size={17} />}
                 label={tr("Demander à l'assistant")}
-                onClick={() => (setMenu(false), askAssistant(tr("Que peux-tu me dire sur l'opération « {titre} » du {date} ({montant}) ?", { titre: txTitle(t), date: dateFr(t.date), montant: plainMoney(Number(t.amount)) })))}
+                onClick={() => (setMenu(false), askAssistant(tr("Que peux-tu me dire sur l'opération « {titre} » du {date} ({montant}) ?", { titre: txTitle(t), date: dateFr(t.date), montant: plainMoney(Number(t.amount)) }), operationEntity(t)))}
               />
               <ActionRow icon={<Copy size={17} />} label={tr("Copier le libellé")} onClick={() => (setMenu(false), void navigator.clipboard.writeText(t.label).then(() => toast.success(tr("Libellé copié"))))} />
             </div>

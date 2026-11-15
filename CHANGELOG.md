@@ -3,6 +3,14 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.12.3
+
+- **Lecture des documents déposés** : depuis la 1.12.1, le fournisseur d'IA refusait le schéma de reconnaissance
+  (la nature du contrat y était mal déclarée) ; un fichier déposé était rangé sous son nom de fichier, sans titre,
+  résumé ni nature, et une facture déposée par l'assistant n'était plus reconnue comme telle. Corrigé ; un test
+  vérifie désormais la forme des schémas envoyés à l'IA. Un document déposé entre-temps se relit par
+  « Extraire les données vers mes écrans », ou se complète par « Modifier ».
+
 ## 1.12.2
 
 - **Démarrage après une migration interrompue** : si le serveur est arrêté entre deux instructions d'une migration

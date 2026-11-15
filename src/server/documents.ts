@@ -148,15 +148,16 @@ const classification = z.object({
 });
 export type Classification = z.infer<typeof classification>;
 
-const CLASSIFY_SCHEMA = {
+/** Schéma de la reconnaissance, tel qu'il part au fournisseur d'IA (un test en vérifie la forme). */
+export const CLASSIFY_SCHEMA = {
   type: "object",
   properties: {
     is_invoice: { type: "boolean", description: "true pour une facture ou un ticket d'achat d'un bien ou d'un service (à ranger dans les factures) ; false pour un devis, une offre ou une proposition de contrat, qui ne sont pas encore payés" },
     kind: { type: "string", enum: [...KINDS], description: "Type de document (facture = facture de travaux ou de service liée à un bien, conservée au coffre ; devis = devis, offre ou proposition de contrat pas encore acceptés, d'un fournisseur d'énergie, d'un assureur, d'un opérateur, d'un artisan…)" },
     domain: { type: "string", enum: [...DOMAINS], description: "Domaine des finances de la famille concerné" },
     topic: {
-      type: ["string", "null"],
-      enum: [...TOPICS, null],
+      // Une liste de valeurs ou rien : deux branches (le fournisseur refuse « enum » sur un type double).
+      anyOf: [{ type: "string", enum: [...TOPICS] }, { type: "null" }],
       description:
         "Nature du contrat, pour un contrat, un avenant, une attestation, un avis d'échéance, un devis ou une offre qui s'y rapporte : assurance_auto (auto, moto), assurance_habitation (habitation, propriétaire non occupant, copropriété, loyers impayés), assurance_emprunteur, assurance_sante (mutuelle, complémentaire santé), assurance_autre (prévoyance, scolaire, animaux, protection juridique…), energie (électricité, gaz), internet (box, fibre), mobile (forfait), vehicule (crédit, location avec option d'achat ou longue durée d'un véhicule). null pour tout le reste (impôts, paie, actes, placements, travaux…).",
     },

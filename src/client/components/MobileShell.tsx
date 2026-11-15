@@ -2,7 +2,8 @@ import { DemoBadge } from "./DemoBadge.tsx";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useLocation, useNavigate, useNavigationType } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, LayoutGrid, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
+import { toggleDiscreet, useDiscreet } from "../discret.ts";
 import { toast } from "sonner";
 import { api, useMe, useSync } from "../api.ts";
 import type { Counts } from "../nav.ts";
@@ -190,6 +191,7 @@ export function MenuSheet({ open, onClose }: { open: boolean; onClose: () => voi
   const { pathname } = useLocation();
   const [scope, setScope] = useScope();
   const counts = useQuery({ queryKey: ["nav-counts"], queryFn: () => api<Counts>("/nav-counts"), staleTime: 60_000, enabled: open });
+  const discreet = useDiscreet();
   if (!open) return null;
   const go = () => onClose();
   const scopeSwitch = (
@@ -231,10 +233,15 @@ export function MenuSheet({ open, onClose }: { open: boolean; onClose: () => voi
           <section key={i}>
             {g.title && <h3 className="mb-1.5 px-1 text-[12.5px] font-medium text-muted">{g.title}</h3>}
             <div className="card divide-y divide-line overflow-hidden">
-              {g.items.map((t) => row(t.to, t.to === "/" ? "Accueil" : t.label, t.icon, t.count ? counts.data?.[t.count] : undefined, t.count === "tasksOverdue"))}
+              {g.items.map((t) => row(t.to, t.to === "/" ? "Accueil" : t.label, t.icon, t.count ? counts.data?.[t.count] : undefined, t.count === "tasksOverdue" || t.count === "lowBalance"))}
             </div>
           </section>
         ))}
+        <button type="button" onClick={toggleDiscreet} aria-pressed={discreet} className="press card flex w-full items-center gap-3 px-4 py-3 text-left">
+          {discreet ? <EyeOff size={19} className="shrink-0 text-muted" /> : <Eye size={19} className="shrink-0 text-muted" />}
+          <span className="flex-1 text-[15px] font-medium">{discreet ? t("Afficher les montants") : t("Masquer les montants")}</span>
+          <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold", discreet ? "bg-ink text-card" : "bg-line/70 text-muted")}>{discreet ? t("Masqués") : t("Visibles")}</span>
+        </button>
         <div className="card divide-y divide-line overflow-hidden">
           {row("/assistant", t("Assistant"), Sparkles)}
           {row("/reglages", t("Réglages"), Settings, counts.data?.alerts, true)}

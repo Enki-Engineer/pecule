@@ -1,3 +1,4 @@
+import { toggleDiscreet } from "../discret.ts";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
@@ -32,6 +33,7 @@ const GENERAL: [string, string][] = [
   ["⌘ ⇧ J", t("Assistant en plein écran")],
   ["⌘ \\", t("Replier le menu")],
   ["⌥ ← / ⌥ →", t("Mois précédent / suivant")],
+  ["m", t("Masquer ou afficher les montants")],
   ["?", t("Cette aide")],
   [t("Échap"), t("Fermer la fiche ou la fenêtre")],
 ];
@@ -74,6 +76,11 @@ export function Shortcuts() {
           setHelp(false);
           navigate(go.to, { viewTransition: true });
         }
+        return;
+      }
+      if (e.key === "m") {
+        e.preventDefault();
+        toggleDiscreet();
         return;
       }
       if (e.key === "g") {

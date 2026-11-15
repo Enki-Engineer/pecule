@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { api, useCategories, useSuggestions, type Transaction } from "../api.ts";
 import { Amount, Card, PageHeader, Sheet, Spinner } from "../components/ui.tsx";
 import { TxLogo } from "../components/Logo.tsx";
-import { dateFr, money } from "../format.ts";
+import { dateFr, plainMoney } from "../format.ts";
 import { txTitle } from "../../lib/labels.ts";
 import { undoToast } from "../undo.ts";
 import { askAssistant } from "../assistantBus.ts";
@@ -183,7 +183,7 @@ export function Triage() {
             </button>
             <button
               type="button"
-              onClick={() => askAssistant(tr("Aide-moi à classer l'opération « {titre} » du {date} ({montant}, libellé « {libelle} »).", { titre: txTitle(t), date: dateFr(t.date), montant: money(t.amount), libelle: t.label }))}
+              onClick={() => askAssistant(tr("Aide-moi à classer l'opération « {titre} » du {date} ({montant}, libellé « {libelle} »).", { titre: txTitle(t), date: dateFr(t.date), montant: plainMoney(t.amount), libelle: t.label }))}
               className="press card flex flex-col items-center gap-1 py-2.5 text-[12px] font-medium"
             >
               <MessageSquare size={17} /> {tr("Assistant")}

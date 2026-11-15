@@ -1,3 +1,4 @@
+import { isDiscreet } from "../discret.ts";
 import { LayoutCustomizer, useCardLayout } from "../components/CardLayout.tsx";
 import { lowAccounts, useBalanceAlert } from "../api-balance.ts";
 import { lowBalanceText } from "../components/LowBalance.tsx";
@@ -5,13 +6,13 @@ import { WeekAhead } from "../components/MonthCalendar.tsx";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, Info, RefreshCw, SlidersHorizontal, TrendingDown, ShieldCheck, Tags, Wallet } from "lucide-react";
+import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, RefreshCw, SlidersHorizontal, TrendingDown, ShieldCheck, Tags, Wallet } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { api, useAccounts, useDemo, useMe, useMonth, useSummary, useSync, useWealth, type Transaction, type WealthCategory } from "../api.ts";
-import { Amount, Card, Spinner } from "../components/ui.tsx";
+import { Amount, Card, InfoTip, Spinner } from "../components/ui.tsx";
 import { cn } from "../cn.ts";
-import { currentMonth, dateFr, money, moneyIn, timeAgo } from "../format.ts";
+import { currentMonth, dateFr, money, moneyIn, timeAgo, kAxis } from "../format.ts";
 import { monthTotals } from "../../lib/month.ts";
 import { txTitle } from "../../lib/labels.ts";
 import { groupByOwner, OWNER_ORDER, ownerLabel } from "../../lib/labels.ts";
@@ -155,7 +156,7 @@ export function Dashboard() {
                       tickCount={6}
                       tickFormatter={(v: number) => new Date(v).toLocaleDateString(locale(), { day: "numeric", month: "short", timeZone: "UTC" })}
                     />
-                    <YAxis tickLine={false} axisLine={false} width={56} domain={["dataMin - 5000", "dataMax + 5000"]} tickFormatter={(v: number) => `${Math.round(v / 1000)} k`} />
+                    <YAxis tickLine={false} axisLine={false} width={56} domain={["dataMin - 5000", "dataMax + 5000"]} tickFormatter={(v: number) => kAxis(v)} />
                     <Tooltip
                       formatter={(v) => [money(Number(v), true), t("Patrimoine net")]}
                       labelFormatter={(v) => dateFr(new Date(Number(v)).toISOString().slice(0, 10))}
@@ -356,6 +357,7 @@ export function Dashboard() {
         {outstanding && (
           <Kpi
             label={t("Cartes à débit différé")}
+            info={t("Achats déjà faits avec une carte à débit différé : la banque les prélèvera en une fois, à la date indiquée.")}
             value={money(outstanding.total, true)}
             source={[
               outstanding.debitDate ? t("prélevé le {date}", { date: dateFr(outstanding.debitDate) }) : null,
@@ -369,6 +371,7 @@ export function Dashboard() {
         )}
         <Kpi
           label={t("Dépensé ce mois")}
+          info={t("Dépenses du mois en cours, remboursements déduits. L'étiquette compare au mois dernier, à la même date.")}
           value={s ? money(s.spentThisMonth, true) : "…"}
           delta={s ? s.spentThisMonth - s.spentPrevMonthSameDay : null}
           deltaLabel={t("vs même date du mois dernier")}
@@ -376,7 +379,7 @@ export function Dashboard() {
           to="/mois"
         />
         <Kpi label={t("Solde du mois")} tone={totals ? (totals.revenus - totals.depenses >= 0 ? "pos" : "neg") : undefined} info={t("Revenus du mois moins dépenses du mois. Les mouvements entre tes comptes et les versements d'épargne ne comptent pas.")} value={totals ? money(totals.revenus - totals.depenses, true) : "…"} source={totals ? t("revenus {montant}", { montant: money(totals.revenus, true) }) : undefined} to="/mois" />
-        <Kpi label={t("Dettes restantes")} value={w ? money(w.debts, true) : "…"} source={w ? tn("{n} crédit, ta part", "{n} crédits, ta part", w.loans.length) : undefined} to="/patrimoine" />
+        <Kpi label={t("Dettes restantes")} info={t("Capital qu'il te reste à rembourser sur tes crédits, pour ta part.")} value={w ? money(w.debts, true) : "…"} source={w ? tn("{n} crédit, ta part", "{n} crédits, ta part", w.loans.length) : undefined} to="/patrimoine" />
       </div>
 
       <div className="grid grid-flow-row-dense grid-cols-12 gap-4">
@@ -397,13 +400,9 @@ function Kpi({ label, value, delta, deltaLabel, invert, source, to, info, tone }
     <Link to={to} className="press card @container block p-4 transition-shadow 2xl:p-5 hover:shadow-[0_1px_1px_rgb(20_20_19/0.04),0_16px_32px_-18px_rgb(20_20_19/0.28)]">
       <div className="flex items-center gap-1.5 text-[14px] text-muted @[150px]:text-[15px]">
         <span className="min-w-0 truncate">{label}</span>
-        {info && (
-          <span data-tip={info} tabIndex={0} className="grid size-4 shrink-0 place-items-center rounded-full text-muted/70 hover:text-ink">
-            <Info size={13} />
-          </span>
-        )}
+        {info && <InfoTip text={info} />}
       </div>
-      <div className={cn("figure mt-1.5 text-[21px] @[140px]:text-[25px] @[180px]:text-[30px]", tone === "pos" && "text-pos", tone === "neg" && "text-neg")}>{value}</div>
+      <div className={cn("figure mt-1.5 text-[21px] @[140px]:text-[25px] @[180px]:text-[30px]", !isDiscreet() && tone === "pos" && "text-pos", !isDiscreet() && tone === "neg" && "text-neg")}>{value}</div>
       {delta != null && (
         <div className="mt-2">
           <span className={cn("chip tnum text-[12.5px]", good ? "chip-pos" : "chip-neg")}>

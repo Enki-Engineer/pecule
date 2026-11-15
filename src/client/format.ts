@@ -1,17 +1,25 @@
 import { locale, t } from "../lib/i18n.ts";
 import { currencySymbol, formatMoney, withUnit } from "../lib/currencies.ts";
 import { region } from "./region.ts";
+import { isDiscreet } from "./discret.ts";
+
+/** Ce qui remplace un montant en mode discret (src/client/discret.ts) : le signe de la devise reste, pas le chiffre. */
+const masked = (symbol: string) => withUnit("•••", "", symbol);
 
 /** Montant dans la devise du foyer, écrit dans la langue de l'appli ; `round` retire les centimes. */
-export const money = (n: number | null | undefined, round = false) => (n == null ? "—" : formatMoney(n, region().currency, locale(), round));
+export const money = (n: number | null | undefined, round = false) => (n == null ? "—" : isDiscreet() ? masked(moneySymbol()) : formatMoney(n, region().currency, locale(), round));
+/** Le même, jamais masqué : pour un texte qui quitte l'écran (une question posée à l'assistant). */
+export const plainMoney = (n: number | null | undefined, round = false) => (n == null ? "—" : formatMoney(n, region().currency, locale(), round));
 /** Montant dans une devise donnée : facture d'un achat à l'étranger, opération ou solde d'un compte en devise. */
-export const moneyIn = (n: number | null | undefined, currency: string = region().currency) => (n == null ? "—" : formatMoney(n, currency, locale()));
+export const moneyIn = (n: number | null | undefined, currency: string = region().currency) => (n == null ? "—" : isDiscreet() ? masked(moneySymbol(currency)) : formatMoney(n, currency, locale()));
 /** Signe de la devise du foyer (« € », « CHF ») ; celui d'une autre devise avec `currency`. */
 export const moneySymbol = (currency: string = region().currency) => currencySymbol(currency, locale());
 /** Milliers abrégés d'un axe : « 12 k€ », « 12 k CHF » ; `digits` : décimales gardées. */
-export const kMoney = (n: number, digits = 0) => withUnit((n / 1000).toLocaleString(locale(), { maximumFractionDigits: digits }), "k", moneySymbol());
+export const kMoney = (n: number, digits = 0) => (isDiscreet() ? masked(moneySymbol()) : withUnit((n / 1000).toLocaleString(locale(), { maximumFractionDigits: digits }), "k", moneySymbol()));
 /** Montant entier suivi du signe, pour un axe : « 850 € ». */
-export const unitMoney = (n: number) => withUnit(String(Math.round(n)), "", moneySymbol());
+export const unitMoney = (n: number) => (isDiscreet() ? masked(moneySymbol()) : withUnit(String(Math.round(n)), "", moneySymbol()));
+/** Graduation d'un axe en milliers, sans devise : « 12 k ». */
+export const kAxis = (n: number, digits = 0) => (isDiscreet() ? "•••" : `${(n / 1000).toLocaleString(locale(), { maximumFractionDigits: digits })} k`);
 
 export const pct = (n: number, digits = 2) => `${n.toLocaleString(locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits })} %`;
 

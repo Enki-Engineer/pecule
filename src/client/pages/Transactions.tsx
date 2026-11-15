@@ -22,7 +22,7 @@ import { api, transactionListQuery, useAccounts, useCategories, useSuggestions, 
 import { AddInvoiceButton, FileIcon } from "./Invoices.tsx";
 import { Amount, Card, Empty, ErrorBox, PageHeader, Sheet, Spinner, TxAmount } from "../components/ui.tsx";
 import { OpsTabs, useListSearch, useTabParams, useTabState } from "../components/OpsSection.tsx";
-import { dateFr, dateShort, dayLabel, money, moneyIn, monthLabel, periodLabel } from "../format.ts";
+import { dateFr, dateShort, dayLabel, money, moneyIn, monthLabel, periodLabel, plainMoney } from "../format.ts";
 import { txDateHint, txSubline } from "../txInfo.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
 import { txTitle } from "../../lib/labels.ts";
@@ -606,7 +606,7 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
       { label: tr("Nature : {nom}", { nom: NATURE_LABELS[n] }), icon: <Shapes size={14} />, onSelect: () => setParam("nature", n) },
       { label: tr("Mois : {mois}", { mois: monthLabel(t.date.slice(0, 7)) }), icon: <CalendarDays size={14} />, onSelect: () => setParam("mois", t.date.slice(0, 7)) },
       "separator" as const,
-      { label: tr("Demander à l'assistant"), icon: <MessageSquare size={14} />, onSelect: () => askAssistant(tr("Que peux-tu me dire sur l'opération « {titre} » du {date} ({montant}) ?", { titre: txTitle(t), date: dateFr(t.date), montant: money(Number(t.amount)) })) },
+      { label: tr("Demander à l'assistant"), icon: <MessageSquare size={14} />, onSelect: () => askAssistant(tr("Que peux-tu me dire sur l'opération « {titre} » du {date} ({montant}) ?", { titre: txTitle(t), date: dateFr(t.date), montant: plainMoney(Number(t.amount)) })) },
       { label: tr("Copier le libellé"), icon: <Copy size={14} />, onSelect: () => navigator.clipboard.writeText(t.label).then(() => toast.success(tr("Libellé copié"))) },
     ];
   };

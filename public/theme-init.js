@@ -9,6 +9,8 @@
     var accent = localStorage.getItem("pecule.accent");
     // « encre » est la couleur d'origine ; « indigo » est l'ancien nom de « pas de choix ».
     if (accent && accent !== "encre" && accent !== "indigo") root.dataset.accent = accent;
+    // Densité « compacte » (ordinateur) : marges et lignes resserrées, voir src/styles/index.css.
+    if (localStorage.getItem("pecule.densite") === "compacte") root.dataset.density = "compact";
     var mode = localStorage.getItem("pecule.seasons");
     mode = mode === "off" || mode === "aucun" ? "aucun" : mode === "fetes" ? "fetes" : "tout";
     // Pays du foyer (recopié sur l'appareil par l'appli) : hors de France, pas de fête propre à la France ;

@@ -92,6 +92,10 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 - Infobulle : un `title` (ou `data-tip`) suffit, la bulle de l'appli le remplace partout (`components/Tooltip.tsx`) ;
   un raccourci écrit entre parenthèses à la fin (« Rechercher (⌘K) ») est rendu comme une touche. Pour expliquer un
   chiffre : une pastille `<span data-tip={…} tabIndex={0}>` (elle s'ouvre aussi au toucher).
+- Un montant affiché passe par `money()`, `moneyIn()`, `kMoney()`, `unitMoney()` ou `kAxis()` (`src/client/format.ts`) :
+  ce sont eux que le mode discret masque. Un montant qui quitte l'écran (question posée à l'assistant) prend
+  `plainMoney()`. Un chiffre calculé s'explique par `info` sur `Stat` ou par `<InfoTip>`. Les marges et hauteurs
+  restent en rem (classes Tailwind) : c'est ce que la densité « compacte » resserre.
 - Un `useEffect(() => expr)` qui renvoie une valeur casse l'écran : toujours des accolades.
 
 ## Étendre Pécule

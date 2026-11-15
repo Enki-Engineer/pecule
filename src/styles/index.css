@@ -248,6 +248,15 @@ input:is([type="date"], [type="month"], [type="time"]) {
   }
 }
 
+/* Densité « compacte » (Réglages → Apparence, ordinateur seulement) : toutes les marges, hauteurs de ligne et
+   rayons sont exprimés en rem — une racine plus petite les resserre d'un coup, d'un huitième. Le texte, lui, est
+   dimensionné en pixels : il garde sa taille, on voit simplement plus de lignes par écran. */
+@media (min-width: 768px) {
+  :root[data-density="compact"] {
+    font-size: 14px;
+  }
+}
+
 /* Tiroir de détail (ordinateur) : glisse depuis la droite. */
 @keyframes drawer-in {
   from {

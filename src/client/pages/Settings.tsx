@@ -8,7 +8,7 @@ import clsx from "clsx";
 import { api, useMe } from "../api.ts";
 import { enterDemo, leaveDemo } from "../demo.ts";
 import { Card, PageHeader, Segmented } from "../components/ui.tsx";
-import { useAppearance, useTheme } from "../theme.ts";
+import { useAppearance, useDensity, useTheme, type Density } from "../theme.ts";
 import { clearOfflineCache, offlineCacheEnabled, setOfflineCache } from "../offline.tsx";
 import { NotificationsSettings } from "../components/NotificationsSettings.tsx";
 import { BalanceAlertSettings } from "../components/BalanceAlertSettings.tsx";
@@ -226,6 +226,7 @@ export function Settings() {
             ]}
           />
           <p className="mt-2 px-1 text-xs text-muted">{t("« Auto » suit le réglage de l'appareil. Choix mémorisé sur cet appareil.")}</p>
+          <DensitySetting />
           <AppearanceExtras />
         </Section>
     </>,
@@ -636,6 +637,25 @@ function MemorySection() {
       </Card>
       <p className="mt-2 px-1 text-xs text-muted">{t("Ces faits sont propres à chaque membre et joints aux consignes de l'assistant à chaque conversation.")}</p>
     </Section>
+  );
+}
+
+/** Densité de l'affichage sur ordinateur (réglage de l'appareil). */
+function DensitySetting() {
+  const [density, setDensity] = useDensity();
+  return (
+    <div className="mt-4 hidden md:block">
+      <div className="mb-2 px-1 text-[13px] font-medium">{t("Densité")}</div>
+      <Segmented<Density>
+        value={density}
+        onChange={setDensity}
+        options={[
+          { value: "aeree", label: t("Aérée") },
+          { value: "compacte", label: t("Compacte") },
+        ]}
+      />
+      <p className="mt-2 px-1 text-xs text-muted">{t("« Compacte » resserre les marges et les lignes pour montrer plus d'opérations par écran, sans réduire le texte. Sur ordinateur seulement ; choix mémorisé sur cet appareil.")}</p>
+    </div>
   );
 }
 

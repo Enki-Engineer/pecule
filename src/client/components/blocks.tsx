@@ -1,7 +1,8 @@
+import { isDiscreet } from "../discret.ts";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { FileText, FolderOpen } from "lucide-react";
-import { Card } from "./ui.tsx";
+import { Card, InfoTip } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import { useMedia } from "../useMedia.ts";
 import { dateFr } from "../format.ts";
@@ -12,11 +13,14 @@ import { locale } from "../../lib/i18n.ts";
 /* Briques communes des écrans de situation (immobilier, budget, impôts, retraite, projections). */
 
 /** Tuile de chiffre clé. */
-export function Stat({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "pos" | "neg" }) {
+export function Stat({ label, value, hint, tone, info }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "pos" | "neg"; /** Définition du chiffre, dans une pastille « i ». */ info?: string }) {
   return (
     <Card className="@container p-4 2xl:p-5">
-      <div className="text-[14px] text-muted @[150px]:text-[15px]">{label}</div>
-      <div className={cn("figure mt-1.5 text-[21px] @[140px]:text-[24px] @[180px]:text-[28px]", tone === "pos" && "text-pos", tone === "neg" && "text-neg")}>{value}</div>
+      <div className="flex items-center gap-1.5 text-[14px] text-muted @[150px]:text-[15px]">
+        <span className="min-w-0 truncate">{label}</span>
+        {info && <InfoTip text={info} />}
+      </div>
+      <div className={cn("figure mt-1.5 text-[21px] @[140px]:text-[24px] @[180px]:text-[28px]", !isDiscreet() && tone === "pos" && "text-pos", !isDiscreet() && tone === "neg" && "text-neg")}>{value}</div>
       {hint && <div className="mt-1.5 text-[12.5px] text-muted">{hint}</div>}
     </Card>
   );

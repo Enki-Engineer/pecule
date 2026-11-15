@@ -98,10 +98,10 @@ function BreakdownTab({ period }: { period: string }) {
       ) : (
         <div className={cn("transition-opacity duration-200", isPlaceholderData && "opacity-50")}>
           <StatGrid>
-            <Stat label={t("Revenus")} value={money(tot.revenus, true)} hint={year ? t("entrées de l'année, hors mouvements internes") : t("entrées du mois, hors mouvements internes")} />
-            <Stat label={t("Dépenses")} value={money(tot.depenses, true)} hint={t("nettes des remboursements")} />
-            <Stat label={t("Épargne")} value={money(tot.epargne, true)} hint={t("versements vers l'épargne")} />
-            <Stat label={year ? t("Solde de l'année") : t("Solde du mois")} value={money(tot.revenus - tot.depenses, true)} tone={tot.revenus - tot.depenses >= 0 ? "pos" : "neg"} hint={t("revenus − dépenses")} />
+            <Stat label={t("Revenus")} info={t("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Les mouvements entre tes comptes n'en font pas partie.")} value={money(tot.revenus, true)} hint={year ? t("entrées de l'année, hors mouvements internes") : t("entrées du mois, hors mouvements internes")} />
+            <Stat label={t("Dépenses")} info={t("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne ni les mouvements entre tes comptes.")} value={money(tot.depenses, true)} hint={t("nettes des remboursements")} />
+            <Stat label={t("Épargne")} info={t("Ce qui est classé en épargne : les versements vers un livret, une assurance-vie, un plan d'épargne.")} value={money(tot.epargne, true)} hint={t("versements vers l'épargne")} />
+            <Stat label={year ? t("Solde de l'année") : t("Solde du mois")} info={t("Revenus moins dépenses. L'épargne n'en est pas retirée : c'est ce qui reste avant de mettre de côté.")} value={money(tot.revenus - tot.depenses, true)} tone={tot.revenus - tot.depenses >= 0 ? "pos" : "neg"} hint={t("revenus − dépenses")} />
           </StatGrid>
           <div className="grid grid-cols-12 items-start gap-4">
             {(["depenses", "revenus"] as const).map((kind) => (

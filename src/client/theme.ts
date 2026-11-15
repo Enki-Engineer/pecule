@@ -167,6 +167,30 @@ export function useSeasonGreeting(): string | null {
   return `${SEASONS[season].greeting}${who} ${SEASONS[season].emoji}`;
 }
 
+/* ---------- Densité (ordinateur) ---------- */
+
+export type Density = "aeree" | "compacte";
+const DENSITY_KEY = "pecule.densite";
+const readDensity = (): Density => (localStorage.getItem(DENSITY_KEY) === "compacte" ? "compacte" : "aeree");
+
+/**
+ * Densité de l'affichage sur ordinateur, mémorisée sur l'appareil (posée avant le premier rendu par
+ * public/theme-init.js). « Compacte » resserre marges, lignes et cartes — la taille du texte ne change pas.
+ */
+export function useDensity(): [Density, (d: Density) => void] {
+  const [density, setDensity] = useState<Density>(readDensity);
+  return [
+    density,
+    (d) => {
+      if (d === "compacte") localStorage.setItem(DENSITY_KEY, d);
+      else localStorage.removeItem(DENSITY_KEY);
+      if (d === "compacte") document.documentElement.dataset.density = "compact";
+      else delete document.documentElement.dataset.density;
+      setDensity(d);
+    },
+  ];
+}
+
 /** Réglages d'apparence de l'appareil : couleur, thèmes de saison, aperçu d'une saison. */
 export function useAppearance() {
   const [accent, setAccentState] = useState<Accent>(() => asAccent(localStorage.getItem(ACCENT_KEY)));

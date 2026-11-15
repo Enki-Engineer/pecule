@@ -67,7 +67,7 @@ export function PropertiesDesktop({ rows }: { rows: Property[] }) {
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label={t("Valeur des biens")} value={money(value, true)} hint={tn("{n} bien", "{n} biens", rows.length)} />
         <Stat label={t("Capital restant dû")} value={money(debt, true)} hint={value ? t("{part} de la valeur", { part: pct((debt / value) * 100) }) : undefined} />
-        <Stat label={t("Équité")} value={money(value - debt, true)} hint={t("ta part : {montant}", { montant: money(mine, true) })} />
+        <Stat label={t("Équité")} info={t("Valeur estimée moins capital restant dû sur les crédits du bien.")} value={money(value - debt, true)} hint={t("ta part : {montant}", { montant: money(mine, true) })} />
         <Stat label={t("Crédits")} value={t("{montant}/mois", { montant: money(loans, true) })} hint={t("mensualités en cours")} />
         <Stat label={t("Loyers")} value={rents ? t("{montant}/mois", { montant: money(rents, true) }) : "—"} hint={rents ? t("{montant} par an", { montant: money(rents * 12, true) }) : t("aucun bien loué")} />
       </div>
@@ -180,11 +180,11 @@ export function PropertyDesktop({ d }: { d: PropertyDetail }) {
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label={t("Valeur estimée")} value={money(f.value, true)} hint={f.valueDate ? t("relevée le {date}", { date: dateFr(f.valueDate) }) : undefined} />
         <Stat label={t("Capital restant dû")} value={money(f.debt, true)} hint={f.value ? t("{part} de la valeur", { part: pct((f.debt / f.value) * 100) }) : undefined} />
-        <Stat label={t("Équité")} value={money(f.equity, true)} hint={f.share < 1 ? t("ta part {part} % : {montant}", { part: Math.round(f.share * 100), montant: money(f.equity == null ? null : f.equity * f.share, true) }) : t("valeur − crédits")} />
+        <Stat label={t("Équité")} info={t("Valeur estimée moins capital restant dû sur les crédits du bien.")} value={money(f.equity, true)} hint={f.share < 1 ? t("ta part {part} % : {montant}", { part: Math.round(f.share * 100), montant: money(f.equity == null ? null : f.equity * f.share, true) }) : t("valeur − crédits")} />
         {rental ? (
           <>
             <Stat label={t("Cash-flow mensuel")} value={money(f.monthlyCashflow)} tone={(f.monthlyCashflow ?? 0) >= 0 ? "pos" : "neg"} hint={p.charges_monthly ? t("loyer − crédit − charges") : t("loyer − crédit")} />
-            <Stat label={t("Rendement brut")} value={pct(f.grossYield)} hint={p.rent_monthly != null ? t("{montant} de loyers par an", { montant: money(p.rent_monthly * 12, true) }) : undefined} />
+            <Stat label={t("Rendement brut")} info={t("Loyers d'une année rapportés au coût d'acquisition (prix et frais).")} value={pct(f.grossYield)} hint={p.rent_monthly != null ? t("{montant} de loyers par an", { montant: money(p.rent_monthly * 12, true) }) : undefined} />
           </>
         ) : (
           <>

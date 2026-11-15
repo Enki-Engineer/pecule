@@ -1,3 +1,4 @@
+import { useDiscreet } from "./discret.ts";
 import { Fragment, StrictMode, useEffect, useState } from "react";
 import { TooltipLayer } from "./components/Tooltip.tsx";
 import { createRoot } from "react-dom/client";
@@ -86,8 +87,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  // Mode discret : les montants sont formatés partout par `money()` — rendre l'appli de nouveau les réécrit tous.
+  const discreet = useDiscreet();
   return (
-    <Routes>
+    <Routes key={discreet ? "discret" : "lisible"}>
       <Route path="/connexion" element={<Login />} />
       <Route path="/inscription" element={<Enroll />} />
       <Route path="/autoriser" element={<Authorize />} />

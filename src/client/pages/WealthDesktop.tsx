@@ -84,12 +84,13 @@ export function WealthDesktop({ w, onEdit, onAdd }: { w: Wealth; onEdit: (a: Ass
       <StatGrid>
         <Stat
           label={t("Patrimoine net")}
+          info={t("Ce que tu possèdes (comptes, épargne, biens, crypto) moins ce que tu dois encore. Les biens et les crédits communs comptent pour ta part.")}
           value={money(w.net, true)}
           hint={monthAgo ? <Delta value={w.net - monthAgo.net} suffix={t("sur 30 jours")} /> : undefined}
         />
-        <Stat label={t("Actifs bruts")} value={money(w.gross, true)} hint={t("dont immobilier {part}", { part: pct((w.byCategory.immobilier / w.gross) * 100, 0) })} />
-        <Stat label={t("Crédits restants")} value={money(w.debts, true)} hint={monthly ? t("{montant} de mensualités (ta part)", { montant: money(monthly, true) }) : undefined} />
-        <Stat label={t("Disponible")} value={money(liquid, true)} hint={t("comptes et épargne")} />
+        <Stat label={t("Actifs bruts")} info={t("Tout ce que tu possèdes, avant de retirer ce que tu dois encore.")} value={money(w.gross, true)} hint={t("dont immobilier {part}", { part: pct((w.byCategory.immobilier / w.gross) * 100, 0) })} />
+        <Stat label={t("Crédits restants")} info={t("Capital qu'il te reste à rembourser sur tes crédits, pour ta part.")} value={money(w.debts, true)} hint={monthly ? t("{montant} de mensualités (ta part)", { montant: money(monthly, true) }) : undefined} />
+        <Stat label={t("Disponible")} info={t("Comptes courants et épargne : ce qui se mobilise sans vendre un bien ni un placement.")} value={money(liquid, true)} hint={t("comptes et épargne")} />
       </StatGrid>
 
       <div className="grid grid-cols-12 gap-4">

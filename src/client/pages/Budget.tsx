@@ -99,11 +99,12 @@ export function Budget() {
       ) : (
         <>
           <StatGrid>
-            <Stat label={t("Revenus du foyer")} value={money(d.totals.incomeMonthly, true)} hint={t("par mois, nets")} />
-            <Stat label={t("Charges fixes")} value={money(d.totals.fixedMonthly, true)} hint={tn("{n} engagement", "{n} engagements", d.commitments.filter((c) => COUNTED.has(c.status)).length)} />
-            <Stat label={t("Reste après charges fixes")} value={money(d.totals.remainingAfterFixed, true)} tone={d.totals.remainingAfterFixed >= 0 ? "pos" : "neg"} />
+            <Stat label={t("Revenus du foyer")} info={t("Somme des revenus mensuels nets que tu as renseignés (salaires, loyers…).")} value={money(d.totals.incomeMonthly, true)} hint={t("par mois, nets")} />
+            <Stat label={t("Charges fixes")} info={t("Somme, ramenée au mois, de tes engagements en cours : la liste plus bas.")} value={money(d.totals.fixedMonthly, true)} hint={tn("{n} engagement", "{n} engagements", d.commitments.filter((c) => COUNTED.has(c.status)).length)} />
+            <Stat label={t("Reste après charges fixes")} info={t("Revenus du foyer moins charges fixes : ce qu'il reste chaque mois pour tout le reste.")} value={money(d.totals.remainingAfterFixed, true)} tone={d.totals.remainingAfterFixed >= 0 ? "pos" : "neg"} />
             <Stat
               label={t("Reste réel")}
+              info={t("Revenus du foyer moins ce que tu dépenses vraiment par mois, en moyenne sur les trois derniers mois complets.")}
               value={money(d.totals.remainingAfterActual, true)}
               tone={d.totals.remainingAfterActual >= 0 ? "pos" : "neg"}
               hint={t("dépenses réelles {montant}/mois (moy. 3 mois)", { montant: money(d.totals.actualMonthly, true) })}

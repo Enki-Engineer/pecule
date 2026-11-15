@@ -98,7 +98,7 @@ export function PropertyDetail() {
       <StatGrid>
         <Stat label={t("Valeur estimée")} value={money(f.value, true)} hint={f.valueDate ? t("relevé le {date}", { date: dateFr(f.valueDate) }) : undefined} />
         <Stat label={t("Capital restant dû")} value={money(f.debt, true)} hint={f.monthlyLoans ? t("{montant}/mois de crédits", { montant: money(f.monthlyLoans) }) : undefined} />
-        <Stat label={t("Équité")} value={money(f.equity, true)} hint={f.share < 1 ? t("ta part {part} % : {montant}", { part: Math.round(f.share * 100), montant: money(f.equity == null ? null : f.equity * f.share, true) }) : undefined} />
+        <Stat label={t("Équité")} info={t("Valeur estimée moins capital restant dû sur les crédits du bien.")} value={money(f.equity, true)} hint={f.share < 1 ? t("ta part {part} % : {montant}", { part: Math.round(f.share * 100), montant: money(f.equity == null ? null : f.equity * f.share, true) }) : undefined} />
         {rental ? (
           <Stat
             label={t("Cash-flow mensuel")}

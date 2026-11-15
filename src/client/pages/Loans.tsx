@@ -6,7 +6,7 @@ import { useLoan, type Loan } from "../api.ts";
 import { BankBadge, Card, ErrorBox, PageHeader, ProgressBar, Row, Segmented, Spinner } from "../components/ui.tsx";
 import { Stat, StatGrid } from "../components/blocks.tsx";
 import { DataTable, type Column } from "../components/DataTable.tsx";
-import { dateFr, kMoney, money, pct } from "../format.ts";
+import { dateFr, kMoney, money, pct, kAxis } from "../format.ts";
 import { cn } from "../cn.ts";
 import { AxisTick, DIM, SELECTED_BAND } from "../components/StackedBars.tsx";
 import { useMedia } from "../useMedia.ts";
@@ -87,7 +87,7 @@ export function LoanDetail() {
                       </defs>
                       <CartesianGrid vertical={false} stroke="var(--color-line)" />
                       <XAxis dataKey="date" tickLine={false} axisLine={false} ticks={yearTicks} interval={0} tickFormatter={(d: string) => d.slice(0, 4)} />
-                      <YAxis tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => `${Math.round(v / 1000)} k`} />
+                      <YAxis tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => kAxis(v)} />
                       <Tooltip
                         formatter={(v) => [money(Number(v)), t("Capital restant dû")]}
                         labelFormatter={(d) => String(d).split("-").reverse().join("/")}

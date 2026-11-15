@@ -9,8 +9,8 @@ import { useMedia } from "../useMedia.ts";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
 import { monthQuery, useMonth, useTrend, type MonthStats } from "../api.ts";
 import { useForecast, type ForecastMonth } from "../api-analysis.ts";
-import { Card, ErrorBox, PageHeader, Spinner } from "../components/ui.tsx";
-import { currentMonth, money, monthLabel, monthShort, periodLabel } from "../format.ts";
+import { Card, ErrorBox, PageHeader, Spinner, InfoTip } from "../components/ui.tsx";
+import { currentMonth, money, monthLabel, monthShort, periodLabel, kAxis } from "../format.ts";
 import { cumulative, monthTotals } from "../../lib/month.ts";
 import { isYearPeriod, periodHasMonth, shiftPeriod, trendEnd, trendMonths } from "../../lib/periods.ts";
 import { useAssistantEntity } from "../assistantContext.ts";
@@ -18,7 +18,7 @@ import { usePeriod } from "../shell.ts";
 import { BreakdownSwitch } from "../components/Breakdown.tsx";
 import { openDrill } from "../components/DrillDrawer.tsx";
 import { MobileTimeline } from "../components/MonthTimeline.tsx";
-import { locale, t, td, tk } from "../../lib/i18n.ts";
+import { t, td, tk } from "../../lib/i18n.ts";
 
 type Row = MonthStats["categories"][number];
 
@@ -99,10 +99,10 @@ export function Month({ bare = false }: { bare?: boolean }) {
           <div className={clsx("space-y-4 transition-opacity duration-200", isPlaceholderData && "opacity-50")}>
           <div className="grid grid-cols-3 gap-3">
             {/* Période en cours : pas d'écart sur les revenus (ils tombent en une fois, la comparaison n'a pas de sens avant la fin). */}
-            <Tile label={t("Revenus")} value={tot.revenus} prev={isCurrent ? 0 : tp.revenus} good="up" />
+            <Tile label={t("Revenus")} info={t("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Les mouvements entre tes comptes n'en font pas partie.")} value={tot.revenus} prev={isCurrent ? 0 : tp.revenus} good="up" />
             {/* Période en cours : comparaison à la période précédente au même point, comme sur l'accueil. */}
-            <Tile label={t("Dépenses")} value={tot.depenses} prev={isCurrent ? prevSameRank : tp.depenses} good="down" />
-            <Tile label={year ? t("Solde de l'année") : t("Solde du mois")} value={tot.revenus - tot.depenses} prev={isCurrent ? 0 : tp.revenus - tp.depenses} good="up" />
+            <Tile label={t("Dépenses")} info={t("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne ni les mouvements entre tes comptes.")} value={tot.depenses} prev={isCurrent ? prevSameRank : tp.depenses} good="down" />
+            <Tile label={year ? t("Solde de l'année") : t("Solde du mois")} info={t("Revenus moins dépenses. L'épargne n'en est pas retirée : c'est ce qui reste avant de mettre de côté.")} value={tot.revenus - tot.depenses} prev={isCurrent ? 0 : tp.revenus - tp.depenses} good="up" />
           </div>
           <div className="-mt-2 px-1 text-xs text-muted">
             {year
@@ -145,7 +145,7 @@ export function Month({ bare = false }: { bare?: boolean }) {
                   </defs>
                   <CartesianGrid vertical={false} stroke="var(--color-line)" />
                   <XAxis dataKey="day" tickLine={false} axisLine={false} interval={year ? 0 : 6} tickFormatter={(d: number) => (year ? monthShort(`${p}-${String(d).padStart(2, "0")}`) : String(d))} />
-                  <YAxis tickLine={false} axisLine={false} width={48} tickFormatter={(v: number) => `${(v / 1000).toLocaleString(locale(), { maximumFractionDigits: 1 })} k`} />
+                  <YAxis tickLine={false} axisLine={false} width={48} tickFormatter={(v: number) => kAxis(v, 1)} />
                   <Tooltip
                     formatter={(v, name) => [money(Number(v), true), name === "mois" ? (year ? p : t("Ce mois")) : year ? t("Année précédente") : t("Mois précédent")]}
                     labelFormatter={(d) => stepName(Number(d))}
@@ -204,12 +204,15 @@ export function Month({ bare = false }: { bare?: boolean }) {
   );
 }
 
-function Tile({ label, value, prev, good }: { label: string; value: number; prev: number; good: "up" | "down" }) {
+function Tile({ label, value, prev, good, info }: { label: string; value: number; prev: number; good: "up" | "down"; info?: string }) {
   const diff = value - prev;
   const positive = good === "up" ? diff >= 0 : diff <= 0;
   return (
     <Card className="p-3.5">
-      <div className="text-xs text-muted">{label}</div>
+      <div className="flex items-center gap-1 text-xs text-muted">
+        <span className="min-w-0 truncate">{label}</span>
+        {info && <InfoTip text={info} />}
+      </div>
       <div className="tnum mt-0.5 text-[17px] font-bold">{money(value, true)}</div>
       {prev !== 0 && (
         <div className={clsx("tnum text-[11px]", positive ? "text-pos" : "text-neg")}>
@@ -297,7 +300,7 @@ function MonthTrend({ period, onSelect }: { period: string; onSelect: (m: string
           >
             <CartesianGrid vertical={false} stroke="var(--color-line)" />
             <XAxis dataKey="month" tickLine={false} axisLine={false} interval={wide ? 0 : 1} tick={<AxisTick selected={selected} weight={wide ? 700 : 400} format={trendTick} />} />
-            <YAxis tickLine={false} axisLine={false} width={40} tickFormatter={(v: number) => `${(v / 1000).toLocaleString(locale(), { maximumFractionDigits: 1 })} k`} />
+            <YAxis tickLine={false} axisLine={false} width={40} tickFormatter={(v: number) => kAxis(v, 1)} />
             <Tooltip cursor={{ fill: "var(--color-bg)" }} content={<TrendTip now={now} />} />
             {/* Les mois à venir sur un fond à part : ce sont des prévisions. */}
             {forecast.length > 0 && <ReferenceArea x1={forecast[0]} x2={forecast[forecast.length - 1]} fill="var(--color-bg)" fillOpacity={0.9} stroke="none" ifOverflow="visible" />}

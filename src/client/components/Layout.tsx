@@ -1,25 +1,11 @@
+import { toggleDiscreet, useDiscreet } from "../discret.ts";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AssistantChat } from "../screens.tsx";
 import { DemoBadge } from "./DemoBadge.tsx";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  CalendarCheck,
-  ChevronLeft,
-  ChevronRight,
-  House,
-  ListOrdered,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PieChart,
-  PiggyBank,
-  RefreshCw,
-  Search,
-  Settings,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, CalendarCheck, ChevronLeft, ChevronRight, Eye, EyeOff, House, ListOrdered, PanelLeftClose, PanelLeftOpen, PieChart, PiggyBank, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
 import { Spinner } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import { api, useMe, useMonth, useSync } from "../api.ts";
@@ -361,6 +347,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
   const current = useCurrentCrumb();
   const crumbs = CRUMBS.find(([re]) => re.test(pathname))?.[1] ?? [];
   const sync = useSync();
+  const discreet = useDiscreet();
   const [scope, setScope] = useScope();
   const showPeriod = pathname.startsWith("/mois") || pathname.startsWith("/operations");
   const scoped = scopeApplies(pathname);
@@ -450,6 +437,16 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
         <Search size={14} className="shrink-0" />
         <span className={cn("hidden flex-1 text-left", showPeriod || panelOpen ? (showPeriod && panelOpen ? "" : "2xl:block") : "lg:block")}>{t("Rechercher…")}</span>
         <kbd className={cn("hidden text-[11px]", showPeriod || panelOpen ? (showPeriod && panelOpen ? "" : "2xl:block") : "lg:block")}>⌘K</kbd>
+      </button>
+      <button
+        type="button"
+        onClick={toggleDiscreet}
+        aria-pressed={discreet}
+        title={discreet ? t("Afficher les montants (M)") : t("Masquer les montants (M)")}
+        aria-label={discreet ? t("Afficher les montants") : t("Masquer les montants")}
+        className={cn("grid size-8 shrink-0 place-items-center rounded-full", discreet ? "bg-ink text-card" : "text-muted hover:bg-card hover:text-ink")}
+      >
+        {discreet ? <EyeOff size={15} /> : <Eye size={15} />}
       </button>
       <button type="button" onClick={refresh} disabled={sync.isPending} title={t("Synchroniser les banques")} className="grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-bg hover:text-ink disabled:opacity-50">
         <RefreshCw size={15} className={sync.isPending ? "animate-spin" : ""} />

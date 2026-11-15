@@ -6,9 +6,10 @@ import { MobileHeader } from "./MobileShell.tsx";
 import { LogoImg, type LogoSize } from "./Logo.tsx";
 import { useBankLogoKey, useBrandsVersion } from "../api-brands.ts";
 import { brandOf } from "../../lib/brands.ts";
-import { X } from "lucide-react";
+import { Info, X } from "lucide-react";
 import { money, moneyIn } from "../format.ts";
 import { useMedia } from "../useMedia.ts";
+import { isDiscreet } from "../discret.ts";
 import { t } from "../../lib/i18n.ts";
 
 export function Card({ className, children, onClick }: { className?: string; children: ReactNode; onClick?: () => void }) {
@@ -16,6 +17,15 @@ export function Card({ className, children, onClick }: { className?: string; chi
     <div className={clsx("card", onClick && "press cursor-pointer", className)} onClick={onClick}>
       {children}
     </div>
+  );
+}
+
+/** Pastille « i » : la définition d'un chiffre — au survol, au clavier ou au toucher (components/Tooltip.tsx). */
+export function InfoTip({ text }: { text: string }) {
+  return (
+    <span data-tip={text} tabIndex={0} role="note" aria-label={text} className="grid size-4 shrink-0 place-items-center rounded-full text-muted/70 hover:text-ink">
+      <Info size={13} />
+    </span>
   );
 }
 
@@ -36,8 +46,8 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
 
 export function Amount({ value, className, colored = true, round = false }: { value: number | null; className?: string; colored?: boolean; round?: boolean }) {
   return (
-    <span className={clsx("tnum whitespace-nowrap", colored && value != null && value > 0 && "text-pos", className)}>
-      {value != null && value > 0 && colored ? "+" : ""}
+    <span className={clsx("tnum whitespace-nowrap", colored && !isDiscreet() && value != null && value > 0 && "text-pos", className)}>
+      {value != null && value > 0 && colored && !isDiscreet() ? "+" : ""}
       {money(value, round)}
     </span>
   );

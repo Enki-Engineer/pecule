@@ -3,6 +3,12 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.12.2
+
+- **Démarrage après une migration interrompue** : si le serveur est arrêté entre deux instructions d'une migration
+  (redémarrage de l'hébergeur pendant un déploiement), le démarrage suivant reprend la migration au lieu d'échouer
+  sans fin sur « colonne déjà présente ». C'est ce qui a rendu l'appli indisponible au déploiement de la 1.12.1.
+
 ## 1.12.1
 
 - **Étiquettes par nature de contrat dans le coffre** : sous la recherche, une seconde rangée d'étiquettes —

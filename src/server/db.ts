@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { alreadyDone } from "./migrate-rules.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import mysql, { type Pool, type PoolOptions } from "mysql2/promise";
@@ -200,7 +201,16 @@ export async function migrate(lockName = "pecule:migrate"): Promise<string[]> {
     }
     for (const m of files) {
       if (done.has(m.name)) continue;
-      if (!m.skip) for (const sql of m.statements) await exec(sql);
+      if (!m.skip)
+        for (const sql of m.statements) {
+          try {
+            await exec(sql);
+          } catch (e) {
+            // Migration interrompue à un démarrage précédent : cette instruction avait déjà produit son effet.
+            if (!alreadyDone(e)) throw e;
+            console.warn(`[db] ${m.name} : instruction déjà appliquée, reprise (${e instanceof Error ? e.message : String(e)})`);
+          }
+        }
       await exec("INSERT INTO _migrations (name) VALUES (?)", [m.name]);
       applied.push(m.skip ? `${m.name} (référence, non exécutée)` : m.name);
     }

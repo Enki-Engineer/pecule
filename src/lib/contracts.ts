@@ -10,6 +10,51 @@ export const OFFER_KINDS = ["devis", "prospectus"] as const;
 /** Types d'engagements du budget qu'une offre peut remplacer (ni taxe ni budget courant). */
 export const COMPARABLE_COMMITMENTS = ["assurance", "abonnement", "credit", "garde"] as const;
 
+/**
+ * Nature d'un contrat : ce qui se compare d'une offre à l'autre. Un document du coffre en porte une au plus
+ * (colonne `documents.topic`), reconnue à la lecture, corrigible à la main ; le coffre en fait ses étiquettes.
+ */
+export const TOPICS = ["assurance_auto", "assurance_habitation", "assurance_emprunteur", "assurance_sante", "assurance_autre", "energie", "internet", "mobile", "vehicule"] as const;
+export type Topic = (typeof TOPICS)[number];
+export const isTopic = (v: unknown): v is Topic => typeof v === "string" && (TOPICS as readonly string[]).includes(v);
+
+/** Types de documents où une nature se devine au titre et au résumé (un diagnostic ou un bail parlent d'énergie ou d'assurance sans en être). */
+const GUESSABLE = new Set(["contrat", "assurance", "devis", "prospectus", "facture", "autre"]);
+const plain = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’`]/g, "'")
+    .toLowerCase();
+/** Dans l'ordre : la première nature reconnue l'emporte (l'assurance d'un prêt immobilier est une assurance emprunteur). */
+const TOPIC_RULES: [Topic, RegExp][] = [
+  ["assurance_emprunteur", /assurance (de |du )?(pret|emprunteur|credit)|\bemprunteur\b|delegation d'assurance/],
+  ["assurance_auto", /assurance (auto|automobile|moto|voiture|vehicule|scooter|deux[- ]roues)\b|\b(contrat|devis) auto\b/],
+  [
+    "assurance_habitation",
+    /assurance (multirisques? )?(habitation|logement|maison|appartement|immeuble|copropriete|locataire|proprietaire|loyers? impayes?)|multirisques? (habitation|immeuble|copropriete)|\b(mrh|pno)\b/,
+  ],
+  ["assurance_sante", /\bmutuelle\b|complementaire sante|assurance sante|frais de sante/],
+  ["vehicule", /\b(loa|lld)\b|location avec option d'achat|location longue duree|\bleasing\b|credit auto/],
+  ["energie", /\bkwh\b|(fourniture|contrat|offre|facture|echeancier|abonnement|fournisseur) (d'|de |du )?(electricite|energie|gaz)|electricite et gaz|gaz et electricite/],
+  ["internet", /\b(box internet|fibre|adsl|livebox|freebox|bbox)\b|(abonnement|offre|acces) (a )?internet/],
+  ["mobile", /forfait (mobile|telephon)|(ligne|abonnement|telephonie) mobile/],
+];
+
+/**
+ * Nature d'un contrat d'après son titre et son résumé, sans IA : sert aux documents déjà au coffre, à ceux rangés
+ * sans IA, et de repli quand la lecture n'en donne pas. Null plutôt qu'une nature douteuse.
+ */
+export function guessTopic(d: { title: string; summary?: string | null; kind?: string | null }): Topic | null {
+  if (d.kind && !GUESSABLE.has(d.kind)) return null;
+  for (const text of [d.title, d.summary ?? ""]) {
+    const t = plain(text);
+    const hit = TOPIC_RULES.find(([, re]) => re.test(t));
+    if (hit) return hit[0];
+  }
+  return null;
+}
+
 const DAY = 86_400_000;
 const utc = (d: string) => Date.parse(`${d}T12:00:00Z`);
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);

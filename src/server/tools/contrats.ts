@@ -34,7 +34,8 @@ const compareContracts = readTool({
     if (i.commitment_id != null && !commitment) throw new ToolError(`Engagement n° ${i.commitment_id} introuvable dans le budget`);
 
     // Ce qui n'est pas indiqué du contrat en cours est proposé : son engagement, son document, ou les deux.
-    const candidates = await currentCandidates(userId, { commitments: !commitment, documents: !currentDoc }, [...offerIds, ...(currentDoc ? [currentDoc.id] : [])]);
+    const topics = [...new Set(offers.map((o) => o.topic).filter((t): t is string => !!t))];
+    const candidates = await currentCandidates(userId, { commitments: !commitment, documents: !currentDoc }, [...offerIds, ...(currentDoc ? [currentDoc.id] : [])], topics);
     const listed = (candidates.commitments?.length ?? 0) + (candidates.documents?.length ?? 0);
     const docs = documentBlocks([...(currentDoc ? [currentDoc] : []), ...offers], listed ? TEXT_BUDGET_WITH_CANDIDATES : TEXT_BUDGET);
     const hasCurrent = !!commitment || !!currentDoc;

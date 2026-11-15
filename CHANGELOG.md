@@ -3,6 +3,21 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.12.1
+
+- **Étiquettes par nature de contrat dans le coffre** : sous la recherche, une seconde rangée d'étiquettes —
+  Assurance auto, Assurance habitation, Assurance emprunteur, Mutuelle santé, Autre assurance, Électricité et gaz,
+  Box internet, Forfait mobile, Location ou crédit auto — avec le nombre de documents. Seules les natures présentes
+  au coffre sont proposées. Un contrat et tous ses papiers (avenant, attestation, avis d'échéance, devis concurrent)
+  se retrouvent d'un geste, quel que soit leur domaine ou leur type.
+- **D'où vient la nature** : elle est reconnue à la lecture du document, et se corrige dans sa fiche (« Modifier »,
+  « Nature du contrat ») ou par l'assistant. Les documents déjà au coffre sont étiquetés au premier démarrage,
+  d'après leur titre et leur résumé, sans appel à l'IA ; celui dont la nature n'a pas été devinée se complète à la
+  main.
+- **Comparaison de contrats** : face à une offre, l'assistant ne propose plus que les papiers de même nature
+  (l'assurance auto en cours pour un devis d'assurance auto), avec le début de leur résumé.
+- Outils `search_documents` (filtre `topic`) et `update_document` (champ `topic`), assistant et serveur MCP.
+
 ## 1.12.0
 
 - **Manuel** (nouvel écran, entre « Assistant » et « Réglages » dans le menu ; dans « Tout Pécule » sur le

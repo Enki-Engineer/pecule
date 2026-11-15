@@ -25,6 +25,7 @@ import { resumeImports } from "./imports/batches.ts";
 import { loadServiceKeys } from "./service-keys.ts";
 import { loadRegion } from "./region.ts";
 import { fillPurchaseDates } from "./stat-dates.ts";
+import { fillDocumentTopics } from "./documents.ts";
 import { FxError, refreshFx } from "./fx.ts";
 import { refreshWealth } from "./wealth.ts";
 import { maybeSyncCrypto } from "./crypto.ts";
@@ -268,6 +269,10 @@ async function bootstrap(): Promise<void> {
     void fillPurchaseDates()
       .then((n) => n && console.log(`[jour d'achat] ${n} opération(s) complétée(s)`))
       .catch((e) => console.error("[jour d'achat]", e));
+    // Nature des contrats déjà au coffre (première ouverture après la migration 0030, puis sans effet).
+    void fillDocumentTopics()
+      .then((n) => n && console.log(`[coffre] ${n} document(s) étiqueté(s) par nature de contrat`))
+      .catch((e) => console.error("[coffre] nature des contrats", e));
     // Import massif : une lecture interrompue par l'arrêt du serveur reprend.
     void resumeImports().catch((e) => console.error("[import] reprise", e));
     // Base de démo : migrée à part ; un échec ne bloque pas l'appli (alerte, nouvel essai à la demande).

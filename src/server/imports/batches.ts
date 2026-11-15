@@ -343,8 +343,8 @@ async function process(item: ItemRow, userId: number) {
   }
   const x = pickExtractor(c);
   await exec(
-    "UPDATE documents SET title = ?, kind = ?, domain = ?, doc_date = ?, expires_at = ?, summary = ?, facts = ?, content_text = COALESCE(content_text, ?), owner_user_id = ? WHERE id = ?",
-    [c.title.slice(0, 255), c.kind, c.domain, c.doc_date, c.expires_at, c.summary, c.facts.length ? JSON.stringify(c.facts.slice(0, 20)) : null, (text.trim() ? text : c.transcription)?.slice(0, 1_000_000) ?? null, PRIVATE_DOMAINS.has(c.domain) || x?.private ? userId : null, doc.id],
+    "UPDATE documents SET title = ?, kind = ?, domain = ?, topic = ?, doc_date = ?, expires_at = ?, summary = ?, facts = ?, content_text = COALESCE(content_text, ?), owner_user_id = ? WHERE id = ?",
+    [c.title.slice(0, 255), c.kind, c.domain, c.topic, c.doc_date, c.expires_at, c.summary, c.facts.length ? JSON.stringify(c.facts.slice(0, 20)) : null, (text.trim() ? text : c.transcription)?.slice(0, 1_000_000) ?? null, PRIVATE_DOMAINS.has(c.domain) || x?.private ? userId : null, doc.id],
   );
   if (!x) return settle(item.id, "range", { title: c.title });
 

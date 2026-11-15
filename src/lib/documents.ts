@@ -24,6 +24,19 @@ export const KIND_LABELS: Record<string, string> = labels({
   autre: tk("Autre"),
 });
 
+/** Nature d'un contrat (`TOPICS`, src/lib/contracts.ts) : les étiquettes du coffre. */
+export const TOPIC_LABELS: Record<string, string> = labels({
+  assurance_auto: tk("Assurance auto"),
+  assurance_habitation: tk("Assurance habitation"),
+  assurance_emprunteur: tk("Assurance emprunteur"),
+  assurance_sante: tk("Mutuelle santé"),
+  assurance_autre: tk("Autre assurance"),
+  energie: tk("Électricité et gaz"),
+  internet: tk("Box internet"),
+  mobile: tk("Forfait mobile"),
+  vehicule: tk("Location ou crédit auto"),
+});
+
 export const DOMAIN_LABELS: Record<string, string> = labels({
   banque: tk("Banque"),
   immobilier: tk("Immobilier"),

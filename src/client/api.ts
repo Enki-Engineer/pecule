@@ -411,6 +411,8 @@ export type DocSummary = {
   title: string;
   kind: string;
   domain: string;
+  /** Nature du contrat (assurance auto, énergie…) : l'étiquette du coffre. */
+  topic: string | null;
   entity_type: string | null;
   entity_id: string | null;
   doc_date: string | null;

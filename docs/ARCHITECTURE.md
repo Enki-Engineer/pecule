@@ -71,6 +71,11 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   `retirement_simulations`, `career_periods`, `projections`. Les indicateurs sont recalculés, jamais stockés.
 - **Documents** — `documents` (coffre, texte indexé, identifiants masqués par `src/lib/redact.ts`) et `agenda_items` ;
   les échéances des crédits, garanties et contrats sont calculées à la volée.
+- **Nature d'un contrat** — `documents.topic` (`TOPICS`, `src/lib/contracts.ts`) : assurance auto, habitation,
+  emprunteur, santé, énergie, box, mobile, véhicule. Lue par l'IA au rangement, devinée au titre et au résumé sinon
+  (`guessTopic`, qui a aussi étiqueté une fois les documents déjà là : `fillDocumentTopics`), corrigible dans la fiche.
+  Le coffre en fait ses étiquettes (`GET /api/documents/topics`), la comparaison s'en sert pour proposer le contrat en
+  cours.
 - **Comparaison de contrats** — rien n'est gardé : l'outil `compare_contracts` (`src/server/contracts.ts`) réunit le
   texte des offres et du contrat en cours (coffre), l'engagement du budget et ce qui a été prélevé sur douze mois
   (`tx_lines`, motif de libellé de l'engagement) ; échéance, préavis et partage du texte entre documents sont des règles

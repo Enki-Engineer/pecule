@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { one } from "../db.ts";
-import { DOMAINS, KINDS, documentDetail, searchDocuments, updateDocument } from "../documents.ts";
+import { DOMAINS, KINDS, TOPICS, documentDetail, searchDocuments, updateDocument } from "../documents.ts";
 import { agenda, createTask, setTaskDone } from "../agenda.ts";
 import { ToolError, change, day, field, longDate, readTool, today, writeTool } from "./registry.ts";
 import { t as tr, tk } from "../../lib/i18n.ts";
+import { TOPIC_LABELS } from "../../lib/documents.ts";
 
 /* Documents (coffre) et échéancier. */
 
@@ -14,6 +15,9 @@ const frDate = (d: string | null | undefined) => (d ? longDate(d) : tr("sans dat
 const RECURRENCES: Record<string, string> = { mensuel: tk("mensuel"), trimestriel: tk("trimestriel"), annuel: tk("annuel") };
 const recurrenceLabel = (r: string) => tr(RECURRENCES[r] ?? r);
 
+/** Nature d'un contrat dans un texte de confirmation, dans la langue du membre. */
+const topicLabel = (topic: string | null | undefined) => (topic ? (TOPIC_LABELS[topic] ?? topic) : "—");
+
 const searchDocs = readTool({
   name: "search_documents",
   progress: tk("Recherche dans les documents…"),
@@ -23,12 +27,13 @@ const searchDocs = readTool({
     query: z.string().max(100).optional().describe("Mots cherchés (titre, résumé, texte du document)"),
     domain: z.enum(DOMAINS).optional(),
     kind: z.enum(KINDS).optional(),
+    topic: z.enum(TOPICS).optional().describe("Nature du contrat (assurance auto, habitation, emprunteur, santé, énergie, box, mobile, véhicule) : tous les papiers d'un même contrat, quel que soit leur type"),
     entity_type: z.string().max(16).optional().describe("property, asset, loan…"),
     entity_id: z.string().max(64).optional(),
     limit: z.number().int().min(1).max(30).optional().describe("Défaut 10"),
   }),
   run: ({ userId }, f) =>
-    searchDocuments(userId, { q: f.query, domain: f.domain, kind: f.kind, entityType: f.entity_type, entityId: f.entity_id, limit: f.limit ?? 10 }),
+    searchDocuments(userId, { q: f.query, domain: f.domain, kind: f.kind, topic: f.topic, entityType: f.entity_type, entityId: f.entity_id, limit: f.limit ?? 10 }),
 });
 
 const getDoc = readTool({
@@ -46,12 +51,13 @@ const getDoc = readTool({
 
 const updateDoc = writeTool({
   name: "update_document",
-  description: "Corrige le classement d'un document : titre, type, domaine, date, échéance (expires_at), résumé, rattachement (entity_type/entity_id), private.",
+  description: "Corrige le classement d'un document : titre, type, domaine, nature du contrat (topic, null pour l'enlever), date, échéance (expires_at), résumé, rattachement (entity_type/entity_id), private.",
   input: z.object({
     document_id: z.number().int(),
     title: z.string().min(1).max(255).optional(),
     kind: z.enum(KINDS).optional(),
     domain: z.enum(DOMAINS).optional(),
+    topic: z.enum(TOPICS).nullable().optional(),
     doc_date: day.nullable().optional(),
     expires_at: day.nullable().optional(),
     summary: z.string().max(4000).nullable().optional(),
@@ -67,6 +73,7 @@ const updateDoc = writeTool({
     // Type et domaine : identifiants du coffre, montrés tels quels.
     if (i.kind !== undefined) details.push(change(tr("Type"), d.kind, i.kind));
     if (i.domain !== undefined) details.push(change(tr("Domaine"), d.domain, i.domain));
+    if (i.topic !== undefined) details.push(change(tr("Nature du contrat"), topicLabel(d.topic), topicLabel(i.topic)));
     if (i.doc_date !== undefined) details.push(change(tr("Date"), frDate(d.doc_date), frDate(i.doc_date)));
     if (i.expires_at !== undefined) details.push(change(tr("Échéance"), frDate(d.expires_at), frDate(i.expires_at)));
     if (i.summary !== undefined) details.push(tr("Résumé réécrit"));
@@ -80,6 +87,7 @@ const updateDoc = writeTool({
       title: i.title,
       kind: i.kind,
       domain: i.domain,
+      topic: i.topic,
       docDate: i.doc_date,
       expiresAt: i.expires_at,
       summary: i.summary,

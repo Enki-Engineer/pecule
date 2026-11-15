@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysBetween, paidSummary, renewal, shareBudget, shiftDays, yearlyCost } from "./contracts.ts";
+import { daysBetween, guessTopic, paidSummary, renewal, shareBudget, shiftDays, yearlyCost } from "./contracts.ts";
 
 describe("renewal", () => {
   it("garde une échéance à venir et en déduit la date limite de résiliation", () => {
@@ -90,5 +90,43 @@ describe("shareBudget", () => {
     expect(shareBudget([0, 500], 300)).toEqual([0, 300]);
     expect(shareBudget([10, 20], 0)).toEqual([0, 0]);
     expect(shareBudget([], 100)).toEqual([]);
+  });
+});
+
+describe("guessTopic", () => {
+  const of = (title: string, kind = "assurance", summary: string | null = null) => guessTopic({ title, kind, summary });
+
+  it("reconnaît la nature au titre", () => {
+    expect(of("Contrat d'assurance auto — Macif")).toBe("assurance_auto");
+    expect(of("Devis d’assurance automobile", "devis")).toBe("assurance_auto");
+    expect(of("Attestation d'assurance habitation 2026")).toBe("assurance_habitation");
+    expect(of("Assurance multirisque copropriété (2022)")).toBe("assurance_habitation");
+    expect(of("Contrat de mutuelle santé — Camille", "contrat")).toBe("assurance_sante");
+    expect(of("Offre d'électricité à prix fixe", "devis")).toBe("energie");
+    expect(of("Facture de gaz de janvier", "facture")).toBe("energie");
+    expect(of("Offre fibre 24 mois", "prospectus")).toBe("internet");
+    expect(of("Forfait mobile 100 Go", "contrat")).toBe("mobile");
+    expect(of("Proposition de location avec option d'achat", "devis")).toBe("vehicule");
+  });
+
+  it("fait passer l'assurance d'un prêt avant celle du logement", () => {
+    expect(of("Appel de cotisation assurance emprunteur 2026")).toBe("assurance_emprunteur");
+    expect(of("Assurance de prêt — appartement de Nantes")).toBe("assurance_emprunteur");
+    expect(of("Avenant", "assurance", "Assurance emprunteur du prêt de l'appartement, garanties décès.")).toBe("assurance_emprunteur");
+  });
+
+  it("lit le résumé quand le titre ne dit rien, le titre d'abord", () => {
+    expect(of("Conditions particulières", "contrat", "Complémentaire santé individuelle, renouvelée chaque 1er janvier.")).toBe("assurance_sante");
+    expect(of("Assurance auto — mandat", "assurance", "Résiliation de l'assurance habitation.")).toBe("assurance_auto");
+  });
+
+  it("ne devine pas hors des contrats, ni sur un mot isolé", () => {
+    expect(of("Diagnostic de performance énergétique", "diagnostic", "Consommation : 198 kWh/m²/an.")).toBeNull();
+    expect(of("Offre de prêt immobilier", "pret", "Assurance emprunteur comprise.")).toBeNull();
+    expect(of("Bail meublé", "bail", "Le locataire fournit une attestation d'assurance habitation.")).toBeNull();
+    expect(of("Notice descriptive", "contrat", "Chaudière individuelle gaz à condensation, garage en box.")).toBeNull();
+    expect(of("Devis de rénovation — lot électricité", "devis")).toBeNull();
+    expect(of("Attestation (Inter Mutuelles Entreprises)", "autre")).toBeNull();
+    expect(of("Contrat de travail", "contrat")).toBeNull();
   });
 });

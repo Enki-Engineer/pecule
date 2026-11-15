@@ -6,7 +6,7 @@ import { exec, one, q } from "../db.ts";
 import { memberByName } from "../members.ts";
 import { ActionError, userAccountsSql } from "../actions.ts";
 import { createDepotToken } from "../auth.ts";
-import { DOC_MIMES, DOMAINS, KINDS, MAX_DOC_SIZE, classifyDocument, deleteDocument, extractText, documentDetail, saveDocument, searchDocuments, updateDocument, visibleDocument } from "../documents.ts";
+import { DOC_MIMES, DOMAINS, KINDS, MAX_DOC_SIZE, TOPICS, classifyDocument, deleteDocument, documentTopics, extractText, documentDetail, saveDocument, searchDocuments, updateDocument, visibleDocument } from "../documents.ts";
 import { agenda, createTask, deleteTask, setTaskDone, updateTask } from "../agenda.ts";
 import { ingestUpload } from "../inbox.ts";
 import { env } from "../env.ts";
@@ -53,6 +53,7 @@ documentsApi.get("/documents", async (req, res) => {
       q: z.string().max(100).optional(),
       domain: z.enum(DOMAINS).optional(),
       kind: z.enum(KINDS).optional(),
+      topic: z.enum(TOPICS).optional(),
       entityType: z.string().max(16).optional(),
       entityId: z.string().max(64).optional(),
       limit: z.coerce.number().int().min(1).max(200).default(60),
@@ -60,6 +61,11 @@ documentsApi.get("/documents", async (req, res) => {
     })
     .parse(req.query);
   res.json(await searchDocuments(req.user!.id, f));
+});
+
+/** Étiquettes du coffre : les natures de contrat qui y ont au moins un document. Avant « /documents/:id ». */
+documentsApi.get("/documents/topics", async (req, res) => {
+  res.json({ topics: await documentTopics(req.user!.id) });
 });
 
 documentsApi.get("/documents/:id", async (req, res) => {
@@ -95,6 +101,7 @@ const docPatch = z.object({
   title: z.string().min(1).max(255).optional(),
   kind: z.enum(KINDS).optional(),
   domain: z.enum(DOMAINS).optional(),
+  topic: z.enum(TOPICS).nullable().optional(),
   docDate: day.nullable().optional(),
   expiresAt: day.nullable().optional(),
   summary: z.string().max(4000).nullable().optional(),
@@ -251,6 +258,8 @@ documentsAdmin.post("/documents", async (req, res) => {
       title: c?.title ?? b.title,
       kind: b.kind ?? c?.kind,
       domain: b.domain ?? c?.domain,
+      // La nature lue par l'IA fait foi ; sans lecture, elle se devine au titre et au résumé.
+      topic: c ? c.topic : undefined,
       entityType: b.entityType,
       entityId: b.entityId,
       docDate: b.docDate ?? c?.doc_date,

@@ -7,6 +7,7 @@ import { householdSummary } from "./household.ts";
 import { aiClient, aiEnabled, aiModel, recordUsage } from "./ai.ts";
 import { ActionError } from "./actions.ts";
 import { redact, redactOrNull } from "../lib/redact.ts";
+import { TOPICS, guessTopic, isTopic } from "../lib/contracts.ts";
 import { t } from "../lib/i18n.ts";
 
 /*
@@ -51,6 +52,7 @@ export const KINDS = [
   "autre",
 ] as const;
 export const DOMAINS = ["banque", "immobilier", "patrimoine", "crypto", "impots", "retraite", "revenus", "budget", "autre"] as const;
+export { TOPICS };
 /** Domaines privés par défaut (visibles du seul déposant). */
 const PRIVATE_DOMAINS = new Set(["retraite", "revenus"]);
 
@@ -136,6 +138,7 @@ const classification = z.object({
   is_invoice: z.boolean(),
   kind: z.enum(KINDS),
   domain: z.enum(DOMAINS),
+  topic: z.enum(TOPICS).nullable(),
   title: z.string().min(1),
   doc_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   expires_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
@@ -151,6 +154,12 @@ const CLASSIFY_SCHEMA = {
     is_invoice: { type: "boolean", description: "true pour une facture ou un ticket d'achat d'un bien ou d'un service (à ranger dans les factures) ; false pour un devis, une offre ou une proposition de contrat, qui ne sont pas encore payés" },
     kind: { type: "string", enum: [...KINDS], description: "Type de document (facture = facture de travaux ou de service liée à un bien, conservée au coffre ; devis = devis, offre ou proposition de contrat pas encore acceptés, d'un fournisseur d'énergie, d'un assureur, d'un opérateur, d'un artisan…)" },
     domain: { type: "string", enum: [...DOMAINS], description: "Domaine des finances de la famille concerné" },
+    topic: {
+      type: ["string", "null"],
+      enum: [...TOPICS, null],
+      description:
+        "Nature du contrat, pour un contrat, un avenant, une attestation, un avis d'échéance, un devis ou une offre qui s'y rapporte : assurance_auto (auto, moto), assurance_habitation (habitation, propriétaire non occupant, copropriété, loyers impayés), assurance_emprunteur, assurance_sante (mutuelle, complémentaire santé), assurance_autre (prévoyance, scolaire, animaux, protection juridique…), energie (électricité, gaz), internet (box, fibre), mobile (forfait), vehicule (crédit, location avec option d'achat ou longue durée d'un véhicule). null pour tout le reste (impôts, paie, actes, placements, travaux…).",
+    },
     title: { type: "string", description: "Titre court et parlant (« Avis d'impôt 2026 sur les revenus 2025 », « Bail meublé du studio », « DPE de l'appartement 2019 »)" },
     doc_date: { type: ["string", "null"], description: "Date du document AAAA-MM-JJ" },
     expires_at: { type: ["string", "null"], description: "Fin de validité ou échéance AAAA-MM-JJ (fin de bail, DPE + 10 ans, fin de contrat, date limite de paiement), sinon null" },
@@ -162,7 +171,7 @@ const CLASSIFY_SCHEMA = {
     },
     transcription: { type: ["string", "null"], description: "Pour une photo ou un scan sans texte : transcription du texte utile (4 000 caractères au plus) ; sinon null" },
   },
-  required: ["is_invoice", "kind", "domain", "title", "doc_date", "expires_at", "summary", "facts", "transcription"],
+  required: ["is_invoice", "kind", "domain", "topic", "title", "doc_date", "expires_at", "summary", "facts", "transcription"],
   additionalProperties: false,
 };
 
@@ -206,6 +215,8 @@ export type DocumentInput = {
   title: string;
   kind?: string;
   domain?: string;
+  /** Nature du contrat ; absente : devinée au titre et au résumé (null = aucune, sans deviner). */
+  topic?: string | null;
   entityType?: string | null;
   entityId?: string | null;
   docDate?: string | null;
@@ -229,12 +240,13 @@ export async function saveDocument(input: DocumentInput): Promise<{ id: number; 
     (hash ? await one<{ id: number }>("SELECT id FROM documents WHERE file_sha256 = ?", [hash]) : undefined);
   const text = redactOrNull(input.contentText)?.slice(0, MAX_TEXT) ?? null;
   const facts = input.facts?.length ? JSON.stringify(input.facts.map((f) => ({ label: f.label, value: redact(f.value) })).slice(0, 20)) : null;
+  const topic = input.topic === undefined ? guessTopic({ title: input.title, summary: input.summary, kind: input.kind }) : isTopic(input.topic) ? input.topic : null;
   if (existing) {
     await exec(
       `UPDATE documents SET summary = COALESCE(summary, ?), facts = COALESCE(facts, ?), content_text = COALESCE(content_text, ?),
          doc_date = COALESCE(doc_date, ?), expires_at = COALESCE(expires_at, ?), entity_type = COALESCE(entity_type, ?), entity_id = COALESCE(entity_id, ?),
-         source_ref = COALESCE(source_ref, ?) WHERE id = ?`,
-      [redactOrNull(input.summary), facts, text, input.docDate ?? null, input.expiresAt ?? null, input.entityType ?? null, input.entityId ?? null, input.sourceRef ?? null, existing.id],
+         source_ref = COALESCE(source_ref, ?), topic = COALESCE(topic, ?) WHERE id = ?`,
+      [redactOrNull(input.summary), facts, text, input.docDate ?? null, input.expiresAt ?? null, input.entityType ?? null, input.entityId ?? null, input.sourceRef ?? null, topic, existing.id],
     );
     if (input.file && hash) {
       const hasFile = await one("SELECT document_id FROM document_files WHERE document_id = ?", [existing.id]);
@@ -246,13 +258,14 @@ export async function saveDocument(input: DocumentInput): Promise<{ id: number; 
     return { id: existing.id, created: false };
   }
   const r = await exec(
-    `INSERT INTO documents (owner_user_id, title, kind, domain, entity_type, entity_id, doc_date, expires_at, summary, facts, content_text,
-       file_name, file_mime, file_size, file_sha256, source, source_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO documents (owner_user_id, title, kind, domain, topic, entity_type, entity_id, doc_date, expires_at, summary, facts, content_text,
+       file_name, file_mime, file_size, file_sha256, source, source_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.ownerUserId ?? null,
       input.title.slice(0, 255),
       (KINDS as readonly string[]).includes(input.kind ?? "") ? input.kind : "autre",
       (DOMAINS as readonly string[]).includes(input.domain ?? "") ? input.domain : "autre",
+      topic,
       input.entityType ?? null,
       input.entityId ?? null,
       input.docDate ?? null,
@@ -294,6 +307,8 @@ export async function createDocumentFromFile(
     title,
     kind: c?.kind,
     domain: c?.domain,
+    // La nature lue par l'IA fait foi, « aucune » comprise ; sans IA, celle que disent le titre et le résumé.
+    topic: c ? c.topic : undefined,
     docDate: c?.doc_date,
     expiresAt: c?.expires_at,
     summary: c?.summary,
@@ -307,7 +322,7 @@ export async function createDocumentFromFile(
 
 /* ---------- Lecture, recherche, mise à jour ---------- */
 
-const LIST_COLS = `d.id, d.owner_user_id, d.title, d.kind, d.domain, d.entity_type, d.entity_id, d.doc_date, d.expires_at, d.summary,
+const LIST_COLS = `d.id, d.owner_user_id, d.title, d.kind, d.domain, d.topic, d.entity_type, d.entity_id, d.doc_date, d.expires_at, d.summary,
   d.file_name, d.file_mime, d.file_size, d.source, d.created_at`;
 
 /** Requête plein texte (mode booléen, préfixes) : « avis impot 2025 » → « +avis* +impot* +2025* ». */
@@ -333,12 +348,13 @@ export function snippet(text: string | null, q: string, width = 160): string | n
 
 export async function searchDocuments(
   userId: number,
-  f: { q?: string; domain?: string; kind?: string; entityType?: string; entityId?: string; limit?: number; offset?: number },
+  f: { q?: string; domain?: string; kind?: string; topic?: string; entityType?: string; entityId?: string; limit?: number; offset?: number },
 ) {
   const where = [documentVisible(userId)];
   const params: unknown[] = [];
   if (f.domain) where.push("d.domain = ?"), params.push(f.domain);
   if (f.kind) where.push("d.kind = ?"), params.push(f.kind);
+  if (f.topic) where.push("d.topic = ?"), params.push(f.topic);
   if (f.entityType) where.push("d.entity_type = ?"), params.push(f.entityType);
   if (f.entityId) where.push("d.entity_id = ?"), params.push(f.entityId);
   const limit = f.limit ?? 50;
@@ -378,6 +394,7 @@ export type DocumentRow = {
   title: string;
   kind: string;
   domain: string;
+  topic: string | null;
   entity_type: string | null;
   entity_id: string | null;
   doc_date: string | null;
@@ -414,6 +431,7 @@ export type DocumentPatch = {
   title?: string;
   kind?: string;
   domain?: string;
+  topic?: string | null;
   docDate?: string | null;
   expiresAt?: string | null;
   summary?: string | null;
@@ -428,6 +446,7 @@ export async function updateDocument(userId: number, id: number, b: DocumentPatc
     title: b.title,
     kind: b.kind,
     domain: b.domain,
+    topic: b.topic === undefined ? undefined : isTopic(b.topic) ? b.topic : null,
     doc_date: b.docDate,
     expires_at: b.expiresAt,
     summary: b.summary === undefined ? undefined : redactOrNull(b.summary),
@@ -442,4 +461,36 @@ export async function updateDocument(userId: number, id: number, b: DocumentPatc
 export async function deleteDocument(userId: number, id: number) {
   await visibleDocument(userId, id);
   await exec("DELETE FROM documents WHERE id = ?", [id]);
+}
+
+/* ---------- Nature des contrats (étiquettes du coffre) ---------- */
+
+/** Natures présentes dans le coffre du membre, avec le nombre de documents : ce sont les étiquettes proposées. */
+export async function documentTopics(userId: number): Promise<{ topic: string; count: number }[]> {
+  const rows = await q<{ topic: string; n: number }>(`SELECT d.topic, COUNT(*) AS n FROM documents d WHERE d.topic IS NOT NULL AND ${documentVisible(userId)} GROUP BY d.topic`);
+  const order = TOPICS as readonly string[];
+  return rows
+    .filter((r) => isTopic(r.topic))
+    .map((r) => ({ topic: r.topic, count: Number(r.n) }))
+    .sort((a, b) => order.indexOf(a.topic) - order.indexOf(b.topic));
+}
+
+const TOPICS_DONE = "documents:topics";
+
+/**
+ * Donne leur nature aux documents déjà au coffre, d'après leur titre et leur résumé (sans IA) : une fois, à la
+ * première ouverture après la migration ; ensuite sans effet, pour ne pas remettre une nature retirée à la main.
+ */
+export async function fillDocumentTopics(): Promise<number> {
+  if (await one("SELECT 1 AS x FROM app_kv WHERE `key` = ?", [TOPICS_DONE])) return 0;
+  const rows = await q<{ id: number; title: string; summary: string | null; kind: string }>("SELECT id, title, summary, kind FROM documents WHERE topic IS NULL");
+  let n = 0;
+  for (const r of rows) {
+    const topic = guessTopic(r);
+    if (!topic) continue;
+    await exec("UPDATE documents SET topic = ?, updated_at = updated_at WHERE id = ? AND topic IS NULL", [topic, r.id]);
+    n++;
+  }
+  await exec("INSERT INTO app_kv (`key`, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [TOPICS_DONE, String(n)]);
+  return n;
 }

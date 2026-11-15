@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0029_fils_titre_epingle.sql
+-- inclut-jusqu-a: drizzle/0030_nature_contrat.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -397,6 +397,7 @@ CREATE TABLE `documents` (
   `source_ref` varchar(191) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `topic` varchar(24) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_documents_file` (`file_sha256`),
   UNIQUE KEY `uq_documents_source_ref` (`source_ref`),
@@ -404,6 +405,7 @@ CREATE TABLE `documents` (
   KEY `idx_documents_domain` (`domain`,`doc_date`),
   KEY `idx_documents_entity` (`entity_type`,`entity_id`),
   KEY `idx_documents_expires` (`expires_at`),
+  KEY `idx_documents_topic` (`topic`),
   FULLTEXT KEY `ft_documents` (`title`,`summary`,`content_text`),
   CONSTRAINT `fk_documents_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

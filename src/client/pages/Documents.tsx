@@ -8,7 +8,7 @@ import { api, invalidateDocuments, invalidateInvoices, uploadToInbox, useDemo, u
 import { useProperties } from "../api-situation.ts";
 import { Card, Empty, ErrorBox, Field, PageHeader, Sheet, Spinner, Tabs } from "../components/ui.tsx";
 import { dateFr } from "../format.ts";
-import { DOMAIN_LABELS, KIND_LABELS } from "../../lib/documents.ts";
+import { DOMAIN_LABELS, KIND_LABELS, TOPIC_LABELS } from "../../lib/documents.ts";
 import { CONTRACT_KINDS, OFFER_KINDS } from "../../lib/contracts.ts";
 import { FileIcon } from "./Invoices.tsx";
 import { Batch } from "./Import.tsx";
@@ -99,6 +99,7 @@ function Vault() {
   const demo = useDemo();
   const [params, setParams] = useSearchParams();
   const domain = params.get("domaine") ?? undefined;
+  const topic = params.get("nature") ?? undefined;
   const openId = params.get("id") ? Number(params.get("id")) : null;
   const view = params.get("vue") === "imports" && !demo ? "imports" : "documents";
   const [search, setSearch] = useState(params.get("q") ?? "");
@@ -116,16 +117,23 @@ function Vault() {
   const list = useInfiniteQuery({
     // Filtres, recherche : la liste reste affichée pendant le chargement de la suivante (pas de squelette).
     placeholderData: keepPreviousData,
-    queryKey: ["documents", { domain, q: debounced }],
+    queryKey: ["documents", { domain, topic, q: debounced }],
     initialPageParam: 0,
     queryFn: ({ pageParam }) => {
       const sp = new URLSearchParams({ limit: String(PAGE), offset: String(pageParam) });
       if (domain) sp.set("domain", domain);
+      if (topic) sp.set("topic", topic);
       if (debounced) sp.set("q", debounced);
       return api<{ documents: DocSummary[]; hasMore: boolean }>(`/documents?${sp}`);
     },
     getNextPageParam: (last, all) => (last.hasMore ? all.length * PAGE : undefined),
   });
+  // Étiquettes par nature de contrat : seulement celles que le coffre contient (et celle de l'adresse, même vide).
+  const topics = useQuery({ queryKey: ["documents", "natures"], queryFn: () => api<{ topics: { topic: string; count: number }[] }>("/documents/topics") });
+  const topicChips = useMemo(() => {
+    const known = topics.data?.topics ?? [];
+    return topic && !known.some((x) => x.topic === topic) ? [...known, { topic, count: 0 }] : known;
+  }, [topics.data, topic]);
   const rows = useMemo(() => list.data?.pages.flatMap((p) => p.documents) ?? [], [list.data]);
   const groups = useMemo(() => {
     if (debounced) return [{ title: t("Résultats"), items: rows }];
@@ -196,17 +204,16 @@ function Vault() {
         </label>
         <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
           {DOMAINS.filter(([k]) => k !== "autre").map(([k, label]) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setParam("domaine", domain === k ? null : k)}
-              className={clsx("press flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm shadow-sm md:rounded-md md:border md:px-2.5 md:py-1 md:text-[12.5px] md:shadow-none", domain === k ? "bg-accent font-medium text-white md:border-accent md:bg-accent-soft md:text-accent" : "bg-card text-muted ring-1 ring-line md:border-line md:ring-0 md:hover:text-ink")}
-            >
-              {label}
-              {domain === k && <X size={14} />}
-            </button>
+            <FilterChip key={k} label={label} active={domain === k} onClick={() => setParam("domaine", domain === k ? null : k)} />
           ))}
         </div>
+        {topicChips.length > 0 && (
+          <div className="mt-1 flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t("Nature du contrat")}>
+            {topicChips.map((x) => (
+              <FilterChip key={x.topic} label={TOPIC_LABELS[x.topic] ?? x.topic} count={x.count} active={topic === x.topic} onClick={() => setParam("nature", topic === x.topic ? null : x.topic)} />
+            ))}
+          </div>
+        )}
       </div>
 
       {list.error && <ErrorBox error={list.error} />}
@@ -435,6 +442,25 @@ function ImportsList({ lines, onOpen }: { lines: BatchLine[]; onOpen: (id: numbe
   );
 }
 
+/** Étiquette de filtre sous la recherche : un domaine, ou une nature de contrat avec son nombre de documents. */
+function FilterChip({ label, count, active, onClick }: { label: string; count?: number; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={clsx(
+        "press flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm shadow-sm md:rounded-md md:border md:px-2.5 md:py-1 md:text-[12.5px] md:shadow-none",
+        active ? "bg-accent font-medium text-white md:border-accent md:bg-accent-soft md:text-accent" : "bg-card text-muted ring-1 ring-line md:border-line md:ring-0 md:hover:text-ink",
+      )}
+    >
+      {label}
+      {count != null && count > 0 && <span className="tnum text-[0.85em] opacity-70">{count}</span>}
+      {active && <X size={14} />}
+    </button>
+  );
+}
+
 function DocRow({ d, onClick }: { d: DocSummary; onClick: () => void }) {
   const expired = d.expires_at && d.expires_at < today();
   return (
@@ -444,7 +470,7 @@ function DocRow({ d, onClick }: { d: DocSummary; onClick: () => void }) {
         <div className="truncate text-[15px] font-medium">{d.title}</div>
         <div className="flex items-center gap-1 truncate text-xs text-muted">
           <span>{KIND_LABELS[d.kind] ?? d.kind}</span>
-          <span>· {DOMAIN_LABELS[d.domain] ?? d.domain}</span>
+          <span>· {(d.topic && TOPIC_LABELS[d.topic]) || (DOMAIN_LABELS[d.domain] ?? d.domain)}</span>
           {d.doc_date && <span>· {dateFr(d.doc_date)}</span>}
           {d.owner_user_id != null && <Lock size={11} className="shrink-0" aria-label={t("Privé")} />}
           {d.expires_at && <CalendarClock size={12} className={clsx("shrink-0", expired ? "text-neg" : "text-accent")} aria-label={t("Échéance")} />}
@@ -540,6 +566,7 @@ function DocumentSheet({ id, onClose }: { id: number; onClose: () => void }) {
             <div className="text-[15px] font-semibold">{d.title}</div>
             <div className="mt-0.5 text-sm text-muted">
               {KIND_LABELS[d.kind] ?? d.kind} · {DOMAIN_LABELS[d.domain] ?? d.domain}
+              {d.topic && TOPIC_LABELS[d.topic] ? ` · ${TOPIC_LABELS[d.topic]}` : ""}
               {d.doc_date && ` · ${dateFr(d.doc_date)}`}
               {d.owner_user_id != null && t(" · privé")}
             </div>
@@ -626,6 +653,7 @@ function EditDocument({ d, isMine, onDone, onSave }: { d: DocDetail; isMine: boo
   const [title, setTitle] = useState(d.title);
   const [kind, setKind] = useState(d.kind);
   const [domain, setDomain] = useState(d.domain);
+  const [topic, setTopic] = useState(d.topic ?? "");
   const [docDate, setDocDate] = useState(d.doc_date ?? "");
   const [expires, setExpires] = useState(d.expires_at ?? "");
   const [summary, setSummary] = useState(d.summary ?? "");
@@ -636,7 +664,7 @@ function EditDocument({ d, isMine, onDone, onSave }: { d: DocDetail; isMine: boo
       className="space-y-2"
       onSubmit={async (e) => {
         e.preventDefault();
-        const ok = await onSave({ title, kind, domain, docDate: docDate || null, expiresAt: expires || null, summary: summary || null, private: priv });
+        const ok = await onSave({ title, kind, domain, topic: topic || null, docDate: docDate || null, expiresAt: expires || null, summary: summary || null, private: priv });
         if (ok) onDone();
       }}
     >
@@ -655,6 +683,17 @@ function EditDocument({ d, isMine, onDone, onSave }: { d: DocDetail; isMine: boo
         <span className="px-1 text-xs text-muted">{t("Domaine")}</span>
         <select value={domain} onChange={(e) => setDomain(e.target.value)} aria-label={t("Domaine")} className={select}>
           {DOMAINS.map(([k, l]) => (
+            <option key={k} value={k}>
+              {l}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block">
+        <span className="px-1 text-xs text-muted">{t("Nature du contrat")}</span>
+        <select value={topic} onChange={(e) => setTopic(e.target.value)} aria-label={t("Nature du contrat")} className={select}>
+          <option value="">{t("Aucune##nature du contrat")}</option>
+          {Object.entries(TOPIC_LABELS).map(([k, l]) => (
             <option key={k} value={k}>
               {l}
             </option>

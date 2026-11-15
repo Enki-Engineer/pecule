@@ -20,6 +20,8 @@ export const documents = mysqlTable(
     kind: varchar("kind", { length: 24 }).notNull().default("autre"),
     /** banque | immobilier | patrimoine | crypto | impots | retraite | revenus | budget | autre */
     domain: varchar("domain", { length: 16 }).notNull().default("autre"),
+    /** Nature du contrat (`TOPICS`, src/lib/contracts.ts) : assurance_auto, energie… ; nul pour ce qui n'est pas un contrat comparable. */
+    topic: varchar("topic", { length: 24 }),
     entityType: varchar("entity_type", { length: 16 }),
     entityId: varchar("entity_id", { length: 64 }),
     docDate: date("doc_date", { mode: "string" }),
@@ -44,6 +46,7 @@ export const documents = mysqlTable(
     index("idx_documents_domain").on(t.domain, t.docDate),
     index("idx_documents_entity").on(t.entityType, t.entityId),
     index("idx_documents_expires").on(t.expiresAt),
+    index("idx_documents_topic").on(t.topic),
     foreignKey({ name: "fk_documents_owner", columns: [t.ownerUserId], foreignColumns: [users.id] }).onDelete("set null"),
   ],
 );

@@ -10,6 +10,7 @@ import { PROPERTY_IDS } from "./data-situation.ts";
 import { type IncomeModel, PARTS, type Scenario, taxYears, tfYears } from "./model.ts";
 import { demoPdf } from "./pdf.ts";
 import { type DemoUser, type Insert, addDays, addMonths, dateFr, eur, ymd } from "./rng.ts";
+import { guessTopic } from "../../lib/contracts.ts";
 
 export type DocIds = { avis: Map<number, number>; tfRp: number | null };
 
@@ -216,6 +217,7 @@ export function buildDocuments(s: Scenario, model: IncomeModel, [ua, uc]: readon
       title: d.title,
       kind: d.kind,
       domain: d.domain,
+      topic: guessTopic(d),
       entityType: d.entity?.[0] ?? null,
       entityId: d.entity?.[1] ?? null,
       docDate: d.docDate,

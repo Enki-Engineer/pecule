@@ -4,7 +4,7 @@ import { STAT_SCOPE } from "./stats.ts";
 import { today } from "./region.ts";
 import { documentVisible, type documentDetail } from "./documents.ts";
 import type { CommitmentRow } from "./situation.ts";
-import { COMPARABLE_COMMITMENTS, CONTRACT_KINDS, paidSummary, renewal, shareBudget, shiftDays, yearlyCost, type PaidMonth } from "../lib/contracts.ts";
+import { COMPARABLE_COMMITMENTS, CONTRACT_KINDS, OFFER_KINDS, isTopic, paidSummary, renewal, shareBudget, shiftDays, yearlyCost, type PaidMonth } from "../lib/contracts.ts";
 
 /*
  * Comparaison de contrats : ce que l'assistant (et le serveur MCP) lit pour dire si une offre vaut mieux que le
@@ -39,6 +39,7 @@ export function documentBlocks(docs: ContractDocument[], budget: number) {
       title: d.title,
       kind: d.kind,
       domain: d.domain,
+      topic: d.topic,
       doc_date: d.doc_date,
       expires_at: d.expires_at,
       summary: d.summary?.slice(0, 900) ?? null,
@@ -129,8 +130,14 @@ export async function commitmentBlock(userId: number, c: CommitmentRow) {
   };
 }
 
-/** Contrats en cours parmi lesquels choisir celui que l'offre remplacerait : engagements du budget et contrats du coffre. */
-export async function currentCandidates(userId: number, want: { commitments: boolean; documents: boolean }, excludeDocuments: number[] = []) {
+type CandidateDoc = { id: number; title: string; kind: string; topic: string | null; doc_date: string | null; expires_at: string | null; summary: string | null };
+
+/**
+ * Contrats en cours parmi lesquels choisir celui que l'offre remplacerait : engagements du budget et contrats du coffre.
+ * `topics` : natures des offres (assurance auto, énergie…) ; s'il existe au coffre des papiers de la même nature, eux
+ * seuls sont proposés, avec le début de leur résumé (un contrat a souvent plusieurs pièces : l'avenant en vigueur compte).
+ */
+export async function currentCandidates(userId: number, want: { commitments: boolean; documents: boolean }, excludeDocuments: number[] = [], topics: string[] = []) {
   const commitments = want.commitments
     ? (
         await q<Pick<CommitmentRow, "id" | "label" | "provider" | "type" | "monthly" | "annual" | "renewal_date">>(
@@ -145,15 +152,31 @@ export async function currentCandidates(userId: number, want: { commitments: boo
       })
     : undefined;
   const exclude = excludeDocuments.filter((id) => Number.isInteger(id));
-  const documents = want.documents
-    ? (
-        await q<{ id: number; title: string; kind: string; doc_date: string | null; expires_at: string | null }>(
-          `SELECT d.id, d.title, d.kind, d.doc_date, d.expires_at FROM documents d
-           WHERE ${documentVisible(userId)} AND d.kind IN (${CONTRACT_KINDS.map(() => "?").join(", ")})${exclude.length ? ` AND d.id NOT IN (${exclude.map(() => "?").join(", ")})` : ""}
-           ORDER BY d.doc_date IS NULL, d.doc_date DESC, d.id DESC LIMIT 25`,
-          [...CONTRACT_KINDS, ...exclude],
+  const notExcluded = exclude.length ? ` AND d.id NOT IN (${exclude.map(() => "?").join(", ")})` : "";
+  const cols = "d.id, d.title, d.kind, d.topic, d.doc_date, d.expires_at, d.summary";
+  const order = "ORDER BY d.doc_date IS NULL, d.doc_date DESC, d.id DESC LIMIT 25";
+  let documents: { document_id: number; title: string; kind: string; topic: string | null; doc_date: string | null; expires_at: string | null; summary?: string }[] | undefined;
+  if (want.documents) {
+    const same = topics.filter(isTopic);
+    // Même nature que l'offre, hors autres offres : les pièces du contrat en cours.
+    const sameTopic = same.length
+      ? await q<CandidateDoc>(
+          `SELECT ${cols} FROM documents d WHERE ${documentVisible(userId)} AND d.topic IN (${same.map(() => "?").join(", ")}) AND d.kind NOT IN (${OFFER_KINDS.map(() => "?").join(", ")})${notExcluded} ${order}`,
+          [...same, ...OFFER_KINDS, ...exclude],
         )
-      ).map((d) => ({ document_id: d.id, title: d.title, kind: d.kind, doc_date: d.doc_date, expires_at: d.expires_at }))
-    : undefined;
+      : [];
+    const rows = sameTopic.length
+      ? sameTopic
+      : await q<CandidateDoc>(`SELECT ${cols} FROM documents d WHERE ${documentVisible(userId)} AND d.kind IN (${CONTRACT_KINDS.map(() => "?").join(", ")})${notExcluded} ${order}`, [...CONTRACT_KINDS, ...exclude]);
+    documents = rows.map((d) => ({
+      document_id: d.id,
+      title: d.title,
+      kind: d.kind,
+      topic: d.topic,
+      doc_date: d.doc_date,
+      expires_at: d.expires_at,
+      ...(sameTopic.length && d.summary ? { summary: d.summary.slice(0, 160) } : {}),
+    }));
+  }
   return { ...(commitments ? { commitments } : {}), ...(documents ? { documents } : {}) };
 }

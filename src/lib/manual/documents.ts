@@ -38,11 +38,13 @@ export const documents: ManualTheme = {
       summary: tk("Chercher dans le texte des documents, reprendre leur classement, choisir qui les voit."),
       body: [
         tk("La recherche du [[Coffre]] porte sur le titre, le résumé et le texte même des documents. Les pastilles filtrent par domaine : banque, immobilier, patrimoine, crypto, impôts, retraite, revenus, budget."),
+        tk("Une seconde rangée de pastilles filtre par nature de contrat : assurance auto, assurance habitation, assurance emprunteur, mutuelle santé, électricité et gaz, box internet, forfait mobile. Elle réunit tous les papiers d'un même contrat (contrat, avenant, attestation, devis concurrent), quel que soit leur domaine. Seules les natures présentes dans ton coffre sont proposées."),
         tk("Touche un document pour ouvrir sa fiche : résumé, faits clés, échéance."),
         {
           list: [
             tk("[[Ouvrir]] affiche le fichier ; sur ordinateur, un aperçu est dans la fiche."),
             tk("[[Modifier]] corrige le titre, le type, le domaine, la date, l'échéance et le résumé."),
+            tk("[[Nature du contrat]], dans [[Modifier]], range le document sous une pastille ou l'en retire. Pécule la reconnaît à la lecture ; corrige-la s'il s'est trompé."),
             tk("[[Visible par moi seul]], dans [[Modifier]], rend le document privé : un cadenas le signale."),
             tk("[[Demander à l'assistant]] lui fait résumer le document et dire ce qu'il faut en retenir."),
             tk("[[Supprimer le document]] retire le document et son fichier, après confirmation."),
@@ -51,7 +53,7 @@ export const documents: ManualTheme = {
         { tip: tk("Sur un devis, [[Comparer à mon contrat actuel]] lance la comparaison par l'assistant ; sur un contrat, [[Comparer à une offre]].") },
       ],
       links: [{ to: "/documents", label: ["Coffre"] }],
-      words: tk("chercher document retrouver modifier renommer supprimer privé télécharger ouvrir fichier"),
+      words: tk("chercher document retrouver modifier renommer supprimer privé télécharger ouvrir fichier étiquette pastille filtre assurance auto habitation emprunteur mutuelle électricité gaz"),
     },
     {
       id: "documents-vers-ecrans",

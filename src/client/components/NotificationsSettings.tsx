@@ -4,7 +4,7 @@ import { Bell, BellOff, Send } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../api.ts";
 import { Card } from "./ui.tsx";
-import { dateFr, moneySymbol } from "../format.ts";
+import { dateFr } from "../format.ts";
 import { t } from "../../lib/i18n.ts";
 
 /*
@@ -111,20 +111,6 @@ export function NotificationsSettings() {
               <input type="checkbox" checked={prefs?.[k] !== false} onChange={(e) => save({ ...prefs, [k]: e.target.checked })} className="size-5 shrink-0 accent-[var(--color-accent)]" />
             </label>
           ))}
-          <label className="flex items-center justify-between gap-3 px-4 py-2.5 text-[14px]">
-            <span>{t("Seuil du solde bas")}</span>
-            <span className="flex items-center gap-1">
-              <input
-                type="number"
-                inputMode="numeric"
-                value={prefs?.lowBalance ?? 200}
-                onChange={(e) => setPrefs({ ...prefs, lowBalance: Number(e.target.value) })}
-                onBlur={() => prefs && save(prefs)}
-                className="w-20 rounded-md bg-bg px-2 py-1 text-right ring-1 ring-line"
-              />
-              {moneySymbol()}
-            </span>
-          </label>
           <div className="flex flex-wrap gap-2 px-4 py-3">
             <button
               type="button"

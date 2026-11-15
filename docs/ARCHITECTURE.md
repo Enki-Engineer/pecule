@@ -50,6 +50,12 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   (`src/lib/recurring.ts`) : au même libellé, d'un montant stable, ou à défaut au même montant au centime (une
   mensualité dont le libellé a changé). C'est attendu sur le mois en cours et les trois suivants (`forecast`,
   `src/server/flows.ts`).
+- **Solde bas** — chaque membre a sa règle (seuil, délai de prévenance, comptes surveillés ; ligne
+  `solde:regle:<membre>` d'`app_kv`, `src/lib/balance.ts`). La prévision d'un compte (`src/server/balance.ts`) part de
+  son solde et y ajoute ce qui est attendu sur ce compte-là : ses récurrences des cinq derniers mois, mouvements entre
+  comptes compris, et le relevé d'une carte à débit différé lu à la banque. Elle nourrit la notification « Solde bas »,
+  l'encadré du calendrier du mois et de l'accueil, Réglages → Notifications et appareil, et deux outils de
+  l'assistant (`get_balance_alert`, `set_balance_alert`).
 - **Marques et logos** — `src/lib/brands.ts` reconnaît une marque dans un libellé : les enseignes que le foyer a
   ajoutées (table `custom_brands`, Réglages → Classement, `src/server/brands.ts`), puis le référentiel commun. Un logo
   est téléchargé une fois par le serveur et gardé en base (`logos`, `src/server/logos.ts`) : icône du site d'une

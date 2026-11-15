@@ -7,12 +7,13 @@ import { createSealer } from "./secret.ts";
 import { exec, one, q } from "./db.ts";
 import { userAccountsSql } from "./actions.ts";
 import { agenda } from "./agenda.ts";
+import { balanceForecast } from "./balance.ts";
 import { listEnvelopes } from "./planning.ts";
 import { STAT_SCOPE } from "./stats.ts";
 import { labelShape, natureOf } from "../lib/nature.ts";
 import { recordAlert } from "./journal.ts";
 import { memberLang, runInLang } from "./lang.ts";
-import { labels, t, td, tk, tn } from "../lib/i18n.ts";
+import { labels, locale, t, td, tk, tn } from "../lib/i18n.ts";
 import { resolvesPublic } from "./net.ts";
 
 /*
@@ -28,7 +29,7 @@ import { resolvesPublic } from "./net.ts";
 export const NOTIF_TYPES = labels({
   aclasser: tk("Opérations à classer (le soir, à 19 h)"),
   prelevement: tk("Prélèvement nouveau ou inhabituel"),
-  solde: tk("Solde bas sur un compte courant"),
+  solde: tk("Solde bas, aujourd'hui ou à venir"),
   loyer: tk("Loyer pas encore reçu (après le 8 du mois)"),
   echeance: tk("Échéances à 7 jours et tâches du jour"),
   garantie: tk("Garantie qui expire dans 30 jours"),
@@ -36,8 +37,9 @@ export const NOTIF_TYPES = labels({
   resume: tk("Résumé de la semaine (lundi, 8 h)"),
 });
 export type NotifType = keyof typeof NOTIF_TYPES;
+/** `lowBalance` : ancien seuil par appareil, repris une fois par la règle du membre (src/server/balance.ts). */
 export type NotifPrefs = Partial<Record<NotifType, boolean>> & { lowBalance?: number };
-export const DEFAULT_PREFS: NotifPrefs = { aclasser: true, prelevement: true, solde: true, loyer: true, echeance: true, garantie: true, enveloppe: true, resume: true, lowBalance: 200 };
+export const DEFAULT_PREFS: NotifPrefs = { aclasser: true, prelevement: true, solde: true, loyer: true, echeance: true, garantie: true, enveloppe: true, resume: true };
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const parisNow = () => {
@@ -48,6 +50,8 @@ const parisNow = () => {
   );
   return { date: `${p.year}-${p.month}-${p.day}`, hour: Number(p.hour), weekday: p.weekday as string, day: Number(p.day) };
 };
+/** Jour d'une notification, dans la langue du membre : « 22 novembre ». */
+const shortDate = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString(locale(), { day: "numeric", month: "long", timeZone: "UTC" });
 /** Montant d'une notification, au format de la langue du membre. */
 const eur = (n: number) => money(n, Math.abs(n) >= 100);
 
@@ -157,7 +161,7 @@ export async function notify(userId: number, type: NotifType | "test", key: stri
 /* ---------- Règles ---------- */
 
 /** Vérifications d'un membre ; à appeler dans sa langue (voir runNotifications) : titres et textes sont écrits ici. */
-async function checksFor(userId: number, prefsLowBalance: number) {
+async function checksFor(userId: number) {
   const now = parisNow();
   const A = userAccountsSql(userId);
   const month = now.date.slice(0, 7);
@@ -195,13 +199,19 @@ async function checksFor(userId: number, prefsLowBalance: number) {
     }
   }
 
-  // 3. Solde bas sur les comptes courants visibles.
-  const low = await q<{ id: string; name: string; balance: number }>(
-    `SELECT acc.id, COALESCE(acc.display_name, acc.name) AS name, acc.balance FROM ${A} a JOIN accounts acc ON acc.id = a.id
-     WHERE a.excluded = 0 AND a.hidden = 0 AND a.kind <> 'carte' AND acc.balance IS NOT NULL AND acc.balance < ?`,
-    [prefsLowBalance],
-  );
-  for (const a of low) await notify(userId, "solde", `solde:${a.id}:${now.date}`, { title: t("Solde bas : {montant}", { montant: eur(Number(a.balance)) }), body: a.name, url: `/operations?compte=${encodeURIComponent(a.id)}` });
+  // 3. Solde bas, d'après la règle du membre (src/server/balance.ts) : un compte déjà sous son seuil, ou qui y
+  //    passerait dans le délai de prévenance d'après ce qui est attendu. Une alerte par compte et par jour franchi.
+  for (const a of (await balanceForecast(userId)).accounts) {
+    if (!a.watched) continue;
+    const url = `/operations?compte=${encodeURIComponent(a.id)}`;
+    if (a.balance < a.threshold) await notify(userId, "solde", `solde:${a.id}:${now.date}`, { title: t("Solde bas : {montant}", { montant: eur(a.balance) }), body: a.name, url });
+    else if (a.low)
+      await notify(userId, "solde", `solde-prevu:${a.id}:${a.low.date}`, {
+        title: t("Solde bas à venir : {montant} le {date}", { montant: eur(a.low.balance), date: shortDate(a.low.date) }),
+        body: a.low.cause ? t("{compte} — après {cause} ({montant}).", { compte: a.name, cause: a.low.cause.name, montant: eur(a.low.cause.amount) }) : a.name,
+        url: "/mois?onglet=calendrier",
+      });
+  }
 
   // 4. Loyer pas encore reçu après le 8 du mois.
   if (now.day >= 8) {
@@ -257,16 +267,11 @@ export async function runNotifications() {
   if (running) return;
   running = true;
   try {
-    const users = await q<{ user_id: number; prefs: string | null }>("SELECT user_id, prefs FROM push_subscriptions");
-    const byUser = new Map<number, number>();
-    for (const u of users) {
-      const p = { ...DEFAULT_PREFS, ...(u.prefs ? JSON.parse(u.prefs) : {}) } as NotifPrefs;
-      byUser.set(u.user_id, Math.max(byUser.get(u.user_id) ?? 0, p.lowBalance ?? 200));
-    }
-    for (const [userId, lowBalance] of byUser) {
+    const users = await q<{ user_id: number }>("SELECT DISTINCT user_id FROM push_subscriptions");
+    for (const { user_id: userId } of users) {
       try {
         // Tâche de fond, sans requête : chaque membre reçoit ses notifications dans la langue qu'il a choisie.
-        await runInLang(await memberLang(userId), () => checksFor(userId, lowBalance));
+        await runInLang(await memberLang(userId), () => checksFor(userId));
       } catch (e) {
         void recordAlert("notifications", `Vérification des notifications en échec : ${e instanceof Error ? e.message : String(e)}`, e);
       }

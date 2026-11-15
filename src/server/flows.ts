@@ -99,18 +99,21 @@ async function recurringRows(accountsSql: string, from: string): Promise<Recurri
     .map((r) => ({ ...r, amount: Number(r.amount) }))
     // Une dépense sort, un revenu entre : un remboursement ou une régularisation ne fait pas une récurrence.
     .filter((r) => (r.kind === "depense" ? r.amount < 0 : r.amount > 0))
-    .map((r) => {
-      const nature = natureOf(r.label, r.amount);
-      return {
-        date: r.date,
-        amount: r.amount,
-        key: nature === "prelevement" && !r.merchant ? `forme:${labelShape(r.label)}` : `nom:${recurringKey(r.label_key)}`,
-        name: seriesName(txTitle({ merchant: r.merchant, label: r.label, bank_label: r.bank_label, category_name: r.category })),
-        kind: r.kind,
-        category: r.category,
-        nature,
-      };
-    });
+    .map(recurringRow);
+}
+
+/** Une opération vue comme un passage possible d'une récurrence : sa clé de regroupement, son nom, son moyen de paiement. */
+export function recurringRow(r: { date: string; amount: number; label: string; merchant: string | null; bank_label: string | null; label_key: string; category: string | null; kind: "depense" | "revenu" }): RecurringRow {
+  const nature = natureOf(r.label, r.amount);
+  return {
+    date: r.date,
+    amount: r.amount,
+    key: nature === "prelevement" && !r.merchant ? `forme:${labelShape(r.label)}` : `nom:${recurringKey(r.label_key)}`,
+    name: seriesName(txTitle({ merchant: r.merchant, label: r.label, bank_label: r.bank_label, category_name: r.category })),
+    kind: r.kind,
+    category: r.category,
+    nature,
+  };
 }
 
 /** Nom d'une série : celui de sa dernière opération, sans ce qui change à chaque fois (numéro de commande, cours d'une devise). */

@@ -232,7 +232,7 @@ export function useUpdateTransaction() {
       qc.invalidateQueries({ queryKey: ["nav-counts"] });
       // L'opération se classe aussi depuis le tiroir de forage, sans quitter l'écran : la liste du
       // tiroir et les chiffres de l'écran resté dessous suivent (seules les requêtes affichées repartent).
-      for (const k of ["drill", "analysis", "trend", "dashboard", "compare", "envelopes"]) qc.invalidateQueries({ queryKey: [k] });
+      for (const k of ["drill", "analysis", "trend", "dashboard", "compare", "envelopes", "balance-alert"]) qc.invalidateQueries({ queryKey: [k] });
     },
   });
 }

@@ -11,6 +11,7 @@ import { Card, PageHeader, Segmented } from "../components/ui.tsx";
 import { useAppearance, useTheme } from "../theme.ts";
 import { clearOfflineCache, offlineCacheEnabled, setOfflineCache } from "../offline.tsx";
 import { NotificationsSettings } from "../components/NotificationsSettings.tsx";
+import { BalanceAlertSettings } from "../components/BalanceAlertSettings.tsx";
 import { BankLabelsImport } from "../components/BankLabelsImport.tsx";
 import { BrandSettings } from "../components/BrandSettings.tsx";
 import { AddMember } from "../components/AddMember.tsx";
@@ -230,6 +231,9 @@ export function Settings() {
     </>,
     notifications: demo ? (
       <>
+        <Section id="solde" title={t("Solde bas")}>
+          <BalanceAlertSettings />
+        </Section>
         <DemoUnavailable what={t("Notifications")} />
         <Section id="hors-ligne" title={t("Ouverture instantanée")}>
           <OfflineSetting />
@@ -237,6 +241,9 @@ export function Settings() {
       </>
     ) : (
       <>
+        <Section id="solde" title={t("Solde bas")}>
+          <BalanceAlertSettings />
+        </Section>
         <Section id="notifications" title={t("Notifications de cet appareil")}>
           <NotificationsSettings />
         </Section>
@@ -362,7 +369,7 @@ const GROUPS: { id: GroupId; label: string; hint: string; icon: typeof Bell; ton
   { id: "connexions", label: t("Comptes et connexions"), hint: t("Tes comptes et ce qui les alimente, IA, crypto, applications reliées"), icon: Plug, tone: "bg-[#1863c2]" },
   { id: "classement", label: t("Classement"), hint: t("Libellés de la banque, mes enseignes, règles de classement"), icon: Tags, tone: "bg-[#1f7a5c]" },
   { id: "apparence", label: t("Apparence"), hint: t("Langue, clair ou sombre, couleur, thèmes de l'année"), icon: Palette, tone: "bg-[#b83e33]" },
-  { id: "notifications", label: t("Notifications et appareil"), hint: t("Alertes de cet appareil, ouverture instantanée"), icon: Bell, tone: "bg-[#c2410c]" },
+  { id: "notifications", label: t("Notifications et appareil"), hint: t("Solde bas, alertes de cet appareil, ouverture instantanée"), icon: Bell, tone: "bg-[#c2410c]" },
   { id: "assistant", label: t("Assistant"), hint: t("Mode vocal, mémoire, coût de l'IA"), icon: Sparkles, tone: "bg-accent" },
   { id: "suivi", label: t("Suivi technique"), hint: t("Alertes, synchronisations, journal des modifications"), icon: Activity, tone: "bg-[#5e6a7c]" },
 ];

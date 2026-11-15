@@ -23,6 +23,11 @@ export const dateShort = (d: string) => {
   const otherYear = d.slice(0, 4) !== new Date().toLocaleDateString("sv-SE").slice(0, 4);
   return parse(d).toLocaleDateString(locale(), { day: "2-digit", month: "2-digit", ...(otherYear ? { year: "2-digit" as const } : {}) });
 };
+/** Jour écrit en toutes lettres dans une phrase : « 20 novembre » ; avec l'année quand ce n'est pas celle en cours. */
+export const dateLong = (d: string) => {
+  const otherYear = d.slice(0, 4) !== new Date().toLocaleDateString("sv-SE").slice(0, 4);
+  return parse(d).toLocaleDateString(locale(), { day: "numeric", month: "long", ...(otherYear ? { year: "numeric" as const } : {}) });
+};
 export const dayLabel = (d: string) => {
   const today = new Date().toLocaleDateString("sv-SE");
   const yesterday = new Date(Date.now() - 86400_000).toLocaleDateString("sv-SE");

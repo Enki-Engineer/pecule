@@ -1,8 +1,10 @@
+import { lowAccounts, useBalanceAlert } from "../api-balance.ts";
+import { lowBalanceText } from "../components/LowBalance.tsx";
 import { WeekAhead } from "../components/MonthCalendar.tsx";
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, Info, RefreshCw, ShieldCheck, Tags, Wallet } from "lucide-react";
+import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, Info, RefreshCw, TrendingDown, ShieldCheck, Tags, Wallet } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { api, useAccounts, useDemo, useMe, useMonth, useSummary, useSync, useWealth, type Transaction, type WealthCategory } from "../api.ts";
@@ -59,6 +61,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const outstanding = useOutstandingTotal();
 
+  const balance = useBalanceAlert();
   const s = summary.data;
   const w = wealth.data;
   const visible = (accounts.data?.accounts ?? []).filter((a) => !a.hidden && !(a.kind === "carte" && a.balance == null));
@@ -87,6 +90,8 @@ export function Dashboard() {
   }
 
   const todo = [
+    // Solde bas, aujourd'hui ou à venir : en tête, c'est ce qui presse.
+    ...lowAccounts(balance.data).map((a) => ({ icon: TrendingDown, label: lowBalanceText(a), to: "/mois?onglet=calendrier" })),
     s && s.uncategorized > 0 && { icon: Tags, label: tn("{n} opération à classer · mode tri", "{n} opérations à classer · mode tri", s.uncategorized), to: "/tri" },
     dash.data && dash.data.invoicesToMatch > 0 && { icon: FileWarning, label: tn("{n} facture sans paiement retrouvé", "{n} factures sans paiement retrouvé", dash.data.invoicesToMatch), to: "/factures?filtre=a_rapprocher" },
     dash.data && dash.data.tasksOverdue > 0 && { icon: CalendarClock, label: tn("{n} tâche en retard", "{n} tâches en retard", dash.data.tasksOverdue), to: "/echeancier" },

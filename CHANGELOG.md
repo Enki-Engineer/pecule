@@ -3,6 +3,23 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.7.0
+
+- **Solde bas à venir** : Pécule ne signale plus seulement un compte déjà bas, il prévient avant. Pour chaque
+  compte, il part du solde du jour et y ajoute ce qui est attendu sur ce compte-là — ce qui y revient chaque mois
+  (prélèvements, virements, salaire, mouvements entre comptes compris) et le relevé d'une carte à débit différé. Si
+  le compte doit passer sous son seuil dans le délai choisi, une notification le dit, avec le jour, le montant et
+  le prélèvement en cause ; le calendrier du mois, « Les sept prochains jours » et « À traiter » le montrent aussi.
+  Les achats du quotidien ne sont pas devinés : c'est une estimation des engagements connus.
+- **Une règle par membre** (Réglages → Notifications et appareil → Solde bas) : surveiller ou non, le seuil (un
+  montant négatif prévient avant la limite d'un découvert autorisé), le délai de prévenance (3, 7, 14 ou 30 jours),
+  et compte par compte : surveillé ou non, seuil propre. Chaque compte y montre son solde, son point le plus bas à
+  venir et l'alerte en cours. La règle vaut sur tous les appareils du membre ; à l'origine : 200, sept jours
+  avant, tous les comptes hors cartes. L'ancien seuil réglé par appareil est repris une fois.
+- **Assistant et serveur MCP** : deux outils, `get_balance_alert` (règle et prévision de chaque compte : « est-ce
+  que je vais être à découvert ? ») et `set_balance_alert` (changer le seuil, le délai, un compte — après
+  « Confirmer » dans l'assistant).
+
 ## 1.6.0
 
 - **Les sept prochains jours** (tableau de bord et accueil du téléphone) : d'aujourd'hui à dans six jours, comme une

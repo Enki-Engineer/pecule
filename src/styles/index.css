@@ -112,6 +112,11 @@ body {
   background: var(--color-pos);
   color: #fff;
 }
+/* Alerte (solde bas à venir) : ni une entrée ni une sortie. */
+.chip-warn {
+  background: color-mix(in srgb, var(--color-warn) 14%, var(--color-card));
+  color: var(--color-warn);
+}
 .chip-dashed {
   background: none;
   color: var(--color-muted);

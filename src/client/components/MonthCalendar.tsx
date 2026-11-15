@@ -9,6 +9,8 @@ import { cn } from "../cn.ts";
 import { monthOfPeriod, usePeriod } from "../shell.ts";
 import { useFlows, useTimeline, type Expected, type Timeline } from "../api-analysis.ts";
 import { useGoals } from "../api-situation.ts";
+import { lowAccounts, useBalanceAlert } from "../api-balance.ts";
+import { LowBalanceNotes, lowBalanceText } from "./LowBalance.tsx";
 import { addMonths } from "../../lib/periods.ts";
 import type { TimelinePoint } from "../../lib/timeline.ts";
 import { locale, t, td, tn } from "../../lib/i18n.ts";
@@ -107,6 +109,8 @@ export function CalendarTab({ period }: { period: string }) {
   const { tl, loaded, days, lead, today, byDay } = useCalendar(month);
   const flows = useFlows(month);
   const goals = useGoals();
+  // Comptes qui passeraient sous leur seuil ce mois-ci : une étiquette le jour où cela arriverait.
+  const low = lowAccounts(useBalanceAlert().data).filter((a) => a.low.date.startsWith(month));
 
   // Sorties semaine par semaine (lundi → dimanche) : la semaine en cours ressort.
   const weeks = useMemo(() => {
@@ -195,6 +199,8 @@ export function CalendarTab({ period }: { period: string }) {
         </div>
       </div>
 
+      <LowBalanceNotes className="mt-6" />
+
       <div className="mt-7 grid grid-cols-7 border-t border-line">
         {weekdays().map((d, i) => (
           <div key={i} className="py-2 text-center text-[15px] text-muted">
@@ -221,6 +227,14 @@ export function CalendarTab({ period }: { period: string }) {
                 )}
               </div>
               <div className="mt-1 space-y-1">
+                {low
+                  .filter((a) => a.low.date === date)
+                  .map((a) => (
+                    <div key={a.id} data-tip={lowBalanceText(a)} className="chip chip-warn w-full min-w-0 justify-between text-[13px]">
+                      <span className="truncate">{a.name}</span>
+                      <span className="tnum shrink-0">{money(a.low.balance, true)}</span>
+                    </div>
+                  ))}
                 {chips.slice(0, MAX_CHIPS).map((c) => (
                   <ChipLabel key={c.key} chip={c} className="text-[13px]" />
                 ))}
@@ -275,6 +289,7 @@ export function MobileCalendar({ month, onStep }: { month: string; /** Mois pré
   return (
     <Card className={cn("p-4 transition-opacity duration-200", !loaded && "opacity-50")}>
       <div className="mb-2 text-sm font-semibold">{t("Le calendrier du mois")}</div>
+      <LowBalanceNotes className="mb-3" />
       <div className="grid touch-pan-y grid-cols-7" onTouchStart={(e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })} onTouchEnd={onTouchEnd}>
         {weekdays().map((d, i) => (
           <div key={i} className="pb-1 text-center text-[12px] text-muted">
@@ -384,6 +399,7 @@ export function WeekAhead({ compact = false, className }: { compact?: boolean; c
           </Link>
         </div>
       </div>
+      <LowBalanceNotes className="mb-3" />
       <div className={cn("grid grid-cols-7", !compact && "border-t border-line")}>
         {cells.map(({ date, cell }, i) => {
           const day = Number(date.slice(8, 10));

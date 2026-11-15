@@ -39,6 +39,7 @@ const ROUTES: [RegExp, Meta][] = [
   [/^\/projections/, { title: t("Projections"), parent: "/patrimoine" }],
   [/^\/objectifs/, { title: t("Objectifs"), parent: "/patrimoine" }],
   [/^\/budget/, { title: t("Budget"), parent: "/" }],
+  [/^\/soldes/, { title: t("Soldes à venir"), parent: "/" }],
   [/^\/revenus/, { title: t("Revenus"), parent: "/patrimoine" }],
   [/^\/impots/, { title: t("Impôts"), parent: "/patrimoine" }],
   [/^\/retraite/, { title: t("Retraite"), parent: "/patrimoine" }],

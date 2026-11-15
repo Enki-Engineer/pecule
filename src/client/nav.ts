@@ -12,6 +12,7 @@ import {
   Receipt,
   Sunset,
   Target,
+  TrendingDown,
   TrendingUp,
   Wallet,
   type LucideIcon,
@@ -20,12 +21,13 @@ import { t, tn } from "../lib/i18n.ts";
 
 /* Plan de l'appli : menu latéral (ordinateur) et menu « Tout Pécule » (iPhone). */
 
-export type Counts = { uncategorized: number; invoicesToMatch: number; tasksOverdue: number; alerts: number };
+export type Counts = { uncategorized: number; invoicesToMatch: number; tasksOverdue: number; alerts: number; lowBalance: number };
 /** Où mène un clic sur un compteur du menu : l'écran déjà filtré sur ce qu'il compte, et le libellé du lien. */
 export const COUNT_LINKS: Record<keyof Counts, { to: string; label: (n: number) => string }> = {
   uncategorized: { to: "/operations?a_classer=1", label: (n) => tn("Voir l'opération à classer", "Voir les {n} opérations à classer", n) },
   invoicesToMatch: { to: "/factures?filtre=a_rapprocher", label: (n) => tn("Voir la facture à rapprocher", "Voir les {n} factures à rapprocher", n) },
   tasksOverdue: { to: "/echeancier?retard=1", label: (n) => tn("Voir la tâche en retard", "Voir les {n} tâches en retard", n) },
+  lowBalance: { to: "/soldes", label: (n) => tn("Voir le compte signalé", "Voir les {n} comptes signalés", n) },
   alerts: { to: "/reglages/suivi", label: (n) => tn("Voir l'alerte à traiter", "Voir les {n} alertes à traiter", n) },
 };
 export type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean; count?: keyof Counts };
@@ -37,6 +39,7 @@ export const NAV: { title?: string; items: NavItem[] }[] = [
       { to: "/operations", label: t("Opérations"), icon: ListOrdered, count: "uncategorized" },
       { to: "/mois", label: t("Analyse"), icon: PieChart },
       { to: "/budget", label: t("Budget"), icon: Wallet },
+      { to: "/soldes", label: t("Soldes à venir"), icon: TrendingDown, count: "lowBalance" },
       { to: "/factures", label: t("Factures"), icon: Receipt, count: "invoicesToMatch" },
     ],
   },

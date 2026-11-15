@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle } from "lucide-react";
+import { Link } from "react-router";
+import { AlertTriangle, ChevronRight, TrendingDown } from "lucide-react";
 import { Card, Segmented, Spinner } from "./ui.tsx";
 import { useBalanceAlert, useSaveBalanceRule, type AccountForecast, type BalanceRulePatch } from "../api-balance.ts";
 import { dateLong, money, moneySymbol } from "../format.ts";
@@ -128,6 +129,12 @@ export function BalanceAlertSettings() {
           </Card>
         </>
       )}
+      <Link to="/soldes" viewTransition className="press card flex items-center justify-between gap-3 px-4 py-3 text-[15px] font-medium">
+        <span className="flex items-center gap-2.5">
+          <TrendingDown size={17} className="text-muted" /> {t("Voir les soldes à venir")}
+        </span>
+        <ChevronRight size={17} className="text-muted" />
+      </Link>
       <p className="px-1 text-[12.5px] leading-relaxed text-muted">
         {t(
           "Comment c'est calculé : le solde du jour, puis ce qui est attendu sur ce compte d'ici là, en entrées comme en sorties — ce qui y revient chaque mois (prélèvements, virements, salaire) et le relevé d'une carte à débit différé. Les achats du quotidien ne sont pas devinés : c'est une estimation, à lire comme « au mieux ». L'alerte arrive en notification si « Solde bas » est activé sur l'appareil, et se lit aussi sur le calendrier du mois et le tableau de bord. Tu peux demander à l'assistant de changer ces réglages.",

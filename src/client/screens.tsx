@@ -51,6 +51,7 @@ export const LoanDetail = screen(() => import("./pages/Loans.tsx").then((m) => m
 export const Documents = screen(() => import("./pages/Documents.tsx").then((m) => m.Documents));
 export const Agenda = screen(() => import("./pages/Agenda.tsx").then((m) => m.Agenda));
 export const Budget = screen(() => import("./pages/Budget.tsx").then((m) => m.Budget));
+export const Balances = screen(() => import("./pages/Balances.tsx").then((m) => m.Balances));
 export const Properties = screen(() => import("./pages/Property.tsx").then((m) => m.Properties));
 export const PropertyDetail = screen(() => import("./pages/Property.tsx").then((m) => m.PropertyDetail));
 export const Taxes = screen(() => import("./pages/Situation.tsx").then((m) => m.Taxes));
@@ -72,6 +73,7 @@ const ORDER: Screen<never>[] = [
   AssistantChat,
   Settings,
   Budget,
+  Balances,
   Documents,
   Agenda,
   Crypto,

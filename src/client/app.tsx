@@ -37,8 +37,7 @@ import {
   Settings,
   Taxes,
   Triage,
-  Wealth,
-} from "./screens.tsx";
+  Wealth, Balances } from "./screens.tsx";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const me = useMe();
@@ -115,6 +114,7 @@ function App() {
         <Route path="credits" element={<Navigate to="/patrimoine" replace />} />
         <Route path="credits/:id" element={<LoanDetail />} />
         <Route path="budget" element={<Budget />} />
+        <Route path="soldes" element={<Balances />} />
         <Route path="immobilier" element={<Properties />} />
         <Route path="immobilier/:id" element={<PropertyDetail />} />
         <Route path="impots" element={<Taxes />} />

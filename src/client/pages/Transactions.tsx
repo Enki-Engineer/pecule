@@ -666,11 +666,11 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, ac
               </option>
             ))}
           </select>
-          <input type="month" value={params.month ?? ""} onChange={(e) => setParam("mois", e.target.value || null)} className="card px-2.5 py-1.5 text-[13px]" aria-label={tr("Mois")} />
+          <input type="month" value={params.month ?? ""} onChange={(e) => setParam("mois", e.target.value || null)} placeholder={tr("Mois (AAAA-MM)")} className="card px-2.5 py-1.5 text-[13px] placeholder:text-muted" aria-label={tr("Mois")} />
           <button
             type="button"
             onClick={() => setParam("a_classer", params.uncategorized ? null : "1")}
-            className={cn("rounded-md border px-2.5 py-1.5 text-[13px]", params.uncategorized ? "border-accent bg-accent-soft font-medium text-accent" : "border-line bg-card text-muted hover:text-ink")}
+            className={cn("rounded-full px-3 py-1.5 text-[13px] leading-normal", params.uncategorized ? "bg-accent-soft font-medium text-accent shadow-[inset_0_0_0_1px_var(--color-accent)]" : "bg-card text-muted shadow-[inset_0_0_0_1px_var(--color-line)] hover:text-ink")}
           >
             {tr("À classer")}
           </button>

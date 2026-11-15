@@ -54,7 +54,8 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   `solde:regle:<membre>` d'`app_kv`, `src/lib/balance.ts`). La prévision d'un compte (`src/server/balance.ts`) part de
   son solde et y ajoute ce qui est attendu sur ce compte-là : ses récurrences des cinq derniers mois, mouvements entre
   comptes compris, et le relevé d'une carte à débit différé lu à la banque. Elle nourrit la notification « Solde bas »,
-  l'encadré du calendrier du mois et de l'accueil, Réglages → Notifications et appareil, et deux outils de
+  l'écran « Soldes à venir » (`pages/Balances.tsx`), le bandeau du calendrier du mois et de l'accueil, Réglages →
+  Notifications et appareil, et deux outils de
   l'assistant (`get_balance_alert`, `set_balance_alert`).
 - **Marques et logos** — `src/lib/brands.ts` reconnaît une marque dans un libellé : les enseignes que le foyer a
   ajoutées (table `custom_brands`, Réglages → Classement, `src/server/brands.ts`), puis le référentiel commun. Un logo

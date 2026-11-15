@@ -3,6 +3,21 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.9.0
+
+- **Soldes à venir** (nouvel écran, menu « Au quotidien ») : pour chaque compte, le solde du jour, la courbe du
+  solde prévu sur 31 jours avec la ligne de son seuil, ce qu'il manquerait pour rester au-dessus, et les mouvements
+  attendus un par un avec le solde après chacun. Les comptes signalés viennent en premier ; le menu en porte le
+  nombre. « Régler l'alerte », en haut, mène au réglage.
+- **Bandeau de solde bas** : il ouvre désormais la prévision du compte (« Soldes à venir ») ; un bouton « Régler »,
+  à sa droite, mène au réglage de l'alerte. La notification et la ligne d'« À traiter » y mènent aussi.
+- **Solde prévu dans le calendrier** : sur ordinateur, chaque jour à venir peut porter le solde prévu d'un compte
+  (liste « Solde prévu », sous la grille ; sans choix, celui du premier compte signalé) — en orange sous son seuil.
+  Sur le téléphone, le jour touché donne le solde prévu de chaque compte surveillé.
+- **Listes déroulantes** : la même allure et la même hauteur que les champs et les boutons voisins dans tous les
+  navigateurs (Safari leur gardait son apparence d'origine, plus basse — barre de filtres des opérations, entre
+  autres). Dans Safari, le champ « mois » des opérations dit son format.
+
 ## 1.8.0
 
 - **Tableau de bord à la carte** (ordinateur) : le bouton à côté de « Synchroniser » ouvre « Personnaliser le

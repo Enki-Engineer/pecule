@@ -70,6 +70,32 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Listes déroulantes : la même allure dans tous les navigateurs. Laissée à elle-même, Safari lui garde son
+   apparence native — plus basse que les champs et les boutons voisins, quelle que soit la hauteur demandée. */
+:root {
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%2366655f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+}
+:root[data-theme="dark"] {
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23a3a299' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+}
+select:not([multiple]) {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+  background-size: 0.75rem;
+  padding-right: 1.75rem;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+}
+/* Champs de date : même hauteur que les champs de texte (Safari leur donne sinon la sienne). */
+input:is([type="date"], [type="month"], [type="time"]) {
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: 1.5;
+}
+
 .tnum {
   font-variant-numeric: tabular-nums;
 }

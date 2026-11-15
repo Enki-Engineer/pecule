@@ -27,6 +27,8 @@ import { locale, t, td, tn } from "../../lib/i18n.ts";
 
 /** En dessous, une charge reste dans le total des petits achats du jour. */
 const CHIP_MIN = 30;
+/** Compte dont le solde prévu s'écrit dans les cases du calendrier (ordinateur) ; vide : aucun. */
+const BALANCE_KEY = "pecule.calendrier.solde";
 const MAX_CHIPS = 3;
 const pad = (n: number) => String(n).padStart(2, "0");
 const signed = (n: number) => `${n > 0 ? "+" : ""}${money(n, true)}`;
@@ -109,8 +111,18 @@ export function CalendarTab({ period }: { period: string }) {
   const { tl, loaded, days, lead, today, byDay } = useCalendar(month);
   const flows = useFlows(month);
   const goals = useGoals();
+  const alert = useBalanceAlert().data;
   // Comptes qui passeraient sous leur seuil ce mois-ci : une étiquette le jour où cela arriverait.
-  const low = lowAccounts(useBalanceAlert().data).filter((a) => a.low.date.startsWith(month));
+  const low = lowAccounts(alert).filter((a) => a.low.date.startsWith(month));
+  // Solde prévu écrit dans les cases : celui du compte choisi (mémorisé sur l'appareil) ; sans choix, celui du
+  // premier compte signalé, sinon aucun — le calendrier reste léger tant que rien ne presse.
+  const [shown, setShown] = useState<string | null>(() => localStorage.getItem(BALANCE_KEY));
+  const shownAccount = (alert?.accounts ?? []).find((a) => a.id === (shown ?? lowAccounts(alert)[0]?.id));
+  const projected = useMemo(() => new Map((shownAccount?.points ?? []).map((p) => [p.date, p.balance])), [shownAccount]);
+  const pickShown = (id: string) => {
+    localStorage.setItem(BALANCE_KEY, id);
+    setShown(id);
+  };
 
   // Sorties semaine par semaine (lundi → dimanche) : la semaine en cours ressort.
   const weeks = useMemo(() => {
@@ -240,6 +252,14 @@ export function CalendarTab({ period }: { period: string }) {
                 ))}
                 {chips.length > MAX_CHIPS && <div className="px-1.5 text-[12px] text-muted">{tn("+ {n} autre", "+ {n} autres", chips.length - MAX_CHIPS)}</div>}
               </div>
+              {shownAccount && projected.has(date) && (
+                <div
+                  data-tip={t("Solde prévu de {compte} ce jour-là : {montant}", { compte: shownAccount.name, montant: money(projected.get(date)!) })}
+                  className={cn("tnum mt-auto px-1 pt-1.5 text-[12px]", shownAccount.watched && projected.get(date)! < shownAccount.threshold ? "font-semibold text-warn" : "text-muted")}
+                >
+                  {t("solde {montant}", { montant: money(projected.get(date)!, true) })}
+                </div>
+              )}
             </>
           );
           // En colonne, calé en haut : un bouton centre son contenu de lui-même.
@@ -259,6 +279,19 @@ export function CalendarTab({ period }: { period: string }) {
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px] text-muted">
         <Legend />
         <span className="mr-auto">{t("En gris à droite du jour : ses petits achats · clic sur un jour : ses opérations")}</span>
+        {(alert?.accounts.length ?? 0) > 0 && (
+          <label className="flex items-center gap-2">
+            {t("Solde prévu :")}
+            <select value={shownAccount?.id ?? ""} onChange={(e) => pickShown(e.target.value)} className="max-w-52 rounded-lg bg-bg py-1 pl-2.5 text-[12.5px] text-ink ring-1 ring-line">
+              <option value="">{t("ne pas l'afficher")}</option>
+              {alert!.accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <DateBasisSwitch />
       </div>
     </Card>
@@ -269,6 +302,7 @@ export function CalendarTab({ period }: { period: string }) {
 
 export function MobileCalendar({ month, onStep }: { month: string; /** Mois précédent (-1) ou suivant (+1) : un glissement du doigt sur la grille. */ onStep?: (delta: number) => void }) {
   const { tl, loaded, days, lead, today, byDay } = useCalendar(month);
+  const alert = useBalanceAlert().data;
   const [picked, setPicked] = useState<{ month: string; day: number } | null>(null);
   const touch = useRef<{ x: number; y: number } | null>(null);
   // Glissement franc et à peu près horizontal : vers la droite, le mois précédent ; vers la gauche, le suivant.
@@ -286,6 +320,13 @@ export function MobileCalendar({ month, onStep }: { month: string; /** Mois pré
   const day = picked?.month === month ? picked.day : fallback;
   const date = `${month}-${pad(day)}`;
   const cell = byDay.get(day);
+  // Soldes prévus des comptes surveillés pour le jour lu (aujourd'hui ou un jour à venir que la prévision couvre).
+  const forecasts = (alert?.accounts ?? [])
+    .filter((a) => a.watched)
+    .flatMap((a) => {
+      const p = a.points.find((x) => x.date === date);
+      return p ? [{ id: a.id, name: a.name, balance: p.balance, low: p.balance < a.threshold }] : [];
+    });
   return (
     <Card className={cn("p-4 transition-opacity duration-200", !loaded && "opacity-50")}>
       <div className="mb-2 text-sm font-semibold">{t("Le calendrier du mois")}</div>
@@ -347,6 +388,17 @@ export function MobileCalendar({ month, onStep }: { month: string; /** Mois pré
           </div>
         ) : (
           <div className="mt-1.5 text-[14px] text-muted">{t("Rien ce jour-là.")}</div>
+        )}
+        {forecasts.length > 0 && (
+          <div className="mt-3 space-y-1 border-t border-line pt-2.5">
+            <div className="text-[12.5px] text-muted">{t("Soldes prévus ce jour-là")}</div>
+            {forecasts.map((f) => (
+              <Link key={f.id} to={`/soldes?compte=${encodeURIComponent(f.id)}`} viewTransition className="flex items-center justify-between gap-3 text-[14px]">
+                <span className="min-w-0 truncate">{f.name}</span>
+                <span className={cn("tnum shrink-0 font-medium", f.low && "text-warn")}>{money(f.balance, true)}</span>
+              </Link>
+            ))}
+          </div>
         )}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">

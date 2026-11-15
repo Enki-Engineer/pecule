@@ -286,7 +286,7 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
     const n = key ? (counts.data?.[key] ?? 0) : 0;
     if (!key || !n || rail) return null;
     const link = COUNT_LINKS[key];
-    const danger = key === "tasksOverdue" || key === "alerts";
+    const danger = key === "tasksOverdue" || key === "alerts" || key === "lowBalance";
     return (
       <Link
         to={link.to}

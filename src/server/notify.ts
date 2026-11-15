@@ -203,13 +203,13 @@ async function checksFor(userId: number) {
   //    passerait dans le délai de prévenance d'après ce qui est attendu. Une alerte par compte et par jour franchi.
   for (const a of (await balanceForecast(userId)).accounts) {
     if (!a.watched) continue;
-    const url = `/operations?compte=${encodeURIComponent(a.id)}`;
+    const url = `/soldes?compte=${encodeURIComponent(a.id)}`;
     if (a.balance < a.threshold) await notify(userId, "solde", `solde:${a.id}:${now.date}`, { title: t("Solde bas : {montant}", { montant: eur(a.balance) }), body: a.name, url });
     else if (a.low)
       await notify(userId, "solde", `solde-prevu:${a.id}:${a.low.date}`, {
         title: t("Solde bas à venir : {montant} le {date}", { montant: eur(a.low.balance), date: shortDate(a.low.date) }),
         body: a.low.cause ? t("{compte} — après {cause} ({montant}).", { compte: a.name, cause: a.low.cause.name, montant: eur(a.low.cause.amount) }) : a.name,
-        url: "/mois?onglet=calendrier",
+        url,
       });
   }
 

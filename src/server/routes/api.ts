@@ -40,6 +40,7 @@ import { documentsAdmin, documentsApi } from "./documents.ts";
 import { situationAdmin, situationApi } from "./situation.ts";
 import { funApi } from "./fun.ts";
 import { balanceApi } from "./balance.ts";
+import { balanceForecast } from "../balance.ts";
 import { householdApi } from "./household.ts";
 import { importsApi } from "./imports.ts";
 import { connectionsApi } from "./connections.ts";
@@ -1268,7 +1269,9 @@ api.get("/nav-counts", async (req, res) => {
     ),
     one<{ n: number }>("SELECT COUNT(*) AS n FROM alerts WHERE resolved_at IS NULL"),
   ]);
-  res.json({ uncategorized: unc?.n ?? 0, invoicesToMatch: inv?.n ?? 0, tasksOverdue: tasks?.n ?? 0, alerts: alertsOpen?.n ?? 0 });
+  // Comptes surveillés sous leur seuil, ou qui y passeraient dans le délai de la règle du membre (menu « Soldes à venir »).
+  const lowBalance = (await balanceForecast(uid)).accounts.filter((a) => a.watched && a.low).length;
+  res.json({ uncategorized: unc?.n ?? 0, invoicesToMatch: inv?.n ?? 0, tasksOverdue: tasks?.n ?? 0, alerts: alertsOpen?.n ?? 0, lowBalance });
 });
 
 /* ---------- Tableau de bord : à traiter et échéances ---------- */

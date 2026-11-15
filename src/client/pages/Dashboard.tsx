@@ -113,7 +113,7 @@ export function Dashboard() {
 
   const todo = [
     // Solde bas, aujourd'hui ou à venir : en tête, c'est ce qui presse.
-    ...lowAccounts(balance.data).map((a) => ({ icon: TrendingDown, label: lowBalanceText(a), to: "/mois?onglet=calendrier" })),
+    ...lowAccounts(balance.data).map((a) => ({ icon: TrendingDown, label: lowBalanceText(a), to: `/soldes?compte=${encodeURIComponent(a.id)}` })),
     s && s.uncategorized > 0 && { icon: Tags, label: tn("{n} opération à classer · mode tri", "{n} opérations à classer · mode tri", s.uncategorized), to: "/tri" },
     dash.data && dash.data.invoicesToMatch > 0 && { icon: FileWarning, label: tn("{n} facture sans paiement retrouvé", "{n} factures sans paiement retrouvé", dash.data.invoicesToMatch), to: "/factures?filtre=a_rapprocher" },
     dash.data && dash.data.tasksOverdue > 0 && { icon: CalendarClock, label: tn("{n} tâche en retard", "{n} tâches en retard", dash.data.tasksOverdue), to: "/echeancier" },

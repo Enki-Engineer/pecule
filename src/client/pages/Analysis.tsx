@@ -22,7 +22,7 @@ import { TimelineTab } from "../components/MonthTimeline.tsx";
 import { CalendarTab } from "../components/MonthCalendar.tsx";
 import { useMonth } from "../api.ts";
 import { monthTotals } from "../../lib/month.ts";
-import { locale, t, td, tk, tn } from "../../lib/i18n.ts";
+import { locale, t, td, tk } from "../../lib/i18n.ts";
 
 /*
  * Analyse (ordinateur) : vue d'ensemble du mois, flux (d'où vient l'argent, par quel moyen il part,
@@ -30,14 +30,13 @@ import { locale, t, td, tk, tn } from "../../lib/i18n.ts";
  * cliquable et ouvre les opérations correspondantes. Sur l'iPhone, l'écran « Mois » reste tel quel.
  */
 
-type Tab = "synthese" | "calendrier" | "repartition" | "flux" | "frise" | "prelevements" | "marchands" | "comparer";
+type Tab = "synthese" | "calendrier" | "repartition" | "flux" | "frise" | "marchands" | "comparer";
 const TABS: { value: Tab; label: string }[] = [
   { value: "synthese", label: t("Vue d'ensemble") },
   { value: "calendrier", label: t("Calendrier") },
   { value: "repartition", label: t("Répartition") },
   { value: "flux", label: t("Flux") },
   { value: "frise", label: t("Frise") },
-  { value: "prelevements", label: t("Prélèvements") },
   { value: "marchands", label: t("Marchands") },
   { value: "comparer", label: t("Comparer") },
 ];
@@ -50,7 +49,9 @@ export function Analysis() {
   const [params, setParams] = useSearchParams();
   // La période : un mois, ou une année entière (chaque onglet se lit alors mois par mois).
   const [period] = usePeriod();
-  const tab = (params.get("onglet") as Tab) || "synthese";
+  // « prelevements » : ancien onglet, rangé dans le calendrier (un lien gardé y mène encore).
+  const asked = params.get("onglet");
+  const tab: Tab = asked === "prelevements" ? "calendrier" : (asked as Tab) || "synthese";
   if (!desktop) return <Month />;
   const setTab = (v: Tab) => {
     const next = new URLSearchParams(params);
@@ -63,11 +64,19 @@ export function Analysis() {
       <PageHeader title={t("Analyse")} subtitle={isYearPeriod(period) ? t("Année {annee}", { annee: period }) : periodLabel(period)} />
       <Tabs value={tab} options={TABS} onChange={setTab} />
       {tab === "synthese" && <Month bare />}
-      {tab === "calendrier" && <CalendarTab period={period} />}
+      {/* Un mois : la grille, puis ses prélèvements ; une année : les prélèvements mois par mois. */}
+      {tab === "calendrier" &&
+        (isYearPeriod(period) ? (
+          <YearDebitsTab year={period} />
+        ) : (
+          <>
+            <CalendarTab period={period} />
+            <DebitsLists month={period} />
+          </>
+        ))}
       {tab === "repartition" && <BreakdownTab period={period} />}
       {tab === "flux" && <FlowsTab period={period} />}
       {tab === "frise" && <TimelineTab period={period} />}
-      {tab === "prelevements" && (isYearPeriod(period) ? <YearDebitsTab year={period} /> : <DebitsTab month={period} />)}
       {tab === "marchands" && <MerchantsTab period={period} />}
       {tab === "comparer" && <CompareView />}
     </>
@@ -427,7 +436,7 @@ function FlowTooltip({ active, payload }: Partial<TooltipContentProps<number, st
   const label = p.source && p.target ? `${nodeLabel(p.source)} → ${nodeLabel(p.target)}` : p.payload ? nodeLabel(p.payload) : (p.name ?? "");
   const clickable = p.source && p.target ? linkClickable(p.source, p.target) : p.payload ? nodeClickable(p.payload) : false;
   return (
-    <div className="rounded-md border border-line bg-card px-3 py-2 text-[12px] shadow-md">
+    <div className="chart-tip">
       <div className="text-[14px] font-semibold tnum">{money(Number(payload[0].value ?? p.value ?? 0))}</div>
       <div className="text-muted">{label}</div>
       {clickable && (
@@ -443,7 +452,7 @@ function NatureTooltip({ active, payload, label }: Partial<TooltipContentProps<n
   if (!active || !payload?.length) return null;
   const total = payload.reduce((s, p) => s + Number(p.value ?? 0), 0);
   return (
-    <div className="min-w-48 rounded-md border border-line bg-card px-3 py-2 text-[12px] shadow-md">
+    <div className="min-w-48 chart-tip">
       <div className="mb-1 font-medium capitalize text-muted">{new Date(`${label}-15T12:00:00`).toLocaleDateString(locale(), { month: "long", year: "numeric" })}</div>
       {[...payload].reverse().map((p) => (
         <div key={String(p.dataKey)} className="flex items-center justify-between gap-4">
@@ -497,100 +506,64 @@ function NatureTable({ months }: { months: Record<string, number | string>[] }) 
 
 /* ---------- Prélèvements ---------- */
 
-function DebitsTab({ month }: { month: string }) {
+/**
+ * Prélèvements du mois, sous le calendrier : ce qui est encore attendu (ou, pour un mois passé, ce qui a manqué)
+ * et ce qui est passé. La grille au-dessus les situe dans le mois ; ici, la liste se lit ligne à ligne.
+ */
+function DebitsLists({ month }: { month: string }) {
   const d = useMonthDebits(month);
   const data = d.data;
-  const days = useMemo(() => {
-    const [y, m] = month.split("-").map(Number);
-    const count = new Date(y, m, 0).getDate();
-    const firstDow = (new Date(y, m - 1, 1).getDay() + 6) % 7;
-    const byDay = new Map<number, { total: number; n: number }>();
-    for (const x of data?.debits ?? []) {
-      const c = byDay.get(x.day) ?? { total: 0, n: 0 };
-      byDay.set(x.day, { total: c.total + x.amount, n: c.n + 1 });
-    }
-    const max = Math.max(1, ...[...byDay.values()].map((v) => v.total));
-    return { count, firstDow, byDay, max };
-  }, [data, month]);
   const total = (data?.debits ?? []).reduce((s, x) => s + x.amount, 0);
+  const pending = data ? (data.expected.length ? data.expected : data.missed) : [];
   return (
     <>
       {d.error && <ErrorBox error={d.error} />}
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+      <div className="mt-5 grid items-start gap-5 lg:grid-cols-2">
         <Card className="p-5">
-          <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="text-[14px] font-semibold">{t("Calendrier des prélèvements")}</h2>
-            <span className="tnum text-[13px] font-semibold">{money(total)}</span>
+          <div className="mb-2 flex items-baseline justify-between gap-3">
+            <h2 className="font-semibold">{t("Prélèvements passés ce mois-ci")}</h2>
+            <span className="tnum text-[14px] font-semibold">{money(total)}</span>
           </div>
-          <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] text-muted">
-            {[t("lun"), t("mar"), t("mer"), t("jeu"), t("ven"), t("sam"), t("dim")].map((x) => (
-              <div key={x}>{x}</div>
-            ))}
-            {Array.from({ length: days.firstDow }, (_, i) => (
-              <div key={`e${i}`} />
-            ))}
-            {Array.from({ length: days.count }, (_, i) => {
-              const day = i + 1;
-              const v = days.byDay.get(day);
-              const date = `${month}-${String(day).padStart(2, "0")}`;
-              return (
+          {!data ? (
+            <Spinner />
+          ) : (
+            <div className="divide-y divide-line">
+              {data.debits.map((x) => (
                 <button
-                  key={day}
+                  key={x.id}
                   type="button"
-                  disabled={!v}
-                  onClick={() => openDrill(t("Prélèvements du {date}", { date: new Date(`${date}T12:00:00`).toLocaleDateString(locale(), { day: "numeric", month: "long" }) }), { month, nature: "prelevement", debits: true, day: date })}
-                  className={cn("flex h-14 flex-col items-start justify-between rounded-md p-1.5 text-left", v ? "cursor-pointer hover:ring-2 hover:ring-accent" : "bg-bg")}
-                  style={v ? { background: `color-mix(in oklab, var(--series-2) ${Math.round(18 + (v.total / days.max) * 62)}%, var(--color-card))` } : undefined}
-                  title={v ? tn("{n} prélèvement · {montant}", "{n} prélèvements · {montant}", v.n, { montant: money(v.total) }) : undefined}
+                  onClick={() => openDrill(t("Prélèvements du {date}", { date: new Date(`${x.date.slice(0, 10)}T12:00:00`).toLocaleDateString(locale(), { day: "numeric", month: "long" }) }), { month, nature: "prelevement", debits: true, day: x.date.slice(0, 10) })}
+                  className="flex w-full items-center gap-3 py-1.5 text-left text-[13.5px] hover:bg-bg/70"
                 >
-                  <span className={cn("text-[11px]", v && v.total / days.max > 0.5 ? "text-white" : "text-muted")}>{day}</span>
-                  {v && <span className={cn("tnum text-[11px] font-semibold", v.total / days.max > 0.5 ? "text-white" : "text-ink")}>{k(v.total)}</span>}
+                  <span className="tnum w-7 shrink-0 text-muted">{x.day}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {x.name}
+                    {x.category && <span className="text-muted"> · {td(x.category)}</span>}
+                  </span>
+                  <span className="tnum shrink-0 font-medium">{money(x.amount)}</span>
                 </button>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-[12px] text-muted">{t("Intensité = montant prélevé ce jour-là. Clic : les opérations du jour.")}</p>
-        </Card>
-
-        <div className="space-y-5">
-          {data && (data.expected.length > 0 || data.missed.length > 0) && (
-            <Card className="p-5">
-              <h2 className="mb-2 text-[14px] font-semibold">{data.missed.length ? t("Prélèvements habituels absents ce mois-là") : t("Prélèvements attendus")}</h2>
-              <div className="divide-y divide-line">
-                {(data.expected.length ? data.expected : data.missed).map((x, i) => (
-                  <div key={i} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-                    <span className="min-w-0 truncate">
-                      {"late" in x && (x as { late: boolean }).late ? <AlertTriangle size={12} className="mr-1 inline text-warn" /> : null}
-                      {x.name}
-                      <span className="text-muted"> · {t("vers le {jour}", { jour: x.day })}</span>
-                    </span>
-                    <span className="tnum shrink-0 font-medium">{money(x.amount)}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
+              ))}
+              {!data.debits.length && <div className="py-4 text-center text-[13px] text-muted">{t("Aucun prélèvement.")}</div>}
+            </div>
           )}
+        </Card>
+        {pending.length > 0 && (
           <Card className="p-5">
-            <h2 className="mb-2 text-[14px] font-semibold">{t("Passés ce mois-ci")}</h2>
-            {!data ? (
-              <Spinner />
-            ) : (
-              <div className="divide-y divide-line">
-                {data.debits.map((x) => (
-                  <div key={x.id} className="flex items-center gap-3 py-1.5 text-[13px]">
-                    <span className="tnum w-8 shrink-0 text-muted">{x.day}</span>
-                    <span className="min-w-0 flex-1 truncate">
-                      {x.name}
-                      {x.category && <span className="text-muted"> · {td(x.category)}</span>}
-                    </span>
-                    <span className="tnum shrink-0 font-medium">{money(x.amount)}</span>
-                  </div>
-                ))}
-                {!data.debits.length && <div className="py-4 text-center text-[13px] text-muted">{t("Aucun prélèvement.")}</div>}
-              </div>
-            )}
+            <h2 className="mb-2 font-semibold">{data!.missed.length ? t("Prélèvements habituels absents ce mois-là") : t("Prélèvements attendus")}</h2>
+            <div className="divide-y divide-line">
+              {pending.map((x, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 py-1.5 text-[13.5px]">
+                  <span className="min-w-0 truncate">
+                    {"late" in x && (x as { late: boolean }).late ? <AlertTriangle size={12} className="mr-1 inline text-warn" /> : null}
+                    {x.name}
+                    <span className="text-muted"> · {t("vers le {jour}", { jour: x.day })}</span>
+                  </span>
+                  <span className="tnum shrink-0 font-medium">{money(x.amount)}</span>
+                </div>
+              ))}
+            </div>
           </Card>
-        </div>
+        )}
       </div>
     </>
   );

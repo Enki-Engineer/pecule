@@ -221,7 +221,6 @@ export function PropertyDesktop({ d }: { d: PropertyDetail }) {
                     <Tooltip
                       formatter={(v) => [money(Number(v), true), t("Capital restant dû")]}
                       labelFormatter={(x) => String(x).split("-").reverse().join("/")}
-                      contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-line)", borderRadius: 6, fontSize: 12 }}
                     />
                     {f.value != null && (
                       <ReferenceLine y={f.value} stroke="var(--series-1)" strokeWidth={2} strokeDasharray="6 4" label={{ value: t("valeur estimée {montant}", { montant: money(f.value, true) }), position: "insideBottomRight", fill: "var(--color-muted)", fontSize: 11 }} />

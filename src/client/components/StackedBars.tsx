@@ -158,7 +158,7 @@ function Tip<T extends Record<string, unknown>>({
   const total = series.reduce((s, x) => s + (Number(row[x.key]) || 0), 0);
   const more = rowExtra?.(row);
   return (
-    <div className="min-w-44 rounded-md border border-line bg-card px-3 py-2 text-[12px] shadow-md">
+    <div className="min-w-44 chart-tip">
       <div className="mb-1 font-medium text-muted">{rowLabel ? rowLabel(row) : String(row[xKey])}</div>
       {series.length > 1 &&
         [...series].reverse().map((s) => (

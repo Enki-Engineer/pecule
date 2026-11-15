@@ -41,7 +41,6 @@ export default function ChatChart({ chart }: { chart: ChatChartSpec }) {
       cursor={{ fill: "var(--color-bg)" }}
       formatter={(v, name) => [fmt(Number(v)), chart.series[Number(String(name).slice(1))]?.name ?? String(name)]}
       labelFormatter={(l) => tick(String(l))}
-      contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-line)", borderRadius: 6, fontSize: 12 }}
     />
   );
   return (

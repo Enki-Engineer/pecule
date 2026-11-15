@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Link } from "react-router";
 import { Card, ErrorBox, Spinner } from "./ui.tsx";
 import { openDrill } from "./DrillDrawer.tsx";
 import { DateBasisSwitch } from "./DateBasisSwitch.tsx";
@@ -252,9 +253,19 @@ export function CalendarTab({ period }: { period: string }) {
 
 /* ---------- Téléphone ---------- */
 
-export function MobileCalendar({ month }: { month: string }) {
+export function MobileCalendar({ month, onStep }: { month: string; /** Mois précédent (-1) ou suivant (+1) : un glissement du doigt sur la grille. */ onStep?: (delta: number) => void }) {
   const { tl, loaded, days, lead, today, byDay } = useCalendar(month);
   const [picked, setPicked] = useState<{ month: string; day: number } | null>(null);
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  // Glissement franc et à peu près horizontal : vers la droite, le mois précédent ; vers la gauche, le suivant.
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const from = touch.current;
+    touch.current = null;
+    if (!from || !onStep) return;
+    const dx = e.changedTouches[0].clientX - from.x;
+    const dy = e.changedTouches[0].clientY - from.y;
+    if (Math.abs(dx) > 60 && Math.abs(dy) < 40) onStep(dx > 0 ? -1 : 1);
+  };
   if (!tl.data || (!tl.data.points.length && !tl.data.upcoming.length)) return null;
   // Jour lu sous la grille : celui qu'on a touché, sinon aujourd'hui, sinon le dernier jour qui a quelque chose.
   const fallback = today ?? Math.max(1, ...byDay.keys());
@@ -264,7 +275,7 @@ export function MobileCalendar({ month }: { month: string }) {
   return (
     <Card className={cn("p-4 transition-opacity duration-200", !loaded && "opacity-50")}>
       <div className="mb-2 text-sm font-semibold">{t("Le calendrier du mois")}</div>
-      <div className="grid grid-cols-7">
+      <div className="grid touch-pan-y grid-cols-7" onTouchStart={(e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })} onTouchEnd={onTouchEnd}>
         {weekdays().map((d, i) => (
           <div key={i} className="pb-1 text-center text-[12px] text-muted">
             {d}
@@ -326,6 +337,102 @@ export function MobileCalendar({ month }: { month: string }) {
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <Legend />
       </div>
+    </Card>
+  );
+}
+
+/* ---------- Les sept prochains jours (accueil) ---------- */
+
+const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/**
+ * D'aujourd'hui à dans six jours, comme une ligne du calendrier : ce qui est passé aujourd'hui et ce qui est attendu
+ * d'ici là. Sur ordinateur, chaque jour porte ses étiquettes ; sur le téléphone (`compact`), un trait par mouvement
+ * et la liste de ce qui est attendu dessous. La fenêtre peut chevaucher deux mois : chacun apporte ses jours.
+ */
+export function WeekAhead({ compact = false, className }: { compact?: boolean; className?: string }) {
+  const dates = useMemo(() => {
+    const start = new Date();
+    return Array.from({ length: 7 }, (_, i) => isoDay(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)));
+  }, []);
+  const first = useTimeline(dates[0].slice(0, 7));
+  const last = useTimeline(dates[6].slice(0, 7));
+  const cells = useMemo(() => {
+    const byMonth = new Map([first.data, last.data].filter((d): d is Timeline => !!d).map((d) => [d.period, cellsOf(d)]));
+    return dates.map((date) => ({ date, cell: byMonth.get(date.slice(0, 7))?.get(Number(date.slice(8, 10))) }));
+  }, [dates, first.data, last.data]);
+  if (!first.data || !last.data) return null;
+  const expected = cells.flatMap(({ date, cell }) => (cell?.chips ?? []).filter((c) => c.tone === "attendu").map((c) => ({ ...c, date })));
+  const out = expected.filter((c) => c.amount < 0).reduce((s, c) => s + c.amount, 0);
+  const into = expected.filter((c) => c.amount > 0).reduce((s, c) => s + c.amount, 0);
+  const weekday = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(locale(), { weekday: "short" }).replace(".", "");
+  const shortDay = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString(locale(), { weekday: "short", day: "numeric" });
+  return (
+    <Card className={cn(compact ? "p-4" : "p-5", className)}>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="font-semibold">{t("Les sept prochains jours")}</h2>
+        <div className="flex items-center gap-3 text-[13px]">
+          {expected.length > 0 && (
+            <span className="text-muted">
+              {t("attendu :")} {out < 0 && <span className="tnum font-semibold text-ink">{signed(out)}</span>}
+              {out < 0 && into > 0 && " · "}
+              {into > 0 && <span className="tnum font-semibold text-pos">{signed(into)}</span>}
+            </span>
+          )}
+          <Link to={compact ? "/mois" : "/mois?onglet=calendrier"} viewTransition className="text-sm text-accent">
+            {t("Calendrier")}
+          </Link>
+        </div>
+      </div>
+      <div className={cn("grid grid-cols-7", !compact && "border-t border-line")}>
+        {cells.map(({ date, cell }, i) => {
+          const day = Number(date.slice(8, 10));
+          const number = <span className={cn("tnum grid size-7 place-items-center rounded-full text-[15px]", i === 0 ? "bg-ink font-semibold text-card" : "text-ink")}>{day}</span>;
+          if (compact)
+            return (
+              <div key={date} className="flex flex-col items-center">
+                <span className="text-[11.5px] text-muted first-letter:uppercase">{weekday(date)}</span>
+                {number}
+                <span className="mt-1 flex h-1.5 items-center gap-0.5">
+                  {(cell?.chips ?? []).slice(0, 3).map((m) => (
+                    <span key={m.key} className={cn("h-1.5 w-2.5 rounded-full", MARK[m.tone])} />
+                  ))}
+                </span>
+              </div>
+            );
+          const chips = cell?.chips ?? [];
+          return (
+            <div key={date} className="min-h-[84px] min-w-0 px-1.5 pb-1 pt-2">
+              <div className="flex items-center gap-1.5 px-1">
+                {number}
+                <span className="text-[12.5px] text-muted first-letter:uppercase">{weekday(date)}</span>
+                {cell && cell.small !== 0 && <span className="tnum ml-auto text-[12.5px] text-muted">{signed(cell.small)}</span>}
+              </div>
+              <div className="mt-1 space-y-1">
+                {chips.slice(0, MAX_CHIPS).map((c) => (
+                  <ChipLabel key={c.key} chip={c} className="text-[12.5px]" />
+                ))}
+                {chips.length > MAX_CHIPS && <div className="px-1.5 text-[12px] text-muted">{tn("+ {n} autre", "+ {n} autres", chips.length - MAX_CHIPS)}</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {compact &&
+        (expected.length ? (
+          <div className="mt-3 space-y-1.5 border-t border-line pt-3">
+            {expected.slice(0, 4).map((c) => (
+              <div key={`${c.date}${c.key}`} className="flex items-center gap-2.5 text-[14px]">
+                <span className="w-14 shrink-0 text-[12.5px] text-muted first-letter:uppercase">{shortDay(c.date)}</span>
+                <span className="min-w-0 flex-1 truncate">{c.name}</span>
+                <span className={cn("tnum shrink-0 font-medium", c.amount > 0 && "text-pos")}>{signed(c.amount)}</span>
+              </div>
+            ))}
+            {expected.length > 4 && <div className="text-[12.5px] text-muted">{tn("+ {n} autre", "+ {n} autres", expected.length - 4)}</div>}
+          </div>
+        ) : (
+          <div className="mt-3 border-t border-line pt-3 text-[14px] text-muted">{t("Rien d'attendu d'ici là.")}</div>
+        ))}
     </Card>
   );
 }

@@ -119,6 +119,19 @@ body {
   outline: 1px dashed color-mix(in srgb, var(--color-muted) 55%, transparent);
   outline-offset: -1px;
 }
+/* Bulle d'un graphique (survol d'une courbe, d'une barre) : une petite carte, la même partout. Elle reste claire —
+   elle porte les pastilles de couleur des séries ; la bulle sombre est réservée aux infobulles d'une ligne. */
+.chart-tip,
+.recharts-default-tooltip {
+  border: 0 !important;
+  border-radius: 0.875rem !important;
+  background: var(--color-card) !important;
+  padding: 0.6rem 0.8rem !important;
+  font-size: 12.5px;
+  box-shadow:
+    0 0 0 1px var(--color-line),
+    0 14px 32px -14px rgb(20 20 19 / 0.32);
+}
 /* Titre d'une carte : un cran au-dessus du texte. */
 .card h2.font-semibold:not([class*="text-"]) {
   font-size: 1.0625rem;

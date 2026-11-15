@@ -3,6 +3,20 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.6.0
+
+- **Les sept prochains jours** (tableau de bord et accueil du téléphone) : d'aujourd'hui à dans six jours, comme une
+  ligne du calendrier — ce qui est passé aujourd'hui, ce qui est attendu d'ici là et son total. Sur le téléphone,
+  c'est un bloc de l'accueil comme les autres (« Personnaliser l'accueil » le déplace ou le masque).
+- **Calendrier et prélèvements réunis** : l'onglet « Prélèvements » de l'analyse disparaît. Ses listes — passés ce
+  mois-ci, encore attendus, absents d'un mois passé — se lisent sous la grille du calendrier ; pour une année
+  entière, l'onglet « Calendrier » montre les prélèvements mois par mois. Un lien gardé vers l'ancien onglet y mène.
+- **Calendrier du téléphone** : un glissement du doigt sur la grille passe au mois précédent ou suivant.
+- **Accueil du téléphone** : les écarts s'écrivent dans une étiquette, comme sur ordinateur.
+- **« Où part l'argent »** : le pourcentage de chaque moyen de paiement se lit dans la légende ; il n'est plus écrit
+  en blanc sur la couleur de la barre, où il se lisait mal.
+- **Bulles des graphiques** : la même petite carte partout au survol d'une courbe ou d'une barre.
+
 ## 1.5.0
 
 - **Nouvelle allure** : fond chaud, cartes blanches sans filet aux coins plus ronds, police Figtree (hébergée par

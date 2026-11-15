@@ -121,7 +121,7 @@ export function Month({ bare = false }: { bare?: boolean }) {
 
           {/* iPhone : répartition en anneau (dépenses ou revenus), chaque poste se déplie sur ses catégories ; puis la frise. */}
           {!bare && <BreakdownSwitch data={data} />}
-          {!bare && !year && <MobileCalendar month={p} />}
+          {!bare && !year && <MobileCalendar month={p} onStep={(d) => (d < 0 || !isCurrent) && setP(shiftPeriod(p, d))} />}
           {!bare && <MobileTimeline period={p} />}
 
           {/* Grand écran : le cumul de la période à gauche, les postes à droite. */}
@@ -149,7 +149,6 @@ export function Month({ bare = false }: { bare?: boolean }) {
                   <Tooltip
                     formatter={(v, name) => [money(Number(v), true), name === "mois" ? (year ? p : t("Ce mois")) : year ? t("Année précédente") : t("Mois précédent")]}
                     labelFormatter={(d) => stepName(Number(d))}
-                    contentStyle={{ background: "var(--color-card)", border: "none", borderRadius: 12 }}
                   />
                   <Line type="monotone" dataKey="precedent" stroke="var(--color-muted)" strokeOpacity={0.5} strokeDasharray="4 4" dot={false} strokeWidth={2} isAnimationActive={false} />
                   <Area type="monotone" dataKey="mois" stroke="var(--color-accent)" fill="url(#g)" strokeWidth={2.5} connectNulls={false} isAnimationActive={false} />
@@ -337,7 +336,7 @@ function TrendTip({ active, payload, now }: Partial<TooltipContentProps<number, 
     </div>
   );
   return (
-    <div className="min-w-52 max-w-72 rounded-md border border-line bg-card px-3 py-2 text-[12px] shadow-md">
+    <div className="min-w-52 max-w-72 chart-tip">
       <div className="mb-1 font-medium text-muted">
         {monthLabel(row.month)}
         {row.month > now ? ` · ${t("prévision")}` : row.month === now ? ` · ${t("en cours")}` : ""}

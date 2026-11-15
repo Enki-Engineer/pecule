@@ -1,3 +1,4 @@
+import { WeekAhead } from "../components/MonthCalendar.tsx";
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -184,7 +185,7 @@ export function Dashboard() {
                   <Tooltip
                     formatter={(v) => [money(Number(v), true), t("Patrimoine net")]}
                     labelFormatter={(v) => dateFr(new Date(Number(v)).toISOString().slice(0, 10))}
-                    contentStyle={{ background: "var(--color-card)", border: "none", borderRadius: 12 }}
+                    
                   />
                   <Area type="monotone" dataKey="net" stroke="var(--color-accent)" fill="url(#dg)" strokeWidth={2.5} isAnimationActive={false} />
                 </AreaChart>
@@ -215,6 +216,8 @@ export function Dashboard() {
             </div>
           )}
         </Card>
+
+        <WeekAhead className="col-span-12" />
 
         <MonthNatures />
 
@@ -401,12 +404,11 @@ function MonthNatures() {
                 key={p.nature}
                 type="button"
                 onClick={() => openDrill(NATURE_LABELS[p.nature], { month, nature: p.nature, debits: true })}
-                className="flex h-full min-w-0 items-center justify-center text-[12px] font-semibold text-white transition-[filter] hover:brightness-110"
+                className="h-full min-w-0 transition-[filter] hover:brightness-110"
                 style={{ width: `${(p.total / total) * 100}%`, background: natureColor(p.nature) }}
                 title={t("{nom} : {montant}", { nom: NATURE_LABELS[p.nature], montant: money(p.total) })}
-              >
-                {p.total / total > 0.08 && <span className="truncate px-1">{Math.round((p.total / total) * 100)} %</span>}
-              </button>
+                aria-label={t("{nom} : {montant}", { nom: NATURE_LABELS[p.nature], montant: money(p.total) })}
+              />
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-[13px]">
@@ -415,6 +417,7 @@ function MonthNatures() {
                 <span className="size-2.5 rounded-sm" style={{ background: natureColor(p.nature) }} />
                 <span className="text-muted">{NATURE_LABELS[p.nature]}</span>
                 <span className="tnum font-semibold">{money(p.total, true)}</span>
+                <span className="tnum text-muted">{Math.round((p.total / total) * 100)} %</span>
               </span>
             ))}
             <span className="ml-auto text-muted">

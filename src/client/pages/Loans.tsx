@@ -91,7 +91,6 @@ export function LoanDetail() {
                       <Tooltip
                         formatter={(v) => [money(Number(v)), t("Capital restant dû")]}
                         labelFormatter={(d) => String(d).split("-").reverse().join("/")}
-                        contentStyle={{ background: "var(--color-card)", border: "none", borderRadius: 12 }}
                       />
                       <ReferenceLine x={today.slice(0, 7)} stroke="var(--color-accent)" strokeDasharray="3 3" label={{ value: t("aujourd'hui"), position: "insideTopLeft", fill: "var(--color-muted)", fontSize: 11, dy: -2 }} />
                       <Area type="stepAfter" dataKey="restant" stroke="var(--color-accent)" fill="url(#lg)" strokeWidth={2.5} isAnimationActive={false} />
@@ -254,7 +253,6 @@ function LoanDesktop({ l, chart, yearTicks, today }: { l: Loan; chart: { date: s
                 <Tooltip
                   formatter={(v) => [money(Number(v)), t("Capital restant dû")]}
                   labelFormatter={(d) => String(d).split("-").reverse().join("/")}
-                  contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-line)", borderRadius: 6, fontSize: 12 }}
                 />
                 <ReferenceLine x={today.slice(0, 7)} stroke="var(--color-ink)" strokeDasharray="3 3" label={{ value: t("aujourd'hui"), position: "insideTopLeft", fill: "var(--color-muted)", fontSize: 11, dy: -2 }} />
                 <Area type="stepAfter" dataKey="restant" stroke="var(--color-accent)" fill="url(#lgd)" strokeWidth={2} isAnimationActive={false} />
@@ -330,7 +328,7 @@ function YearTip({ active, payload }: Partial<TooltipContentProps<number, string
   const y = payload[0].payload as YearRow;
   const total = y.principal + y.interest + y.insurance;
   return (
-    <div className="min-w-44 rounded-md border border-line bg-card px-3 py-2 text-[12px] shadow-md">
+    <div className="min-w-44 chart-tip">
       <div className="mb-1 font-medium text-muted">{y.year}</div>
       {[
         [t("Capital"), y.principal, 1],

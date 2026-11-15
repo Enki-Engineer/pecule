@@ -12,6 +12,7 @@ import { CardOutstandingSection, useOutstandingTotal } from "../components/CardO
 import { Welcome } from "../components/Welcome.tsx";
 import { useSeasonGreeting } from "../theme.ts";
 import { FunCard } from "../components/FunCard.tsx";
+import { WeekAhead } from "../components/MonthCalendar.tsx";
 import { EnvelopesCard, GoalsCard } from "../components/Planning.tsx";
 import { WeeklySummaryCard } from "../components/WeeklySummary.tsx";
 import { t, td, tn } from "../../lib/i18n.ts";
@@ -130,8 +131,8 @@ function MobileHome() {
               <>
                 <Sparkline values={balances} className="mt-3" />
                 {trend3m != null && (
-                  <div className={clsx("tnum mt-1 text-xs", trend3m >= 0 ? "text-pos" : "text-neg")}>
-                    {t("{montant} sur 3 mois", { montant: (trend3m >= 0 ? "+" : "") + money(trend3m, true) })}
+                  <div className="mt-2">
+                    <span className={clsx("chip tnum text-[13px]", trend3m >= 0 ? "chip-pos" : "chip-neg")}>{t("{montant} sur 3 mois", { montant: (trend3m >= 0 ? "+" : "") + money(trend3m, true) })}</span>
                   </div>
                 )}
               </>
@@ -147,9 +148,10 @@ function MobileHome() {
                   <div className="text-sm text-muted">{t("Dépensé ce mois-ci")}</div>
                   <ChevronRight size={18} className="text-muted" />
                 </div>
-                <div className="tnum mt-1 text-2xl font-bold">{money(s.spentThisMonth)}</div>
-                <div className={clsx("mt-0.5 text-sm", delta > 0 ? "text-neg" : "text-pos")}>
-                  {t("{montant} par rapport au mois dernier à la même date", { montant: (delta > 0 ? "+" : "") + money(delta) })}
+                <div className="figure mt-1 text-[26px]">{money(s.spentThisMonth)}</div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                  <span className={clsx("chip tnum text-[13px]", delta > 0 ? "chip-neg" : "chip-pos")}>{(delta > 0 ? "+" : "") + money(delta, true)}</span>
+                  <span className="text-[13px] text-muted">{t("vs même date du mois dernier")}</span>
                 </div>
                 {s.topCategories.length > 0 && (
                   <div className="mt-4 space-y-2">
@@ -182,6 +184,8 @@ function MobileHome() {
             </Link>
           )}
                   </>
+                ) : id === "semaine" ? (
+                  <WeekAhead compact />
                 ) : id === "amusant" ? (
                   <FunCard />
                 ) : id === "resume" ? (
@@ -272,6 +276,7 @@ function UpcomingCard() {
 const HOME_CARDS = [
   { id: "disponible", label: t("Disponible sur les comptes") },
   { id: "depense", label: t("Dépensé ce mois-ci") },
+  { id: "semaine", label: t("Les sept prochains jours") },
   { id: "aclasser", label: t("Opérations à classer") },
   { id: "amusant", label: t("Le chiffre du moment") },
   { id: "resume", label: t("Résumé de la semaine") },
@@ -290,8 +295,9 @@ function useHomeLayout(): [HomeLayout, (l: HomeLayout) => void] {
     try {
       const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? "null") as HomeLayout | null;
       if (saved) {
-        // Nouvelles cartes ajoutées depuis : à la fin, visibles.
-        const order = [...saved.order.filter((id) => all.includes(id)), ...all.filter((id) => !saved.order.includes(id))];
+        // Nouvelles cartes ajoutées depuis : visibles, à leur place d'origine (juste après la carte qui les précède).
+        const order = saved.order.filter((id) => all.includes(id));
+        for (const id of all) if (!order.includes(id)) order.splice(order.indexOf(all[all.indexOf(id) - 1]) + 1, 0, id);
         return { order, hidden: saved.hidden.filter((id) => all.includes(id)) };
       }
     } catch {

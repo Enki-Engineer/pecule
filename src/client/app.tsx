@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { Toaster } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { adoptRegion, region } from "./region.ts";
+import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { api, useMe } from "./api.ts";
 import { adoptBrands, useBrands } from "./api-brands.ts";
 import { adoptData, appLang, applyLang, hasData } from "./i18n.ts";
@@ -135,7 +136,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <OfflineProvider>
       <BrowserRouter>
-        <App />
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
       </BrowserRouter>
       <OfflineBanner />
       <Toaster position="top-center" richColors />

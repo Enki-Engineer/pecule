@@ -2696,4 +2696,8 @@ export const es: Dict = {
   "Assistant en plein écran": "Asistente a pantalla completa",
   "{n} question": ["{n} pregunta", "{n} preguntas"],
   "Attends la fin de la réponse pour supprimer cette conversation.": "Espera a que termine la respuesta para eliminar esta conversación.",
+  "Cet écran n'a pas pu s'afficher": "Esta pantalla no se ha podido mostrar",
+  "Recharge la page pour repartir : tes données ne sont pas touchées.": "Recarga la página para continuar: tus datos no se han tocado.",
+  "Recharger": "Recargar",
+  "Ce graphique n'a pas pu se charger : une nouvelle version de Pécule est sans doute en ligne. Recharge la page pour l'afficher, la conversation est gardée.": "Este gráfico no se ha podido cargar: seguramente hay una nueva versión de Pécule en línea. Recarga la página para verlo; la conversación se conserva.",
 };

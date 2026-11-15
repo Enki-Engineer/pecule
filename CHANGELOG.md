@@ -3,6 +3,17 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.4.1
+
+- **Écran vide après un déploiement** : une fenêtre restée ouverte pendant une mise à jour demandait encore les
+  fichiers de code de l'ancienne version. Le premier écran ou graphique chargé à la demande échouait alors et toute
+  l'appli disparaissait (il ne restait que le fond) — typiquement à la fin d'une réponse de l'assistant qui se
+  termine par un graphique. Désormais la page se recharge d'elle-même, une fois, sur la nouvelle version quand le
+  code d'un écran manque ; un graphique qui ne peut pas se charger laisse la conversation en place, avec
+  « Recharger » ; et une erreur d'affichage, quelle qu'elle soit, montre un message au lieu d'un écran vide.
+- **Serveur** : un fichier de `/assets` qui n'existe plus répond « introuvable » (404) au lieu de la page d'accueil,
+  que le navigateur prenait pour du code et gardait en cache (cache de l'appli installée renouvelé).
+
 ## 1.4.0
 
 - **Assistant en plein écran** (ordinateur) : le panneau s'agrandit — son bouton, ⌘⇧J ou l'adresse `/assistant` — en

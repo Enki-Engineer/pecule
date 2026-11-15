@@ -1,3 +1,4 @@
+import { loadChunk } from "../reload.ts";
 import { Fragment, lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { ArrowDown, ArrowUp, CalendarClock, RefreshCw, ChevronRight, SlidersHorizontal, Tags } from "lucide-react";
@@ -16,7 +17,7 @@ import { WeeklySummaryCard } from "../components/WeeklySummary.tsx";
 import { t, td, tn } from "../../lib/i18n.ts";
 
 // Tableau de bord ordinateur (graphiques) chargé seulement sur grand écran.
-const Dashboard = lazy(() => import("./Dashboard.tsx").then((m) => ({ default: m.Dashboard })));
+const Dashboard = lazy(() => loadChunk(() => import("./Dashboard.tsx")).then((m) => ({ default: m.Dashboard })));
 
 function useDesktop() {
   const [desk, setDesk] = useState(() => window.matchMedia("(min-width: 768px)").matches);

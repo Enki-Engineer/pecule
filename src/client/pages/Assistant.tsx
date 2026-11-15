@@ -1,7 +1,7 @@
 import { Suspense, lazy, memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowUp, AudioLines, Check, ChevronDown, ChevronLeft, Clock, Copy, FileText, History, Maximize2, Minimize2, PanelLeft, Paperclip, Plus, Sparkles, X } from "lucide-react";
+import { AlertTriangle, ArrowUp, AudioLines, Check, ChevronDown, ChevronLeft, Clock, Copy, FileText, History, Maximize2, Minimize2, PanelLeft, Paperclip, Plus, RefreshCw, Sparkles, X } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, apiStream, invalidateDocuments, invalidateInvoices, uploadToInbox, useMe } from "../api.ts";
@@ -10,6 +10,7 @@ import { cn } from "../cn.ts";
 import { screenName, useCurrentEntity } from "../assistantContext.ts";
 import { Markdown, calloutLabel } from "../components/Markdown.tsx";
 import { AssistantHistory } from "../components/AssistantHistory.tsx";
+import { ErrorBoundary } from "../components/ErrorBoundary.tsx";
 import type { ChatChartSpec } from "../components/ChatChart.tsx";
 import { aiCost, momentLabel } from "../format.ts";
 import { useMedia } from "../useMedia.ts";
@@ -147,6 +148,22 @@ function UserMessage({ m }: { m: Item }) {
   );
 }
 
+/**
+ * Graphique qui ne peut pas s'afficher — le plus souvent parce qu'une nouvelle version de Pécule a été déployée
+ * pendant que l'appli était ouverte : son code n'est plus sur le serveur. La réponse, elle, reste lisible.
+ */
+function ChartUnavailable({ title }: { title: string }) {
+  return (
+    <div className="card w-full p-4 text-[0.93em]">
+      <p className="font-semibold">{title}</p>
+      <p className="mt-1 text-muted">{t("Ce graphique n'a pas pu se charger : une nouvelle version de Pécule est sans doute en ligne. Recharge la page pour l'afficher, la conversation est gardée.")}</p>
+      <button type="button" onClick={() => window.location.reload()} className="press mt-2 flex items-center gap-1.5 font-medium text-accent">
+        <RefreshCw size={14} /> {t("Recharger")}
+      </button>
+    </div>
+  );
+}
+
 /** Réponse de l'assistant : le texte se lit à même la page (sans bulle), ses graphiques dessous, puis copier, heure et coût. */
 function AssistantReply({ m }: { m: Item }) {
   if (!m.text && !m.charts?.length) return null;
@@ -154,9 +171,11 @@ function AssistantReply({ m }: { m: Item }) {
     <div className="flex flex-col items-start gap-2">
       {m.text && <Markdown text={m.text} className="w-full" />}
       {m.charts?.map((c, j) => (
-        <Suspense key={j} fallback={<div className="card h-48 w-full animate-pulse" />}>
-          <ChatChart chart={c} />
-        </Suspense>
+        <ErrorBoundary key={j} fallback={<ChartUnavailable title={c.title} />}>
+          <Suspense fallback={<div className="card h-48 w-full animate-pulse" />}>
+            <ChatChart chart={c} />
+          </Suspense>
+        </ErrorBoundary>
       ))}
       <div className="-ml-1.5 flex items-center gap-1 text-[12px] text-muted">
         {m.text && <CopyButton text={m.text} />}

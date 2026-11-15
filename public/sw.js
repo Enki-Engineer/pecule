@@ -2,8 +2,9 @@
 // démarrage instantané depuis l'écran d'accueil. Les réponses /api ne passent jamais par ce cache ;
 // les données de synthèse gardées sur l'appareil le sont par l'appli (src/client/offline.tsx, liste
 // fermée, 7 jours, effacées à la déconnexion, désactivables).
-// Changer ce nom vide l'ancien cache : à faire quand un fichier de /icons est redessiné sans changer de nom.
-const CACHE = "pecule-v3";
+// Changer ce nom vide l'ancien cache : à faire quand un fichier de /icons est redessiné sans changer de nom, ou quand
+// des réponses gardées à tort doivent partir (v4 : une page avait pu être gardée à la place d'un fichier disparu).
+const CACHE = "pecule-v4";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {
@@ -20,7 +21,8 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       caches.match(event.request).then(
         (hit) => hit || fetch(event.request).then((res) => {
-          if (res.ok) {
+          // Jamais une page à la place d'un fichier : un fichier disparu (ancienne version) ne doit pas rester en cache.
+          if (res.ok && !(res.headers.get("content-type") || "").includes("text/html")) {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(event.request, copy));
           }

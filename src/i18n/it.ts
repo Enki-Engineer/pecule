@@ -2696,4 +2696,8 @@ export const it: Dict = {
   "Assistant en plein écran": "Assistente a schermo intero",
   "{n} question": ["{n} domanda", "{n} domande"],
   "Attends la fin de la réponse pour supprimer cette conversation.": "Aspetta la fine della risposta per eliminare questa conversazione.",
+  "Cet écran n'a pas pu s'afficher": "Questa schermata non è stata visualizzata",
+  "Recharge la page pour repartir : tes données ne sont pas touchées.": "Ricarica la pagina per ripartire: i tuoi dati non sono stati toccati.",
+  "Recharger": "Ricarica",
+  "Ce graphique n'a pas pu se charger : une nouvelle version de Pécule est sans doute en ligne. Recharge la page pour l'afficher, la conversation est gardée.": "Questo grafico non si è caricato: probabilmente è online una nuova versione di Pécule. Ricarica la pagina per vederlo, la conversazione resta.",
 };

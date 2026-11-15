@@ -178,6 +178,11 @@ export async function createApp() {
       "/assets",
       express.static(path.join(client, "assets"), { immutable: true, maxAge: "1y", index: false }),
     );
+    // Fichier de code d'une version précédente (une fenêtre restée ouverte pendant un déploiement le demande encore) :
+    // « introuvable », et surtout pas la page d'accueil — le navigateur la prendrait pour du code et la garderait en cache.
+    app.use("/assets", (_req, res) => {
+      res.status(404).set("Cache-Control", "no-store").type("text/plain").send("Introuvable");
+    });
     app.use(express.static(client, { index: false, maxAge: 0 }));
     app.get("/{*path}", (_req, res) => {
       res.set("Cache-Control", "no-cache");

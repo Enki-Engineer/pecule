@@ -1,4 +1,5 @@
 import { lazy, useState, type ComponentType } from "react";
+import { loadChunk } from "./reload.ts";
 
 /*
  * Écrans chargés à la demande, mais préchargés quand l'appareil est au repos. Un React.lazy classique
@@ -23,7 +24,9 @@ function screen<P extends object>(load: Loader<P>): Screen<P> {
         throw e;
       },
     ));
-  const Lazy = lazy(() => preload().then(() => ({ default: Loaded! }))) as unknown as ComponentType<P>;
+  // L'écran est demandé maintenant : si son code manque (nouvelle version déployée), la page se recharge. Un
+  // préchargement au repos qui échoue, lui, ne dérange personne.
+  const Lazy = lazy(() => loadChunk(preload).then(() => ({ default: Loaded! }))) as unknown as ComponentType<P>;
   // Choix fait une fois par montage : passer de Lazy à Loaded en cours de route remonterait l'écran.
   function S(props: P) {
     const [C] = useState<ComponentType<P>>(() => Loaded ?? Lazy);

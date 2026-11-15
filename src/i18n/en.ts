@@ -2745,4 +2745,5 @@ export const en: Dict = {
   "non surveillé": "not watched",
   "seuil de la règle": "the rule's threshold",
   "seuil à {montant}": "threshold at {montant}",
+  "Personnaliser le tableau de bord": "Customise the dashboard",
 };

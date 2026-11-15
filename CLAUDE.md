@@ -103,6 +103,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Une marque (logo, reconnaissance d'un libellé) | une ligne dans `src/lib/brands.ts` |
 | Un fournisseur d'IA qui parle l'API Messages | `src/lib/ai-providers.ts` et `buildClient` (`src/server/ai.ts`) |
 | Un écran facultatif | `MODULE_INFO` dans `src/lib/modules.ts` |
+| Un bloc du tableau de bord ou de l'accueil du téléphone | `DASH_CARDS` et `blocks` (`pages/Dashboard.tsx`), `HOME_CARDS` (`pages/Home.tsx`) : il devient déplaçable et masquable (`components/CardLayout.tsx`) |
 | Une fête ou un thème | `src/lib/seasons.ts`, recopié dans `public/theme-init.js` (un test compare) |
 | Une couleur proposée dans Réglages | `ACCENTS` (`src/lib/seasons.ts`) et son bloc `[data-accent="…"]`, clair et sombre (`src/styles/index.css`) |
 | Une devise (cotée par la BCE) ou un pays | `CURRENCIES` (`src/lib/currencies.ts`), `COUNTRIES` (`src/lib/countries.ts`) |

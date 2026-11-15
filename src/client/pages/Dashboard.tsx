@@ -1,10 +1,11 @@
+import { LayoutCustomizer, useCardLayout } from "../components/CardLayout.tsx";
 import { lowAccounts, useBalanceAlert } from "../api-balance.ts";
 import { lowBalanceText } from "../components/LowBalance.tsx";
 import { WeekAhead } from "../components/MonthCalendar.tsx";
-import { useMemo } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, Info, RefreshCw, TrendingDown, ShieldCheck, Tags, Wallet } from "lucide-react";
+import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, Info, RefreshCw, SlidersHorizontal, TrendingDown, ShieldCheck, Tags, Wallet } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { api, useAccounts, useDemo, useMe, useMonth, useSummary, useSync, useWealth, type Transaction, type WealthCategory } from "../api.ts";
@@ -47,6 +48,25 @@ type Dash = {
 const CATEGORY_LABELS: Record<string, string> = { immobilier: t("Immobilier"), crypto: t("Crypto"), placement: t("Placements"), epargne: t("Épargne"), comptes: t("Comptes"), autre: t("Autres") };
 const daysSince = (d: string | null) => (d ? Math.floor((Date.now() - Date.parse(`${d.slice(0, 10)}T12:00:00Z`)) / 86_400_000) : null);
 
+/** Blocs du tableau de bord (sous les chiffres clés), dans leur ordre d'origine. */
+const DASH_CARDS = [
+  { id: "evolution", label: t("Évolution du patrimoine net") },
+  { id: "atraiter", label: t("À traiter") },
+  { id: "semaine", label: t("Les sept prochains jours") },
+  { id: "natures", label: t("Où part l'argent ce mois-ci") },
+  { id: "amusant", label: t("Le chiffre du moment") },
+  { id: "resume", label: t("Résumé de la semaine") },
+  { id: "enveloppes", label: t("Enveloppes du mois") },
+  { id: "objectifs", label: t("Objectifs d'épargne") },
+  { id: "operations", label: t("Dernières opérations") },
+  { id: "echeances", label: t("Prochaines échéances") },
+  { id: "postes", label: t("Dépenses du mois par poste") },
+  { id: "repartition", label: t("Répartition du patrimoine") },
+  { id: "comptes", label: t("Comptes") },
+] as const;
+type DashCardId = (typeof DASH_CARDS)[number]["id"];
+const DASH_IDS = DASH_CARDS.map((c) => c.id);
+
 export function Dashboard() {
   const demo = useDemo();
   const greeting = useSeasonGreeting();
@@ -62,6 +82,8 @@ export function Dashboard() {
   const outstanding = useOutstandingTotal();
 
   const balance = useBalanceAlert();
+  const [layout, saveLayout] = useCardLayout<DashCardId>("pecule.dashboard.layout", DASH_IDS);
+  const [customizing, setCustomizing] = useState(false);
   const s = summary.data;
   const w = wealth.data;
   const visible = (accounts.data?.accounts ?? []).filter((a) => !a.hidden && !(a.kind === "carte" && a.balance == null));
@@ -103,6 +125,202 @@ export function Dashboard() {
 
   const groups = groupByOwner(visible, OWNER_ORDER);
 
+  // Les blocs du tableau de bord, par identifiant : l'ordre et la visibilité viennent du réglage de l'appareil.
+  const blocks: Record<DashCardId, ReactNode> = {
+    evolution: (
+          <Card className="col-span-12 p-5 lg:col-span-8">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="font-semibold">{t("Évolution du patrimoine net")}</h2>
+              <Link to="/patrimoine" className="text-sm text-accent">
+                {t("Détail")}
+              </Link>
+            </div>
+            <div className="h-56">
+              {history.length >= 2 ? (
+                <ResponsiveContainer>
+                  <AreaChart data={history} margin={{ left: 0, right: 8, top: 6, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="t"
+                      type="number"
+                      scale="time"
+                      domain={["dataMin", "dataMax"]}
+                      tickLine={false}
+                      axisLine={false}
+                      tickCount={6}
+                      tickFormatter={(v: number) => new Date(v).toLocaleDateString(locale(), { day: "numeric", month: "short", timeZone: "UTC" })}
+                    />
+                    <YAxis tickLine={false} axisLine={false} width={56} domain={["dataMin - 5000", "dataMax + 5000"]} tickFormatter={(v: number) => `${Math.round(v / 1000)} k`} />
+                    <Tooltip
+                      formatter={(v) => [money(Number(v), true), t("Patrimoine net")]}
+                      labelFormatter={(v) => dateFr(new Date(Number(v)).toISOString().slice(0, 10))}
+                      
+                    />
+                    <Area type="monotone" dataKey="net" stroke="var(--color-accent)" fill="url(#dg)" strokeWidth={2.5} isAnimationActive={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <Spinner />
+              )}
+            </div>
+          </Card>
+    ),
+    atraiter: (
+          <Card className="col-span-12 p-5 lg:col-span-4">
+            <h2 className="mb-3 font-semibold">{t("À traiter")}</h2>
+            {todo.length ? (
+              <div className="space-y-1">
+                {todo.map((x, i) => (
+                  <Link key={i} to={x.to} className="press flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-bg text-ink">
+                      <x.icon size={16} />
+                    </span>
+                    <span className="min-w-0 flex-1 text-sm">{x.label}</span>
+                    <ChevronRight size={16} className="text-muted" />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-pos">
+                <ShieldCheck size={18} /> {t("Tout est à jour.")}
+              </div>
+            )}
+          </Card>
+    ),
+    semaine: <WeekAhead className="col-span-12" />,
+    natures: <MonthNatures />,
+    amusant: <FunCard className="col-span-12" />,
+    resume: <WeeklySummaryCard className="col-span-12" />,
+    enveloppes: <EnvelopesCard className="col-span-12 md:col-span-6 lg:col-span-7" />,
+    objectifs: <GoalsCard className="col-span-12 md:col-span-6 lg:col-span-5" />,
+    operations: (
+          <Card className="col-span-12 lg:col-span-7">
+            <div className="flex items-center justify-between px-5 pb-2 pt-4">
+              <h2 className="font-semibold">{t("Dernières opérations")}</h2>
+              <Link to="/operations" className="text-sm text-accent">
+                {t("Toutes##opérations")}
+              </Link>
+            </div>
+            <div className="divide-y divide-line">
+              {(recent.data?.transactions ?? []).map((tx) => (
+                <button
+                  key={tx.id}
+                  type="button"
+                  onClick={() => navigate("/operations", { state: { openTx: tx.id } })}
+                  className="press flex w-full items-center gap-3 px-5 py-2 text-left hover:bg-bg"
+                >
+                  <span className="tnum w-11 shrink-0 text-xs text-muted">{tx.date.slice(8, 10)}/{tx.date.slice(5, 7)}</span>
+                  <TxLogo t={tx} size="sm" />
+                  <HoverPreview target={{ kind: "operation", t: tx }} className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-medium">{txTitle(tx)}</span>
+                  </HoverPreview>
+                  <span className={cn("hidden w-48 shrink-0 truncate text-sm md:block", tx.category_name ? "text-muted" : "font-medium text-warn")}>{td(tx.category_name ?? tk("À classer"))}</span>
+                  <Amount value={tx.amount} className="w-28 shrink-0 text-right text-[15px] font-semibold" />
+                </button>
+              ))}
+              {recent.isLoading && <Spinner />}
+            </div>
+          </Card>
+    ),
+    echeances: (
+          <Card className="col-span-12 p-5 lg:col-span-5">
+            <h2 className="mb-3 flex items-center gap-2 font-semibold">
+              <CalendarClock size={18} className="text-accent" /> {t("Prochaines échéances")}
+            </h2>
+            {dash.data?.upcoming.length ? (
+              <div className="space-y-1">
+                {dash.data.upcoming.map((u, i) => (
+                  <Link key={i} to={u.link} className="press flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg">
+                    <span className="tnum w-14 shrink-0 text-xs text-muted">{dateFr(u.date).slice(0, 5)}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm">{u.label}</span>
+                    {u.amount != null && <Amount value={u.amount} className="text-sm font-semibold" />}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-muted">{t("Rien dans les 60 prochains jours.")}</div>
+            )}
+            <Link to="/echeancier" className="mt-3 block text-sm font-medium text-accent">
+              {t("Tout l'échéancier →")}
+            </Link>
+          </Card>
+    ),
+    postes: (
+          <Card className="col-span-12 p-5 md:col-span-6 lg:col-span-4">
+            <h2 className="mb-3 font-semibold">{t("Dépenses du mois par poste")}</h2>
+            <div className="space-y-1">
+              {postes.map(([poste, total]) => (
+                <button
+                  key={poste}
+                  type="button"
+                  onClick={() => openDrill(td(poste), poste === tk("À classer") ? { month: currentMonth(), debits: true, uncategorized: true } : { month: currentMonth(), poste, debits: true }, t("Ce mois-ci ·"))}
+                  className="-mx-2 block w-[calc(100%+1rem)] rounded-md px-2 py-1 text-left hover:bg-bg"
+                >
+                  <div className="flex justify-between text-sm">
+                    <span className={cn(poste === tk("À classer") && "text-warn")}>{td(poste)}</span>
+                    <span className="tnum font-medium">{money(total, true)}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-bg">
+                    <div className="h-full rounded-full bg-accent" style={{ width: `${(total / Math.max(1, postes[0]?.[1] ?? 1)) * 100}%` }} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
+    ),
+    repartition: (
+          <Card className="col-span-12 p-5 md:col-span-6 lg:col-span-4">
+            <h2 className="mb-3 font-semibold">{t("Répartition du patrimoine")}</h2>
+            <div className="space-y-1">
+              {w &&
+                Object.entries(w.byCategory)
+                  .filter(([, v]) => v > 0)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([k, v]) => (
+                    <Link key={k} to={k === "crypto" ? "/patrimoine/crypto" : "/patrimoine"} viewTransition className="-mx-2 block rounded-md px-2 py-1 hover:bg-bg">
+                      <div className="flex justify-between text-sm">
+                        <span className="flex items-center gap-1.5">
+                          <span className="size-2.5 rounded-sm" style={{ background: CATEGORY[k as WealthCategory]?.color }} />
+                          {CATEGORY_LABELS[k] ?? k}
+                        </span>
+                        <span className="tnum font-medium">
+                          {money(v, true)} <span className="text-muted">· {Math.round((v / w.gross) * 100)} %</span>
+                        </span>
+                      </div>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-bg">
+                        <div className="h-full rounded-full" style={{ width: `${(v / w.gross) * 100}%`, background: CATEGORY[k as WealthCategory]?.color }} />
+                      </div>
+                    </Link>
+                  ))}
+            </div>
+          </Card>
+    ),
+    comptes: (
+          <Card className="col-span-12 lg:col-span-4">
+            <h2 className="px-5 pb-1 pt-4 font-semibold">{t("Comptes")}</h2>
+            {groups.map((g) => (
+              <div key={g.owner} className="px-5 py-2">
+                <div className="text-[12.5px] font-medium text-muted">{ownerLabel(g.owner)}</div>
+                {g.list.map((a) => (
+                  <Link key={a.id} to={`/operations?compte=${encodeURIComponent(a.id)}`} className="flex items-center justify-between gap-3 py-1 text-sm hover:text-accent">
+                    <span className="min-w-0 truncate">{a.display_name ?? a.name}</span>
+                    <span title={a.balance_original != null ? moneyIn(a.balance_original, a.currency) : undefined}>
+                      <Amount value={a.balance} className="font-medium" />
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ))}
+            <CardOutstandingBlock />
+          </Card>
+    ),
+  };
+
   return (
     <div className="space-y-4">
       <header className="flex items-end justify-between gap-3 pb-2">
@@ -114,6 +332,9 @@ export function Dashboard() {
             {s?.lastSync?.status === "error" && <span className="text-neg"> · {t("erreur")}</span>}
           </div>
         </div>
+        <button type="button" onClick={() => setCustomizing(true)} title={t("Personnaliser le tableau de bord")} aria-label={t("Personnaliser le tableau de bord")} className="press ml-auto grid size-10 place-items-center rounded-full bg-card text-ink shadow-[0_1px_2px_rgb(20_20_19/0.1)]">
+          <SlidersHorizontal size={16} />
+        </button>
         <button type="button" onClick={refresh} disabled={sync.isPending} className="press flex items-center gap-2 rounded-full bg-card px-4 py-2.5 text-sm font-semibold text-ink shadow-[0_1px_2px_rgb(20_20_19/0.1)]">
           <RefreshCw size={16} className={cn(sync.isPending && "animate-spin")} /> {t("Synchroniser")}
         </button>
@@ -158,195 +379,14 @@ export function Dashboard() {
         <Kpi label={t("Dettes restantes")} value={w ? money(w.debts, true) : "…"} source={w ? tn("{n} crédit, ta part", "{n} crédits, ta part", w.loans.length) : undefined} to="/patrimoine" />
       </div>
 
-      <div className="grid grid-cols-12 gap-4">
-        <Card className="col-span-12 p-5 lg:col-span-8">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="font-semibold">{t("Évolution du patrimoine net")}</h2>
-            <Link to="/patrimoine" className="text-sm text-accent">
-              {t("Détail")}
-            </Link>
-          </div>
-          <div className="h-56">
-            {history.length >= 2 ? (
-              <ResponsiveContainer>
-                <AreaChart data={history} margin={{ left: 0, right: 8, top: 6, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="t"
-                    type="number"
-                    scale="time"
-                    domain={["dataMin", "dataMax"]}
-                    tickLine={false}
-                    axisLine={false}
-                    tickCount={6}
-                    tickFormatter={(v: number) => new Date(v).toLocaleDateString(locale(), { day: "numeric", month: "short", timeZone: "UTC" })}
-                  />
-                  <YAxis tickLine={false} axisLine={false} width={56} domain={["dataMin - 5000", "dataMax + 5000"]} tickFormatter={(v: number) => `${Math.round(v / 1000)} k`} />
-                  <Tooltip
-                    formatter={(v) => [money(Number(v), true), t("Patrimoine net")]}
-                    labelFormatter={(v) => dateFr(new Date(Number(v)).toISOString().slice(0, 10))}
-                    
-                  />
-                  <Area type="monotone" dataKey="net" stroke="var(--color-accent)" fill="url(#dg)" strokeWidth={2.5} isAnimationActive={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <Spinner />
-            )}
-          </div>
-        </Card>
-
-        <Card className="col-span-12 p-5 lg:col-span-4">
-          <h2 className="mb-3 font-semibold">{t("À traiter")}</h2>
-          {todo.length ? (
-            <div className="space-y-1">
-              {todo.map((x, i) => (
-                <Link key={i} to={x.to} className="press flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-bg text-ink">
-                    <x.icon size={16} />
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm">{x.label}</span>
-                  <ChevronRight size={16} className="text-muted" />
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-pos">
-              <ShieldCheck size={18} /> {t("Tout est à jour.")}
-            </div>
-          )}
-        </Card>
-
-        <WeekAhead className="col-span-12" />
-
-        <MonthNatures />
-
-        <FunCard className="col-span-12" />
-        <WeeklySummaryCard className="col-span-12" />
-        <EnvelopesCard className="col-span-12 md:col-span-6 lg:col-span-7" />
-        <GoalsCard className="col-span-12 md:col-span-6 lg:col-span-5" />
-
-        <Card className="col-span-12 lg:col-span-7">
-          <div className="flex items-center justify-between px-5 pb-2 pt-4">
-            <h2 className="font-semibold">{t("Dernières opérations")}</h2>
-            <Link to="/operations" className="text-sm text-accent">
-              {t("Toutes##opérations")}
-            </Link>
-          </div>
-          <div className="divide-y divide-line">
-            {(recent.data?.transactions ?? []).map((tx) => (
-              <button
-                key={tx.id}
-                type="button"
-                onClick={() => navigate("/operations", { state: { openTx: tx.id } })}
-                className="press flex w-full items-center gap-3 px-5 py-2 text-left hover:bg-bg"
-              >
-                <span className="tnum w-11 shrink-0 text-xs text-muted">{tx.date.slice(8, 10)}/{tx.date.slice(5, 7)}</span>
-                <TxLogo t={tx} size="sm" />
-                <HoverPreview target={{ kind: "operation", t: tx }} className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-medium">{txTitle(tx)}</span>
-                </HoverPreview>
-                <span className={cn("hidden w-48 shrink-0 truncate text-sm md:block", tx.category_name ? "text-muted" : "font-medium text-warn")}>{td(tx.category_name ?? tk("À classer"))}</span>
-                <Amount value={tx.amount} className="w-28 shrink-0 text-right text-[15px] font-semibold" />
-              </button>
-            ))}
-            {recent.isLoading && <Spinner />}
-          </div>
-        </Card>
-
-        <Card className="col-span-12 p-5 lg:col-span-5">
-          <h2 className="mb-3 flex items-center gap-2 font-semibold">
-            <CalendarClock size={18} className="text-accent" /> {t("Prochaines échéances")}
-          </h2>
-          {dash.data?.upcoming.length ? (
-            <div className="space-y-1">
-              {dash.data.upcoming.map((u, i) => (
-                <Link key={i} to={u.link} className="press flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg">
-                  <span className="tnum w-14 shrink-0 text-xs text-muted">{dateFr(u.date).slice(0, 5)}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm">{u.label}</span>
-                  {u.amount != null && <Amount value={u.amount} className="text-sm font-semibold" />}
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-muted">{t("Rien dans les 60 prochains jours.")}</div>
-          )}
-          <Link to="/echeancier" className="mt-3 block text-sm font-medium text-accent">
-            {t("Tout l'échéancier →")}
-          </Link>
-        </Card>
-
-        <Card className="col-span-12 p-5 md:col-span-6 lg:col-span-4">
-          <h2 className="mb-3 font-semibold">{t("Dépenses du mois par poste")}</h2>
-          <div className="space-y-1">
-            {postes.map(([poste, total]) => (
-              <button
-                key={poste}
-                type="button"
-                onClick={() => openDrill(td(poste), poste === tk("À classer") ? { month: currentMonth(), debits: true, uncategorized: true } : { month: currentMonth(), poste, debits: true }, t("Ce mois-ci ·"))}
-                className="-mx-2 block w-[calc(100%+1rem)] rounded-md px-2 py-1 text-left hover:bg-bg"
-              >
-                <div className="flex justify-between text-sm">
-                  <span className={cn(poste === tk("À classer") && "text-warn")}>{td(poste)}</span>
-                  <span className="tnum font-medium">{money(total, true)}</span>
-                </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-bg">
-                  <div className="h-full rounded-full bg-accent" style={{ width: `${(total / Math.max(1, postes[0]?.[1] ?? 1)) * 100}%` }} />
-                </div>
-              </button>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="col-span-12 p-5 md:col-span-6 lg:col-span-4">
-          <h2 className="mb-3 font-semibold">{t("Répartition du patrimoine")}</h2>
-          <div className="space-y-1">
-            {w &&
-              Object.entries(w.byCategory)
-                .filter(([, v]) => v > 0)
-                .sort((a, b) => b[1] - a[1])
-                .map(([k, v]) => (
-                  <Link key={k} to={k === "crypto" ? "/patrimoine/crypto" : "/patrimoine"} viewTransition className="-mx-2 block rounded-md px-2 py-1 hover:bg-bg">
-                    <div className="flex justify-between text-sm">
-                      <span className="flex items-center gap-1.5">
-                        <span className="size-2.5 rounded-sm" style={{ background: CATEGORY[k as WealthCategory]?.color }} />
-                        {CATEGORY_LABELS[k] ?? k}
-                      </span>
-                      <span className="tnum font-medium">
-                        {money(v, true)} <span className="text-muted">· {Math.round((v / w.gross) * 100)} %</span>
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-bg">
-                      <div className="h-full rounded-full" style={{ width: `${(v / w.gross) * 100}%`, background: CATEGORY[k as WealthCategory]?.color }} />
-                    </div>
-                  </Link>
-                ))}
-          </div>
-        </Card>
-
-        <Card className="col-span-12 lg:col-span-4">
-          <h2 className="px-5 pb-1 pt-4 font-semibold">{t("Comptes")}</h2>
-          {groups.map((g) => (
-            <div key={g.owner} className="px-5 py-2">
-              <div className="text-[12.5px] font-medium text-muted">{ownerLabel(g.owner)}</div>
-              {g.list.map((a) => (
-                <Link key={a.id} to={`/operations?compte=${encodeURIComponent(a.id)}`} className="flex items-center justify-between gap-3 py-1 text-sm hover:text-accent">
-                  <span className="min-w-0 truncate">{a.display_name ?? a.name}</span>
-                  <span title={a.balance_original != null ? moneyIn(a.balance_original, a.currency) : undefined}>
-                    <Amount value={a.balance} className="font-medium" />
-                  </span>
-                </Link>
-              ))}
-            </div>
+      <div className="grid grid-flow-row-dense grid-cols-12 gap-4">
+        {layout.order
+          .filter((id) => !layout.hidden.includes(id))
+          .map((id) => (
+            <Fragment key={id}>{blocks[id]}</Fragment>
           ))}
-          <CardOutstandingBlock />
-        </Card>
       </div>
+      {customizing && <LayoutCustomizer title={t("Personnaliser le tableau de bord")} cards={DASH_CARDS} layout={layout} onChange={saveLayout} onClose={() => setCustomizing(false)} />}
     </div>
   );
 }

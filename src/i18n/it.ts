@@ -2745,4 +2745,5 @@ export const it: Dict = {
   "non surveillé": "non sorvegliato",
   "seuil de la règle": "soglia della regola",
   "seuil à {montant}": "soglia a {montant}",
+  "Personnaliser le tableau de bord": "Personalizza la dashboard",
 };

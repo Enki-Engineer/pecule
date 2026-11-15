@@ -1,11 +1,11 @@
 import { loadChunk } from "../reload.ts";
 import { Fragment, lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { ArrowDown, ArrowUp, CalendarClock, RefreshCw, ChevronRight, SlidersHorizontal, Tags } from "lucide-react";
+import { CalendarClock, RefreshCw, ChevronRight, SlidersHorizontal, Tags } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
 import { useAccounts, useAgenda, useBalanceSeries, useDemo, useSummary, useSync, type Account } from "../api.ts";
-import { Amount, BankBadge, Card, ErrorBox, PageHeader, Sheet, Sparkline, Spinner } from "../components/ui.tsx";
+import { Amount, BankBadge, Card, ErrorBox, PageHeader, Sparkline, Spinner } from "../components/ui.tsx";
 import { money, moneyIn, timeAgo, dateFr } from "../format.ts";
 import { groupByOwner, OWNER_ORDER, ownerLabel } from "../../lib/labels.ts";
 import { CardOutstandingSection, useOutstandingTotal } from "../components/CardOutstanding.tsx";
@@ -13,6 +13,7 @@ import { Welcome } from "../components/Welcome.tsx";
 import { useSeasonGreeting } from "../theme.ts";
 import { FunCard } from "../components/FunCard.tsx";
 import { WeekAhead } from "../components/MonthCalendar.tsx";
+import { LayoutCustomizer, useCardLayout } from "../components/CardLayout.tsx";
 import { EnvelopesCard, GoalsCard } from "../components/Planning.tsx";
 import { WeeklySummaryCard } from "../components/WeeklySummary.tsx";
 import { t, td, tn } from "../../lib/i18n.ts";
@@ -72,7 +73,7 @@ function MobileHome() {
 
   const s = summary.data;
   const greeting = useSeasonGreeting();
-  const [layout, saveLayout] = useHomeLayout();
+  const [layout, saveLayout] = useCardLayout<HomeCardId>(LAYOUT_KEY, HOME_IDS);
   const [customizing, setCustomizing] = useState(false);
   const delta = s ? s.spentThisMonth - s.spentPrevMonthSameDay : 0;
 
@@ -216,7 +217,7 @@ function MobileHome() {
           <button type="button" onClick={() => setCustomizing(true)} className="press mx-auto flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-medium text-muted">
             <SlidersHorizontal size={14} /> {t("Personnaliser l'accueil")}
           </button>
-          {customizing && <HomeCustomizer layout={layout} onChange={saveLayout} onClose={() => setCustomizing(false)} />}
+          {customizing && <LayoutCustomizer title={t("Personnaliser l'accueil")} cards={HOME_CARDS} layout={layout} onChange={saveLayout} onClose={() => setCustomizing(false)} />}
         </div>
       )}
     </>
@@ -286,62 +287,5 @@ const HOME_CARDS = [
   { id: "comptes", label: t("Comptes") },
 ] as const;
 type HomeCardId = (typeof HOME_CARDS)[number]["id"];
-type HomeLayout = { order: HomeCardId[]; hidden: HomeCardId[] };
+const HOME_IDS = HOME_CARDS.map((c) => c.id);
 const LAYOUT_KEY = "pecule.home.layout";
-
-function useHomeLayout(): [HomeLayout, (l: HomeLayout) => void] {
-  const [layout, setLayout] = useState<HomeLayout>(() => {
-    const all = HOME_CARDS.map((c) => c.id);
-    try {
-      const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? "null") as HomeLayout | null;
-      if (saved) {
-        // Nouvelles cartes ajoutées depuis : visibles, à leur place d'origine (juste après la carte qui les précède).
-        const order = saved.order.filter((id) => all.includes(id));
-        for (const id of all) if (!order.includes(id)) order.splice(order.indexOf(all[all.indexOf(id) - 1]) + 1, 0, id);
-        return { order, hidden: saved.hidden.filter((id) => all.includes(id)) };
-      }
-    } catch {
-      /* réglage illisible : ordre par défaut */
-    }
-    return { order: all, hidden: [] };
-  });
-  return [
-    layout,
-    (l) => {
-      localStorage.setItem(LAYOUT_KEY, JSON.stringify(l));
-      setLayout(l);
-    },
-  ];
-}
-
-function HomeCustomizer({ layout, onChange, onClose }: { layout: HomeLayout; onChange: (l: HomeLayout) => void; onClose: () => void }) {
-  const move = (i: number, d: -1 | 1) => {
-    const order = [...layout.order];
-    const j = i + d;
-    if (j < 0 || j >= order.length) return;
-    [order[i], order[j]] = [order[j], order[i]];
-    onChange({ ...layout, order });
-  };
-  const toggle = (id: HomeCardId) => onChange({ ...layout, hidden: layout.hidden.includes(id) ? layout.hidden.filter((x) => x !== id) : [...layout.hidden, id] });
-  return (
-    <Sheet open onClose={onClose} title={t("Personnaliser l'accueil")}>
-      <Card className="divide-y divide-line">
-        {layout.order.map((id, i) => (
-          <div key={id} className="flex items-center gap-3 px-4 py-2.5">
-            <input type="checkbox" checked={!layout.hidden.includes(id)} onChange={() => toggle(id)} aria-label={t("Afficher")} className="size-5 accent-[var(--color-accent)]" />
-            <span className={clsx("flex-1 text-[15px]", layout.hidden.includes(id) && "text-muted line-through")}>{HOME_CARDS.find((c) => c.id === id)?.label}</span>
-            <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={t("Monter")} className="press grid size-8 place-items-center rounded-lg text-muted disabled:opacity-30">
-              <ArrowUp size={17} />
-            </button>
-            <button type="button" onClick={() => move(i, 1)} disabled={i === layout.order.length - 1} aria-label={t("Descendre")} className="press grid size-8 place-items-center rounded-lg text-muted disabled:opacity-30">
-              <ArrowDown size={17} />
-            </button>
-          </div>
-        ))}
-      </Card>
-      <button type="button" onClick={() => onChange({ order: HOME_CARDS.map((c) => c.id), hidden: [] })} className="mt-3 w-full py-2 text-sm text-muted">
-        {t("Revenir à l'ordre d'origine")}
-      </button>
-    </Sheet>
-  );
-}

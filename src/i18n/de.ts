@@ -2745,4 +2745,5 @@ export const de: Dict = {
   "non surveillé": "nicht überwacht",
   "seuil de la règle": "Schwelle der Regel",
   "seuil à {montant}": "Schwelle bei {montant}",
+  "Personnaliser le tableau de bord": "Übersicht anpassen",
 };

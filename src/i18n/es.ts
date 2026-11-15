@@ -2745,4 +2745,5 @@ export const es: Dict = {
   "non surveillé": "no vigilada",
   "seuil de la règle": "umbral de la regla",
   "seuil à {montant}": "umbral en {montant}",
+  "Personnaliser le tableau de bord": "Personalizar el panel",
 };

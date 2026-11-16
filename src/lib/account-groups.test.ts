@@ -63,13 +63,28 @@ describe("accountGroups", () => {
     expect(courants.total).toBe(100);
   });
 
-  it("ne montre ni un compte masqué, ni la carte d'un compte de carte masqué, ni une carte sans encours", () => {
-    const groups = accountGroups({
-      accounts: [account("courant", "courant", 100), account("secret", "courant", 9, { hidden: 1 }), account("c1", "carte", null, { hidden: 1 }), account("c2", "carte", null)],
-      cards: [card("c1", -40, "courant")],
-    });
+  it("ne montre ni un compte masqué, ni une carte sans encours", () => {
+    const groups = accountGroups({ accounts: [account("courant", "courant", 100), account("secret", "courant", 9, { hidden: 1 }), account("c2", "carte", null)] });
     expect(groups).toHaveLength(1);
     expect(groups[0].lines.map((l) => l.name)).toEqual(["courant"]);
+  });
+
+  it("montre l'encours d'une carte dont le compte de carte est masqué, sous le compte prélevé", () => {
+    const [courants] = accountGroups({ accounts: [account("commun", "courant", 100), account("c1", "carte", null, { hidden: 1 })], cards: [card("c1", -40, "commun")] });
+    expect(courants.lines).toHaveLength(1);
+    expect(courants.lines[0].cards.map((c) => c.amount)).toEqual([-40]);
+    expect(courants.lines[0].afterCards).toBe(60);
+  });
+
+  it("une carte prélevée sur un compte masqué, ou inconnue des comptes du membre, ne se glisse sous aucun compte", () => {
+    const groups = accountGroups({
+      accounts: [account("courant", "courant", 100), account("secret", "courant", 9, { hidden: 1 }), account("c1", "carte", null)],
+      cards: [card("c1", -40, "secret"), card("ailleurs", -15, "courant")],
+    });
+    expect(groups[0].lines.map((l) => [l.kind, l.name, l.amount])).toEqual([
+      ["compte", "courant", 100],
+      ["carte", "Carte c1", -40],
+    ]);
     expect(groups[0].lines[0].cards).toEqual([]);
   });
 

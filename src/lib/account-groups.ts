@@ -37,8 +37,10 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 export function accountGroups(input: { accounts: AccountIn[]; cards?: CardIn[]; assets?: AssetIn[]; cryptoTotal?: number; cryptoLabel?: string; loans?: LoanIn[] }): AccountGroup[] {
   const shown = input.accounts.filter((a) => !a.hidden);
   const byId = new Map(shown.map((a) => [a.id, a]));
-  // Une carte ne se montre que si le membre voit son compte de carte ; elle se range sous le compte prélevé s'il le voit aussi.
-  const cards = (input.cards ?? []).filter((c) => byId.has(c.accountId));
+  const known = new Map(input.accounts.map((a) => [a.id, a]));
+  // L'encours d'une carte se montre même si son compte de carte est masqué (masquer retire une ligne de la liste, pas
+  // ce qui sera prélevé) : sous le compte prélevé quand le membre le voit, sinon sur une ligne à part.
+  const cards = (input.cards ?? []).filter((c) => known.has(c.accountId));
   const read = new Set(cards.map((c) => c.accountId));
   const cardLine = (c: CardIn): CardLine => ({ id: c.accountId, name: c.name, amount: c.outstanding.amount, debitDate: c.outstanding.debitDate, count: c.outstanding.count });
   const attached = (id: string) => cards.filter((c) => c.debitAccountId === id && byId.get(id)?.kind !== "carte").map(cardLine);
@@ -61,10 +63,7 @@ export function accountGroups(input: { accounts: AccountIn[]; cards?: CardIn[]; 
   // Carte lue à la banque sans compte prélevé connu (ou prélevée sur un compte que le membre ne voit pas) : une ligne à part.
   const loose = cards
     .filter((c) => !c.debitAccountId || !byId.has(c.debitAccountId) || byId.get(c.debitAccountId)!.kind === "carte")
-    .map((c): AccountLine => {
-      const a = byId.get(c.accountId)!;
-      return { ...line(a), name: c.name, amount: c.outstanding.amount, original: null, cards: [cardLine(c)] };
-    });
+    .map((c): AccountLine => ({ ...line(known.get(c.accountId)!), kind: "carte", name: c.name, amount: c.outstanding.amount, original: null, cards: [cardLine(c)], afterCards: null }));
   // Une carte dont l'encours n'est lu nulle part n'apporte rien ; celle qui est lue à la banque est déjà rangée.
   const plain = shown.filter((a) => !(a.kind === "carte" && (a.balance == null || read.has(a.id))));
   const counted = plain.filter((a) => !a.excluded);
@@ -77,7 +76,7 @@ export function accountGroups(input: { accounts: AccountIn[]; cards?: CardIn[]; 
     if (lines.length) groups.push({ id, total: sum(lines), lines });
   };
 
-  push("courants", [...counted.filter((a) => a.kind !== "epargne").map(line), ...loose.filter((l) => !byId.get(l.accountId!)!.excluded)]);
+  push("courants", [...counted.filter((a) => a.kind !== "epargne").map(line), ...loose.filter((l) => !known.get(l.accountId!)!.excluded)]);
   push("epargne", [...counted.filter((a) => a.kind === "epargne").map(line), ...assets.filter((x) => x.category === "epargne").map(asset)]);
   push("placements", [
     ...assets.filter((x) => x.category === "placement").map(asset),
@@ -90,6 +89,6 @@ export function accountGroups(input: { accounts: AccountIn[]; cards?: CardIn[]; 
       .map((l) => ({ key: `credit:${l.id}`, kind: "credit" as const, accountId: null, name: l.name, institution: l.bank || null, owner: null, amount: -r2(l.shareRemaining), original: null, cards: [], afterCards: null })),
   );
   // Comptes sortis des statistiques du membre : montrés à part, leur total ne se mêle à aucun chiffre de l'écran.
-  push("hors", [...plain.filter((a) => a.excluded).map(line), ...loose.filter((l) => byId.get(l.accountId!)!.excluded)]);
+  push("hors", [...plain.filter((a) => a.excluded).map(line), ...loose.filter((l) => known.get(l.accountId!)!.excluded)]);
   return groups;
 }

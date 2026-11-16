@@ -93,3 +93,45 @@ export function firstLow(points: BalancePoint[], movements: Movement[], threshol
 
 /** Le point le plus bas de la fenêtre (le premier, en cas d'égalité). */
 export const lowestPoint = (points: BalancePoint[]): BalancePoint | null => points.reduce<BalancePoint | null>((min, p) => (!min || p.balance < min.balance ? p : min), null);
+
+/* ---------- Carte à débit différé : sur quel compte elle est prélevée ---------- */
+
+/** Le relevé mensuel d'une carte à débit différé, tel qu'il s'écrit sur le compte prélevé. */
+export const CARD_STATEMENT = /^relev[eé] diff[eé]r[eé]/i;
+/** Écart toléré entre le jour où la carte dit être prélevée et le jour où le relevé est écrit sur le compte (week-end, jour férié). */
+const STATEMENT_DAYS = 5;
+
+export type CardStatement = { account_id: string; date: string; amount: number; label: string };
+/** Ce qu'une carte a fait prélever un jour donné : la somme de ses achats écrits ce jour-là. */
+export type CardTotal = { account_id: string; date: string; total: number };
+
+/**
+ * Le compte sur lequel chaque carte à débit différé est prélevée, d'après les relevés passés. Deux façons de
+ * reconnaître le relevé d'une carte, dans l'ordre : son libellé porte les derniers chiffres connus de la carte ;
+ * sinon son montant est, au centime, ce que la carte a fait prélever ce jour-là (la banque ne donne pas toujours
+ * le numéro écrit sur le relevé). Un montant que deux comptes ou deux cartes se disputent ne désigne personne :
+ * mieux vaut ne rien dire que désigner le mauvais compte. `statements` et `totals` : du plus récent au plus ancien.
+ */
+export function cardDebitTargets(cards: { accountId: string; tail: string | null }[], statements: CardStatement[], totals: CardTotal[]): Map<string, string> {
+  const out = new Map<string, string>();
+  const list = statements.filter((s) => CARD_STATEMENT.test(s.label));
+  const days = (a: string, b: string) => Math.abs(Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 86_400_000;
+  const same = (s: CardStatement, t: CardTotal) => Math.abs(s.amount - t.total) < 0.005 && days(s.date, t.date) <= STATEMENT_DAYS;
+  for (const c of cards) {
+    const byTail = c.tail ? list.find((s) => s.label.includes(c.tail!)) : undefined;
+    if (byTail) {
+      out.set(c.accountId, byTail.account_id);
+      continue;
+    }
+    for (const t of totals) {
+      if (t.account_id !== c.accountId || !t.total) continue;
+      const accounts = new Set(list.filter((s) => same(s, t)).map((s) => s.account_id));
+      const rivals = totals.some((o) => o.account_id !== c.accountId && Math.abs(o.total - t.total) < 0.005 && days(o.date, t.date) <= STATEMENT_DAYS);
+      if (accounts.size === 1 && !rivals) {
+        out.set(c.accountId, [...accounts][0]);
+        break;
+      }
+    }
+  }
+  return out;
+}

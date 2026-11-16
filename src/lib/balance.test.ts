@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountRule, addDays, cleanBalanceRule, DEFAULT_BALANCE_RULE, firstLow, lowestPoint, projectBalance, type Movement } from "./balance.ts";
+import { accountRule, addDays, cardDebitTargets, cleanBalanceRule, DEFAULT_BALANCE_RULE, firstLow, lowestPoint, projectBalance, type Movement } from "./balance.ts";
 
 const today = "2026-11-15";
 const moves: Movement[] = [
@@ -66,5 +66,51 @@ describe("prévision du solde", () => {
   it("additionne les jours d'un mois à l'autre", () => {
     expect(addDays("2026-11-28", 5)).toBe("2026-12-03");
     expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+  });
+});
+
+describe("compte prélevé d'une carte à débit différé", () => {
+  const statement = (account_id: string, date: string, amount: number, label = "Relevé différé Carte 4974********0000") => ({ account_id, date, amount, label });
+  const total = (account_id: string, date: string, t: number) => ({ account_id, date, total: t });
+
+  it("reconnaît le relevé qui porte les derniers chiffres de la carte", () => {
+    const got = cardDebitTargets([{ accountId: "carte", tail: "4821" }], [statement("commun", "2026-11-02", -310.2, "Relevé différé Carte 4974********4821")], []);
+    expect([...got]).toEqual([["carte", "commun"]]);
+  });
+
+  it("sans chiffres communs, reconnaît le relevé à son montant : ce que la carte a fait prélever ce jour-là", () => {
+    const got = cardDebitTargets(
+      [
+        { accountId: "carte-alex", tail: "9001" },
+        { accountId: "carte-camille", tail: "9002" },
+      ],
+      [statement("commun", "2026-11-02", -310.2), statement("courant", "2026-11-02", -84.5), statement("commun", "2026-10-01", -120)],
+      [total("carte-alex", "2026-12-01", -42), total("carte-alex", "2026-11-02", -84.5), total("carte-camille", "2026-11-01", -310.2)],
+    );
+    expect(Object.fromEntries(got)).toEqual({ "carte-alex": "courant", "carte-camille": "commun" });
+  });
+
+  it("remonte à un relevé plus ancien quand le dernier ne désigne personne", () => {
+    const got = cardDebitTargets([{ accountId: "carte", tail: null }], [statement("commun", "2026-10-01", -120)], [total("carte", "2026-11-02", -75.3), total("carte", "2026-10-01", -120)]);
+    expect(got.get("carte")).toBe("commun");
+  });
+
+  it("ne désigne aucun compte quand deux comptes ou deux cartes se disputent le montant", () => {
+    const twoAccounts = cardDebitTargets([{ accountId: "carte", tail: null }], [statement("commun", "2026-11-02", -50), statement("courant", "2026-11-02", -50)], [total("carte", "2026-11-02", -50)]);
+    expect(twoAccounts.size).toBe(0);
+    const twoCards = cardDebitTargets(
+      [
+        { accountId: "a", tail: null },
+        { accountId: "b", tail: null },
+      ],
+      [statement("commun", "2026-11-02", -50)],
+      [total("a", "2026-11-02", -50), total("b", "2026-11-02", -50)],
+    );
+    expect(twoCards.size).toBe(0);
+  });
+
+  it("ne confond ni un relevé trop éloigné du jour de prélèvement, ni un prélèvement qui n'est pas un relevé de carte", () => {
+    expect(cardDebitTargets([{ accountId: "carte", tail: null }], [statement("commun", "2026-11-12", -50)], [total("carte", "2026-11-02", -50)]).size).toBe(0);
+    expect(cardDebitTargets([{ accountId: "carte", tail: null }], [statement("commun", "2026-11-02", -50, "Relevé de charges de copropriété")], [total("carte", "2026-11-02", -50)]).size).toBe(0);
   });
 });

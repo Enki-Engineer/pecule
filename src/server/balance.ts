@@ -7,7 +7,7 @@ import { householdDay } from "./region.ts";
 import { STAT_DATE_JOIN, statDate } from "./stats.ts";
 import { addMonths } from "../lib/periods.ts";
 import { expectedIn, recurringSeries } from "../lib/recurring.ts";
-import { accountRule, addDays, cleanBalanceRule, DEFAULT_BALANCE_RULE, firstLow, lowestPoint, MAX_BALANCE_DAYS, projectBalance, type BalancePoint, type BalanceRule, type LowPoint, type Movement } from "../lib/balance.ts";
+import { accountRule, addDays, CARD_STATEMENT, cardDebitTargets, cleanBalanceRule, DEFAULT_BALANCE_RULE, firstLow, lowestPoint, MAX_BALANCE_DAYS, projectBalance, type BalancePoint, type BalanceRule, type CardStatement, type CardTotal, type LowPoint, type Movement } from "../lib/balance.ts";
 import { t } from "../lib/i18n.ts";
 
 /*
@@ -63,8 +63,6 @@ export type AccountForecast = {
 
 type TxRow = { account_id: string; date: string; amount: number; label: string; merchant: string | null; bank_label: string | null; label_key: string; category: string | null };
 
-/** Le relevé mensuel d'une carte à débit différé : son montant change chaque mois, l'encours lu à la banque le donne. */
-const CARD_STATEMENT = /^relev[eé] diff[eé]r[eé]/i;
 /** Un prélèvement en retard de plus que cela n'est plus attendu : la série s'est sans doute arrêtée. */
 const LATE_DAYS = 5;
 
@@ -95,6 +93,7 @@ export async function balanceForecast(userId: number, horizon = MAX_BALANCE_DAYS
     horizon,
     accounts: accounts.map((acc) => {
       const own = rows
+        // Le relevé d'une carte à débit différé change de montant chaque mois : c'est son encours, lu à la banque, qui le donne.
         .filter((r) => r.account_id === acc.id && !CARD_STATEMENT.test(r.label))
         .map((r) => recurringRow({ ...r, amount: Number(r.amount), kind: Number(r.amount) < 0 ? "depense" : "revenu" }));
       const expected: Movement[] = expectedIn(recurringSeries(own, current), own, months)
@@ -113,22 +112,26 @@ export async function balanceForecast(userId: number, horizon = MAX_BALANCE_DAYS
 }
 
 /**
- * Le compte sur lequel chaque carte à débit différé est prélevée : celui qui a reçu le dernier relevé de cette carte
- * (son libellé porte les derniers chiffres de la carte). Une carte sans relevé passé n'a pas de compte désigné.
+ * Le compte sur lequel chaque carte à débit différé est prélevée, d'après ses relevés des quatre derniers mois
+ * (`cardDebitTargets`, src/lib/balance.ts). Une carte que rien ne désigne n'a pas de compte : son encours n'est alors
+ * compté sur aucun. C'est un rapprochement : il lit le jour d'écriture de la banque, pas le jour retenu pour les
+ * statistiques.
  */
 export async function cardDebitAccounts(A: string, today: string, cards: { accountId: string; tail: string | null }[]): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  if (!cards.some((c) => c.tail)) return out;
-  const statements = await q<{ account_id: string; label: string }>(
-    `SELECT t.account_id, t.label FROM transactions t JOIN ${A} a ON a.id = t.account_id
+  if (!cards.length) return new Map();
+  const statements = await q<CardStatement>(
+    `SELECT t.account_id, DATE_FORMAT(t.date, '%Y-%m-%d') AS date, t.amount, t.label FROM transactions t JOIN ${A} a ON a.id = t.account_id
      WHERE a.kind <> 'carte' AND t.amount < 0 AND t.label LIKE 'relev%' AND t.date >= DATE_SUB(?, INTERVAL 4 MONTH) ORDER BY t.date DESC`,
     [today],
   );
-  for (const c of cards) {
-    const target = c.tail ? statements.find((s) => CARD_STATEMENT.test(s.label) && s.label.includes(c.tail!)) : undefined;
-    if (target) out.set(c.accountId, target.account_id);
-  }
-  return out;
+  if (!statements.length) return new Map();
+  const totals = await q<CardTotal>(
+    `SELECT t.account_id, DATE_FORMAT(t.date, '%Y-%m-%d') AS date, ROUND(SUM(t.amount), 2) AS total FROM transactions t JOIN ${A} a ON a.id = t.account_id
+     WHERE a.kind = 'carte' AND t.status = 'posted' AND t.date >= DATE_SUB(?, INTERVAL 4 MONTH) AND t.date <= ?
+     GROUP BY t.account_id, DATE_FORMAT(t.date, '%Y-%m-%d') ORDER BY date DESC`,
+    [today, today],
+  );
+  return cardDebitTargets(cards, statements.map((s) => ({ ...s, amount: Number(s.amount) })), totals.map((x) => ({ ...x, total: Number(x.total) })));
 }
 
 /** Encours des cartes à débit différé du membre, chacune avec le compte qui sera prélevé (tableau de bord, accueil). */

@@ -3,6 +3,17 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.19.1
+
+- Corrigé : une carte à débit différé n'était rattachée à son compte que si le libellé de son relevé portait les
+  derniers chiffres que la banque donne pour cette carte — or certaines banques transmettent un autre numéro que
+  celui du relevé. Le relevé se reconnaît désormais aussi à son montant : au centime, ce que la carte a fait
+  prélever ce jour-là. La carte « Comptes » range donc chaque carte sous le bon compte, et « Soldes à venir » compte
+  enfin son prochain prélèvement dans le solde prévu : une alerte de solde bas peut apparaître là où il n'y en avait
+  pas.
+- Carte « Comptes » : l'encours d'une carte se montre même quand son compte de carte est masqué (masquer retire une
+  ligne de la liste, pas ce qui sera prélevé).
+
 ## 1.19.0
 
 - **Tableau de bord : mode construction** (ordinateur). Le bouton rond à côté de « Synchroniser » ouvre un mode où

@@ -15,7 +15,8 @@ export const operations: ManualTheme = {
         tk("Chaque mois a son bilan en tête : le nombre d'opérations, celles qui restent à classer, les dépenses et le solde du mois — sur un écran large, les revenus et l'épargne aussi. Ce sont les chiffres de l'Analyse, calculés sur toutes les opérations du mois, même celles que la liste n'a pas encore chargées. Quand la liste est filtrée, le bilan est celui de ce qu'elle garde, et une ligne [[Total]] réunit les mois."),
         {
           list: [
-            tk("Sur ordinateur, le bandeau du mois reste en haut de l'écran pendant que ses lignes défilent ; un clic dessus replie ou déplie le mois."),
+            tk("Sur ordinateur, tous les mois de l'année sont affichés d'emblée, les plus récents dépliés : un clic sur le bandeau d'un mois le déplie ou le replie, et il reste en haut de l'écran pendant que ses lignes défilent."),
+            tk("[[Tout replier]] ne garde que les bandeaux : l'année se lit d'un coup d'œil, mois par mois. En bas de la liste, un bouton ajoute l'année précédente."),
             tk("Un mois qui compte des opérations à classer le dit dans son bilan : touche cette étiquette pour ne garder que celles-là."),
             tk("Une opération à classer porte un liseré orangé à gauche."),
             tk("Un mouvement entre tes comptes est écrit en gris : il ne compte ni dans les revenus ni dans les dépenses."),
@@ -31,11 +32,11 @@ export const operations: ManualTheme = {
             tk("Sur téléphone, les filtres en cours sont des pastilles : touche-en une pour la retirer."),
           ],
         },
-        tk("Touche une opération pour ouvrir sa fiche : libellé de la banque, catégorie, note, factures reliées. La liste charge 80 opérations à la fois ; [[Afficher plus]] charge la suite."),
+        tk("Touche une opération pour ouvrir sa fiche : libellé de la banque, catégorie, note, factures reliées. Sur téléphone, et sur ordinateur quand la liste est triée par montant, elle charge 80 opérations à la fois ; [[Afficher plus]] charge la suite."),
         { note: tk("Les opérations d'un compte sorti des statistiques ne s'affichent que si tu filtres sur ce compte.") },
       ],
       links: [{ to: "/operations", label: ["Opérations"] }],
-      words: tk("transactions mouvements dépenses liste chercher filtre trier relevé débit crédit mois bilan solde replier couleur pastille gris"),
+      words: tk("transactions mouvements dépenses liste chercher filtre trier relevé débit crédit mois année bilan solde replier déplier couleur pastille gris"),
     },
     {
       id: "classer-une-operation",

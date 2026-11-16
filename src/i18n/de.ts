@@ -2957,4 +2957,6 @@ export const de: Dict = {
   "Plafond atteint : rien n'est mis en pause, tu es seulement prévenu.": "Limit erreicht: Nichts wird pausiert, du wirst nur benachrichtigt.",
   "{n} appel à l'IA": ["{n} KI-Aufruf", "{n} KI-Aufrufe"],
   "Tarif enregistré : {n} appel passé recalculé": ["Preis gespeichert: {n} früherer Aufruf neu berechnet", "Preis gespeichert: {n} frühere Aufrufe neu berechnet"],
+  "Afficher {annee}": "{annee} anzeigen",
+  "Tout replier": "Alle einklappen",
 };

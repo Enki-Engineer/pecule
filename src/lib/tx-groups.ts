@@ -47,3 +47,26 @@ export function posteSlot(colored: string[] | undefined, t: { category_poste: st
 
 /** Ce qui ne compte pas dans le bilan du mois : un mouvement entre deux comptes du foyer. Sa ligne s'efface. */
 export const isInternal = (t: { category_kind: string | null }) => t.category_kind === "interne";
+
+/*
+ * Années affichées (ordinateur) : tous les mois d'une année sont visibles d'emblée, en bandeaux, avec leur bilan ;
+ * les lignes d'un mois ne se chargent que quand il est déplié. Les années plus anciennes s'ajoutent une à une.
+ */
+
+/**
+ * Année la plus ancienne affichée d'office : celle du plus vieux mois dont des lignes sont déjà chargées (une
+ * recherche qui tient en une page montre donc toutes ses années) ; à défaut, celle du mois le plus récent.
+ */
+export function defaultSince(months: string[], loaded: Iterable<string>): string | null {
+  let oldest: string | null = null;
+  for (const m of loaded) if (!oldest || m < oldest) oldest = m;
+  const newest = months.reduce<string | null>((a, m) => (!a || m > a ? m : a), null);
+  return (oldest ?? newest)?.slice(0, 4) ?? null;
+}
+
+/** L'année à proposer ensuite (« Afficher 2025 ») : la plus récente avant `since`, avec son nombre d'opérations. */
+export function olderYear(months: { month: string; count: number }[], since: string): { year: string; count: number } | null {
+  const year = months.reduce<string | null>((a, m) => (m.month.slice(0, 4) < since && (!a || m.month.slice(0, 4) > a) ? m.month.slice(0, 4) : a), null);
+  if (!year) return null;
+  return { year, count: months.filter((m) => m.month.startsWith(year)).reduce((s, m) => s + m.count, 0) };
+}

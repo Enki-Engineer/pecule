@@ -500,6 +500,19 @@ export const transactionListQuery = (f: TxFilters) =>
     queryFn: ({ pageParam }) => api<{ transactions: Transaction[]; hasMore: boolean }>(`/transactions?${txParams(f, { limit: String(TX_PAGE), offset: String(pageParam) })}`),
     getNextPageParam: (last, all) => (last.hasMore ? all.length * TX_PAGE : undefined),
   });
+/** Toutes les opérations d'un mois de la liste filtrée (mois déplié sur ordinateur), lues par tranches de 500. */
+export const transactionMonthRowsQuery = (f: TxFilters, month: string) =>
+  queryOptions({
+    queryKey: ["transactions", "month-rows", f, month],
+    queryFn: async () => {
+      const rows: Transaction[] = [];
+      for (;;) {
+        const page = await api<{ transactions: Transaction[]; hasMore: boolean }>(`/transactions?${txParams({ ...f, month }, { limit: "500", offset: String(rows.length) })}`);
+        rows.push(...page.transactions);
+        if (!page.hasMore || !page.transactions.length) return rows;
+      }
+    },
+  });
 /** Bilan d'un mois de la liste filtrée (toutes ses opérations, chargées ou non). */
 export type TxMonth = MonthTotals & { month: string };
 /** Bilan mois par mois de la liste filtrée, et postes colorés (les mêmes que sur l'anneau des dépenses). */

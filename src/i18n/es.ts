@@ -2957,4 +2957,6 @@ export const es: Dict = {
   "Plafond atteint : rien n'est mis en pause, tu es seulement prévenu.": "Tope alcanzado: no se pausa nada, solo recibes un aviso.",
   "{n} appel à l'IA": ["{n} llamada a la IA", "{n} llamadas a la IA"],
   "Tarif enregistré : {n} appel passé recalculé": ["Tarifa guardada: {n} llamada pasada recalculada", "Tarifa guardada: {n} llamadas pasadas recalculadas"],
+  "Afficher {annee}": "Mostrar {annee}",
+  "Tout replier": "Plegar todo",
 };

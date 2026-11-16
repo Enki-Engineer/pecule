@@ -2957,4 +2957,6 @@ export const en: Dict = {
   "Plafond atteint : rien n'est mis en pause, tu es seulement prévenu.": "Cap reached: nothing is paused, you're only notified.",
   "{n} appel à l'IA": ["{n} AI call", "{n} AI calls"],
   "Tarif enregistré : {n} appel passé recalculé": ["Price saved: {n} past call recalculated", "Price saved: {n} past calls recalculated"],
+  "Afficher {annee}": "Show {annee}",
+  "Tout replier": "Collapse all",
 };

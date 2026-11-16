@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowDownLeft, ArrowLeftRight, ArrowUp, Banknote, ChevronDown, CreditCard, Eye, Landmark, Repeat, Search, Send, Tags, Undo2, X, Sparkles, Paperclip, ShieldCheck, PanelRight, CheckSquare, Store, Tag, CalendarDays, Shapes, Copy, MessageSquare, type LucideIcon } from "lucide-react";
+import { keepPreviousData, useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
+import { ArrowDown, ArrowDownLeft, ArrowLeftRight, ArrowUp, Banknote, ChevronDown, ChevronsDownUp, CreditCard, Eye, Landmark, Repeat, Search, Send, Tags, Undo2, X, Sparkles, Paperclip, ShieldCheck, PanelRight, CheckSquare, Store, Tag, CalendarDays, Shapes, Copy, MessageSquare, type LucideIcon } from "lucide-react";
 import { ContextMenu, useContextMenu } from "../components/ContextMenu.tsx";
 import { TxLogo } from "../components/Logo.tsx";
 import { undoToast } from "../undo.ts";
@@ -19,7 +19,7 @@ import { cn } from "../cn.ts";
 import { Link } from "react-router";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { api, transactionListQuery, transactionMonthsQuery, useAccounts, useCategories, useSuggestions, useTransactionDetails, useUpdateTransaction, type Category, type Transaction, type TxFilters, type TxMonth } from "../api.ts";
+import { api, transactionListQuery, transactionMonthRowsQuery, transactionMonthsQuery, useAccounts, useCategories, useSuggestions, useTransactionDetails, useUpdateTransaction, type Category, type Transaction, type TxFilters, type TxMonth } from "../api.ts";
 import { AddInvoiceButton, FileIcon } from "./Invoices.tsx";
 import { Amount, Card, Empty, ErrorBox, PageHeader, Sheet, Spinner, TxAmount } from "../components/ui.tsx";
 import { OpsTabs, useListSearch, useTabParams, useTabState } from "../components/OpsSection.tsx";
@@ -27,7 +27,7 @@ import { dateFr, dateShort, dayLabel, money, moneyIn, monthLabel, periodLabel, p
 import { operationEntity, txDateHint, txSubline } from "../txInfo.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
 import { txTitle } from "../../lib/labels.ts";
-import { balanceOf, groupByMonth, isInternal, posteSlot, sumMonths, type MonthTotals } from "../../lib/tx-groups.ts";
+import { balanceOf, defaultSince, groupByMonth, isInternal, olderYear, posteSlot, sumMonths, type DayGroup, type MonthTotals } from "../../lib/tx-groups.ts";
 import { useAssistantEntity } from "../assistantContext.ts";
 import { t as tr, td, tk, tn } from "../../lib/i18n.ts";
 
@@ -60,10 +60,14 @@ export function Transactions() {
   // Opération choisie dans la recherche ⌘K : on l'ouvre dès qu'elle apparaît dans la liste.
   const openTx = (useTabState() as { openTx?: string } | null)?.openTx;
   const sought = useRef<string | null>(null);
+  // Sur ordinateur, la liste rangée par mois l'amène elle-même à l'écran (année affichée, mois déplié) : `reveal`.
+  const [reveal, setReveal] = useState<string | null>(null);
+  const desktop = useMedia("(min-width: 1024px)");
   useEffect(() => {
     if (!openTx || list.isLoading || list.isPlaceholderData) return;
     const done = (t: Transaction | null) => {
       if (t) setSelected(t);
+      if (t) setReveal(t.id);
       sought.current = null;
       window.history.replaceState({ ...window.history.state, usr: null }, "");
       // La ligne est amenée au milieu de l'écran : on voit où l'on est dans la liste.
@@ -71,8 +75,8 @@ export function Transactions() {
     };
     const t = rows.find((r) => r.id === openTx);
     if (t) return done(t);
-    // Pas encore dans les lignes chargées : on charge la suite (quelques pages au plus)…
-    if (list.hasNextPage && rows.length < 480) {
+    // Pas encore dans les lignes chargées : sur téléphone, on charge la suite (quelques pages au plus)…
+    if (!desktop && list.hasNextPage && rows.length < 480) {
       if (!list.isFetchingNextPage) void list.fetchNextPage();
       return;
     }
@@ -83,7 +87,7 @@ export function Transactions() {
       (r) => done(r.transactions[0] ?? null),
       () => done(null),
     );
-  }, [openTx, rows, list.isLoading, list.isPlaceholderData, list.hasNextPage, list.isFetchingNextPage, list.fetchNextPage]);
+  }, [openTx, rows, desktop, list.isLoading, list.isPlaceholderData, list.hasNextPage, list.isFetchingNextPage, list.fetchNextPage]);
   const byMonth = useMemo(() => groupByMonth(rows), [rows]);
 
   const chips: { key: string; label: string }[] = [];
@@ -111,7 +115,6 @@ export function Transactions() {
   // « 3 à classer » d'un mois : ne garder que celles-là (sans objet quand la liste est déjà filtrée ainsi).
   const onlyUncategorized = uncategorized ? undefined : (m: string) => setFilters({ mois: m, a_classer: "1" });
 
-  const desktop = useMedia("(min-width: 1024px)");
   if (desktop)
     return (
       <DesktopOperations
@@ -121,6 +124,10 @@ export function Transactions() {
         setSearch={setSearch}
         params={{ account, category, month, nature, uncategorized }}
         setParam={setParam}
+        filters={filters}
+        stale={list.isPlaceholderData || monthly.isPlaceholderData}
+        reveal={reveal}
+        onRevealed={() => setReveal(null)}
         monthly={monthly.data?.months}
         colored={colored}
         filtered={filtered}
@@ -599,6 +606,13 @@ type DesktopProps = {
   setSearch: (v: string) => void;
   params: { account?: string; category?: string; month?: string; nature?: string; uncategorized: boolean };
   setParam: (key: string, value: string | null) => void;
+  /** Filtres en cours : un mois déplié lit ses lignes avec les mêmes. */
+  filters: TxFilters;
+  /** L'écran montre encore la liste précédente (filtre ou recherche en cours de chargement). */
+  stale: boolean;
+  /** Opération ouverte d'ailleurs (recherche ⌘K), à amener à l'écran ; `onRevealed` une fois fait. */
+  reveal: string | null;
+  onRevealed: () => void;
   /** Bilan de chaque mois de la liste filtrée (serveur) ; absent tant qu'il n'est pas arrivé. */
   monthly: TxMonth[] | undefined;
   /** Postes colorés, dans l'ordre de leurs couleurs. */
@@ -633,7 +647,7 @@ function useWidth() {
   return [ref, width] as const;
 }
 
-function DesktopOperations({ rows, list, search, setSearch, params, setParam, monthly, colored, filtered, onlyUncategorized, accounts, categories, selected, setSelected }: DesktopProps) {
+function DesktopOperations({ rows, list, search, setSearch, params, setParam, filters, stale, reveal, onRevealed, monthly, colored, filtered, onlyUncategorized, accounts, categories, selected, setSelected }: DesktopProps) {
   const qc = useQueryClient();
   const [ref, width] = useWidth();
   // Fiche à droite seulement s'il reste au moins ~680 px au tableau ; sinon elle s'ouvre en fenêtre.
@@ -645,8 +659,10 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, mo
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [bulkCategory, setBulkCategory] = useState("");
   const [lastChecked, setLastChecked] = useState<string | null>(null);
-  // Mois repliés (bandeau seul) : le temps de l'écran.
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Mois dépliés ou repliés à la main et années ajoutées, le temps de l'écran ; un autre filtre repart des choix d'office.
+  const filterKey = JSON.stringify(filters);
+  const [view, setView] = useState<{ key: string; open: Record<string, boolean>; since: string | null }>({ key: filterKey, open: {}, since: null });
+  const ui = view.key === filterKey ? view : { key: filterKey, open: {}, since: null };
 
   const sorted = useMemo(
     () =>
@@ -657,22 +673,65 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, mo
   );
   // Triée par date, la liste se range en une boîte par mois ; triée par montant, elle reste d'un seul tenant.
   const grouped = sort.key === "date";
-  const groups = useMemo(() => (grouped ? groupByMonth(sorted) : []), [grouped, sorted]);
   const totals = useMemo(() => new Map((monthly ?? []).map((m) => [m.month, m])), [monthly]);
   const overall = useMemo(() => (monthly ? sumMonths(monthly) : null), [monthly]);
-  // Lignes affichées : celles que le clavier parcourt.
-  const shown = useMemo(() => (grouped && collapsed.size ? sorted.filter((r) => !collapsed.has(r.date.slice(0, 7))) : sorted), [grouped, collapsed, sorted]);
-  const toggleMonth = (m: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(m)) next.add(m);
-      return next;
+  // Lignes de la première page, par mois : ces mois-là sont dépliés d'office.
+  const listed = useMemo(() => {
+    const map = new Map<string, Transaction[]>();
+    for (const r of rows) map.set(r.date.slice(0, 7), [...(map.get(r.date.slice(0, 7)) ?? []), r]);
+    return map;
+  }, [rows]);
+  /*
+   * Tous les mois des années affichées ont leur bandeau, avec leur bilan, que leurs lignes soient chargées ou non :
+   * l'année se lit d'un coup. Un mois déplié dont la première page n'a pas toutes les lignes lit les siennes.
+   */
+  const monthKeys = useMemo(() => [...new Set([...(monthly ?? []).map((m) => m.month), ...listed.keys()])].sort().reverse(), [monthly, listed]);
+  const auto = defaultSince(monthKeys, listed.keys());
+  const since = ui.since && auto && ui.since < auto ? ui.since : auto;
+  const visible = useMemo(() => monthKeys.filter((m) => !since || m.slice(0, 4) >= since), [monthKeys, since]);
+  const isOpen = (m: string) => ui.open[m] ?? listed.has(m);
+  const complete = (m: string) => !totals.has(m) || (listed.get(m)?.length ?? 0) >= totals.get(m)!.count;
+  const wanted = grouped && !stale ? visible.filter((m) => isOpen(m) && !complete(m)) : [];
+  const extra = useQueries({ queries: wanted.map((m) => transactionMonthRowsQuery(filters, m)) });
+  // `useQueries` rend un nouveau tableau à chaque rendu : on suit l'heure d'arrivée de chaque mois, pas le tableau.
+  const stamp = extra.map((q, i) => `${wanted[i]}:${q.dataUpdatedAt}:${q.isPending}`).join("|");
+  const openKey = visible.map((m) => (isOpen(m) ? "1" : "0")).join("");
+  const groups = useMemo(() => {
+    if (!grouped) return [];
+    const order = sort.dir === -1 ? visible : [...visible].reverse();
+    return order.map((month): { month: string; open: boolean; loading: boolean; rows: Transaction[]; days: DayGroup<Transaction>[] } => {
+      const open = ui.open[month] ?? listed.has(month);
+      if (!open) return { month, open, loading: false, rows: [], days: [] };
+      const q = extra[wanted.indexOf(month)];
+      const monthRows = [...(q?.data ?? listed.get(month) ?? [])].sort((a, b) => (a.date.localeCompare(b.date) || a.id.localeCompare(b.id)) * sort.dir);
+      return { month, open, loading: !!q?.isPending, rows: monthRows, days: groupByMonth(monthRows)[0]?.days ?? [] };
     });
-  // Une opération ouverte d'ailleurs (recherche ⌘K) dans un mois replié : il se déplie.
-  const selectedMonth = selected?.date.slice(0, 7);
+    // `extra` et `ui.open` sont lus au moment du calcul ; `stamp` et `openKey` disent quand ils ont changé.
+  }, [grouped, visible, listed, sort.dir, stamp, openKey]);
+  // Lignes affichées : celles que le clavier parcourt et que « tout sélectionner » coche.
+  const shown = useMemo(() => (grouped ? groups.flatMap((g) => g.rows) : sorted), [grouped, groups, sorted]);
+  const toggleMonth = (m: string) => setView({ ...ui, open: { ...ui.open, [m]: !isOpen(m) } });
+  const collapseAll = () => setView({ ...ui, open: Object.fromEntries(visible.map((m) => [m, false])) });
+  const older = grouped && monthly && since ? olderYear(monthly, since) : null;
+
+  // Une opération ouverte d'ailleurs (recherche ⌘K) : son année s'affiche, son mois se déplie, puis sa ligne vient au milieu de l'écran.
   useEffect(() => {
-    if (selectedMonth) setCollapsed((prev) => (prev.has(selectedMonth) ? new Set([...prev].filter((m) => m !== selectedMonth)) : prev));
-  }, [selectedMonth, selected?.id]);
+    if (!reveal) return;
+    if (selected?.id !== reveal) {
+      onRevealed();
+      return;
+    }
+    const month = selected.date.slice(0, 7);
+    const year = month.slice(0, 4);
+    if (grouped && monthKeys.includes(month) && (!isOpen(month) || (since != null && year < since))) {
+      setView({ ...ui, open: { ...ui.open, [month]: true }, since: since != null && year < since ? year : ui.since });
+      return;
+    }
+    const row = document.querySelector(`[data-tx="${CSS.escape(reveal)}"]`);
+    if (row) row.scrollIntoView({ block: "center" });
+    // Pas de ligne et rien en cours de chargement (compte hors statistiques, filtre qui l'écarte) : sa fiche reste ouverte, sans plus.
+    if (row || !groups.some((g) => g.month === month && g.loading)) onRevealed();
+  });
 
   // Clavier : ↑/↓ pour parcourir, Échap pour fermer la fiche, x pour cocher.
   useEffect(() => {
@@ -701,9 +760,10 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, mo
     setChecked((prev) => {
       const next = new Set(prev);
       if (shift && lastChecked) {
-        const a = sorted.findIndex((r) => r.id === lastChecked);
-        const b = sorted.findIndex((r) => r.id === id);
-        for (const r of sorted.slice(Math.min(a, b), Math.max(a, b) + 1)) next.add(r.id);
+        const a = shown.findIndex((r) => r.id === lastChecked);
+        const b = shown.findIndex((r) => r.id === id);
+        if (a >= 0 && b >= 0) for (const r of shown.slice(Math.min(a, b), Math.max(a, b) + 1)) next.add(r.id);
+        else next.add(id);
       } else if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
@@ -816,7 +876,13 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, mo
     );
   };
 
-  const allChecked = sorted.length > 0 && sorted.every((r) => checked.has(r.id));
+  const allChecked = shown.length > 0 && shown.every((r) => checked.has(r.id));
+  const olderButton = older && (
+    <button type="button" onClick={() => setView({ ...ui, since: older.year })} className="press card w-full py-3 font-medium text-accent">
+      {tr("Afficher {annee}", { annee: older.year })}
+      <span className="font-normal text-muted"> · {tn("{n} opération", "{n} opérations", older.count)}</span>
+    </button>
+  );
   return (
     <div ref={ref} className={cn("grid gap-6", selected && sidePanel ? "grid-cols-[minmax(0,1fr)_400px]" : "grid-cols-1")}>
       <div className="min-w-0">
@@ -874,7 +940,7 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, mo
           </button>
         </div>
 
-        {rows.length > 0 && <ListTotals totals={overall && filtered && (monthly!.length > 1 || !grouped) ? overall : null} />}
+        {(rows.length > 0 || groups.length > 0) && <ListTotals totals={overall && filtered && (monthly!.length > 1 || !grouped) ? overall : null} onCollapseAll={groups.some((g) => g.open) ? collapseAll : undefined} />}
 
         {checked.size > 0 && (
           <div className="card sticky top-[60px] z-20 mb-3 flex h-12 items-center gap-3 border border-accent/30 px-4">
@@ -905,7 +971,7 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, mo
               type="checkbox"
               aria-label={tr("Tout sélectionner")}
               checked={allChecked}
-              onChange={() => setChecked(allChecked ? new Set() : new Set(sorted.map((r) => r.id)))}
+              onChange={() => setChecked(allChecked ? new Set() : new Set(shown.map((r) => r.id)))}
               className="size-4 accent-[var(--color-accent)]"
             />
             {head("date", tr("Date"))}
@@ -921,36 +987,37 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, mo
           <Card>
             <Spinner />
           </Card>
-        ) : sorted.length === 0 ? (
+        ) : (grouped ? groups.length : sorted.length) === 0 ? (
           <Card>
             <Empty>{tr("Aucune opération.")}</Empty>
           </Card>
         ) : grouped ? (
-          <div className={cn("space-y-4 transition-opacity duration-200", list.isPlaceholderData && "opacity-50")}>
-            {groups.map((g) => {
-              const open = !collapsed.has(g.month);
-              return (
-                // `overflow-clip` : la boîte arrondit ses coins sans devenir une zone de défilement (le bandeau reste collant).
-                <Card key={g.month} className="overflow-clip">
-                  <MonthBand
-                    month={g.month}
-                    totals={totals.get(g.month)}
-                    loaded={g.count}
-                    open={open}
-                    onToggle={() => toggleMonth(g.month)}
-                    full={wideTable}
-                    stuck={checked.size > 0 ? "top-[calc(60px+3.25rem)]" : "top-[calc(52px+2.75rem)]"}
-                    onUncategorized={onlyUncategorized && (() => onlyUncategorized(g.month))}
-                  />
-                  {open && <div className="divide-y divide-line">{g.days.flatMap((d) => d.items.map((t, i) => row(t, i === 0)))}</div>}
-                </Card>
-              );
-            })}
+          <div className={cn("space-y-3 transition-opacity duration-200", stale && "opacity-50")}>
+            {sort.dir === 1 && olderButton}
+            {groups.map((g) => (
+              // `overflow-clip` : la boîte arrondit ses coins sans devenir une zone de défilement (le bandeau reste collant).
+              <Card key={g.month} className="overflow-clip">
+                <MonthBand
+                  month={g.month}
+                  totals={totals.get(g.month)}
+                  loaded={listed.get(g.month)?.length ?? 0}
+                  open={g.open}
+                  onToggle={() => toggleMonth(g.month)}
+                  full={wideTable}
+                  stuck={checked.size > 0 ? "top-[calc(60px+3.25rem)]" : "top-[calc(52px+2.75rem)]"}
+                  onUncategorized={onlyUncategorized && (() => onlyUncategorized(g.month))}
+                />
+                {g.open && g.rows.length > 0 && <div className="divide-y divide-line">{g.days.flatMap((d) => d.items.map((t, i) => row(t, i === 0)))}</div>}
+                {g.loading && <Spinner />}
+              </Card>
+            ))}
+            {sort.dir === -1 && olderButton}
           </div>
         ) : (
-          <Card className={cn("divide-y divide-line overflow-clip transition-opacity duration-200", list.isPlaceholderData && "opacity-50")}>{sorted.map((t) => row(t, true))}</Card>
+          <Card className={cn("divide-y divide-line overflow-clip transition-opacity duration-200", stale && "opacity-50")}>{sorted.map((t) => row(t, true))}</Card>
         )}
-        {list.hasNextPage && (
+        {/* Triée par montant, la liste se charge par pages ; rangée par mois, chaque mois lit ses lignes quand on le déplie. */}
+        {!grouped && list.hasNextPage && (
           <button type="button" onClick={() => list.fetchNextPage()} disabled={list.isFetchingNextPage} className="press card mt-3 w-full py-3 font-medium text-accent">
             {list.isFetchingNextPage ? tr("Chargement…") : tr("Afficher plus")}
           </button>
@@ -1039,10 +1106,15 @@ function MonthBand({
   );
 }
 
-/** Bilan de toute la liste filtrée, quand elle couvre plusieurs mois, et rappel du clic droit. */
-function ListTotals({ totals }: { totals: MonthTotals | null }) {
+/** Bilan de toute la liste filtrée, quand elle couvre plusieurs mois, « Tout replier » (les bandeaux seuls : l'année d'un coup d'œil) et rappel du clic droit. */
+function ListTotals({ totals, onCollapseAll }: { totals: MonthTotals | null; onCollapseAll?: () => void }) {
   return (
     <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12px] text-muted">
+      {onCollapseAll && (
+        <button type="button" onClick={onCollapseAll} className="flex items-center gap-1 font-medium text-accent hover:underline">
+          <ChevronsDownUp size={13} aria-hidden /> {tr("Tout replier")}
+        </button>
+      )}
       {totals && (
         <>
           <span className="font-medium text-ink">{tr("Total")}</span>

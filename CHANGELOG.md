@@ -3,6 +3,19 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.18.0
+
+- **Opérations : l'année d'un coup d'œil** (ordinateur). Tous les mois de l'année ont leur bandeau dès l'ouverture,
+  avec leur bilan ; les plus récents sont dépliés, et un mois ne lit ses opérations que quand tu le déplies — toutes
+  d'un coup. « Tout replier » ne garde que les bandeaux, et un bouton en bas de la liste ajoute l'année précédente
+  (« Afficher 2025 »). Une recherche qui tient en une page montre comme avant tous ses résultats, sur toutes ses
+  années.
+- Corrigé : avec les mois repliés, « Afficher plus » semblait sans effet — il chargeait des lignes d'un mois replié,
+  et il fallait un second clic pour voir arriver le mois suivant. Rangée par mois, la liste n'a plus ce bouton ; il
+  reste sur téléphone et pour la liste triée par montant.
+- « Tout sélectionner » et la sélection par plage (Maj) ne cochent que les lignes affichées, plus celles d'un mois
+  replié. Une opération ancienne ouverte depuis la recherche fait apparaître son année et déplie son mois.
+
 ## 1.17.0
 
 - **Coût de l'IA, un écran à part** : Réglages → Coût de l'IA montre la dépense du mois et ce qu'elle donnerait à la

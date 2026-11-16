@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balanceOf, groupByMonth, isInternal, posteSlot, sumMonths } from "./tx-groups.ts";
+import { balanceOf, defaultSince, groupByMonth, isInternal, olderYear, posteSlot, sumMonths } from "./tx-groups.ts";
 
 const row = (id: string, date: string) => ({ id, date });
 
@@ -59,5 +59,27 @@ describe("isInternal", () => {
     expect(isInternal({ category_kind: "interne" })).toBe(true);
     expect(isInternal({ category_kind: "epargne" })).toBe(false);
     expect(isInternal({ category_kind: null })).toBe(false);
+  });
+});
+
+describe("années affichées", () => {
+  const months = ["2026-11", "2026-10", "2026-01", "2025-12", "2025-03", "2023-06"];
+
+  it("affiche d'office l'année du mois le plus récent", () => {
+    expect(defaultSince(months, [])).toBe("2026");
+    expect(defaultSince(months, ["2026-11", "2026-10"])).toBe("2026");
+    expect(defaultSince([], [])).toBeNull();
+  });
+
+  it("remonte jusqu'à l'année du plus vieux mois déjà chargé", () => {
+    expect(defaultSince(months, ["2026-11", "2025-12"])).toBe("2025");
+    expect(defaultSince(months, new Set(["2023-06", "2026-10"]))).toBe("2023");
+  });
+
+  it("propose l'année précédente qui a des opérations, avec leur nombre", () => {
+    const counted = months.map((month, i) => ({ month, count: 10 * (i + 1) }));
+    expect(olderYear(counted, "2026")).toEqual({ year: "2025", count: 90 });
+    expect(olderYear(counted, "2025")).toEqual({ year: "2023", count: 60 });
+    expect(olderYear(counted, "2023")).toBeNull();
   });
 });

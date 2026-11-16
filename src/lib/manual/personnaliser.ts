@@ -100,13 +100,13 @@ export const personnaliser: ManualTheme = {
         {
           list: [
             tk("Déplacer : saisis une carte n'importe où et glisse-la ; les autres s'écartent à mesure. Près du haut ou du bas de la fenêtre, la page défile. La touche Échap pendant le geste la remet où elle était."),
-            tk("Régler la largeur : les quatre petits dessins de la barrette — [[Un tiers]], [[La moitié]], [[Deux tiers]], [[Toute la largeur]]. Certaines cartes ont besoin de place et n'en proposent que deux ou trois."),
+            tk("Régler la largeur : les quatre petits dessins de la barrette — [[Un tiers]], [[La moitié]], [[Deux tiers]], [[Toute la largeur]]. Certaines cartes ont besoin de place et n'en proposent que deux ou trois. Une rangée qui n'est pas pleine s'étire pour ne laisser aucun trou : une carte seule sur sa rangée en prend toute la largeur."),
             tk("Retirer : la croix de la barrette. Rien n'est supprimé, la carte attend dans [[Ajouter]]."),
-            tk("Ajouter : [[Ajouter]] liste les chiffres clés et les cartes absents ; un clic pose l'élément à la fin, à glisser ensuite où tu veux."),
+            tk("Ajouter : [[Ajouter]] liste les chiffres clés et les cartes absents. Un clic pose l'élément à la fin ; tu peux aussi le tirer hors du tiroir et le lâcher à sa place."),
             tk("Au clavier : la poignée de la barrette déplace la carte avec les flèches, et les boutons [[Placer avant]] et [[Placer après]] font de même."),
           ],
         },
-        tk("Rien n'est enregistré avant [[Terminé]] ; [[Annuler]] rend le tableau de bord d'avant. Pendant la construction, les cartes ne réagissent pas aux clics : on ne risque pas d'ouvrir un écran en voulant les déplacer."),
+        tk("Rien n'est enregistré avant [[Terminé]] ; [[Annuler]] rend le tableau de bord d'avant. Si tu changes d'écran ou recharges la page en cours de route, tu retrouves ta construction au retour. Pendant la construction, les cartes ne réagissent pas aux clics : on ne risque pas d'ouvrir un écran en voulant les déplacer."),
         tk("Les modèles : [[Modèles]], dans la barre du mode construction, propose quatre points de départ. En choisir un remplace l'agencement en cours ; tu le modifies ensuite librement."),
         {
           list: [
@@ -118,10 +118,10 @@ export const personnaliser: ManualTheme = {
         },
         { tip: tk("Tu peux aussi le demander à l'assistant : « mets-moi le tableau de bord Quotidien ». Il applique le modèle après ta confirmation.") },
         tk("L'agencement du tableau de bord est gardé par Pécule, pour toi seul : tu le retrouves sur tous tes ordinateurs, et chaque membre du foyer a le sien."),
-        tk("Sur téléphone, l'accueil a son propre réglage : [[Personnaliser l'accueil]], tout en bas de l'accueil, ouvre une fiche : coche un bloc pour l'afficher, et utilise les flèches pour le monter ou le descendre. [[Revenir à l'ordre d'origine]] remet tout en place. Ce réglage est mémorisé sur l'appareil."),
+        tk("Sur téléphone, [[Personnaliser l'accueil]], tout en bas de l'accueil, ouvre le même mode : un appui long sur un bloc le saisit, et tu le glisses plus haut ou plus bas. Sa barrette porte une poignée, les flèches [[Monter]] et [[Descendre]] et une croix pour le retirer ; [[Ajouter]] remet un bloc retiré, [[Revenir à l'ordre d'origine]] remet tout en place. [[Terminé]] enregistre. L'agencement de l'accueil est mémorisé sur l'appareil : il ne suit pas celui du tableau de bord."),
       ],
       links: [{ to: "/", label: ["Tableau de bord"] }],
-      words: tk("blocs cartes widgets réorganiser déplacer glisser masquer retirer ajouter ordre disposition agencement largeur modèle template mode construction modifier page d'accueil"),
+      words: tk("blocs cartes widgets réorganiser déplacer glisser appui long masquer retirer ajouter ordre disposition agencement largeur modèle template mode construction modifier page d'accueil"),
     },
     {
       id: "notifications",

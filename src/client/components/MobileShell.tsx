@@ -357,6 +357,13 @@ export function PullToRefresh({ enabled }: { enabled: boolean }) {
     };
     const onMove = (e: TouchEvent) => {
       if (startY == null) return;
+      // Un bloc de l'accueil est porté (mode construction) : le geste déplace le bloc, il ne rafraîchit pas.
+      if (document.body.classList.contains("dash-dragging")) {
+        startY = null;
+        pullRef.current = 0;
+        setPull(0);
+        return;
+      }
       const d = e.touches[0].clientY - startY;
       if (d <= 0 || window.scrollY > 0) {
         pullRef.current = 0;

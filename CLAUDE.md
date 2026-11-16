@@ -115,7 +115,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Un appel à l'IA d'un nouveau genre, ou le tarif d'un modèle | `recordUsage(nom, …)` après l'appel ; son usage dans `usageKind` et `KIND_GROUP`, le tarif dans `MODEL_PRICES` (`src/lib/ai-usage.ts`) ; son libellé dans `components/AiCost.tsx` |
 | Un écran facultatif | `MODULE_INFO` dans `src/lib/modules.ts` |
 | Une carte ou un chiffre clé du tableau de bord | `DASH_CARDS` ou `DASH_KPIS` (`src/lib/dashboard.ts` : libellé, largeur d'origine, largeur minimale) et son contenu dans `blocks` ou `kpis` (`pages/Dashboard.tsx`) : le mode construction la déplace, l'élargit, la retire et la propose dans « Ajouter » ; un modèle est une ligne de `DASH_TEMPLATES` (un test vérifie que ses rangées sont pleines) |
-| Un bloc de l'accueil du téléphone | `HOME_CARDS` (`pages/Home.tsx`) : il devient déplaçable et masquable (`components/CardLayout.tsx`) |
+| Un bloc de l'accueil du téléphone | `HOME_CARDS` et son contenu dans `blocks` (`pages/Home.tsx`) : le mode construction le déplace, le retire et le propose dans « Ajouter » (réglage gardé par l'appareil, `src/lib/card-layout.ts`) |
 | Une fête ou un thème | `src/lib/seasons.ts`, recopié dans `public/theme-init.js` (un test compare) |
 | Une couleur proposée dans Réglages | `ACCENTS` (`src/lib/seasons.ts`) et son bloc `[data-accent="…"]`, clair et sombre (`src/styles/index.css`) |
 | Une devise (cotée par la BCE) ou un pays | `CURRENCIES` (`src/lib/currencies.ts`), `COUNTRIES` (`src/lib/countries.ts`) |

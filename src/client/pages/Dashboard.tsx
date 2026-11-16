@@ -1,12 +1,12 @@
 import { isDiscreet } from "../discret.ts";
 import { AccountsCard } from "../components/AccountsCard.tsx";
 import { AddDrawer, EditBar, EditFrame, EmptySlot, TemplatesDrawer, WidthPicker } from "../components/DashEdit.tsx";
-import { useDashLayout } from "../api-dashboard.ts";
+import { useDashDraft, useDashLayout } from "../api-dashboard.ts";
 import { useDragSort } from "../dragSort.ts";
 import { lowAccounts, useBalanceAlert } from "../api-balance.ts";
 import { lowBalanceText } from "../components/LowBalance.tsx";
 import { WeekAhead } from "../components/MonthCalendar.tsx";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, LayoutDashboard, RefreshCw, TrendingDown, ShieldCheck, Tags, Wallet } from "lucide-react";
@@ -56,8 +56,11 @@ type Dash = {
 const CATEGORY_LABELS: Record<string, string> = { immobilier: t("Immobilier"), crypto: t("Crypto"), placement: t("Placements"), epargne: t("Épargne"), comptes: t("Comptes"), autre: t("Autres") };
 const daysSince = (d: string | null) => (d ? Math.floor((Date.now() - Date.parse(`${d.slice(0, 10)}T12:00:00Z`)) / 86_400_000) : null);
 
-/** Place d'une carte dans la grille de douze colonnes ; sur une fenêtre étroite, un tiers devient la moitié et deux tiers toute la largeur. */
-const SPAN: Record<DashWidth, string> = { 4: "col-span-12 md:col-span-6 lg:col-span-4", 6: "col-span-12 md:col-span-6", 8: "col-span-12 lg:col-span-8", 12: "col-span-12" };
+/**
+ * Largeur d'une carte, en colonnes sur douze (`.dash-cell`, src/styles/index.css) ; sur une fenêtre étroite, un tiers
+ * devient la moitié et deux tiers toute la largeur. Une rangée incomplète s'étire : la grille n'a jamais de trou.
+ */
+const cellWidth = (w: DashWidth) => ({ "--w": w, "--wm": w <= 6 ? 6 : 12 }) as CSSProperties;
 /** Colonnes de la rangée des chiffres clés, selon leur nombre (six : deux rangées de trois, une seule sur très grand écran). */
 const KPI_COLS = ["lg:grid-cols-4", "lg:grid-cols-4", "lg:grid-cols-4", "lg:grid-cols-3", "lg:grid-cols-4", "lg:grid-cols-5", "lg:grid-cols-3 2xl:grid-cols-6", "lg:grid-cols-4", "lg:grid-cols-4"];
 const labelOf = (id: DashCardId) => t(DASH_CARDS.find((c) => c.id === id)!.label);
@@ -81,7 +84,7 @@ export function Dashboard() {
   const balance = useBalanceAlert();
   // Mode construction : on arrange un brouillon ; « Terminé » l'enregistre, « Annuler » l'oublie.
   const { layout: saved, save } = useDashLayout();
-  const [draft, setDraft] = useState<DashLayout | null>(null);
+  const [draft, setDraft] = useDashDraft();
   const [drawer, setDrawer] = useState<"ajout" | "modeles" | null>(null);
   const editing = draft !== null;
   const layout = draft ?? saved;
@@ -411,6 +414,17 @@ export function Dashboard() {
     // La carte vient de se poser à la fin : on l'amène à l'écran.
     requestAnimationFrame(() => cardZone.current?.querySelector(`[data-card="${id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }));
   };
+  // Tiré hors du tiroir d'ajout : l'élément entre à la fin de la liste, le tiroir se ferme, et on le porte jusqu'à sa place.
+  const dragCardIn = (id: DashCardId, x: number, y: number) => {
+    setDrawer(null);
+    change((d) => ({ ...d, cards: [...d.cards, cardOf(id)] }));
+    cardSort.adopt(id, x, y);
+  };
+  const dragKpiIn = (id: DashKpiId, x: number, y: number) => {
+    setDrawer(null);
+    change((d) => ({ ...d, kpis: [...d.kpis, id] }));
+    kpiSort.adopt(id, x, y);
+  };
 
   return (
     <div className="space-y-4">
@@ -432,7 +446,7 @@ export function Dashboard() {
           <RefreshCw size={16} className={cn(sync.isPending && "animate-spin")} /> {t("Synchroniser")}
         </button>
       </header>
-      {editing ? <EditBar onTemplates={() => setDrawer("modeles")} onAdd={() => setDrawer("ajout")} addCount={toAdd} onCancel={cancel} onDone={done} /> : <Welcome />}
+      {editing ? <EditBar hint={t("Glisse une carte pour la déplacer, règle sa largeur ou retire-la.")} onTemplates={() => setDrawer("modeles")} onAdd={() => setDrawer("ajout")} addCount={toAdd} onCancel={cancel} onDone={done} /> : <Welcome />}
 
       {/* Chiffres clés : ceux que le membre a gardés, dans son ordre. */}
       {shownKpis.length > 0 && (
@@ -458,9 +472,9 @@ export function Dashboard() {
         </div>
       )}
 
-      <div ref={cardZone} className="grid grid-cols-12 gap-4">
+      <div ref={cardZone} className="dash-grid">
         {layout.cards.map((c, i) => (
-          <div key={c.id} ref={cardSort.register(c.id)} data-card={c.id} className={cn(SPAN[c.w], "relative min-w-0", !editing && "has-[>.dash-body:empty]:hidden", cardSort.dragging === c.id && "opacity-40")}>
+          <div key={c.id} ref={cardSort.register(c.id)} data-card={c.id} style={cellWidth(c.w)} className={cn("dash-cell relative", !editing && "has-[>.dash-body:empty]:hidden", cardSort.dragging === c.id && "opacity-40")}>
             <div className="dash-body h-full empty:hidden" inert={editing}>
               {blocks[c.id]}
             </div>
@@ -494,7 +508,18 @@ export function Dashboard() {
           )}
         </Card>
       )}
-      {draft && drawer === "ajout" && <AddDrawer layout={draft} onAddKpi={(id) => change((l) => ({ ...l, kpis: [...l.kpis, id] }))} onAddCard={addCard} onClose={() => setDrawer(null)} />}
+      {draft && drawer === "ajout" && (
+        <AddDrawer
+          title={t("Ajouter au tableau de bord")}
+          kpis={missingKpis(draft).map((id) => ({ id, label: kpiLabel(id) }))}
+          cards={missingCards(draft).map((id) => ({ id, label: labelOf(id), hint: t(DASH_CARDS.find((c) => c.id === id)!.hint) }))}
+          onAddKpi={(id) => change((l) => ({ ...l, kpis: [...l.kpis, id] }))}
+          onAddCard={addCard}
+          onDragKpi={dragKpiIn}
+          onDragCard={dragCardIn}
+          onClose={() => setDrawer(null)}
+        />
+      )}
       {draft && drawer === "modeles" && (
         <TemplatesDrawer
           layout={draft}

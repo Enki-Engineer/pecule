@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api, useDemo } from "./api.ts";
@@ -66,4 +66,34 @@ export function useDashLayout(): { layout: DashLayout; save: (layout: DashLayout
   );
 
   return { layout: q.data ?? DEFAULT, save };
+}
+
+/**
+ * Brouillon d'un mode construction, gardé le temps de la séance de la fenêtre : quitter l'écran, rétrécir la fenêtre
+ * ou recharger la page ne perd pas ce qu'on était en train d'arranger — on retrouve la construction en cours, avec
+ * ses boutons « Annuler » et « Terminé ». `clean` relit ce qui a été gardé (`null` s'il n'est plus valable).
+ */
+export function useSessionDraft<T>(key: string, clean: (raw: unknown) => T | null): [T | null, Dispatch<SetStateAction<T | null>>] {
+  const [draft, setDraft] = useState<T | null>(() => {
+    try {
+      return clean(JSON.parse(sessionStorage.getItem(key) ?? "null"));
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    try {
+      if (draft === null) sessionStorage.removeItem(key);
+      else sessionStorage.setItem(key, JSON.stringify(draft));
+    } catch {
+      /* stockage refusé (navigation privée) : le brouillon vit le temps de l'écran */
+    }
+  }, [key, draft]);
+  return [draft, setDraft];
+}
+
+/** Brouillon du tableau de bord en construction (la démo a le sien). */
+export function useDashDraft() {
+  const demo = useDemo();
+  return useSessionDraft<DashLayout>(`pecule.dashboard.draft${demo ? ".demo" : ""}`, cleanLayout);
 }

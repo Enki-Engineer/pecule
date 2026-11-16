@@ -1015,3 +1015,29 @@ body.dash-dragging * {
     0 28px 60px -20px rgb(20 20 19 / 0.45);
   will-change: transform;
 }
+
+/*
+ * Tableau de bord : les cartes se rangent de gauche à droite, chacune à sa largeur (`--w` colonnes sur douze ;
+ * `--wm` sur une fenêtre étroite), et passent à la rangée suivante quand elles ne tiennent plus. Une rangée qui
+ * n'est pas pleine s'étire, en proportion des largeurs : il n'y a jamais de trou, même quand une carte n'a rien
+ * à montrer.
+ */
+.dash-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.dash-cell {
+  flex: var(--w) 1 100%;
+  min-width: 0;
+}
+@media (min-width: 768px) {
+  .dash-cell {
+    flex-basis: calc((100% + 1rem) * var(--wm) / 12 - 1rem - 0.5px);
+  }
+}
+@media (min-width: 1024px) {
+  .dash-cell {
+    flex-basis: calc((100% + 1rem) * var(--w) / 12 - 1rem - 0.5px);
+  }
+}

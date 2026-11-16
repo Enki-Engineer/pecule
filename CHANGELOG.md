@@ -3,6 +3,20 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.20.0
+
+- **Accueil du téléphone : mode construction.** « Personnaliser l'accueil » n'ouvre plus une fiche à cases : les
+  blocs s'arrangent à l'écran. Un appui long saisit un bloc, qu'on glisse plus haut ou plus bas ; sa barrette porte
+  une poignée, des flèches et une croix pour le retirer ; « Ajouter » remet un bloc retiré. Rien n'est enregistré
+  avant « Terminé ». Le réglage reste mémorisé sur l'appareil, et celui que tu avais est repris tel quel.
+- **Tableau de bord sans trou.** Une rangée qui n'est pas pleine s'étire, en proportion des largeurs choisies : une
+  carte seule sur sa rangée en prend toute la largeur, et une carte qui n'a rien à montrer ne laisse plus de vide.
+- **Tirer une carte depuis « Ajouter ».** Sur ordinateur, une carte ou un chiffre clé se tire hors du tiroir et se
+  lâche à sa place ; un clic le pose toujours à la fin.
+- **La construction en cours n'est plus perdue** quand on change d'écran, qu'on recharge la page ou qu'on rétrécit
+  la fenêtre : on la retrouve au retour, avec « Annuler » et « Terminé ».
+- Sur une tablette, un appui long saisit aussi une carte du tableau de bord (un geste plus bref fait défiler).
+
 ## 1.19.1
 
 - Corrigé : une carte à débit différé n'était rattachée à son compte que si le libellé de son relevé portait les

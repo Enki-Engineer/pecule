@@ -20,7 +20,7 @@ export const analyseBudget: ManualTheme = {
             tk("Les autres cartes : évolution du patrimoine, répartition du patrimoine, où part l'argent, dépenses par poste, enveloppes, objectifs, dernières opérations, prochaines échéances, résumé de la semaine."),
           ],
         },
-        tk("Sur téléphone, l'accueil reprend l'essentiel en cartes : [[Disponible sur les comptes]], [[Dépensé ce mois-ci]], [[Les sept prochains jours]], les opérations à classer, les enveloppes, les objectifs, les échéances et les comptes."),
+        tk("Sur téléphone, l'accueil reprend l'essentiel en cartes : [[Disponible sur les comptes]], [[Dépensé ce mois-ci]], [[Les sept prochains jours]], les opérations à classer, les enveloppes, les objectifs, les échéances et les comptes. Le bloc des comptes est rangé comme sur l'ordinateur : comptes courants, épargne, placements et crédits, chaque groupe avec son total, et sous chaque compte ses cartes à débit différé, ce qu'il restera une fois prélevées et son alerte de solde bas."),
         { tip: tk("Le tableau de bord s'arrange à ta main — cartes à déplacer, à élargir, à retirer, modèles « Quotidien », « Budget » et « Patrimoine » : voir [Personnaliser l'accueil et le tableau de bord](/manuel/personnaliser-accueil).") },
       ],
       links: [{ to: "/", label: ["Tableau de bord"] }],

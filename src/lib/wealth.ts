@@ -37,6 +37,17 @@ export function valueCrypto<T extends CryptoInput>(rows: T[]) {
 /* ---------- Durées de la courbe d'évolution ---------- */
 
 /** Durées proposées au-dessus de la courbe d'évolution, en jours ; « tout » n'a pas de limite. */
+/**
+ * Patrimoine net tel qu'il était il y a `days` jours : le dernier relevé de l'historique à cette date ou avant
+ * (à défaut le plus ancien). Sert à dire « +X sur 30 jours ». `history` : du plus ancien au plus récent.
+ */
+export function netBefore(history: readonly { date: string; net: number | string }[], days: number, now: number = Date.now()): number | null {
+  const limit = now - days * 86_400_000;
+  const at = (d: string) => Date.parse(`${d.slice(0, 10)}T12:00:00Z`);
+  const found = [...history].reverse().find((h) => at(h.date) <= limit) ?? history[0];
+  return found ? Number(found.net) : null;
+}
+
 export const HISTORY_RANGES = { "1m": 31, "3m": 92, "6m": 183 } as const;
 export type HistoryRange = keyof typeof HISTORY_RANGES | "tout";
 

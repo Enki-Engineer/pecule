@@ -147,7 +147,7 @@ export const comptes: ManualTheme = {
         tk("Avec une carte à débit différé, la banque prélève en une fois, le mois suivant, les achats du mois. Quand la banque le transmet, Pécule montre cet encours : le total des achats en attente et la date du prélèvement."),
         {
           list: [
-            tk("Sur le tableau de bord, le chiffre [[Cartes à débit différé]], et dans la carte [[Comptes]] chaque carte sous le compte qui sera prélevé ; sur l'accueil du téléphone, sous [[Disponible sur les comptes]]."),
+            tk("Sur le tableau de bord, le chiffre [[Cartes à débit différé]], et dans la carte [[Comptes]] chaque carte sous le compte qui sera prélevé ; sur l'accueil du téléphone, le total sous [[Disponible sur les comptes]] et chaque carte sous son compte."),
             tk("Le chiffre [[Disponible]] n'en est pas diminué : ces achats ne sont pas encore sortis du compte."),
             tk("[[Soldes à venir]] compte le prochain relevé de la carte dans le solde prévu du compte."),
           ],

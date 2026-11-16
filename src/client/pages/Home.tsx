@@ -1,24 +1,26 @@
 import { loadChunk } from "../reload.ts";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { CalendarClock, RefreshCw, ChevronRight, SlidersHorizontal, Tags } from "lucide-react";
+import { CalendarClock, LayoutTemplate, RefreshCw, ChevronRight, SlidersHorizontal, Tags } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
-import { useAccounts, useAgenda, useBalanceSeries, useDemo, useSummary, useSync, type Account } from "../api.ts";
-import { Amount, BankBadge, Card, ErrorBox, PageHeader, Sparkline, Spinner } from "../components/ui.tsx";
-import { money, moneyIn, timeAgo, dateFr } from "../format.ts";
-import { groupByOwner, OWNER_ORDER, ownerLabel } from "../../lib/labels.ts";
-import { CardOutstandingSection, useOutstandingTotal } from "../components/CardOutstanding.tsx";
+import { useAccounts, useAgenda, useBalanceSeries, useDemo, useSummary, useSync, useWealth } from "../api.ts";
+import { Amount, Card, ErrorBox, PageHeader, Sparkline, Spinner } from "../components/ui.tsx";
+import { money, timeAgo, dateFr } from "../format.ts";
+import { useOutstandingTotal } from "../components/CardOutstanding.tsx";
+import { AccountsCard } from "../components/AccountsCard.tsx";
 import { Welcome } from "../components/Welcome.tsx";
 import { useSeasonGreeting } from "../theme.ts";
 import { FunCard } from "../components/FunCard.tsx";
 import { WeekAhead } from "../components/MonthCalendar.tsx";
-import { cleanCardLayout, useCardLayout, type CardLayout } from "../components/CardLayout.tsx";
-import { AddDrawer, EditBar, EditFrame, EmptySlot } from "../components/DashEdit.tsx";
+import { useCardLayout } from "../components/CardLayout.tsx";
+import { AddDrawer, EditBar, EditFrame, EmptySlot, TemplatesDrawer } from "../components/DashEdit.tsx";
 import { useSessionDraft } from "../api-dashboard.ts";
 import { useDragSort } from "../dragSort.ts";
 import { moveItem } from "../../lib/dashboard.ts";
-import { hideCard, reorderShown, showCard, shownCards } from "../../lib/card-layout.ts";
+import { cleanCardLayout, hideCard, reorderShown, showCard, shownCards, type CardLayout } from "../../lib/card-layout.ts";
+import { HOME_CARDS, HOME_IDS, HOME_QUIET, HOME_TEMPLATES, homeDefault, homeTemplate, homeTemplateOf, type HomeCardId } from "../../lib/home-layout.ts";
+import { netBefore } from "../../lib/wealth.ts";
 import { EnvelopesCard, GoalsCard } from "../components/Planning.tsx";
 import { WeeklySummaryCard } from "../components/WeeklySummary.tsx";
 import { t, td, tn } from "../../lib/i18n.ts";
@@ -65,8 +67,6 @@ function MobileHome() {
   const cash = visible.filter((a) => a.kind !== "carte" && !a.excluded).reduce((s, a) => s + (a.balance ?? 0), 0);
   const cards = visible.filter((a) => a.kind === "carte" && !a.excluded).reduce((s, a) => s + (a.balance ?? 0), 0);
 
-  const groups = groupByOwner(visible, OWNER_ORDER);
-
   async function refresh() {
     try {
       const r = await sync.mutateAsync();
@@ -78,10 +78,10 @@ function MobileHome() {
 
   const s = summary.data;
   const greeting = useSeasonGreeting();
-  const [layout, saveLayout] = useCardLayout<HomeCardId>(LAYOUT_KEY, HOME_IDS);
+  const [layout, saveLayout] = useCardLayout<HomeCardId>(LAYOUT_KEY, cleanHomeLayout, homeDefault);
   // Mode construction : on arrange un brouillon ; « Terminé » l'enregistre sur l'appareil, « Annuler » l'oublie.
   const [draft, setDraft] = useSessionDraft<CardLayout<HomeCardId>>("pecule.home.draft", cleanHomeLayout);
-  const [adding, setAdding] = useState(false);
+  const [drawer, setDrawer] = useState<"ajout" | "modeles" | null>(null);
   const editing = draft !== null;
   const current = draft ?? layout;
   const shown = useMemo(() => shownCards(current), [current]);
@@ -100,14 +100,14 @@ function MobileHome() {
   const done = () => {
     if (draft) saveLayout(draft);
     setDraft(null);
-    setAdding(false);
+    setDrawer(null);
   };
   const cancel = () => {
     sort.snapshot();
     setDraft(null);
-    setAdding(false);
+    setDrawer(null);
   };
-  const labelOf = (id: HomeCardId) => HOME_CARDS.find((c) => c.id === id)!.label;
+  const labelOf = (id: HomeCardId) => t(HOME_CARDS.find((c) => c.id === id)!.label);
   const delta = s ? s.spentThisMonth - s.spentPrevMonthSameDay : 0;
 
   // Les blocs de l'accueil, par identifiant : l'ordre et ceux qu'on voit viennent du réglage de l'appareil.
@@ -189,21 +189,10 @@ function MobileHome() {
     enveloppes: <EnvelopesCard />,
     objectifs: <GoalsCard />,
     echeances: <UpcomingCard />,
-    comptes: (
-      <>
-        {groups.map((g) => (
-          <section key={g.owner}>
-            <h2 className="mb-2 px-1 text-[15px] font-semibold text-ink">{ownerLabel(g.owner)}</h2>
-            <Card className="divide-y divide-line">
-              {g.list.map((a) => (
-                <AccountRow key={a.id} account={a} />
-              ))}
-            </Card>
-          </section>
-        ))}
-        <CardOutstandingSection />
-      </>
-    ),
+    // Les comptes comme sur l'appli d'une banque : chaque compte avec ses cartes à débit différé, puis l'épargne,
+    // les placements et les crédits.
+    comptes: <AccountsCard sections />,
+    patrimoine: <WealthCard />,
   };
 
   return (
@@ -226,8 +215,11 @@ function MobileHome() {
 
       {editing ? (
         <>
-          <EditBar compact onAdd={() => setAdding(true)} addCount={current.hidden.length} onCancel={cancel} onDone={done} />
-          <p className="mb-5 mt-3 px-1 text-[13px] text-muted">{t("Appuie longuement sur un bloc pour le déplacer, ou sers-toi de sa poignée et de ses flèches. La croix le retire.")}</p>
+          <EditBar compact onAdd={() => setDrawer("ajout")} addCount={current.hidden.length} onCancel={cancel} onDone={done} />
+          <p className="mt-3 px-1 text-[13px] text-muted">{t("Appuie longuement sur un bloc pour le déplacer, ou sers-toi de sa poignée et de ses flèches. La croix le retire.")}</p>
+          <button type="button" onClick={() => setDrawer("modeles")} className="press mb-6 mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-card px-4 py-2.5 text-sm font-semibold text-ink shadow-[inset_0_0_0_1px_var(--color-line)]">
+            <LayoutTemplate size={16} /> {t("Partir d'un modèle")}
+          </button>
         </>
       ) : (
         <div className="mb-4 empty:hidden">
@@ -263,21 +255,28 @@ function MobileHome() {
               </div>
             ))}
           </div>
-          {editing ? (
-            <button type="button" onClick={() => change(() => ({ order: [...HOME_IDS], hidden: [] }))} className="press mx-auto block rounded-full px-4 py-2 text-[13px] font-medium text-muted">
-              {t("Revenir à l'ordre d'origine")}
-            </button>
-          ) : (
+          {!editing && (
             <button type="button" onClick={() => setDraft(layout)} className="press mx-auto flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-medium text-muted">
               <SlidersHorizontal size={14} /> {t("Personnaliser l'accueil")}
             </button>
           )}
-          {draft && adding && (
+          {draft && drawer === "modeles" && (
+            <TemplatesDrawer
+              items={HOME_TEMPLATES.map((m) => ({ id: m.id, label: t(m.label), hint: t(m.hint), rows: m.cards.map(() => [12]) }))}
+              current={homeTemplateOf(draft)}
+              onApply={(id) => {
+                change(() => homeTemplate(id));
+                setDrawer(null);
+              }}
+              onClose={() => setDrawer(null)}
+            />
+          )}
+          {draft && drawer === "ajout" && (
             <AddDrawer
               title={t("Ajouter à l'accueil")}
               cards={draft.order.filter((id) => draft.hidden.includes(id)).map((id) => ({ id, label: labelOf(id) }))}
               onAddCard={(id) => change((l) => showCard(l, id))}
-              onClose={() => setAdding(false)}
+              onClose={() => setDrawer(null)}
             />
           )}
         </div>
@@ -286,22 +285,39 @@ function MobileHome() {
   );
 }
 
-function AccountRow({ account: a }: { account: Account }) {
+/** Patrimoine net : ce qu'il vaut, ce qu'il a pris ou perdu en trente jours, sa courbe et ce qui reste dû. */
+function WealthCard() {
+  const w = useWealth().data;
+  if (!w) return null;
+  const before = netBefore(w.history, 30);
+  const delta = before == null ? null : w.net - before;
+  const values = w.history.map((h) => Number(h.net));
   return (
-    <Link to={`/operations?compte=${encodeURIComponent(a.id)}`} className="press flex items-center gap-3 px-4 py-3.5">
-      <BankBadge bank={a.institution} />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[15px] font-medium">{a.display_name ?? a.name}</div>
-        <div className="text-xs text-muted">
-          {a.kind === "carte" ? t("Carte à débit différé") : (a.institution ?? "")}
-          {/* Compte dans une autre devise que celle du foyer : son solde tel que la banque l'écrit. */}
-          {a.balance_original != null && <span className="tnum"> · {moneyIn(a.balance_original, a.currency)}</span>}
+    <Link to="/patrimoine" className="block">
+      <Card className="press p-5">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted">{t("Patrimoine net")}</div>
+          <ChevronRight size={18} className="text-muted" />
         </div>
-      </div>
-      <Amount value={a.balance} colored={false} className={clsx("font-semibold", (a.balance ?? 0) < 0 && "text-neg")} />
+        <div className="figure mt-1 text-[26px]">{money(w.net, true)}</div>
+        {delta != null && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span className={clsx("chip tnum text-[13px]", delta >= 0 ? "chip-pos" : "chip-neg")}>{(delta >= 0 ? "+" : "") + money(delta, true)}</span>
+            <span className="text-[13px] text-muted">{t("sur 30 jours")}</span>
+          </div>
+        )}
+        {values.length >= 2 && <Sparkline values={values} className="mt-3" />}
+        {w.debts > 0 && (
+          <div className="mt-3 flex items-center justify-between text-[15px]">
+            <span className="text-muted">{t("Dettes restantes")}</span>
+            <span className="tnum font-medium">{money(w.debts, true)}</span>
+          </div>
+        )}
+      </Card>
     </Link>
   );
 }
+
 
 /** Accueil iPhone : les 3 prochaines échéances (et les tâches en retard), vers l'échéancier. */
 function UpcomingCard() {
@@ -334,21 +350,7 @@ function UpcomingCard() {
   );
 }
 
-/* ---------- Accueil personnalisable (mémorisé sur l'appareil) ---------- */
+/* ---------- Accueil à la carte (mémorisé sur l'appareil ; blocs et modèles : src/lib/home-layout.ts) ---------- */
 
-const HOME_CARDS = [
-  { id: "disponible", label: t("Disponible sur les comptes") },
-  { id: "depense", label: t("Dépensé ce mois-ci") },
-  { id: "semaine", label: t("Les sept prochains jours") },
-  { id: "aclasser", label: t("Opérations à classer") },
-  { id: "amusant", label: t("Le chiffre du moment") },
-  { id: "resume", label: t("Résumé de la semaine") },
-  { id: "enveloppes", label: t("Enveloppes du mois") },
-  { id: "objectifs", label: t("Objectifs d'épargne") },
-  { id: "echeances", label: t("Prochaines échéances") },
-  { id: "comptes", label: t("Comptes") },
-] as const;
-type HomeCardId = (typeof HOME_CARDS)[number]["id"];
-const HOME_IDS = HOME_CARDS.map((c) => c.id);
 const LAYOUT_KEY = "pecule.home.layout";
-const cleanHomeLayout = cleanCardLayout<HomeCardId>(HOME_IDS);
+const cleanHomeLayout = cleanCardLayout<HomeCardId>(HOME_IDS, HOME_QUIET);

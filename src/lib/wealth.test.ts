@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountShare, assetValue, historyRangeStart, historyRangeUseful, valueCrypto } from "./wealth.ts";
+import { accountShare, assetValue, historyRangeStart, historyRangeUseful, valueCrypto, netBefore } from "./wealth.ts";
 import { cumulative, monthTotals } from "./month.ts";
 
 describe("assetValue", () => {
@@ -79,5 +79,25 @@ describe("durées de la courbe d'évolution", () => {
     expect(historyRangeUseful("tout", null, now)).toBe(true);
     expect(historyRangeUseful("1m", null, now)).toBe(false);
     expect(historyRangeUseful("1m", undefined, now)).toBe(false);
+  });
+});
+
+describe("netBefore", () => {
+  const now = Date.parse("2026-11-16T09:00:00Z");
+  const history = [
+    { date: "2026-09-01", net: 100 },
+    { date: "2026-10-10", net: 140 },
+    { date: "2026-10-20", net: "150.5" },
+    { date: "2026-11-15", net: 180 },
+  ];
+
+  it("rend le dernier relevé à la date voulue ou avant", () => {
+    expect(netBefore(history, 30, now)).toBe(140);
+    expect(netBefore(history, 7, now)).toBe(150.5);
+  });
+
+  it("à défaut de relevé assez ancien, prend le plus ancien ; sans historique, rien", () => {
+    expect(netBefore(history, 400, now)).toBe(100);
+    expect(netBefore([], 30, now)).toBeNull();
   });
 });

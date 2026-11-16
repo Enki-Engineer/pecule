@@ -7,17 +7,23 @@ export type CardLayout<T extends string> = { order: T[]; hidden: T[] };
 
 /**
  * Réglage relu d'un enregistrement : ne garde que les blocs que cette version connaît, une fois chacun. Un bloc né
- * depuis est visible, à sa place d'origine (juste après le bloc qui le précède). `null` si ce n'est pas un réglage.
+ * depuis prend sa place d'origine (juste après le bloc qui le précède) : visible, ou retiré s'il fait partie de
+ * `quiet` — un bloc qu'on propose sans l'imposer. `null` si ce n'est pas un réglage.
  */
-export function cleanCardLayout<T extends string>(all: readonly T[]): (raw: unknown) => CardLayout<T> | null {
+export function cleanCardLayout<T extends string>(all: readonly T[], quiet: readonly T[] = []): (raw: unknown) => CardLayout<T> | null {
   return (raw) => {
     if (!raw || typeof raw !== "object") return null;
-    const { order: savedOrder, hidden } = raw as { order?: unknown; hidden?: unknown };
-    if (!Array.isArray(savedOrder) || !Array.isArray(hidden)) return null;
+    const { order: savedOrder, hidden: savedHidden } = raw as { order?: unknown; hidden?: unknown };
+    if (!Array.isArray(savedOrder) || !Array.isArray(savedHidden)) return null;
     const known = (id: unknown): id is T => all.includes(id as T);
     const order = savedOrder.filter(known).filter((id, i, list) => list.indexOf(id) === i);
-    for (const id of all) if (!order.includes(id)) order.splice(order.indexOf(all[all.indexOf(id) - 1]) + 1, 0, id);
-    return { order, hidden: hidden.filter(known).filter((id, i, list) => list.indexOf(id) === i) };
+    const hidden = savedHidden.filter(known).filter((id, i, list) => list.indexOf(id) === i);
+    for (const id of all) {
+      if (order.includes(id)) continue;
+      order.splice(order.indexOf(all[all.indexOf(id) - 1]) + 1, 0, id);
+      if (quiet.includes(id) && !hidden.includes(id)) hidden.push(id);
+    }
+    return { order, hidden };
   };
 }
 

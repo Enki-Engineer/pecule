@@ -3,7 +3,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, GripVertical, LayoutT
 import { Card, Sheet } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import type { DragSort } from "../dragSort.ts";
-import { DASH_TEMPLATES, WIDTH_LABELS, rowsOf, templateLayout, templateOf, widthsOf, type DashCardId, type DashLayout, type DashTemplateId, type DashWidth } from "../../lib/dashboard.ts";
+import { WIDTH_LABELS, widthsOf, type DashCardId, type DashWidth } from "../../lib/dashboard.ts";
 import { t } from "../../lib/i18n.ts";
 
 /*
@@ -192,19 +192,24 @@ export function AddDrawer<K extends string, C extends string>({ title, kpis = []
   );
 }
 
-/** Aperçu d'un modèle : la rangée des chiffres clés, puis les cartes à leur largeur. */
-function Preview({ layout }: { layout: DashLayout }) {
+export type TemplateItem<T extends string> = { id: T; label: string; hint: string; /** Chiffres clés de la rangée du haut, s'il y en a. */ kpis?: number; /** Largeurs des cartes, rangée par rangée (sur douze). */ rows: number[][] };
+
+/** Aperçu d'un modèle : la rangée des chiffres clés, puis les cartes à leur largeur. Étroit comme un téléphone quand tout est en colonne. */
+function Preview({ kpis = 0, rows }: { kpis?: number; rows: number[][] }) {
+  const column = rows.every((r) => r.length === 1);
   return (
-    <span aria-hidden className="flex w-28 shrink-0 flex-col gap-[3px] rounded-lg bg-bg p-1.5">
-      <span className="flex gap-[3px]">
-        {layout.kpis.map((k) => (
-          <span key={k} className="h-1.5 flex-1 rounded-[2px] bg-muted/50" />
-        ))}
-      </span>
-      {rowsOf(layout.cards).map((row, i) => (
+    <span aria-hidden className={cn("flex shrink-0 flex-col gap-[3px] rounded-lg bg-bg p-1.5", column ? "w-14" : "w-28")}>
+      {kpis > 0 && (
+        <span className="flex gap-[3px]">
+          {Array.from({ length: kpis }, (_, i) => (
+            <span key={i} className="h-1.5 flex-1 rounded-[2px] bg-muted/50" />
+          ))}
+        </span>
+      )}
+      {rows.map((row, i) => (
         <span key={i} className="flex gap-[3px]">
-          {row.map((c) => (
-            <span key={c.id} className="h-3 rounded-[2px] bg-muted/30" style={{ flex: c.w }} />
+          {row.map((w, j) => (
+            <span key={j} className={cn("rounded-[2px] bg-muted/30", column ? "h-2" : "h-3")} style={{ flex: w }} />
           ))}
         </span>
       ))}
@@ -213,25 +218,24 @@ function Preview({ layout }: { layout: DashLayout }) {
 }
 
 /** Tiroir des modèles : en choisir un remplace l'agencement en cours, qui se modifie ensuite librement. */
-export function TemplatesDrawer({ layout, onApply, onClose }: { layout: DashLayout; onApply: (id: DashTemplateId) => void; onClose: () => void }) {
-  const current = templateOf(layout);
+export function TemplatesDrawer<T extends string>({ items, current, onApply, onClose }: { items: TemplateItem<T>[]; /** Le modèle que l'agencement reproduit, s'il y en a un. */ current: T | null; onApply: (id: T) => void; onClose: () => void }) {
   return (
     <Sheet open onClose={onClose} title={t("Modèles")}>
       <div className="space-y-2">
-        {DASH_TEMPLATES.map((m) => (
+        {items.map((m) => (
           <button key={m.id} type="button" onClick={() => onApply(m.id)} aria-pressed={m.id === current} className={cn("press card flex w-full items-center gap-4 p-3.5 text-left", m.id === current && "ring-2 ring-accent")}>
-            <Preview layout={templateLayout(m.id)} />
+            <Preview kpis={m.kpis} rows={m.rows} />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2 text-[15px] font-semibold">
-                {t(m.label)}
+                {m.label}
                 {m.id === current && <span className="chip text-xs">{t("en place")}</span>}
               </span>
-              <span className="mt-0.5 block text-[13px] text-muted">{t(m.hint)}</span>
+              <span className="mt-0.5 block text-[13px] text-muted">{m.hint}</span>
             </span>
           </button>
         ))}
       </div>
-      <p className="mt-4 text-[13px] text-muted">{t("Un modèle remplace l'agencement en cours ; tu le modifies ensuite comme tu veux. Tant que tu n'as pas choisi « Terminé », « Annuler » rend ton tableau de bord d'avant.")}</p>
+      <p className="mt-4 text-[13px] text-muted">{t("Un modèle remplace l'agencement en cours ; tu le modifies ensuite comme tu veux. Tant que tu n'as pas choisi « Terminé », « Annuler » rend l'agencement d'avant.")}</p>
     </Sheet>
   );
 }

@@ -17,6 +17,7 @@ import { Amount, Card, InfoTip, Spinner } from "../components/ui.tsx";
 import { cn } from "../cn.ts";
 import { currentMonth, dateFr, money, timeAgo, kAxis } from "../format.ts";
 import { monthTotals } from "../../lib/month.ts";
+import { netBefore } from "../../lib/wealth.ts";
 import { txTitle } from "../../lib/labels.ts";
 import { useOutstandingTotal } from "../components/CardOutstanding.tsx";
 import { Welcome } from "../components/Welcome.tsx";
@@ -31,7 +32,7 @@ import { EnvelopesCard, GoalsCard } from "../components/Planning.tsx";
 import { WeeklySummaryCard } from "../components/WeeklySummary.tsx";
 import { useSeasonGreeting } from "../theme.ts";
 import { FunCard } from "../components/FunCard.tsx";
-import { DASH_CARDS, DASH_KPIS, cardOf, missingCards, missingKpis, moveItem, sameLayout, templateLayout, type DashCardId, type DashKpiId, type DashLayout, type DashWidth } from "../../lib/dashboard.ts";
+import { DASH_CARDS, DASH_KPIS, DASH_TEMPLATES, cardOf, missingCards, missingKpis, moveItem, rowsOf, sameLayout, templateLayout, templateOf, type DashCardId, type DashKpiId, type DashLayout, type DashWidth } from "../../lib/dashboard.ts";
 import { locale, t, td, tk, tn } from "../../lib/i18n.ts";
 
 /*
@@ -121,10 +122,7 @@ export function Dashboard() {
   const totals = month.data ? monthTotals(month.data.categories) : null;
 
   const history = useMemo(() => (w?.history ?? []).map((h) => ({ t: Date.parse(`${h.date.slice(0, 10)}T12:00:00Z`), net: Number(h.net) })), [w]);
-  const net30 = useMemo(() => {
-    const limit = Date.now() - 30 * 86_400_000;
-    return [...history].reverse().find((h) => h.t <= limit)?.net ?? history[0]?.net ?? null;
-  }, [history]);
+  const net30 = useMemo(() => netBefore(w?.history ?? [], 30), [w]);
 
   const postes = useMemo(() => {
     const map = new Map<string, number>();
@@ -522,7 +520,11 @@ export function Dashboard() {
       )}
       {draft && drawer === "modeles" && (
         <TemplatesDrawer
-          layout={draft}
+          items={DASH_TEMPLATES.map((m) => {
+            const l = templateLayout(m.id);
+            return { id: m.id, label: t(m.label), hint: t(m.hint), kpis: l.kpis.length, rows: rowsOf(l.cards).map((row) => row.map((c) => c.w)) };
+          })}
+          current={templateOf(draft)}
           onApply={(id) => {
             change(() => templateLayout(id));
             setDrawer(null);

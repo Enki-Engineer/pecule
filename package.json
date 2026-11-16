@@ -1,7 +1,7 @@
 {
   "name": "pecule",
   "private": true,
-  "version": "1.20.0",
+  "version": "1.21.0",
   "type": "module",
   "description": "Suivi des finances d'un foyer, auto-hébergé : comptes, opérations, patrimoine, factures, documents.",
   "engines": {

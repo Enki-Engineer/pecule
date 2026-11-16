@@ -14,6 +14,12 @@ describe("cleanCardLayout", () => {
     expect(clean({ order: ["b", "c", "d"], hidden: [] })!.order).toEqual(["a", "b", "c", "d"]);
   });
 
+  it("un bloc né depuis, proposé sans être imposé, arrive retiré", () => {
+    expect(cleanCardLayout(ALL, ["d"])({ order: ["b", "a", "c"], hidden: ["a"] })).toEqual({ order: ["b", "a", "c", "d"], hidden: ["a", "d"] });
+    // Déjà connu de l'appareil : on respecte ce qu'il en a fait.
+    expect(cleanCardLayout(ALL, ["d"])({ order: ["d", "a", "b", "c"], hidden: [] })).toEqual({ order: ["d", "a", "b", "c"], hidden: [] });
+  });
+
   it("refuse ce qui n'est pas un réglage", () => {
     for (const raw of [null, 3, "x", [], {}, { order: [] }, { kpis: [], cards: [] }]) expect(clean(raw)).toBeNull();
   });

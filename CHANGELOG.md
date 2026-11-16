@@ -3,6 +3,21 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.21.0
+
+- **Accueil du téléphone : les comptes comme à la banque.** Le bloc « Comptes » est rangé comme la carte du tableau
+  de bord : comptes courants, épargne, placements et crédits, chaque groupe avec son total ; sous chaque compte,
+  ses cartes à débit différé (ce qui sera prélevé, et quand), ce qu'il restera une fois prélevées, et son alerte
+  de solde bas. Il remplace la liste par titulaire et le bloc à part des encours de carte.
+- **Modèles sur téléphone.** En mode construction, « Partir d'un modèle » propose les quatre modèles du tableau de
+  bord, en une colonne : « Quotidien » ouvre sur les comptes, puis ce qui est disponible, dépensé et attendu ;
+  « Budget » et « Patrimoine » suivent la même idée ; « Vue d'ensemble » rend l'accueil d'origine (elle remplace
+  « Revenir à l'ordre d'origine »). L'accueil garde son propre agencement, sur l'appareil : un modèle choisi sur
+  l'ordinateur se choisit aussi sur le téléphone.
+- Nouveau bloc « Patrimoine net » pour l'accueil : sa valeur, ce qu'il a pris ou perdu en trente jours, sa courbe
+  et les dettes restantes. Il n'apparaît pas tout seul : il se trouve dans « Ajouter » et dans le modèle
+  « Patrimoine ».
+
 ## 1.20.0
 
 - **Accueil du téléphone : mode construction.** « Personnaliser l'accueil » n'ouvre plus une fiche à cases : les

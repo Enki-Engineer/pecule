@@ -1000,3 +1000,18 @@ body {
     animation: none;
   }
 }
+
+/* Tableau de bord en mode construction : pendant qu'on porte une carte, son image suit le pointeur (src/client/dragSort.ts). */
+body.dash-dragging,
+body.dash-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.dash-ghost {
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 2px 4px rgb(20 20 19 / 0.08),
+    0 28px 60px -20px rgb(20 20 19 / 0.45);
+  will-change: transform;
+}

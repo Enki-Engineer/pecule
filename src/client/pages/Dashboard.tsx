@@ -1,22 +1,24 @@
 import { isDiscreet } from "../discret.ts";
-import { LayoutCustomizer, useCardLayout } from "../components/CardLayout.tsx";
+import { AccountsCard } from "../components/AccountsCard.tsx";
+import { AddDrawer, EditBar, EditFrame, EmptySlot, TemplatesDrawer, WidthPicker } from "../components/DashEdit.tsx";
+import { useDashLayout } from "../api-dashboard.ts";
+import { useDragSort } from "../dragSort.ts";
 import { lowAccounts, useBalanceAlert } from "../api-balance.ts";
 import { lowBalanceText } from "../components/LowBalance.tsx";
 import { WeekAhead } from "../components/MonthCalendar.tsx";
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, RefreshCw, SlidersHorizontal, TrendingDown, ShieldCheck, Tags, Wallet } from "lucide-react";
+import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, LayoutDashboard, RefreshCw, TrendingDown, ShieldCheck, Tags, Wallet } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { api, useAccounts, useDemo, useMe, useMonth, useSummary, useSync, useWealth, type Transaction, type WealthCategory } from "../api.ts";
 import { Amount, Card, InfoTip, Spinner } from "../components/ui.tsx";
 import { cn } from "../cn.ts";
-import { currentMonth, dateFr, money, moneyIn, timeAgo, kAxis } from "../format.ts";
+import { currentMonth, dateFr, money, timeAgo, kAxis } from "../format.ts";
 import { monthTotals } from "../../lib/month.ts";
 import { txTitle } from "../../lib/labels.ts";
-import { groupByOwner, OWNER_ORDER, ownerLabel } from "../../lib/labels.ts";
-import { CardOutstandingBlock, useOutstandingTotal } from "../components/CardOutstanding.tsx";
+import { useOutstandingTotal } from "../components/CardOutstanding.tsx";
 import { Welcome } from "../components/Welcome.tsx";
 import { useFlows } from "../api-analysis.ts";
 import { NATURE_LABELS, SPEND_NATURES } from "../../lib/nature.ts";
@@ -29,12 +31,17 @@ import { EnvelopesCard, GoalsCard } from "../components/Planning.tsx";
 import { WeeklySummaryCard } from "../components/WeeklySummary.tsx";
 import { useSeasonGreeting } from "../theme.ts";
 import { FunCard } from "../components/FunCard.tsx";
+import { DASH_CARDS, DASH_KPIS, cardOf, missingCards, missingKpis, moveItem, sameLayout, templateLayout, type DashCardId, type DashKpiId, type DashLayout, type DashWidth } from "../../lib/dashboard.ts";
 import { locale, t, td, tk, tn } from "../../lib/i18n.ts";
 
 /*
- * Tableau de bord (ordinateur) : chiffres clés avec leur source et leur fraîcheur, ce qui demande
- * une action, l'évolution du patrimoine, les dernières opérations et les échéances à venir.
+ * Tableau de bord (ordinateur) : chiffres clés avec leur source et leur fraîcheur, puis des cartes — les comptes,
+ * ce qui demande une action, l'évolution du patrimoine, les dernières opérations, les échéances à venir…
  * Chaque chiffre vient de la même définition que l'écran détaillé (src/server/stats.ts, wealth.ts).
+ *
+ * Le membre arrange l'écran lui-même (src/lib/dashboard.ts) : « Modifier » ouvre le mode construction, où chaque
+ * carte se glisse, change de largeur ou se retire, où l'on ajoute ce qui manque et où l'on repart d'un modèle.
+ * Rien n'est enregistré avant « Terminé » ; l'agencement est gardé par le serveur, par membre.
  */
 
 type Dash = {
@@ -49,24 +56,13 @@ type Dash = {
 const CATEGORY_LABELS: Record<string, string> = { immobilier: t("Immobilier"), crypto: t("Crypto"), placement: t("Placements"), epargne: t("Épargne"), comptes: t("Comptes"), autre: t("Autres") };
 const daysSince = (d: string | null) => (d ? Math.floor((Date.now() - Date.parse(`${d.slice(0, 10)}T12:00:00Z`)) / 86_400_000) : null);
 
-/** Blocs du tableau de bord (sous les chiffres clés), dans leur ordre d'origine. */
-const DASH_CARDS = [
-  { id: "evolution", label: t("Évolution du patrimoine net") },
-  { id: "atraiter", label: t("À traiter") },
-  { id: "semaine", label: t("Les sept prochains jours") },
-  { id: "natures", label: t("Où part l'argent ce mois-ci") },
-  { id: "amusant", label: t("Le chiffre du moment") },
-  { id: "resume", label: t("Résumé de la semaine") },
-  { id: "enveloppes", label: t("Enveloppes du mois") },
-  { id: "objectifs", label: t("Objectifs d'épargne") },
-  { id: "operations", label: t("Dernières opérations") },
-  { id: "echeances", label: t("Prochaines échéances") },
-  { id: "postes", label: t("Dépenses du mois par poste") },
-  { id: "repartition", label: t("Répartition du patrimoine") },
-  { id: "comptes", label: t("Comptes") },
-] as const;
-type DashCardId = (typeof DASH_CARDS)[number]["id"];
-const DASH_IDS = DASH_CARDS.map((c) => c.id);
+/** Place d'une carte dans la grille de douze colonnes ; sur une fenêtre étroite, un tiers devient la moitié et deux tiers toute la largeur. */
+const SPAN: Record<DashWidth, string> = { 4: "col-span-12 md:col-span-6 lg:col-span-4", 6: "col-span-12 md:col-span-6", 8: "col-span-12 lg:col-span-8", 12: "col-span-12" };
+/** Colonnes de la rangée des chiffres clés, selon leur nombre (six : deux rangées de trois, une seule sur très grand écran). */
+const KPI_COLS = ["lg:grid-cols-4", "lg:grid-cols-4", "lg:grid-cols-4", "lg:grid-cols-3", "lg:grid-cols-4", "lg:grid-cols-5", "lg:grid-cols-3 2xl:grid-cols-6", "lg:grid-cols-4", "lg:grid-cols-4"];
+const labelOf = (id: DashCardId) => t(DASH_CARDS.find((c) => c.id === id)!.label);
+const kpiLabel = (id: DashKpiId) => t(DASH_KPIS.find((k) => k.id === id)!.label);
+type KpiProps = Parameters<typeof Kpi>[0];
 
 export function Dashboard() {
   const demo = useDemo();
@@ -83,8 +79,38 @@ export function Dashboard() {
   const outstanding = useOutstandingTotal();
 
   const balance = useBalanceAlert();
-  const [layout, saveLayout] = useCardLayout<DashCardId>("pecule.dashboard.layout", DASH_IDS);
-  const [customizing, setCustomizing] = useState(false);
+  // Mode construction : on arrange un brouillon ; « Terminé » l'enregistre, « Annuler » l'oublie.
+  const { layout: saved, save } = useDashLayout();
+  const [draft, setDraft] = useState<DashLayout | null>(null);
+  const [drawer, setDrawer] = useState<"ajout" | "modeles" | null>(null);
+  const editing = draft !== null;
+  const layout = draft ?? saved;
+  const kpiZone = useRef<HTMLDivElement>(null);
+  const cardZone = useRef<HTMLDivElement>(null);
+  const kpiSort = useDragSort({ ids: layout.kpis, signature: layout.kpis.join("|"), zone: kpiZone, onReorder: (ids) => setDraft((d) => d && { ...d, kpis: ids as DashKpiId[] }) });
+  const cardSort = useDragSort({
+    ids: useMemo(() => layout.cards.map((c) => c.id), [layout.cards]),
+    signature: layout.cards.map((c) => `${c.id}:${c.w}`).join("|"),
+    zone: cardZone,
+    onReorder: (ids) => setDraft((d) => d && { ...d, cards: ids.map((id) => d.cards.find((c) => c.id === id)!) }),
+  });
+  /** Change le brouillon ; les blocs glissent vers leur nouvelle place. */
+  const change = (next: (d: DashLayout) => DashLayout) => {
+    kpiSort.snapshot();
+    cardSort.snapshot();
+    setDraft((d) => d && next(d));
+  };
+  const done = () => {
+    if (draft && !sameLayout(draft, saved)) save(draft);
+    setDraft(null);
+    setDrawer(null);
+  };
+  const cancel = () => {
+    kpiSort.snapshot();
+    cardSort.snapshot();
+    setDraft(null);
+    setDrawer(null);
+  };
   const s = summary.data;
   const w = wealth.data;
   const visible = (accounts.data?.accounts ?? []).filter((a) => !a.hidden && !(a.kind === "carte" && a.balance == null));
@@ -124,12 +150,10 @@ export function Dashboard() {
       (dash.data.cryptoRun.status === "error" || (daysSince(dash.data.cryptoRun.finished_at) ?? 99) > 1) && { icon: Bitcoin, label: t("Crypto : synchro CoinStats en retard ou en échec"), to: "/patrimoine/crypto" },
   ].filter(Boolean) as { icon: typeof Tags; label: string; to: string }[];
 
-  const groups = groupByOwner(visible, OWNER_ORDER);
-
   // Les blocs du tableau de bord, par identifiant : l'ordre et la visibilité viennent du réglage de l'appareil.
   const blocks: Record<DashCardId, ReactNode> = {
     evolution: (
-          <Card className="col-span-12 p-5 lg:col-span-8">
+          <Card className="h-full p-5">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="font-semibold">{t("Évolution du patrimoine net")}</h2>
               <Link to="/patrimoine" className="text-sm text-accent">
@@ -172,7 +196,7 @@ export function Dashboard() {
           </Card>
     ),
     atraiter: (
-          <Card className="col-span-12 p-5 lg:col-span-4">
+          <Card className="h-full p-5">
             <h2 className="mb-3 font-semibold">{t("À traiter")}</h2>
             {todo.length ? (
               <div className="space-y-1">
@@ -193,14 +217,14 @@ export function Dashboard() {
             )}
           </Card>
     ),
-    semaine: <WeekAhead className="col-span-12" />,
+    semaine: <WeekAhead className="h-full" />,
     natures: <MonthNatures />,
-    amusant: <FunCard className="col-span-12" />,
-    resume: <WeeklySummaryCard className="col-span-12" />,
-    enveloppes: <EnvelopesCard className="col-span-12 md:col-span-6 lg:col-span-7" />,
-    objectifs: <GoalsCard className="col-span-12 md:col-span-6 lg:col-span-5" />,
+    amusant: <FunCard className="h-full" />,
+    resume: <WeeklySummaryCard className="h-full" />,
+    enveloppes: <EnvelopesCard className="h-full" />,
+    objectifs: <GoalsCard className="h-full" />,
     operations: (
-          <Card className="col-span-12 lg:col-span-7">
+          <Card className="@container h-full">
             <div className="flex items-center justify-between px-5 pb-2 pt-4">
               <h2 className="font-semibold">{t("Dernières opérations")}</h2>
               <Link to="/operations" className="text-sm text-accent">
@@ -220,7 +244,7 @@ export function Dashboard() {
                   <HoverPreview target={{ kind: "operation", t: tx }} className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-medium">{txTitle(tx)}</span>
                   </HoverPreview>
-                  <span className={cn("hidden w-48 shrink-0 truncate text-sm md:block", tx.category_name ? "text-muted" : "font-medium text-warn")}>{td(tx.category_name ?? tk("À classer"))}</span>
+                  <span className={cn("hidden w-48 shrink-0 truncate text-sm @2xl:block", tx.category_name ? "text-muted" : "font-medium text-warn")}>{td(tx.category_name ?? tk("À classer"))}</span>
                   <Amount value={tx.amount} className="w-28 shrink-0 text-right text-[15px] font-semibold" />
                 </button>
               ))}
@@ -229,7 +253,7 @@ export function Dashboard() {
           </Card>
     ),
     echeances: (
-          <Card className="col-span-12 p-5 lg:col-span-5">
+          <Card className="h-full p-5">
             <h2 className="mb-3 flex items-center gap-2 font-semibold">
               <CalendarClock size={18} className="text-accent" /> {t("Prochaines échéances")}
             </h2>
@@ -252,7 +276,7 @@ export function Dashboard() {
           </Card>
     ),
     postes: (
-          <Card className="col-span-12 p-5 md:col-span-6 lg:col-span-4">
+          <Card className="h-full p-5">
             <h2 className="mb-3 font-semibold">{t("Dépenses du mois par poste")}</h2>
             <div className="space-y-1">
               {postes.map(([poste, total]) => (
@@ -275,7 +299,7 @@ export function Dashboard() {
           </Card>
     ),
     repartition: (
-          <Card className="col-span-12 p-5 md:col-span-6 lg:col-span-4">
+          <Card className="h-full p-5">
             <h2 className="mb-3 font-semibold">{t("Répartition du patrimoine")}</h2>
             <div className="space-y-1">
               {w &&
@@ -301,25 +325,91 @@ export function Dashboard() {
             </div>
           </Card>
     ),
-    comptes: (
-          <Card className="col-span-12 lg:col-span-4">
-            <h2 className="px-5 pb-1 pt-4 font-semibold">{t("Comptes")}</h2>
-            {groups.map((g) => (
-              <div key={g.owner} className="px-5 py-2">
-                <div className="text-[12.5px] font-medium text-muted">{ownerLabel(g.owner)}</div>
-                {g.list.map((a) => (
-                  <Link key={a.id} to={`/operations?compte=${encodeURIComponent(a.id)}`} className="flex items-center justify-between gap-3 py-1 text-sm hover:text-accent">
-                    <span className="min-w-0 truncate">{a.display_name ?? a.name}</span>
-                    <span title={a.balance_original != null ? moneyIn(a.balance_original, a.currency) : undefined}>
-                      <Amount value={a.balance} className="font-medium" />
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            ))}
-            <CardOutstandingBlock />
-          </Card>
-    ),
+    comptes: <AccountsCard className="h-full" />,
+  };
+
+  // Les chiffres clés, par identifiant. Sans encours de carte connu, « Cartes à débit différé » n'a rien à dire :
+  // il ne s'affiche qu'en construction, pour pouvoir être déplacé ou retiré.
+  const kpis: Record<DashKpiId, KpiProps | null> = {
+    patrimoine: {
+      label: kpiLabel("patrimoine"),
+      info: t("Ce que tu possèdes (comptes, épargne, biens, crypto) moins ce que tu dois encore. Les biens et les crédits communs comptent pour ta part."),
+      value: w ? money(w.net, true) : "…",
+      delta: w && net30 != null ? w.net - net30 : null,
+      deltaLabel: t("sur 30 jours"),
+      source: w ? t("cours {quand}", { quand: timeAgo(w.crypto.pricesAt) }) : undefined,
+      to: "/patrimoine",
+    },
+    disponible: {
+      label: kpiLabel("disponible"),
+      value: accounts.data ? money(cash, true) : "…",
+      source: t("comptes courants, hors cartes"),
+      to: "/operations",
+      info: t("Ce qu'il y a sur tes comptes aujourd'hui. Les achats par carte à débit différé pas encore prélevés n'en sont pas déduits."),
+    },
+    differe: outstanding
+      ? {
+          label: kpiLabel("differe"),
+          info: t("Achats déjà faits avec une carte à débit différé : la banque les prélèvera en une fois, à la date indiquée."),
+          value: money(outstanding.total, true),
+          source: [
+            outstanding.debitDate ? t("prélevé le {date}", { date: dateFr(outstanding.debitDate) }) : null,
+            tn("{n} achat", "{n} achats", outstanding.count, { n: outstanding.count }),
+            accounts.data ? t("il restera {montant}", { montant: money(cash + outstanding.total, true) }) : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          to: "/mois?onglet=frise",
+        }
+      : editing
+        ? { label: kpiLabel("differe"), value: "—", source: t("Aucun encours connu pour l'instant"), to: "/mois?onglet=frise" }
+        : null,
+    depense: {
+      label: kpiLabel("depense"),
+      info: t("Dépenses du mois en cours, remboursements déduits. L'étiquette compare au mois dernier, à la même date."),
+      value: s ? money(s.spentThisMonth, true) : "…",
+      delta: s ? s.spentThisMonth - s.spentPrevMonthSameDay : null,
+      deltaLabel: t("vs même date du mois dernier"),
+      invert: true,
+      to: "/mois",
+    },
+    solde: {
+      label: kpiLabel("solde"),
+      tone: totals ? (totals.revenus - totals.depenses >= 0 ? "pos" : "neg") : undefined,
+      info: t("Revenus du mois moins dépenses du mois. Les mouvements entre tes comptes et les versements d'épargne ne comptent pas."),
+      value: totals ? money(totals.revenus - totals.depenses, true) : "…",
+      source: totals ? t("revenus {montant}", { montant: money(totals.revenus, true) }) : undefined,
+      to: "/mois",
+    },
+    revenus: {
+      label: kpiLabel("revenus"),
+      info: t("Ce que tu as reçu ce mois-ci dans tes catégories de revenus. Les mouvements entre tes comptes ne comptent pas."),
+      value: totals ? money(totals.revenus, true) : "…",
+      source: totals ? t("dépenses {montant}", { montant: money(totals.depenses, true) }) : undefined,
+      to: "/mois",
+    },
+    epargne: {
+      label: kpiLabel("epargne"),
+      info: t("Ce que tu as versé ce mois-ci vers ton épargne et tes placements : les opérations de tes catégories d'épargne."),
+      value: totals ? money(totals.epargne, true) : "…",
+      source: totals && totals.revenus > 0 ? t("{n} % des revenus du mois", { n: Math.round((totals.epargne / totals.revenus) * 100) }) : undefined,
+      to: "/mois",
+    },
+    dettes: {
+      label: kpiLabel("dettes"),
+      info: t("Capital qu'il te reste à rembourser sur tes crédits, pour ta part."),
+      value: w ? money(w.debts, true) : "…",
+      source: w ? tn("{n} crédit, ta part", "{n} crédits, ta part", w.loans.length) : undefined,
+      to: "/patrimoine",
+    },
+  };
+  const shownKpis = layout.kpis.filter((id) => kpis[id]);
+  const toAdd = missingCards(layout).length + missingKpis(layout).length;
+
+  const addCard = (id: DashCardId) => {
+    change((d) => ({ ...d, cards: [...d.cards, cardOf(id)] }));
+    // La carte vient de se poser à la fin : on l'amène à l'écran.
+    requestAnimationFrame(() => cardZone.current?.querySelector(`[data-card="${id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }));
   };
 
   return (
@@ -333,63 +423,88 @@ export function Dashboard() {
             {s?.lastSync?.status === "error" && <span className="text-neg"> · {t("erreur")}</span>}
           </div>
         </div>
-        <button type="button" onClick={() => setCustomizing(true)} title={t("Personnaliser le tableau de bord")} aria-label={t("Personnaliser le tableau de bord")} className="press ml-auto grid size-10 place-items-center rounded-full bg-card text-ink shadow-[0_1px_2px_rgb(20_20_19/0.1)]">
-          <SlidersHorizontal size={16} />
-        </button>
-        <button type="button" onClick={refresh} disabled={sync.isPending} className="press flex items-center gap-2 rounded-full bg-card px-4 py-2.5 text-sm font-semibold text-ink shadow-[0_1px_2px_rgb(20_20_19/0.1)]">
+        {!editing && (
+          <button type="button" onClick={() => setDraft(saved)} title={t("Modifier le tableau de bord")} aria-label={t("Modifier le tableau de bord")} className="press ml-auto grid size-10 place-items-center rounded-full bg-card text-ink shadow-[0_1px_2px_rgb(20_20_19/0.1)]">
+            <LayoutDashboard size={16} />
+          </button>
+        )}
+        <button type="button" onClick={refresh} disabled={sync.isPending} className={cn("press flex items-center gap-2 rounded-full bg-card px-4 py-2.5 text-sm font-semibold text-ink shadow-[0_1px_2px_rgb(20_20_19/0.1)]", editing && "ml-auto")}>
           <RefreshCw size={16} className={cn(sync.isPending && "animate-spin")} /> {t("Synchroniser")}
         </button>
       </header>
-      <Welcome />
+      {editing ? <EditBar onTemplates={() => setDrawer("modeles")} onAdd={() => setDrawer("ajout")} addCount={toAdd} onCancel={cancel} onDone={done} /> : <Welcome />}
 
-      {/* Chiffres clés (un de plus quand une carte à débit différé a un encours : ce qui sortira des comptes au prochain relevé). */}
-      <div className={cn("grid grid-cols-2 gap-4", outstanding ? "lg:grid-cols-3 2xl:grid-cols-6" : "lg:grid-cols-5")}>
-        <Kpi
-          label={t("Patrimoine net")}
-          info={t("Ce que tu possèdes (comptes, épargne, biens, crypto) moins ce que tu dois encore. Les biens et les crédits communs comptent pour ta part.")}
-          value={w ? money(w.net, true) : "…"}
-          delta={w && net30 != null ? w.net - net30 : null}
-          deltaLabel={t("sur 30 jours")}
-          source={w ? t("cours {quand}", { quand: timeAgo(w.crypto.pricesAt) }) : undefined}
-          to="/patrimoine"
-        />
-        <Kpi label={t("Disponible")} value={accounts.data ? money(cash, true) : "…"} source={t("comptes courants, hors cartes")} to="/operations" info={t("Ce qu'il y a sur tes comptes aujourd'hui. Les achats par carte à débit différé pas encore prélevés n'en sont pas déduits.")} />
-        {outstanding && (
-          <Kpi
-            label={t("Cartes à débit différé")}
-            info={t("Achats déjà faits avec une carte à débit différé : la banque les prélèvera en une fois, à la date indiquée.")}
-            value={money(outstanding.total, true)}
-            source={[
-              outstanding.debitDate ? t("prélevé le {date}", { date: dateFr(outstanding.debitDate) }) : null,
-              tn("{n} achat", "{n} achats", outstanding.count, { n: outstanding.count }),
-              accounts.data ? t("il restera {montant}", { montant: money(cash + outstanding.total, true) }) : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            to="/mois?onglet=frise"
-          />
-        )}
-        <Kpi
-          label={t("Dépensé ce mois")}
-          info={t("Dépenses du mois en cours, remboursements déduits. L'étiquette compare au mois dernier, à la même date.")}
-          value={s ? money(s.spentThisMonth, true) : "…"}
-          delta={s ? s.spentThisMonth - s.spentPrevMonthSameDay : null}
-          deltaLabel={t("vs même date du mois dernier")}
-          invert
-          to="/mois"
-        />
-        <Kpi label={t("Solde du mois")} tone={totals ? (totals.revenus - totals.depenses >= 0 ? "pos" : "neg") : undefined} info={t("Revenus du mois moins dépenses du mois. Les mouvements entre tes comptes et les versements d'épargne ne comptent pas.")} value={totals ? money(totals.revenus - totals.depenses, true) : "…"} source={totals ? t("revenus {montant}", { montant: money(totals.revenus, true) }) : undefined} to="/mois" />
-        <Kpi label={t("Dettes restantes")} info={t("Capital qu'il te reste à rembourser sur tes crédits, pour ta part.")} value={w ? money(w.debts, true) : "…"} source={w ? tn("{n} crédit, ta part", "{n} crédits, ta part", w.loans.length) : undefined} to="/patrimoine" />
-      </div>
-
-      <div className="grid grid-flow-row-dense grid-cols-12 gap-4">
-        {layout.order
-          .filter((id) => !layout.hidden.includes(id))
-          .map((id) => (
-            <Fragment key={id}>{blocks[id]}</Fragment>
+      {/* Chiffres clés : ceux que le membre a gardés, dans son ordre. */}
+      {shownKpis.length > 0 && (
+        <div ref={kpiZone} className={cn("grid grid-cols-2 gap-4", KPI_COLS[shownKpis.length])}>
+          {shownKpis.map((id, i) => (
+            <div key={id} ref={kpiSort.register(id)} className={cn("relative min-w-0", kpiSort.dragging === id && "opacity-40")}>
+              <div className="h-full" inert={editing}>
+                <Kpi {...kpis[id]!} />
+              </div>
+              {editing && (
+                <EditFrame
+                  id={id}
+                  label={kpiLabel(id)}
+                  sort={kpiSort}
+                  first={i === 0}
+                  last={i === shownKpis.length - 1}
+                  onNudge={(d) => change((l) => ({ ...l, kpis: moveItem(l.kpis, l.kpis.indexOf(id), l.kpis.indexOf(shownKpis[i + d])) }))}
+                  onRemove={() => change((l) => ({ ...l, kpis: l.kpis.filter((k) => k !== id) }))}
+                />
+              )}
+            </div>
           ))}
+        </div>
+      )}
+
+      <div ref={cardZone} className="grid grid-cols-12 gap-4">
+        {layout.cards.map((c, i) => (
+          <div key={c.id} ref={cardSort.register(c.id)} data-card={c.id} className={cn(SPAN[c.w], "relative min-w-0", !editing && "has-[>.dash-body:empty]:hidden", cardSort.dragging === c.id && "opacity-40")}>
+            <div className="dash-body h-full empty:hidden" inert={editing}>
+              {blocks[c.id]}
+            </div>
+            {editing && (
+              <>
+                <EmptySlot label={labelOf(c.id)} />
+                <EditFrame
+                  id={c.id}
+                  label={labelOf(c.id)}
+                  sort={cardSort}
+                  first={i === 0}
+                  last={i === layout.cards.length - 1}
+                  onNudge={(d) => change((l) => ({ ...l, cards: moveItem(l.cards, i, i + d) }))}
+                  onRemove={() => change((l) => ({ ...l, cards: l.cards.filter((x) => x.id !== c.id) }))}
+                >
+                  <WidthPicker id={c.id} value={c.w} onChange={(wd) => change((l) => ({ ...l, cards: l.cards.map((x) => (x.id === c.id ? { ...x, w: wd } : x)) }))} />
+                </EditFrame>
+              </>
+            )}
+          </div>
+        ))}
       </div>
-      {customizing && <LayoutCustomizer title={t("Personnaliser le tableau de bord")} cards={DASH_CARDS} layout={layout} onChange={saveLayout} onClose={() => setCustomizing(false)} />}
+      {!layout.cards.length && !shownKpis.length && (
+        <Card className="p-8 text-center">
+          <div className="font-semibold">{t("Ton tableau de bord est vide.")}</div>
+          <div className="mt-1 text-sm text-muted">{editing ? t("Ajoute une carte, ou pars d'un modèle.") : t("Ajoute des cartes ou pars d'un modèle pour le remplir.")}</div>
+          {!editing && (
+            <button type="button" onClick={() => setDraft(saved)} className="press mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-card">
+              <LayoutDashboard size={16} /> {t("Modifier le tableau de bord")}
+            </button>
+          )}
+        </Card>
+      )}
+      {draft && drawer === "ajout" && <AddDrawer layout={draft} onAddKpi={(id) => change((l) => ({ ...l, kpis: [...l.kpis, id] }))} onAddCard={addCard} onClose={() => setDrawer(null)} />}
+      {draft && drawer === "modeles" && (
+        <TemplatesDrawer
+          layout={draft}
+          onApply={(id) => {
+            change(() => templateLayout(id));
+            setDrawer(null);
+          }}
+          onClose={() => setDrawer(null)}
+        />
+      )}
     </div>
   );
 }
@@ -397,7 +512,7 @@ export function Dashboard() {
 function Kpi({ label, value, delta, deltaLabel, invert, source, to, info, tone }: { label: string; value: string; delta?: number | null; deltaLabel?: string; invert?: boolean; source?: string; to: string; info?: string; tone?: "pos" | "neg" }) {
   const good = delta == null ? null : invert ? delta <= 0 : delta >= 0;
   return (
-    <Link to={to} className="press card @container block p-4 transition-shadow 2xl:p-5 hover:shadow-[0_1px_1px_rgb(20_20_19/0.04),0_16px_32px_-18px_rgb(20_20_19/0.28)]">
+    <Link to={to} className="press card @container block h-full p-4 transition-shadow 2xl:p-5 hover:shadow-[0_1px_1px_rgb(20_20_19/0.04),0_16px_32px_-18px_rgb(20_20_19/0.28)]">
       <div className="flex items-center gap-1.5 text-[14px] text-muted @[150px]:text-[15px]">
         <span className="min-w-0 truncate">{label}</span>
         {info && <InfoTip text={info} />}
@@ -429,7 +544,7 @@ function MonthNatures() {
   }, [f]);
   const total = parts.reduce((s, p) => s + p.total, 0);
   return (
-    <Card className="col-span-12 p-5">
+    <Card className="h-full p-5">
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="font-semibold">{t("Où part l'argent ce mois-ci")}</h2>
         <Link to="/mois?onglet=flux" viewTransition className="text-sm text-accent">

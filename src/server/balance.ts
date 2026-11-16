@@ -113,9 +113,35 @@ export async function balanceForecast(userId: number, horizon = MAX_BALANCE_DAYS
 }
 
 /**
- * Prélèvements à venir des cartes à débit différé, chacun sur le compte qui a reçu le dernier relevé de cette carte
- * (son libellé porte les derniers chiffres de la carte). Sans relevé passé pour désigner le compte, l'encours n'est
- * pas compté : mieux vaut une prévision qui ne dit rien qu'une prévision sur le mauvais compte.
+ * Le compte sur lequel chaque carte à débit différé est prélevée : celui qui a reçu le dernier relevé de cette carte
+ * (son libellé porte les derniers chiffres de la carte). Une carte sans relevé passé n'a pas de compte désigné.
+ */
+export async function cardDebitAccounts(A: string, today: string, cards: { accountId: string; tail: string | null }[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!cards.some((c) => c.tail)) return out;
+  const statements = await q<{ account_id: string; label: string }>(
+    `SELECT t.account_id, t.label FROM transactions t JOIN ${A} a ON a.id = t.account_id
+     WHERE a.kind <> 'carte' AND t.amount < 0 AND t.label LIKE 'relev%' AND t.date >= DATE_SUB(?, INTERVAL 4 MONTH) ORDER BY t.date DESC`,
+    [today],
+  );
+  for (const c of cards) {
+    const target = c.tail ? statements.find((s) => CARD_STATEMENT.test(s.label) && s.label.includes(c.tail!)) : undefined;
+    if (target) out.set(c.accountId, target.account_id);
+  }
+  return out;
+}
+
+/** Encours des cartes à débit différé du membre, chacune avec le compte qui sera prélevé (tableau de bord, accueil). */
+export async function cardsWithAccounts(userId: number) {
+  const cards = await ebCards();
+  const targets = await cardDebitAccounts(userAccountsSql(userId), householdDay(), cards);
+  return cards.map((c) => ({ ...c, debitAccountId: targets.get(c.accountId) ?? null }));
+}
+
+/**
+ * Prélèvements à venir des cartes à débit différé, chacun sur le compte qui a reçu le dernier relevé de cette carte.
+ * Sans relevé passé pour désigner le compte, l'encours n'est pas compté : mieux vaut une prévision qui ne dit rien
+ * qu'une prévision sur le mauvais compte.
  */
 async function cardDebits(A: string, today: string, horizon: number): Promise<{ accountId: string; movement: Movement }[]> {
   // L'encours des cartes vient de la banque reliée du foyer : rien de tel en mode démo.
@@ -123,15 +149,8 @@ async function cardDebits(A: string, today: string, horizon: number): Promise<{ 
   const mine = new Set((await q<{ id: string }>(`SELECT a.id FROM ${A} a WHERE a.kind = 'carte'`)).map((r) => r.id));
   const cards = (await ebCards()).filter((c) => mine.has(c.accountId) && c.outstanding.amount < 0 && c.outstanding.debitDate && c.outstanding.debitDate >= today && c.outstanding.debitDate <= addDays(today, horizon));
   if (!cards.length) return [];
-  const statements = await q<{ account_id: string; label: string }>(
-    `SELECT t.account_id, t.label FROM transactions t JOIN ${A} a ON a.id = t.account_id
-     WHERE a.kind <> 'carte' AND t.amount < 0 AND t.label LIKE 'relev%' AND t.date >= DATE_SUB(?, INTERVAL 4 MONTH) ORDER BY t.date DESC`,
-    [today],
-  );
-  const out: { accountId: string; movement: Movement }[] = [];
-  for (const c of cards) {
-    const target = c.tail ? statements.find((s) => CARD_STATEMENT.test(s.label) && s.label.includes(c.tail!)) : undefined;
-    if (target) out.push({ accountId: target.account_id, movement: { date: c.outstanding.debitDate!, amount: c.outstanding.amount, name: t("Relevé de la carte {nom}", { nom: c.name }), source: "carte" } });
-  }
-  return out;
+  const targets = await cardDebitAccounts(A, today, cards);
+  return cards
+    .filter((c) => targets.has(c.accountId))
+    .map((c) => ({ accountId: targets.get(c.accountId)!, movement: { date: c.outstanding.debitDate!, amount: c.outstanding.amount, name: t("Relevé de la carte {nom}", { nom: c.name }), source: "carte" as const } }));
 }

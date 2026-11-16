@@ -3,6 +3,27 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.19.0
+
+- **Tableau de bord : mode construction** (ordinateur). Le bouton rond à côté de « Synchroniser » ouvre un mode où
+  l'écran s'arrange directement : on saisit une carte et on la glisse où l'on veut (les autres s'écartent, la page
+  défile près des bords, Échap la remet en place), on règle sa largeur — un tiers, la moitié, deux tiers, toute la
+  largeur —, on la retire d'une croix, et « Ajouter » liste ce qui n'est pas à l'écran. Les chiffres clés du haut se
+  déplacent, se retirent et s'ajoutent de la même façon ; deux nouveaux : « Revenus du mois » et « Mis de côté ce
+  mois ». Rien n'est enregistré avant « Terminé », « Annuler » rend le tableau de bord d'avant. Tout se fait aussi
+  au clavier.
+- **Quatre modèles**, depuis le mode construction : « Vue d'ensemble » (l'agencement d'origine), « Quotidien »
+  (combien j'ai, là, maintenant ?), « Budget » (est-ce que je tiens mon mois ?) et « Patrimoine » (où je vais ?). Un
+  modèle est un point de départ : il remplace l'agencement, qui se modifie ensuite librement. L'assistant sait en
+  appliquer un (« mets-moi le tableau de bord Quotidien »).
+- **Carte « Comptes » façon banque** : comptes courants, épargne, placements et crédits, un total par groupe ; sous
+  chaque compte, ses cartes à débit différé (ce qui sera prélevé, et quand) et ce qu'il restera une fois prélevées ;
+  une étiquette signale le compte qui passerait sous son seuil et mène à sa prévision. Les comptes hors statistiques
+  sont à part. La carte s'étale sur deux ou trois colonnes quand on l'élargit.
+- L'agencement du tableau de bord est désormais gardé par Pécule, par membre : on le retrouve sur tous ses
+  ordinateurs. Celui que le navigateur gardait (ordre et blocs masqués) est repris tel quel au premier passage.
+  L'accueil du téléphone garde son réglage actuel.
+
 ## 1.18.0
 
 - **Opérations : l'année d'un coup d'œil** (ordinateur). Tous les mois de l'année ont leur bandeau dès l'ouverture,

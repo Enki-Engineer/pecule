@@ -5,7 +5,8 @@ import { Card } from "./ui.tsx";
 import { dateFr, money } from "../format.ts";
 import { t, tn } from "../../lib/i18n.ts";
 
-type CardRow = { accountId: string; name: string; tail: string | null; outstanding: { amount: number; debitDate: string | null; count: number } };
+/** `debitAccountId` : le compte qui sera prélevé, quand un relevé passé de la carte le désigne. */
+type CardRow = { accountId: string; name: string; tail: string | null; debitAccountId?: string | null; outstanding: { amount: number; debitDate: string | null; count: number } };
 
 /** Encours des cartes à débit différé (lu par la connexion bancaire) : ce qui sera prélevé à la prochaine échéance. */
 export const useCardOutstanding = () => {

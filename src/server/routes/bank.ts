@@ -10,6 +10,7 @@ import { isDemo } from "../demo-context.ts";
 import { listMembers } from "../members.ts";
 import { ebAdopt, ebBanks, ebCards, ebCompare, ebForget, ebRemoveSession, ebSaveKey, ebStartAuth, ebStatus } from "../enable-banking.ts";
 import { readEnableBankingNow } from "../bank-sync.ts";
+import { cardsWithAccounts } from "../balance.ts";
 import { CURRENCIES } from "../../lib/currencies.ts";
 import { addManualTransaction, createManualAccount, deleteManualTransaction, importBankFile, setManualBalance } from "../bank-files.ts";
 import { logAudit } from "../journal.ts";
@@ -47,8 +48,8 @@ bankApi.get("/bank/enable-banking", member, async (req, res) => {
 });
 
 /** Encours des cartes à débit différé, tel que lu à la dernière synchronisation (accueil, tableau de bord). */
-bankApi.get("/bank/cards", member, async (_req, res) => {
-  res.json({ cards: await ebCards() });
+bankApi.get("/bank/cards", member, async (req, res) => {
+  res.json({ cards: await cardsWithAccounts(req.user!.id) });
 });
 
 /** Période d'observation : chaque compte lu, face au compte en service qui porte les mêmes opérations. */

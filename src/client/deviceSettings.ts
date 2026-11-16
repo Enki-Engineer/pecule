@@ -27,5 +27,6 @@ export function applyEffects(effects: ClientEffect[] | undefined, qc: QueryClien
     if (e.device) applyDeviceSettings(e.device);
     // Langue, écrans affichés, jour retenu : ils arrivent avec l'identité du membre (une nouvelle langue recharge l'appli).
     if (e.refreshMember) void qc.invalidateQueries({ queryKey: ["me"] });
+    if (e.refreshDashboard) void qc.invalidateQueries({ queryKey: ["dash-layout"] });
   }
 }

@@ -31,9 +31,10 @@ export type DeviceSettings = {
 
 /**
  * Ce que l'écran fait quand une action de l'assistant vient d'être confirmée : appliquer des réglages de l'appareil,
- * ou relire l'identité du membre (sa langue, les écrans affichés, le jour retenu pour les opérations en dépendent).
+ * relire l'identité du membre (sa langue, les écrans affichés, le jour retenu pour les opérations en dépendent),
+ * ou relire l'agencement de son tableau de bord.
  */
-export type ClientEffect = { device?: DeviceSettings; refreshMember?: boolean };
+export type ClientEffect = { device?: DeviceSettings; refreshMember?: boolean; /** L'agencement du tableau de bord vient de changer : l'écran le relit. */ refreshDashboard?: boolean };
 
 export const THEME_LABELS: Record<ThemePref, string> = { auto: tk("Auto"), clair: tk("Clair"), sombre: tk("Sombre") };
 export const DENSITY_LABELS: Record<Density, string> = { aeree: tk("Aérée"), compacte: tk("Compacte") };

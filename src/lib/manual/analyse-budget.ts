@@ -11,19 +11,20 @@ export const analyseBudget: ManualTheme = {
       title: tk("L'accueil et le tableau de bord"),
       summary: tk("L'essentiel d'un coup d'œil : ce que tu as, ce que tu as dépensé, ce qui t'attend."),
       body: [
-        tk("Sur ordinateur, le tableau de bord commence par six chiffres : [[Patrimoine net]], [[Disponible]], [[Cartes à débit différé]] quand un encours est connu, [[Dépensé ce mois]], [[Solde du mois]] et [[Dettes restantes]]. Chacun mène à son écran, et sa pastille « i » dit comment il est calculé."),
+        tk("Sur ordinateur, le tableau de bord commence par des chiffres clés : [[Patrimoine net]], [[Disponible]], [[Cartes à débit différé]] quand un encours est connu, [[Dépensé ce mois]], [[Solde du mois]] et [[Dettes restantes]] ; [[Revenus du mois]] et [[Mis de côté ce mois]] s'y ajoutent si tu le veux. Chacun mène à son écran, et sa pastille « i » dit comment il est calculé."),
         {
           list: [
             tk("[[À traiter]] réunit ce qui demande ton attention : comptes bientôt sous leur seuil, opérations à classer, factures sans paiement retrouvé, tâches en retard, alertes techniques."),
             tk("[[Les sept prochains jours]] montre les mouvements attendus, jour par jour."),
-            tk("Les autres blocs : évolution du patrimoine, répartition des dépenses du mois, enveloppes, objectifs, dernières opérations, prochaines échéances, comptes."),
+            tk("[[Comptes]] range les comptes comme l'appli d'une banque : les comptes courants, l'épargne, les placements et les crédits, chaque groupe avec son total. Sous un compte, ses cartes à débit différé — ce qui sera prélevé, et quand — puis [[Après les cartes]], ce qu'il restera ; une étiquette signale un compte qui passerait sous son seuil et mène à sa prévision. Les comptes sortis de tes statistiques sont à part, sous [[Hors statistiques]]. Plus la carte est large, plus elle s'étale en colonnes."),
+            tk("Les autres cartes : évolution du patrimoine, répartition du patrimoine, où part l'argent, dépenses par poste, enveloppes, objectifs, dernières opérations, prochaines échéances, résumé de la semaine."),
           ],
         },
         tk("Sur téléphone, l'accueil reprend l'essentiel en cartes : [[Disponible sur les comptes]], [[Dépensé ce mois-ci]], [[Les sept prochains jours]], les opérations à classer, les enveloppes, les objectifs, les échéances et les comptes."),
-        { tip: tk("Les blocs se masquent et se déplacent : voir [Personnaliser l'accueil et le tableau de bord](/manuel/personnaliser-accueil).") },
+        { tip: tk("Le tableau de bord s'arrange à ta main — cartes à déplacer, à élargir, à retirer, modèles « Quotidien », « Budget » et « Patrimoine » : voir [Personnaliser l'accueil et le tableau de bord](/manuel/personnaliser-accueil).") },
       ],
       links: [{ to: "/", label: ["Tableau de bord"] }],
-      words: tk("accueil dashboard synthèse résumé chiffres clés à traiter vue d'ensemble"),
+      words: tk("accueil dashboard synthèse résumé chiffres clés à traiter vue d'ensemble comptes soldes banque"),
     },
     {
       id: "definitions-chiffres",

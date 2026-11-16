@@ -10,6 +10,8 @@ import { dateBasis, setDateBasis } from "../stat-dates.ts";
 import { aiEnabled } from "../ai.ts";
 import { MAX_BUDGET, aiBudget, saveAiBudget } from "../ai-cost.ts";
 import { usageReport } from "../ai-usage.ts";
+import { dashLayout, saveDashLayout } from "../dashboard.ts";
+import { DASH_CARDS, DASH_KPIS, DASH_TEMPLATES, DASH_TEMPLATE_IDS, defaultLayout, templateLayout, templateOf } from "../../lib/dashboard.ts";
 import { kick as kickImports } from "../imports/batches.ts";
 import { ACCENTS } from "../../lib/seasons.ts";
 import { ACCENT_IDS, DENSITIES, DENSITY_LABELS, SEASON_MODES, SEASON_MODE_LABELS, THEME_LABELS, THEME_PREFS } from "../../lib/device-settings.ts";
@@ -79,16 +81,26 @@ const getSettings = readTool({
   name: "get_settings",
   progress: tk("Lecture des réglages…"),
   description:
-    "Réglages de Pécule que tu peux lire : ceux du membre (langue, équivalences amusantes, s'il est administrateur) et ceux du foyer (pays, devise, fuseau horaire, jour retenu pour les achats par carte, écrans facultatifs affichés ou retirés, personnes sans connexion, banques professionnelles), avec l'adresse de l'écran où chacun se règle. " +
+    "Réglages de Pécule que tu peux lire : ceux du membre (langue, équivalences amusantes, agencement de son tableau de bord, s'il est administrateur) et ceux du foyer (pays, devise, fuseau horaire, jour retenu pour les achats par carte, écrans facultatifs affichés ou retirés, personnes sans connexion, banques professionnelles), avec l'adresse de l'écran où chacun se règle. " +
     "Les réglages gardés par l'appareil (clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée, notifications) ne se lisent pas d'ici. Alerte de solde bas : get_balance_alert ; comptes masqués ou hors statistiques : list_accounts.",
   input: z.object({}),
   async run({ userId }) {
-    const [household, basis, lang, fun, admin, budget] = await Promise.all([householdSettings(), dateBasis(), memberLang(userId), funEnabled(userId), isAdmin(userId), aiBudget()]);
+    const [household, basis, lang, fun, admin, budget, dash] = await Promise.all([householdSettings(), dateBasis(), memberLang(userId), funEnabled(userId), isAdmin(userId), aiBudget(), dashLayout(userId)]);
+    const layout = dash ?? defaultLayout();
     return {
       member: {
         administrator: admin,
         language: { value: lang, name: langInfo(lang).label, choices: LANGS.map((l) => l.id), where: "/reglages/apparence", change_with: "update_settings" },
         fun_equivalences: { value: fun, where: "/reglages/apparence", change_with: "update_settings" },
+        // Tableau de bord de l'ordinateur ; l'accueil du téléphone a son propre réglage, gardé par l'appareil.
+        dashboard: {
+          template: templateOf(layout) ?? "personnalisé",
+          key_figures: layout.kpis.map((id) => tr(DASH_KPIS.find((k) => k.id === id)!.label)),
+          cards: layout.cards.map((c) => tr(DASH_CARDS.find((x) => x.id === c.id)!.label)),
+          templates: DASH_TEMPLATES.map((m) => ({ id: m.id, name: tr(m.label), for: m.hint })),
+          where: "/",
+          change_with: "update_settings (dashboard_template : repartir d'un modèle) ; déplacer, élargir, ajouter ou retirer une carte se fait à l'écran, bouton « Modifier le tableau de bord »",
+        },
       },
       household: {
         country: { value: household.country, where: "/reglages/foyer", change_with: "écran seulement (administrateur)" },
@@ -155,13 +167,14 @@ const screens = z.array(z.enum(MODULES)).max(MODULES.length);
 const updateSettings = writeTool({
   name: "update_settings",
   description:
-    "Change un réglage gardé par Pécule, à la demande de l'utilisateur. Pour lui : `language` (fr, en, de, it, es : la langue de l'appli sur tous ses appareils, réponses de l'assistant et voix comprises ; l'écran se recharge) et `fun_equivalences` (équivalences amusantes). " +
+    "Change un réglage gardé par Pécule, à la demande de l'utilisateur. Pour lui : `language` (fr, en, de, it, es : la langue de l'appli sur tous ses appareils, réponses de l'assistant et voix comprises ; l'écran se recharge) `fun_equivalences` (équivalences amusantes) et `dashboard_template` (repartir d'un modèle pour son tableau de bord d'ordinateur : ensemble, quotidien, budget ou patrimoine — son agencement actuel est remplacé ; get_settings décrit chaque modèle). " +
     "Pour tout le foyer, administrateur seulement : `card_purchase_day` (« achat » : un achat par carte compte au jour de l'achat ; « debit » : au jour où la banque le prélève — tous les chiffres datés du foyer changent de jour ; libre en mode démo), `show_screens` et `hide_screens` (écrans facultatifs : immobilier, crypto, projections, revenus, impots, retraite ; retirer un écran ne supprime aucune donnée). " +
     "Coût de l'IA, administrateur seulement, indisponible en mode démo : `ai_monthly_budget` (plafond de dépense du mois, en euros ; null pour le retirer — à 80 % puis au plafond, l'administrateur est prévenu par une notification) et `ai_pause_background` (une fois le plafond atteint, mettre en pause les lectures de fond : imports de dossier et traduction des noms ; l'assistant et les fichiers déposés un à un répondent toujours). " +
     "Ne donner que ce qui change. Lire d'abord get_settings pour connaître la valeur actuelle.",
   input: z.object({
     language: z.enum(LANG_IDS).optional(),
     fun_equivalences: z.boolean().optional(),
+    dashboard_template: z.enum(DASH_TEMPLATE_IDS).optional(),
     card_purchase_day: z.enum(["achat", "debit"]).optional(),
     show_screens: screens.optional(),
     hide_screens: screens.optional(),
@@ -172,6 +185,15 @@ const updateSettings = writeTool({
     const details: string[] = [];
     if (i.language) details.push(change(tr("Langue"), langInfo(await memberLang(userId)).label, langInfo(i.language).label), tr("L'appli se recharge dans la nouvelle langue."));
     if (i.fun_equivalences !== undefined) details.push(field(tr("Équivalences amusantes"), i.fun_equivalences ? tr("activées") : tr("désactivées")));
+    if (i.dashboard_template) {
+      const m = DASH_TEMPLATES.find((x) => x.id === i.dashboard_template)!;
+      const now = templateOf((await dashLayout(userId)) ?? defaultLayout());
+      details.push(
+        change(tr("Tableau de bord"), now ? tr(DASH_TEMPLATES.find((x) => x.id === now)!.label) : tr("Agencement personnalisé"), tr(m.label)),
+        field(tr("Cartes"), templateLayout(m.id).cards.map((c) => tr(DASH_CARDS.find((x) => x.id === c.id)!.label)).join(", ")),
+        tr("Ton agencement actuel est remplacé ; tu le modifies ensuite à l'écran."),
+      );
+    }
     const household = i.card_purchase_day || i.show_screens?.length || i.hide_screens?.length;
     const admin = household ? await isAdmin(userId) : false;
     if (i.card_purchase_day) {
@@ -196,12 +218,13 @@ const updateSettings = writeTool({
       if (i.ai_pause_background !== undefined)
         details.push(i.ai_pause_background ? tr("Plafond atteint : les imports de dossier et la traduction des noms attendent.") : tr("Plafond atteint : rien n'est mis en pause, tu es seulement prévenu."));
     }
-    if (!details.length) throw new ToolError("Rien à changer : donner language, fun_equivalences, card_purchase_day, show_screens, hide_screens, ai_monthly_budget ou ai_pause_background");
+    if (!details.length) throw new ToolError("Rien à changer : donner language, fun_equivalences, dashboard_template, card_purchase_day, show_screens, hide_screens, ai_monthly_budget ou ai_pause_background");
     return { label: tr("Modifier les réglages"), details };
   },
   async run({ userId }, i) {
     if (i.language) await setMemberLang(userId, i.language);
     if (i.fun_equivalences !== undefined) await setFunEnabled(userId, i.fun_equivalences);
+    if (i.dashboard_template) await saveDashLayout(userId, templateLayout(i.dashboard_template));
     if (i.card_purchase_day) await setDateBasis(i.card_purchase_day);
     if (i.show_screens?.length || i.hide_screens?.length) {
       const off = new Set<ModuleId>((await householdSettings()).modulesOff);
@@ -217,7 +240,10 @@ const updateSettings = writeTool({
     return "Fait : réglages enregistrés." + (i.language ? " L'écran de l'utilisateur se recharge dans la nouvelle langue : réponds désormais dans cette langue." : "");
   },
   // La langue, les écrans affichés et le jour retenu arrivent à l'écran avec l'identité du membre : elle est relue.
-  effect: (i) => (i.language || i.card_purchase_day || i.show_screens?.length || i.hide_screens?.length ? { refreshMember: true } : undefined),
+  effect: (i) => {
+    const member = !!(i.language || i.card_purchase_day || i.show_screens?.length || i.hide_screens?.length);
+    return member || i.dashboard_template ? { ...(member ? { refreshMember: true } : {}), ...(i.dashboard_template ? { refreshDashboard: true } : {}) } : undefined;
+  },
 });
 
 const updateAccount = writeTool({

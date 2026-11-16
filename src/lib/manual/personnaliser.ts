@@ -94,19 +94,34 @@ export const personnaliser: ManualTheme = {
     {
       id: "personnaliser-accueil",
       title: tk("Personnaliser l'accueil et le tableau de bord"),
-      summary: tk("Afficher, masquer et déplacer les blocs."),
+      summary: tk("Déplacer les cartes, régler leur largeur, en ajouter, en retirer, ou repartir d'un modèle."),
       body: [
+        tk("Sur ordinateur, le tableau de bord s'arrange directement à l'écran. Le bouton rond à côté de [[Synchroniser]], [[Modifier le tableau de bord]], ouvre le [[Mode construction]] : chaque carte et chaque chiffre clé prend un cadre en pointillés et une petite barrette."),
         {
           list: [
-            tk("Sur téléphone : [[Personnaliser l'accueil]], tout en bas de l'accueil."),
-            tk("Sur ordinateur : le bouton rond à côté de [[Synchroniser]], en haut du tableau de bord."),
+            tk("Déplacer : saisis une carte n'importe où et glisse-la ; les autres s'écartent à mesure. Près du haut ou du bas de la fenêtre, la page défile. La touche Échap pendant le geste la remet où elle était."),
+            tk("Régler la largeur : les quatre petits dessins de la barrette — [[Un tiers]], [[La moitié]], [[Deux tiers]], [[Toute la largeur]]. Certaines cartes ont besoin de place et n'en proposent que deux ou trois."),
+            tk("Retirer : la croix de la barrette. Rien n'est supprimé, la carte attend dans [[Ajouter]]."),
+            tk("Ajouter : [[Ajouter]] liste les chiffres clés et les cartes absents ; un clic pose l'élément à la fin, à glisser ensuite où tu veux."),
+            tk("Au clavier : la poignée de la barrette déplace la carte avec les flèches, et les boutons [[Placer avant]] et [[Placer après]] font de même."),
           ],
         },
-        tk("Dans la fiche, coche un bloc pour l'afficher, et utilise les flèches pour le monter ou le descendre. [[Revenir à l'ordre d'origine]] remet tout en place."),
-        tk("Le réglage est mémorisé sur l'appareil ; l'accueil du téléphone et le tableau de bord ont chacun le leur. Sur le tableau de bord, les chiffres clés restent en tête."),
+        tk("Rien n'est enregistré avant [[Terminé]] ; [[Annuler]] rend le tableau de bord d'avant. Pendant la construction, les cartes ne réagissent pas aux clics : on ne risque pas d'ouvrir un écran en voulant les déplacer."),
+        tk("Les modèles : [[Modèles]], dans la barre du mode construction, propose quatre points de départ. En choisir un remplace l'agencement en cours ; tu le modifies ensuite librement."),
+        {
+          list: [
+            tk("[[Vue d'ensemble]] : un peu de tout, l'agencement d'origine."),
+            tk("[[Quotidien]] : combien j'ai, là, maintenant ? La carte [[Comptes]] en tête, comme l'appli d'une banque, puis ce qui est à traiter, les sept prochains jours, les dernières opérations et les échéances."),
+            tk("[[Budget##modèle]] : est-ce que je tiens mon mois ? Où part l'argent, les enveloppes, les dépenses par poste, le résumé de la semaine."),
+            tk("[[Patrimoine##modèle]] : où je vais ? L'évolution du patrimoine net, sa répartition, les comptes et les crédits, les objectifs d'épargne."),
+          ],
+        },
+        { tip: tk("Tu peux aussi le demander à l'assistant : « mets-moi le tableau de bord Quotidien ». Il applique le modèle après ta confirmation.") },
+        tk("L'agencement du tableau de bord est gardé par Pécule, pour toi seul : tu le retrouves sur tous tes ordinateurs, et chaque membre du foyer a le sien."),
+        tk("Sur téléphone, l'accueil a son propre réglage : [[Personnaliser l'accueil]], tout en bas de l'accueil, ouvre une fiche : coche un bloc pour l'afficher, et utilise les flèches pour le monter ou le descendre. [[Revenir à l'ordre d'origine]] remet tout en place. Ce réglage est mémorisé sur l'appareil."),
       ],
       links: [{ to: "/", label: ["Tableau de bord"] }],
-      words: tk("blocs cartes widgets réorganiser déplacer masquer ordre disposition page d'accueil"),
+      words: tk("blocs cartes widgets réorganiser déplacer glisser masquer retirer ajouter ordre disposition agencement largeur modèle template mode construction modifier page d'accueil"),
     },
     {
       id: "notifications",

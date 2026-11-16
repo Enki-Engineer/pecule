@@ -27,6 +27,8 @@ import { ADMIN_NOTIF_TYPES, NOTIF_TYPES, getSubscription, notify, recentNotifica
 import { deleteEnvelope, deleteGoal, envelopeCandidates, listEnvelopes, listGoals, saveEnvelope, saveGoal } from "../planning.ts";
 import { recordAlert } from "../journal.ts";
 import { agenda } from "../agenda.ts";
+import { dashLayout, saveDashLayout } from "../dashboard.ts";
+import { cleanLayout } from "../../lib/dashboard.ts";
 import { searchDocuments } from "../documents.ts";
 import { day } from "../tools/registry.ts";
 import { coloredPostes, comparePeriods, comparisonSpan, forecast, listMonths, monthDebits, monthFlows, monthlyTrend, monthMerchants, monthTimeline, natureTrend, yearDebits } from "../flows.ts";
@@ -1270,6 +1272,17 @@ api.get("/nav-counts", async (req, res) => {
 });
 
 /* ---------- Tableau de bord : à traiter et échéances ---------- */
+
+// Agencement du tableau de bord du membre : `null` tant qu'il n'a rien arrangé (l'écran montre la vue d'ensemble).
+api.get("/dashboard/layout", async (req, res) => {
+  res.json({ layout: await dashLayout(req.user!.id) });
+});
+
+api.put("/dashboard/layout", async (req, res) => {
+  const layout = cleanLayout((req.body as { layout?: unknown } | undefined)?.layout);
+  if (!layout) throw new ActionError(400, tr("Agencement illisible"));
+  res.json({ layout: await saveDashLayout(req.user!.id, layout) });
+});
 
 api.get("/dashboard", async (req, res) => {
   const uid = req.user!.id;

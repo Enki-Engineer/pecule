@@ -69,6 +69,11 @@ const aiEur = (n: number) => new Intl.NumberFormat(locale(), { style: "currency"
 let vapid: { publicKey: string; privateKey: string } | null = null;
 const vapidSealer = createSealer(sealingSecret);
 
+/** La base vient d'être remplacée (restauration) : les clés gardées en mémoire ne sont plus les siennes. */
+export function forgetVapidKeys() {
+  vapid = null;
+}
+
 export async function vapidKeys() {
   if (vapid) return vapid;
   // La clé privée est gardée chiffrée (une copie de la base ne permet pas d'envoyer des notifications au nom de l'instance).

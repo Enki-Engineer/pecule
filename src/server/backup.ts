@@ -59,12 +59,13 @@ type Row = RowDataPacket;
 const rows = async <T = Row>(conn: Connection, sql: string, values: unknown[] = []): Promise<T[]> => (await conn.query<Row[]>(sql, values))[0] as T[];
 
 /**
- * Écrit l'archive dans `out` (sans le fermer) et renvoie son manifeste et sa taille. Toutes les lectures se font
+ * Écrit l'archive dans `out` (sans le fermer) et renvoie son manifeste et sa taille. `origine` : le nom d'hôte de
+ * l'installation, noté dans le manifeste (les clés d'accès y sont liées). Toutes les lectures se font
  * dans une même transaction en lecture cohérente : l'archive est l'état de la base à un instant,
  * même si une synchro ou un classement passe pendant ce temps. Mémoire bornée : les tables sont
  * lues par pages, les fichiers un par un, et l'écriture attend le destinataire.
  */
-export async function writeBackup(conn: Connection, out: Writable, opts: { now?: Date } = {}): Promise<{ manifest: BackupManifest; octets: number }> {
+export async function writeBackup(conn: Connection, out: Writable, opts: { now?: Date; origine?: string } = {}): Promise<{ manifest: BackupManifest; octets: number }> {
   const now = opts.now ?? new Date();
   const zip = new ZipWriter({ date: now });
   const entrees: BackupManifest["entrees"] = [];
@@ -185,6 +186,7 @@ export async function writeBackup(conn: Connection, out: Writable, opts: { now?:
       creeLe: now.toISOString(),
       serveur: meta.version,
       base: meta.base,
+      ...(opts.origine ? { origine: opts.origine } : {}),
       derniereMigration,
       tables: manifestTables,
       vues: views,
@@ -231,21 +233,44 @@ export async function verifyBackup(src: ZipSource): Promise<{ manifest: BackupMa
   return { manifest, problems, extract };
 }
 
-/**
- * Recharge une archive dans la base de `conn`, qui doit être vide : structure, lignes, fichiers,
- * puis contrôle (nombre de lignes de chaque table, empreinte de chaque fichier relue dans la base).
- * Refuse d'écrire si l'archive ne correspond pas à son manifeste ou si la base contient déjà une table.
- */
-export async function restoreBackup(src: ZipSource, conn: Connection, log: (line: string) => void = () => {}): Promise<{ manifest: BackupManifest; problems: string[] }> {
-  const { manifest, problems: damaged, extract } = await verifyBackup(src);
-  if (damaged.length) throw new Error(`Archive abîmée, rien n'a été écrit :\n  ${damaged.join("\n  ")}`);
-  const [{ n: existing }] = await rows<{ n: number }>(conn, "SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()");
-  if (Number(existing) > 0) throw new Error("La base de destination n'est pas vide : la restauration ne se fait que dans une base sans aucune table");
+/** Résultat de `verifyBackup`, à repasser à `restoreBackup` pour ne pas relire l'archive deux fois. */
+export type VerifiedBackup = Awaited<ReturnType<typeof verifyBackup>>;
+
+/** Où en est une restauration : `fait` sur `total`, en lignes puis en fichiers. */
+export type RestoreProgress = { etape: "structure" | "donnees" | "fichiers" | "controle"; fait: number; total: number };
+
+/** Le serveur de destination n'accepte pas des envois aussi gros que le plus gros fichier de l'archive. */
+export class PacketTooSmall extends Error {}
+
+/** Le serveur de destination accepte-t-il le plus gros fichier de l'archive en un envoi ? Sinon `PacketTooSmall`. */
+export async function checkPacketSize(manifest: BackupManifest, conn: Connection): Promise<void> {
   const sizes = new Map(manifest.entrees.map((e) => [e.chemin, e]));
   const biggest = Math.max(0, ...manifest.fichiers.map((f) => sizes.get(f.chemin)?.octets ?? 0));
   const [{ max }] = await rows<{ max: number }>(conn, "SELECT @@max_allowed_packet AS max");
   if (Number(max) < biggest + 1_048_576)
-    throw new Error(`Le serveur n'accepte que ${Math.floor(Number(max) / 1_048_576)} Mo par envoi et le plus gros fichier en fait ${Math.ceil(biggest / 1_048_576)} : augmente max_allowed_packet (ex. 256M) sur le serveur de destination`);
+    throw new PacketTooSmall(`Le serveur n'accepte que ${Math.floor(Number(max) / 1_048_576)} Mo par envoi et le plus gros fichier en fait ${Math.ceil(biggest / 1_048_576)} : augmente max_allowed_packet (ex. 256M) sur le serveur de destination`);
+}
+
+/**
+ * Recharge une archive dans la base de `conn`, qui doit être vide : structure, lignes, fichiers,
+ * puis contrôle (nombre de lignes de chaque table, empreinte de chaque fichier relue dans la base).
+ * Refuse d'écrire si l'archive ne correspond pas à son manifeste ou si la base contient déjà une table
+ * (hors celles de `ignore` : le témoin d'une restauration lancée depuis l'appli, `src/server/restore.ts`).
+ */
+export async function restoreBackup(
+  src: ZipSource,
+  conn: Connection,
+  log: (line: string) => void = () => {},
+  opts: { ignore?: string[]; verified?: VerifiedBackup; progress?: (p: RestoreProgress) => void } = {},
+): Promise<{ manifest: BackupManifest; problems: string[] }> {
+  const { manifest, problems: damaged, extract } = opts.verified ?? (await verifyBackup(src));
+  const progress = opts.progress ?? (() => {});
+  if (damaged.length) throw new Error(`Archive abîmée, rien n'a été écrit :\n  ${damaged.join("\n  ")}`);
+  const ignore = opts.ignore ?? [];
+  const present = await rows<{ name: string }>(conn, "SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()");
+  if (present.some((t) => !ignore.includes(t.name))) throw new Error("La base de destination n'est pas vide : la restauration ne se fait que dans une base sans aucune table");
+  const sizes = new Map(manifest.entrees.map((e) => [e.chemin, e]));
+  await checkPacketSize(manifest, conn);
 
   for (const s of SQL_PREAMBLE) await conn.query(s);
   const schema = schemaStatements((await extract(SCHEMA_PATH)).toString("utf8"));
@@ -255,22 +280,32 @@ export async function restoreBackup(src: ZipSource, conn: Connection, log: (line
   for (const s of schema) await conn.query(s);
   log(`structure : ${manifest.tables.length} tables, ${manifest.vues.length} vues`);
 
+  const totalRows = manifest.tables.reduce((n, t) => n + (t.parties.length ? t.lignes : 0), 0);
+  let loaded = 0;
+  progress({ etape: "donnees", fait: 0, total: totalRows });
   for (const t of manifest.tables) {
     for (const p of t.parties)
       for (const s of sqlStatements((await extract(p)).toString("utf8"))) {
         if (!allowedRestoreStatement(s, "donnees", t.nom)) throw new Error(`Archive refusée : ${p} porte autre chose que des lignes de la table ${t.nom}`);
         await conn.query(s);
       }
-    if (t.parties.length) log(`${t.nom} : ${t.lignes} lignes`);
+    if (t.parties.length) {
+      log(`${t.nom} : ${t.lignes} lignes`);
+      loaded += t.lignes;
+      progress({ etape: "donnees", fait: loaded, total: totalRows });
+    }
   }
   let done = 0;
+  progress({ etape: "fichiers", fait: 0, total: manifest.fichiers.length });
   for (const f of manifest.fichiers) {
     const col = sqlIdent(f.colonne);
     // Protocole binaire : le contenu part tel quel (en texte, il doublerait de taille).
     await conn.execute(`INSERT INTO ${sqlIdent(f.table)} (${sqlIdent(f.cle)}, ${col}) VALUES (?, ?) ON DUPLICATE KEY UPDATE ${col} = VALUES(${col})`, [f.valeur, await extract(f.chemin)]);
     if (++done % 250 === 0) log(`fichiers : ${done} sur ${manifest.fichiers.length}`);
+    if (done % 10 === 0) progress({ etape: "fichiers", fait: done, total: manifest.fichiers.length });
   }
   log(`fichiers : ${done} remis en place`);
+  progress({ etape: "controle", fait: 0, total: 1 });
 
   // Contrôle : ce qui est dans la base correspond au manifeste.
   const problems: string[] = [];

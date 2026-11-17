@@ -57,11 +57,37 @@ export const securite: ManualTheme = {
         },
         tk("L'archive contient la base entière — opérations, catégories, patrimoine, réglages, conversations avec l'assistant — et tous les fichiers gardés : factures, documents du coffre, logos."),
         { warning: tk("Elle contient les données privées de tous les membres, en clair : range-la dans un endroit sûr.") },
-        tk("La restauration ne se fait pas dans l'appli : elle se lance sur le serveur, dans une base vide, par celui qui héberge Pécule. La commande de [mise à jour](/manuel/mise-a-jour) prend une sauvegarde avant de commencer."),
+        tk("Une sauvegarde se [restaure](/manuel/restaurer) dans une installation neuve de Pécule. La commande de [mise à jour](/manuel/mise-a-jour) en prend une avant de commencer."),
         { note: tk("Réservé à l'administrateur, à l'écran seulement. Indisponible en mode démo.") },
       ],
       links: [{ to: "/reglages/compte#sauvegarde", label: ["Réglages", "Compte et sécurité"] }],
-      words: tk("backup archive exporter mes données restaurer export zip copie de sécurité"),
+      words: tk("backup archive exporter mes données export zip copie de sécurité"),
+    },
+    {
+      id: "restaurer",
+      title: tk("Restaurer une sauvegarde"),
+      summary: tk("Reprendre une sauvegarde complète dans une installation neuve de Pécule."),
+      body: [
+        tk("Une sauvegarde complète se restaure dans une installation neuve de Pécule — nouveau serveur, changement d'hébergeur, base perdue. Rien ne peut donc être écrasé."),
+        {
+          steps: [
+            tk("Installe Pécule sur le serveur et ouvre-le : l'écran [[Bienvenue dans Pécule]] s'affiche tant qu'aucun membre n'existe."),
+            tk("Touche [[J'ai une sauvegarde : la restaurer]] et donne le code d'installation."),
+            tk("Choisis l'archive sur ton appareil, ou une archive déjà présente sur le serveur, puis touche [[Restaurer cette sauvegarde]]."),
+            tk("Garde la page ouverte : Pécule vérifie l'archive, recharge la base et les fichiers, puis redémarre."),
+          ],
+        },
+        tk("À la fin, Pécule dit ce qu'il a retrouvé et ce qu'il reste à faire :"),
+        {
+          list: [
+            tk("Si l'adresse de Pécule a changé, les clés d'accès d'avant ne fonctionnent plus : l'administrateur crée la sienne par le bouton proposé, puis donne un lien d'inscription à chaque membre."),
+            tk("Si le secret du serveur n'est pas celui de l'ancien, les clés enregistrées dans l'appli (IA, banque, crypto) sont à ressaisir, et les notifications à réactiver sur chaque appareil."),
+          ],
+        },
+        { warning: tk("Une archive abîmée, ou faite par une version plus récente de Pécule, est refusée avant que quoi que ce soit soit modifié.") },
+        { note: tk("Revenir à une sauvegarde sur une installation déjà en service ne se fait pas dans l'appli : celui qui héberge Pécule la restaure dans une base vide, en ligne de commande.") },
+      ],
+      words: tk("restauration restore reprendre récupérer nouveau serveur migrer déménager changer d'hébergeur base perdue réinstaller"),
     },
     {
       id: "acces-exterieurs",

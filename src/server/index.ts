@@ -39,6 +39,7 @@ import { runWeeklySummaries } from "./weekly.ts";
 import { backupBeforeMigration } from "./pre-migration.ts";
 import { scheduleUpdateCheck } from "./updates.ts";
 import { updatesApi } from "./routes/updates.ts";
+import { cleanInterruptedRestore, restoreApi, type RestoreHooks } from "./restore.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -47,7 +48,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
  * ensuite. Pendant ce temps, une requête attend la fin du démarrage (15 s au plus : LiteSpeed lance
  * les processus à la demande) puis reçoit une page de maintenance ; un échec est retenté.
  */
-const boot = { ready: false, phase: "demarrage" as "demarrage" | "pret" | "echec", current: Promise.resolve() as Promise<void> };
+const boot = { ready: false, phase: "demarrage" as "demarrage" | "pret" | "echec", current: Promise.resolve() as Promise<void>, /** Une restauration tient le service fermé. */ held: false };
 
 const MAINTENANCE_HTML = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="refresh" content="20"><title>Pécule</title></head>
@@ -129,6 +130,8 @@ export async function createApp() {
   app.use(cookieParser());
 
   app.get("/api/health", (_req, res) => res.status(boot.ready ? 200 : 503).json({ ok: boot.ready, phase: boot.phase }));
+  // Restauration d'une sauvegarde à l'installation : avant la porte de maintenance, son état se lit pendant le chargement.
+  app.use("/api/restore", langContext, restoreApi(restoreHooks));
   app.use(maintenanceGate);
   // Abonnement iCal de l'échéancier (lien privé, hors /api : les agendas ne savent pas s'authentifier).
   app.use(icalRouter);
@@ -219,16 +222,22 @@ export async function createApp() {
   return app;
 }
 
+let syncScheduled = false;
+
 function scheduleSync() {
-  if (!env.SYNC_INTERVAL_MINUTES) return;
+  // Une seule fois : le démarrage peut être rejoué (restauration d'une sauvegarde).
+  if (!env.SYNC_INTERVAL_MINUTES || syncScheduled) return;
+  syncScheduled = true;
   const run = () =>
     syncBanks("auto")
       .then((r) => r && console.log(`[sync] ${r.seen} vues, ${r.inserted} nouvelles, ${r.auto} catégorisées`))
       .catch((e) => console.error("[sync] échec", e));
   // Cours et instantané de patrimoine juste après chaque synchro (les soldes viennent d'être mis à jour).
   // Puis crypto (CoinStats, une fois par jour au plus), cours et instantané de patrimoine.
-  const runAll = () =>
-    run()
+  const runAll = () => {
+    // En maintenance (restauration en cours) : rien ne lit ni n'écrit la base.
+    if (!boot.ready) return;
+    return run()
       // Cours de change du jour, et soldes des comptes en devise ramenés à la devise du foyer.
       .finally(() => refreshFx().catch((e) => console.error("[cours de change] échec", e)))
       .finally(() => maybeSyncCrypto())
@@ -238,6 +247,7 @@ function scheduleSync() {
       .finally(() => runWeeklySummaries().catch((e) => console.error("[résumé] échec", e)))
       // Imports mis en pause par le plafond du mois de l'IA : ils repartent d'eux-mêmes quand il n'est plus atteint (mois suivant).
       .finally(() => kickImports());
+  };
   setTimeout(runAll, 60_000);
   setInterval(runAll, env.SYNC_INTERVAL_MINUTES * 60_000);
 }
@@ -255,10 +265,16 @@ function installProcessHandlers() {
   });
 }
 
-async function bootstrap(): Promise<void> {
+/**
+ * Ouvre le service : migrations, réglages en mémoire, tâches de fond. `restored` : sur une base qui vient d'être
+ * restaurée (l'archive en est la sauvegarde : pas besoin d'en écrire une autre avant ses migrations).
+ */
+async function bootstrap(opts: { restored?: boolean } = {}): Promise<{ applied: string[] } | { error: string }> {
   try {
+    // Restauration coupée par l'arrêt du serveur : la base à moitié chargée repart de neuf.
+    if (await cleanInterruptedRestore()) console.warn("[restauration] une restauration interrompue a été annulée : la base repart de neuf");
     // Une base déjà en service est sauvegardée sur le serveur avant de recevoir une migration.
-    const applied = await migrate(undefined, { beforeApply: backupBeforeMigration });
+    const applied = await migrate(undefined, { beforeApply: opts.restored ? undefined : backupBeforeMigration });
     if (applied.length) console.log(`[db] migrations appliquées : ${applied.join(", ")}`);
     // Installation neuve : référentiel de catégories de départ (une base qui a déjà le sien n'est pas touchée).
     await seedStarter()
@@ -288,23 +304,44 @@ async function bootstrap(): Promise<void> {
     if (isProd || process.env.ENABLE_SYNC === "1") scheduleSync();
     // Une fois par jour : une version plus récente est-elle publiée ? (UPDATE_CHECK=0 pour ne jamais le demander.)
     if (isProd) scheduleUpdateCheck();
+    return { applied };
   } catch (e) {
     boot.phase = "echec";
     const locked = e instanceof Error && e.message.includes("déjà en cours");
     console.error("[démarrage] échec, nouvelle tentative", locked ? "dans 5 s" : "dans 60 s", e);
     if (!locked) void recordAlert("demarrage", `Démarrage impossible : ${e instanceof Error ? e.message : String(e)}`, e);
     setTimeout(() => {
+      // Entre-temps, une restauration a pu reprendre la main : c'est elle qui relancera le démarrage.
+      if (boot.held) return;
       boot.phase = "demarrage";
-      boot.current = bootstrap();
+      boot.current = bootstrap().then(() => {});
     }, locked ? 5_000 : 60_000).unref();
+    return { error: e instanceof Error ? e.message : String(e) };
   }
 }
+
+/** Ce que la restauration d'une sauvegarde demande au démarrage : la maintenance pendant le chargement, puis rouvrir. */
+const restoreHooks: RestoreHooks = {
+  ready: () => boot.ready,
+  pause() {
+    boot.ready = false;
+    boot.held = true;
+    boot.phase = "demarrage";
+  },
+  resume(opts) {
+    boot.held = false;
+    boot.phase = "demarrage";
+    const run = bootstrap(opts);
+    boot.current = run.then(() => {});
+    return run;
+  },
+};
 
 export async function start() {
   installProcessHandlers();
   const app = await createApp();
   const server = app.listen(env.PORT, () => console.log(`Pécule à l'écoute sur le port ${env.PORT}`));
-  boot.current = bootstrap();
+  boot.current = bootstrap().then(() => {});
   const stop = () => {
     server.close(() => endPools().finally(() => process.exit(0)));
     setTimeout(() => process.exit(0), 8000).unref();

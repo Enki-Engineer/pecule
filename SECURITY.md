@@ -24,6 +24,8 @@ libre : une réponse arrive en général sous une semaine. Seule la dernière ve
   chiffre les secrets gardés en base (clé de la banque, clé d'IA, clé des notifications) : le perdre ou le changer
   les rend illisibles. Une installation sans `SECRET_KEY` chiffre avec `API_TOKEN`.
 - La **sauvegarde complète** n'est pas chiffrée : rangez l'archive comme un document sensible.
+- La **restauration depuis l'appli** n'existe que sur une installation sans membre ni donnée, et demande le code
+  d'installation (`SETUP_CODE`, à défaut `API_TOKEN`) : une installation en service ne peut pas être écrasée par là.
 - Les documents envoyés à la lecture partent chez le **fournisseur d'IA que vous avez choisi**, et nulle part ailleurs.
 - Derrière plus d'un proxy (ou aucun), réglez `TRUST_PROXY` : la limite de tentatives de connexion se compte par
   adresse de visiteur.

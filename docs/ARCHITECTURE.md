@@ -93,7 +93,10 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   professionnel ou à une personne sans connexion ; chaque membre règle ce qu'il masque.
 - **Mode démo** : une seconde base, remplie d'une famille fictive, vers laquelle sont aiguillées toutes les requêtes
   d'une session de démo. Les services extérieurs et les accès y sont fermés.
-- **Sauvegarde complète** : une archive de toute la base et de tous les fichiers, restaurable dans une base vide.
+- **Sauvegarde complète** : une archive de toute la base et de tous les fichiers (`src/server/backup.ts`), restaurable
+  dans une base vide (`pnpm restaurer`) ou, depuis l'écran de premier démarrage, dans une installation neuve
+  (`src/server/restore.ts` : archive envoyée par morceaux, relue avant d'écrire, témoin `_restauration_en_cours` qui
+  fait repartir de neuf une restauration coupée par l'arrêt du serveur).
 - Écritures tracées dans `audit_log`, erreurs dans `alerts` (Réglages → Suivi technique).
 
 ## L'IA

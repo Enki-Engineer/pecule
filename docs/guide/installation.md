@@ -106,10 +106,16 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
 ```
 
 - **Sauvegarde** : Réglages → Compte et sécurité → Sauvegarde complète télécharge une archive de toute la base et de
-  tous les fichiers (réservée à l'administrateur). En ligne de commande : `pnpm sauvegarde`. Pour restaurer dans une
-  base vide : `pnpm restaurer <archive.zip> --base "mysql://…"`. Les variables d'environnement n'y figurent pas :
-  gardez `.env` à part — sans `SECRET_KEY` (ou, sur une installation qui n'en a pas, `API_TOKEN`), les clés enregistrées
-  dans l'appli (banque, IA) sont illisibles.
+  tous les fichiers (réservée à l'administrateur). En ligne de commande : `pnpm sauvegarde`. Les variables
+  d'environnement n'y figurent pas : gardez `.env` à part — sans `SECRET_KEY` (ou, sur une installation qui n'en a pas,
+  `API_TOKEN`), les clés enregistrées dans l'appli (banque, IA) sont illisibles.
+- **Restauration** : dans une installation neuve (nouveau serveur, base perdue), l'écran « Bienvenue dans Pécule »
+  propose « J'ai une sauvegarde : la restaurer ». Avec le code d'installation, on envoie l'archive — ou on en choisit
+  une du dossier des sauvegardes du serveur (`data/sauvegardes`, ou `BACKUP_DIR`) — et Pécule la recharge, applique
+  les migrations plus récentes, puis dit ce qu'il reste à faire : une clé d'accès à recréer si l'adresse a changé, des
+  clés à ressaisir si `SECRET_KEY` n'est pas celui de l'ancien serveur. Rien n'est possible sur une installation qui
+  a déjà des données. En ligne de commande, dans une base sans aucune table :
+  `pnpm restaurer <archive.zip> --base "mysql://…"`.
 - **Mise à jour** : `node scripts/maj.mjs` prend une sauvegarde, installe la dernière version publiée, attend le
   redémarrage et contrôle le résultat. L'appli prévient l'administrateur quand une version est publiée (Réglages →
   Suivi technique). Tout le détail — branche `stable` pour un hébergeur relié à GitHub, retour à la version

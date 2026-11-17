@@ -5,6 +5,7 @@ import { startAuthentication, startRegistration } from "@simplewebauthn/browser"
 import { ScanFace, KeyRound } from "lucide-react";
 import { api, useMe } from "../api.ts";
 import { ChestLogo, chestOpeningMs } from "../components/ChestLogo.tsx";
+import { RestoreSetup } from "../components/RestoreSetup.tsx";
 import { appLang, applyLang } from "../i18n.ts";
 import { clearOfflineCache } from "../offline.tsx";
 import { LANGS, t } from "../../lib/i18n.ts";
@@ -35,6 +36,8 @@ function Setup() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Reprendre une sauvegarde au lieu de créer un foyer neuf.
+  const [restoring, setRestoring] = useState(false);
 
   async function create() {
     setBusy(true);
@@ -61,15 +64,24 @@ function Setup() {
           </button>
         ))}
       </div>
-      <p className="mb-1 text-lg font-semibold">{t("Bienvenue dans Pécule")}</p>
-      <p className="mb-6 max-w-xs text-sm text-muted">{t("Cette installation est neuve. Crée le premier membre du foyer : il en sera l'administrateur.")}</p>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Ton prénom")} aria-label={t("Ton prénom")} autoComplete="given-name" className={field} />
-      <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("Code d'installation")} aria-label={t("Code d'installation")} autoComplete="off" spellCheck={false} className={`${field} mt-3`} />
-      <p className="mt-2 max-w-xs text-xs text-muted">{t("Le code d'installation est écrit dans le fichier de réglages du serveur (SETUP_CODE, à défaut API_TOKEN) ; « setup » l'affiche à l'installation.")}</p>
-      <button type="button" onClick={create} disabled={busy || !name.trim() || !code.trim()} className="press mt-6 w-full max-w-xs rounded-xl bg-accent py-4 text-lg font-semibold text-white shadow-lg disabled:opacity-60">
-        {t("Créer le foyer")}
-      </button>
-      {error && <p className="mt-4 text-sm text-neg">{error}</p>}
+      {restoring ? (
+        <RestoreSetup onBack={() => setRestoring(false)} />
+      ) : (
+        <>
+          <p className="mb-1 text-lg font-semibold">{t("Bienvenue dans Pécule")}</p>
+          <p className="mb-6 max-w-xs text-sm text-muted">{t("Cette installation est neuve. Crée le premier membre du foyer : il en sera l'administrateur.")}</p>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Ton prénom")} aria-label={t("Ton prénom")} autoComplete="given-name" className={field} />
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("Code d'installation")} aria-label={t("Code d'installation")} autoComplete="off" spellCheck={false} className={`${field} mt-3`} />
+          <p className="mt-2 max-w-xs text-xs text-muted">{t("Le code d'installation est écrit dans le fichier de réglages du serveur (SETUP_CODE, à défaut API_TOKEN) ; « setup » l'affiche à l'installation.")}</p>
+          <button type="button" onClick={create} disabled={busy || !name.trim() || !code.trim()} className="press mt-6 w-full max-w-xs rounded-xl bg-accent py-4 text-lg font-semibold text-white shadow-lg disabled:opacity-60">
+            {t("Créer le foyer")}
+          </button>
+          {error && <p className="mt-4 text-sm text-neg">{error}</p>}
+          <button type="button" onClick={() => setRestoring(true)} className="press mt-5 text-sm text-muted underline">
+            {t("J'ai une sauvegarde : la restaurer")}
+          </button>
+        </>
+      )}
     </Shell>
   );
 }
@@ -84,7 +96,10 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   // Installation neuve (aucun membre) : l'écran de premier démarrage remplace la connexion.
-  const setup = useMe().data?.setup === true;
+  // Une fois affiché, cet écran reste : une restauration y donne des membres à l'installation sans qu'il doive disparaître.
+  const fresh = useMe().data?.setup === true;
+  const [setup, setSetup] = useState(fresh);
+  if (fresh && !setup) setSetup(true);
 
   async function login() {
     setBusy(true);

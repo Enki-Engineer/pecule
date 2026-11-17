@@ -43,7 +43,8 @@ declare global {
   }
 }
 
-function safeEqual(a: string, b: string): boolean {
+/** Comparaison à durée constante (codes et jetons). */
+export function safeEqual(a: string, b: string): boolean {
   const ba = Buffer.from(a);
   const bb = Buffer.from(b);
   return ba.length === bb.length && timingSafeEqual(ba, bb);

@@ -1,4 +1,5 @@
 import { householdTimeZone } from "../region.ts";
+import { rpID } from "../env.ts";
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import type { PoolConnection } from "mysql2/promise";
@@ -88,7 +89,7 @@ backupApi.get("/backup", requireAdmin, limiter, async (_req, res, next) => {
       "Cache-Control": "private, no-store, no-transform",
       "X-Accel-Buffering": "no",
     });
-    const { manifest, octets } = await writeBackup(c, res, { now });
+    const { manifest, octets } = await writeBackup(c, res, { now, origine: rpID });
     res.end();
     clearInterval(keepAlive);
     c.release();

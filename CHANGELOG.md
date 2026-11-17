@@ -3,6 +3,23 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.23.0
+
+- **Restaurer une sauvegarde depuis l'appli, à l'installation.** L'écran « Bienvenue dans Pécule » d'une installation
+  neuve propose « J'ai une sauvegarde : la restaurer » : le code d'installation, puis l'archive — envoyée depuis
+  l'appareil, ou choisie parmi celles du dossier des sauvegardes du serveur. Pécule la relit en entier, recharge la
+  base et les fichiers, applique les migrations plus récentes et redémarre. Changer de serveur ou repartir d'une base
+  perdue ne demande plus de ligne de commande.
+- À la fin, Pécule dit ce qu'il a retrouvé et ce qu'il reste à faire : créer une clé d'accès si l'adresse de
+  l'installation a changé (un lien d'inscription est donné à l'administrateur), ressaisir les clés enregistrées dans
+  l'appli si le secret du serveur (`SECRET_KEY`) n'est pas celui de l'ancien.
+- Garde-fous : seulement dans une installation sans membre ni donnée (rien ne peut être écrasé) ; une archive abîmée,
+  ou faite par une version plus récente, est refusée avant toute écriture ; si le serveur s'arrête pendant le
+  chargement, le démarrage suivant remet la base à neuf au lieu d'ouvrir sur une base à moitié chargée. Revenir à une
+  sauvegarde sur une installation en service reste une affaire de ligne de commande (`pnpm restaurer`, base vide).
+- Une sauvegarde note désormais l'adresse de l'installation d'où elle vient (pour dire, à la restauration, si les
+  clés d'accès valent encore). Aucune migration, aucun réglage nouveau.
+
 ## 1.22.0
 
 - **Mises à jour : Pécule prévient, une commande installe.** Réglages → Suivi technique montre à l'administrateur

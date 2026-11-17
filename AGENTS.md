@@ -89,7 +89,8 @@ Suis `docs/guide/mise-a-jour.md`. Mettre à jour redémarre Pécule : c'est avec
 La commande s'arrête sans rien modifier si la sauvegarde échoue ; ne passe `--sans-sauvegarde` que si une sauvegarde
 vient d'être prise. Les migrations de la base s'appliquent au démarrage, et le serveur écrit lui-même une sauvegarde
 juste avant (`pecule-avant-migration-….zip`). En cas d'échec, lis le journal avant toute autre tentative, et ne
-restaure une sauvegarde (dans une base vide) qu'avec l'accord de la personne. Un hébergeur relié à GitHub se met à
+restaure une sauvegarde (dans une base vide, ou par l'écran de premier démarrage d'une installation neuve) qu'avec
+l'accord de la personne. Un hébergeur relié à GitHub se met à
 jour en suivant la branche `stable`.
 
 ## Diagnostiquer

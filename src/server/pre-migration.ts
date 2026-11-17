@@ -3,7 +3,7 @@ import { createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, rmSy
 import { statfs } from "node:fs/promises";
 import path from "node:path";
 import { finished } from "node:stream/promises";
-import { env } from "./env.ts";
+import { env, rpID } from "./env.ts";
 import { one, pool } from "./db.ts";
 import { writeBackup } from "./backup.ts";
 import { PRE_MIGRATION_PREFIX, parsePreMigrationName, preMigrationBackupDue, preMigrationBackupsToPrune, preMigrationFileName } from "./backup-format.ts";
@@ -70,7 +70,7 @@ async function write(dir: string, applied: number): Promise<ServerBackup> {
   out.on("error", (e) => (failure ??= e));
   const conn = await pool.getConnection();
   try {
-    await writeBackup(conn, out, { now });
+    await writeBackup(conn, out, { now, origine: rpID });
     out.end();
     await finished(out);
     if (failure) throw failure;

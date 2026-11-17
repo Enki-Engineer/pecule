@@ -55,6 +55,8 @@ export type BackupManifest = {
   /** Version du serveur de base de données d'origine (la restauration vise la même famille). */
   serveur: string;
   base: string;
+  /** Nom d'hôte de l'installation d'origine (les clés d'accès des membres y sont liées) ; absent des archives d'avant la 1.23.0. */
+  origine?: string;
   /** Dernière migration appliquée : la version de Pécule à faire tourner sur la base restaurée. */
   derniereMigration: string | null;
   tables: { nom: string; lignes: number; parties: string[] }[];
@@ -317,7 +319,10 @@ Depuis le dépôt de Pécule :   pnpm sauvegarde --verifier <archive.zip>
 
 Restaurer
 ---------
-Dans une base MariaDB VIDE (jamais sur une base qui contient déjà des tables) :
+Dans une installation neuve de Pécule : à l'écran « Bienvenue dans Pécule », « J'ai une sauvegarde : la restaurer »
+(code d'installation, puis cette archive).
+
+En ligne de commande, dans une base MariaDB VIDE (jamais sur une base qui contient déjà des tables) :
 
     pnpm restaurer <archive.zip> --base "mysql://utilisateur:motdepasse@hote:3306/nom_de_la_base"
 

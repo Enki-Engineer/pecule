@@ -13,7 +13,8 @@ Les guides complets sont dans `docs/guide/`.
 1. Demande où Pécule sera servi : essai sur cette machine (`http://localhost:3000`), ou une adresse en https.
    Vérifie que le port est libre (`lsof -i :3000`) ; sinon choisis-en un autre avec `--port`.
 2. Docker présent (`docker info`) ? Alors `node scripts/setup.mjs --docker [--url https://…] --json`, puis
-   `docker compose up -d --build` (ajoute `--profile https` si Pécule doit obtenir lui-même son certificat).
+   `docker compose up -d` (ajoute `--profile https` si Pécule doit obtenir lui-même son certificat ; l'image publiée
+   est récupérée, ou construite depuis le dépôt si elle ne peut pas l'être).
    Sinon, il faut Node 24 et une base MySQL ou MariaDB vide : `node scripts/setup.mjs --base "mysql://…" --url … --json`,
    `pnpm install --frozen-lockfile && pnpm build`, puis `node dist/server.mjs`.
 3. Attends `{"ok":true,"phase":"pret"}` sur `/api/health` (quelques secondes ; une minute au plus) :
@@ -34,7 +35,15 @@ listées à la fin de `docs/guide/installation.md`.
 
 ## Mettre à jour
 
-Sauvegarde (`pnpm sauvegarde`), `git pull`, reconstruction, `doctor`. Ne saute jamais la sauvegarde.
+1. `node scripts/maj.mjs --verifier --json` : version en service, dernière publiée, et `state` (`a-jour`,
+   `disponible`, `palier`, ou `inconnu` si GitHub ne répond pas).
+2. Avec l'accord de la personne (Pécule redémarre) : `node scripts/maj.mjs --oui`. La commande télécharge une
+   sauvegarde complète, récupère la version (image Docker publiée, ou `git pull` et build), attend la nouvelle
+   version sur `/api/health` puis lance `doctor`. Sur un serveur Node, donne-lui `--redemarrer "<commande>"` ou
+   redémarre le serveur quand elle le demande. `state: palier` : d'abord `--version <palier>`, puis la dernière.
+3. Échec : lis le journal (`docker compose logs pecule --tail 100`) avant de retenter. Ne saute jamais la
+   sauvegarde ; n'en restaure une (dans une base vide) qu'avec l'accord de la personne. Détail :
+   `docs/guide/mise-a-jour.md`.
 
 ## Importer un dossier de documents
 

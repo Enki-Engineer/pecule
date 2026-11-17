@@ -30,14 +30,15 @@ Suis `docs/guide/installation.md`. En résumé, chaque étape se vérifie :
 | Étape | Commande | Réussite |
 | --- | --- | --- |
 | Réglages | `node scripts/setup.mjs --docker [--port 3000] --json` (ou `--base "mysql://…" --url https://…`) | `{"ok":true,…,"portBusy":false,"installationCode":"…"}` ; si `portBusy`, recommence avec un autre `--port` et `--force` |
-| Démarrage | `docker compose up -d --build` (ou `pnpm install --frozen-lockfile && pnpm build && node dist/server.mjs`) | `GET /api/health` → `{"ok":true,"phase":"pret"}` |
+| Démarrage | `docker compose up -d` (ou `pnpm install --frozen-lockfile && pnpm build && node dist/server.mjs`) | `GET /api/health` → `{"ok":true,"phase":"pret"}` |
 | Contrôle | `node scripts/doctor.mjs --json` | `ok: true` ; la ligne `premier_demarrage` porte `todo: true` tant qu'aucun membre n'existe |
 | Premier membre | la personne ouvre l'adresse, donne son prénom et le code d'installation, crée sa clé d'accès | `doctor` : « Le foyer a ses membres » |
 
 La création de la clé d'accès (Face ID, Touch ID) est le seul geste que tu ne peux pas faire à sa place.
 
-Pièges connus : port 3000 souvent pris (`--port`) ; une image Docker `pecule` déjà présente sur la machine est
-réécrite par le build (`PECULE_IMAGE=autre-nom` dans `.env` pour l'éviter) ; https obligatoire hors `localhost` ; l'adresse ouverte dans le navigateur doit être exactement
+Pièges connus : port 3000 souvent pris (`--port`) ; `docker compose up -d` récupère l'image publiée
+(`ghcr.io/enki-engineer/pecule`) et ne la construit depuis le dépôt que s'il ne peut pas la joindre — `--build` pour
+essayer le code du dossier ; https obligatoire hors `localhost` ; l'adresse ouverte dans le navigateur doit être exactement
 `APP_URL` ; sur un hébergeur Node, gestionnaire **pnpm**, entrée `dist/server.mjs`, aucun répertoire de sortie ;
 changer `SECRET_KEY` (ou `API_TOKEN` sur une installation sans `SECRET_KEY`) rend illisibles les clés enregistrées
 dans l'appli.
@@ -73,13 +74,23 @@ Pécule (`tools/list`).
 ## Arrêter, désinstaller
 
 `docker compose down` arrête Pécule et garde la base. `docker compose down -v` **efface la base** : jamais sans
-l'accord de la personne et une sauvegarde. Pour tout retirer ensuite : `docker rmi pecule`, puis `.env`.
+l'accord de la personne et une sauvegarde. Pour tout retirer ensuite : `docker rmi ghcr.io/enki-engineer/pecule`, puis `.env`.
 
 ## Mettre à jour
 
-1. Sauvegarde complète : `pnpm sauvegarde` (archive dans `data/sauvegardes/`, relue en entier après téléchargement).
-2. `git pull`, puis `docker compose up -d --build` — ou `pnpm install --frozen-lockfile && pnpm build` et redémarrage.
-3. `node scripts/doctor.mjs` : les migrations de la base se sont appliquées au démarrage.
+Suis `docs/guide/mise-a-jour.md`. Mettre à jour redémarre Pécule : c'est avec l'accord de la personne.
+
+| Étape | Commande | Réussite |
+| --- | --- | --- |
+| Où en est-on | `node scripts/maj.mjs --verifier --json` | `state` : `a-jour`, `disponible`, `palier` (alors `palier` nomme la version à installer d'abord) ou `inconnu` (GitHub injoignable, ou serveur arrêté) |
+| Mise à jour | `node scripts/maj.mjs --oui` (Node : ajoute `--redemarrer "<commande>"`, ou redémarre le serveur quand la commande le demande) | code de sortie 0 : sauvegarde écrite dans `data/sauvegardes/`, nouvelle version en service, `doctor` sans blocage |
+| Version palier | `node scripts/maj.mjs --version <palier> --oui`, puis `node scripts/maj.mjs --oui` | idem |
+
+La commande s'arrête sans rien modifier si la sauvegarde échoue ; ne passe `--sans-sauvegarde` que si une sauvegarde
+vient d'être prise. Les migrations de la base s'appliquent au démarrage, et le serveur écrit lui-même une sauvegarde
+juste avant (`pecule-avant-migration-….zip`). En cas d'échec, lis le journal avant toute autre tentative, et ne
+restaure une sauvegarde (dans une base vide) qu'avec l'accord de la personne. Un hébergeur relié à GitHub se met à
+jour en suivant la branche `stable`.
 
 ## Diagnostiquer
 

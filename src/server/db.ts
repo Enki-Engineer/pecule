@@ -9,6 +9,7 @@ import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import { env } from "./env.ts";
 import { isDemo } from "./demo-context.ts";
 import { schemaStatements } from "./backup-format.ts";
+import { DEPUIS, VERSION } from "./version.ts";
 
 const options: PoolOptions = {
   connectionLimit: 5,
@@ -158,8 +159,9 @@ export function foldedMigrations(): string[] {
 /**
  * Applique les migrations dans l'ordre, une seule fois chacune, sous verrou MySQL. Une base vide reçoit d'abord
  * le schéma de départ (toute la structure d'un coup), et les migrations qu'il contient déjà sont notées faites.
+ * `beforeApply` est appelé, sous le même verrou, quand une base déjà en service a des migrations à recevoir.
  */
-export async function migrate(lockName = "pecule:migrate"): Promise<string[]> {
+export async function migrate(lockName = "pecule:migrate", opts: { beforeApply?: (state: { applied: number; pending: string[] }) => Promise<void> } = {}): Promise<string[]> {
   const applied: string[] = [];
   const result = await withLock(lockName, async () => {
     await exec(`CREATE TABLE IF NOT EXISTS _migrations (
@@ -172,8 +174,14 @@ export async function migrate(lockName = "pecule:migrate"): Promise<string[]> {
     const initial = process.env.PECULE_SANS_SCHEMA_DE_DEPART ? null : initialSchema();
     if (done.size) {
       const missing = folded.filter((name) => !done.has(name));
-      if (missing.length) throw new Error(`Cette base est antérieure à cette version de Pécule (${missing.length} migrations repliées n'y ont pas été appliquées, dont ${missing[0]}) : la mettre d'abord à jour avec la version précédente.`);
+      if (missing.length)
+        throw new Error(
+          `Cette base est trop ancienne pour Pécule ${VERSION} (${missing.length} migrations repliées n'y ont pas été appliquées, dont ${missing[0]}) : installe d'abord la version ${DEPUIS}, démarre-la une fois pour qu'elle mette la base à jour, puis reviens à celle-ci.`,
+        );
     }
+    // Base déjà en service dont la structure va changer : le moment d'en garder une copie (`src/server/pre-migration.ts`).
+    const pending = files.filter((m) => !done.has(m.name) && !m.skip).map((m) => m.name);
+    if (done.size && pending.length) await opts.beforeApply?.({ applied: done.size, pending });
     if (!done.size && initial && (files.some((m) => m.name === initial.upTo) || folded.includes(initial.upTo))) {
       const [empty] = await q<{ n: number }>("SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name <> '_migrations'");
       if (Number(empty.n) === 0) {

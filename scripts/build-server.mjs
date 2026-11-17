@@ -2,15 +2,19 @@
 // bundler natif chargé en module, immunisé au problème de
 // permission d'esbuild sous pnpm sur certains hébergements mutualisés.
 import path from "node:path";
-import { cpSync, existsSync } from "node:fs";
+import { cpSync, existsSync, readFileSync } from "node:fs";
 import { build } from "vite";
 import { fileURLToPath, URL } from "node:url";
 
 // Les dépendances node_modules et les builtins node:* restent résolus au runtime.
 const isExternal = (id) => !id.startsWith(".") && !id.startsWith("@/") && !path.isAbsolute(id);
 
+// La version en service est inscrite dans le serveur : il la connaît sans `package.json` à côté de lui (src/server/version.ts).
+const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+
 await build({
   configFile: false,
+  define: { __PECULE_VERSION__: JSON.stringify(pkg.version), __PECULE_DEPUIS__: JSON.stringify(pkg.pecule?.depuis ?? pkg.version) },
   publicDir: false, // public/ est déjà copié dans dist/client par le build du front
   resolve: { alias: { "@": fileURLToPath(new URL("../src", import.meta.url)) } },
   build: {

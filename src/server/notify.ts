@@ -16,6 +16,8 @@ import { recordAlert } from "./journal.ts";
 import { memberLang, runInLang } from "./lang.ts";
 import { labels, locale, t, td, tk, tn } from "../lib/i18n.ts";
 import { resolvesPublic } from "./net.ts";
+import { updateAvailable } from "./updates.ts";
+import { VERSION } from "./version.ts";
 
 /*
  * Notifications push (Web Push, appli installée sur l'iPhone ou navigateur de l'ordinateur) :
@@ -37,13 +39,14 @@ export const NOTIF_TYPES = labels({
   enveloppe: tk("Enveloppe à 80 % ou dépassée"),
   resume: tk("Résumé de la semaine (lundi, 8 h)"),
   ia: tk("Coût de l'IA à 80 % du plafond du mois, ou dépassé"),
+  maj: tk("Nouvelle version de Pécule publiée"),
 });
-/** Types qui ne concernent que l'administrateur du foyer (il règle le plafond de l'IA) : proposés à lui seul. */
-export const ADMIN_NOTIF_TYPES: ReadonlySet<string> = new Set(["ia"]);
+/** Types qui ne concernent que l'administrateur du foyer (il règle le plafond de l'IA, il met Pécule à jour) : proposés à lui seul. */
+export const ADMIN_NOTIF_TYPES: ReadonlySet<string> = new Set(["ia", "maj"]);
 export type NotifType = keyof typeof NOTIF_TYPES;
 /** `lowBalance` : ancien seuil par appareil, repris une fois par la règle du membre (src/server/balance.ts). */
 export type NotifPrefs = Partial<Record<NotifType, boolean>> & { lowBalance?: number };
-export const DEFAULT_PREFS: NotifPrefs = { aclasser: true, prelevement: true, solde: true, loyer: true, echeance: true, garantie: true, enveloppe: true, resume: true, ia: true };
+export const DEFAULT_PREFS: NotifPrefs = { aclasser: true, prelevement: true, solde: true, loyer: true, echeance: true, garantie: true, enveloppe: true, resume: true, ia: true, maj: true };
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const parisNow = () => {
@@ -282,7 +285,8 @@ async function checksFor(userId: number) {
 
   // 7. Coût de l'IA : plafond du mois à 80 % ou atteint — pour l'administrateur, qui le règle (Réglages → Coût de l'IA).
   const budget = await budgetStatus();
-  if (budget.monthly && budget.state !== "ok" && (await one<{ role: string }>("SELECT role FROM users WHERE id = ?", [userId]))?.role === "admin") {
+  const admin = (await one<{ role: string }>("SELECT role FROM users WHERE id = ?", [userId]))?.role === "admin";
+  if (budget.monthly && budget.state !== "ok" && admin) {
     // Le coût de l'IA se compte en euros, quelle que soit la devise du foyer.
     const amounts = { depense: aiEur(budget.spent), plafond: aiEur(budget.monthly) };
     await notify(userId, "ia", `ia:${month}:${budget.state}`, {
@@ -291,6 +295,18 @@ async function checksFor(userId: number) {
       url: "/reglages/cout-ia",
       tag: "ia",
     });
+  }
+
+  // 8. Nouvelle version de Pécule : une fois par version, pour l'administrateur, qui lance la mise à jour sur le serveur.
+  if (admin) {
+    const update = await updateAvailable();
+    if (update.kind !== "a-jour")
+      await notify(userId, "maj", `maj:${update.version}`, {
+        title: t("Pécule {version} est disponible", { version: update.version }),
+        body: t("Tu utilises la version {version}. La marche à suivre est dans Réglages → Suivi technique.", { version: VERSION }),
+        url: "/reglages/suivi#version",
+        tag: "maj",
+      });
   }
 }
 

@@ -94,7 +94,7 @@ const busy = await new Promise((resolve) => {
 writeFileSync(file, `${lines.join("\n")}\n`, { mode: 0o600 });
 chmodSync(file, 0o600); // un fichier déjà là (--force) garde sinon ses anciens droits
 
-const start = docker ? (local ? "docker compose up -d --build" : "docker compose --profile https up -d --build") : "pnpm install --frozen-lockfile && pnpm build && node dist/server.mjs";
+const start = docker ? (local ? "docker compose up -d" : "docker compose --profile https up -d") : "pnpm install --frozen-lockfile && pnpm build && node dist/server.mjs";
 const next = [
   start,
   `ouvrir ${url} : l'écran « Bienvenue dans Pécule » demande ton prénom et le code d'installation`,

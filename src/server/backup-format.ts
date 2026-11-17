@@ -237,6 +237,41 @@ export function backupFileName(now: Date, timeZone = "Europe/Paris"): string {
   return `pecule-sauvegarde-${stamp.replace(" ", "-").replace(":", "")}.zip`;
 }
 
+/*
+ * Sauvegarde écrite par le serveur lui-même, juste avant d'appliquer une migration à une base déjà en service
+ * (`src/server/pre-migration.ts`). Son nom porte l'instant (UTC), le nombre de migrations déjà appliquées — l'état
+ * de la base, pour ne pas la refaire à chaque nouvel essai d'un démarrage qui échoue — et une fin tirée au hasard.
+ */
+export const PRE_MIGRATION_PREFIX = "pecule-avant-migration-";
+
+export function preMigrationFileName(now: Date, applied: number, suffix: string): string {
+  const stamp = now.toISOString().slice(0, 16).replace("T", "-").replace(":", "");
+  return `${PRE_MIGRATION_PREFIX}${stamp}-m${applied}-${suffix}.zip`;
+}
+
+/** Ce que dit le nom d'une sauvegarde d'avant migration ; `null` si ce n'en est pas une (ou si elle est en cours d'écriture). */
+export function parsePreMigrationName(name: string): { applied: number } | null {
+  const m = /^pecule-avant-migration-\d{4}-\d{2}-\d{2}-\d{4}-m(\d+)-[0-9a-f]+\.zip$/.exec(name);
+  return m ? { applied: Number(m[1]) } : null;
+}
+
+/**
+ * Faut-il écrire une sauvegarde avant cette migration ? Non si la même base (même nombre de migrations appliquées)
+ * vient d'être sauvegardée : c'est un démarrage qui recommence après un échec, rien n'a été écrit entre-temps.
+ */
+export function preMigrationBackupDue(existing: { name: string; at: number }[], applied: number, now: number, freshMs = 24 * 3_600_000): boolean {
+  return !existing.some((f) => parsePreMigrationName(f.name)?.applied === applied && now - f.at < freshMs && now >= f.at);
+}
+
+/** Les sauvegardes d'avant migration à retirer pour n'en garder que `keep`, les plus récentes. */
+export function preMigrationBackupsToPrune(existing: { name: string; at: number }[], keep: number): string[] {
+  return existing
+    .filter((f) => parsePreMigrationName(f.name))
+    .sort((a, b) => b.at - a.at || (a.name < b.name ? 1 : -1))
+    .slice(Math.max(0, keep))
+    .map((f) => f.name);
+}
+
 const ko = (n: number) => (n >= 1_048_576 ? `${(n / 1_048_576).toFixed(1).replace(".", ",")} Mo` : `${Math.max(1, Math.round(n / 1024))} Ko`);
 
 /** Notice rangée dans l'archive : ce qu'elle contient, comment la relire et la restaurer. */

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Diagnostic d'une installation de Pécule : réglages, base, serveur, premier démarrage. Sans dépendance (Node seul).
+// Diagnostic d'une installation de Pécule : réglages, base, serveur, premier démarrage, version. Sans dépendance (Node seul).
 //
 //   node scripts/doctor.mjs [--fichier .env] [--url http://localhost:3000] [--json]
 //
@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const argv = process.argv.slice(2);
 if (argv.includes("--help") || argv.includes("-h")) {
-  console.log("Diagnostic d'une installation de Pécule.\n\n  node scripts/doctor.mjs [--fichier .env] [--url http://localhost:3000] [--json]\n\nContrôle Node, les réglages, le serveur, son démarrage et le premier membre. Code de sortie 1 si quelque chose bloque.");
+  console.log("Diagnostic d'une installation de Pécule.\n\n  node scripts/doctor.mjs [--fichier .env] [--url http://localhost:3000] [--json]\n\nContrôle Node, les réglages, le serveur, son démarrage, le premier membre et la version en service. Code de sortie 1 si quelque chose bloque.");
   process.exit(0);
 }
 const value = (name) => (argv.includes(`--${name}`) ? argv[argv.indexOf(`--${name}`) + 1] : undefined);
@@ -61,13 +61,33 @@ try {
 } catch {
   /* serveur arrêté ou injoignable */
 }
-check("serveur", !!health, health ? `Serveur joint sur ${target}` : `Pécule ne répond pas sur ${target}`, docker ? "docker compose up -d --build, puis docker compose logs pecule" : "pnpm build && node dist/server.mjs (ou voir le journal de l'hébergeur)");
+check("serveur", !!health, health ? `Serveur joint sur ${target}` : `Pécule ne répond pas sur ${target}`, docker ? "docker compose up -d, puis docker compose logs pecule" : "pnpm build && node dist/server.mjs (ou voir le journal de l'hébergeur)");
 if (health) {
   check("demarrage", health.ok === true && health.phase === "pret", `Démarrage : ${health.phase}`, "Le serveur applique encore ses migrations, ou la base refuse la connexion : voir son journal.");
   try {
     const me = await (await fetch(`${target}/api/auth/me`, { signal: AbortSignal.timeout(8000) })).json();
     checks.push({ id: "premier_demarrage", ok: true, message: me.setup ? "Aucun membre encore : ouvrir l'appli pour créer le premier (code d'installation = SETUP_CODE du fichier de réglages, sinon API_TOKEN)" : "Le foyer a ses membres", todo: me.setup === true });
     checks.push({ id: "demo", ok: true, message: me.demoAvailable ? "Mode démo disponible" : "Mode démo non configuré (DEMO_DATABASE_URL), facultatif" });
+    // Version en service et mise à jour publiée : réservé à l'administrateur, donc lu avec le jeton du fichier de réglages.
+    if (!me.setup && env.API_TOKEN) {
+      // Un Pécule d'avant la 1.22.0 n'a pas cette route : la ligne est alors simplement absente.
+      const r = await fetch(`${target}/api/updates`, { headers: { Authorization: `Bearer ${env.API_TOKEN}` }, signal: AbortSignal.timeout(8000) }).catch(() => null);
+      const u = r?.ok ? await r.json().catch(() => null) : null;
+      if (u && typeof u.version === "string") {
+        const newer = u.state?.kind && u.state.kind !== "a-jour" ? u.state : null;
+        checks.push({
+          id: "version",
+          ok: true,
+          version: u.version,
+          message: !newer
+            ? `Pécule ${u.version}${u.enabled && u.checkedAt ? ", à jour" : ""}`
+            : newer.kind === "palier"
+              ? `Pécule ${u.version} — la version ${newer.version} est publiée ; installer d'abord la ${newer.palier} : node scripts/maj.mjs --version ${newer.palier}`
+              : `Pécule ${u.version} — la version ${newer.version} est disponible : node scripts/maj.mjs`,
+          todo: !!newer,
+        });
+      }
+    }
   } catch {
     check("api", false, "L'API ne répond pas comme attendu", "Voir le journal du serveur.");
   }

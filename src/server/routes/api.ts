@@ -54,6 +54,7 @@ import { hourly } from "../limits.ts";
 import { memberIdByName } from "../members.ts";
 import { isDemo } from "../demo-context.ts";
 import { ebAdoptedAccounts } from "../enable-banking.ts";
+import { updateAvailable } from "../updates.ts";
 
 export const api = Router();
 
@@ -1268,7 +1269,9 @@ api.get("/nav-counts", async (req, res) => {
   ]);
   // Comptes surveillés sous leur seuil, ou qui y passeraient dans le délai de la règle du membre (menu « Soldes à venir »).
   const lowBalance = (await balanceForecast(uid)).accounts.filter((a) => a.watched && a.low).length;
-  res.json({ uncategorized: unc?.n ?? 0, invoicesToMatch: inv?.n ?? 0, tasksOverdue: tasks?.n ?? 0, alerts: alertsOpen?.n ?? 0, lowBalance });
+  // Une version plus récente est publiée : dit à l'administrateur seulement (c'est lui qui met Pécule à jour), jamais en démo.
+  const update = !!req.user!.admin && !req.user!.demo && (await updateAvailable()).kind !== "a-jour";
+  res.json({ uncategorized: unc?.n ?? 0, invoicesToMatch: inv?.n ?? 0, tasksOverdue: tasks?.n ?? 0, alerts: alertsOpen?.n ?? 0, lowBalance, update });
 });
 
 /* ---------- Tableau de bord : à traiter et échéances ---------- */

@@ -3,6 +3,31 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.22.0
+
+- **Mises à jour : Pécule prévient, une commande installe.** Réglages → Suivi technique montre à l'administrateur
+  la version en service et, quand une version plus récente est publiée, ses notes et la commande à lancer sur le
+  serveur. Une notification peut aussi le prévenir (type « Nouvelle version de Pécule publiée »). Une fois par jour,
+  le serveur demande à GitHub quelle est la dernière version ; aucune donnée du foyer ne part avec la question.
+- **`node scripts/maj.mjs`** fait la mise à jour d'un bout à l'autre : sauvegarde complète téléchargée et contrôlée,
+  nouvelle version (image Docker publiée, ou `git pull` et build), attente du redémarrage, puis diagnostic. Elle
+  s'arrête sans rien modifier si la sauvegarde échoue. `--verifier` dit seulement où en est l'installation ;
+  `--version` installe une version précise. Guide : `docs/guide/mise-a-jour.md`.
+- **Image Docker publiée** à chaque version, pour amd64 et arm64 : `ghcr.io/enki-engineer/pecule`. `docker compose up
+  -d` la récupère au lieu de construire Pécule sur place (il la construit encore depuis le dépôt s'il ne peut pas la
+  joindre, ou avec `--build`). Une installation Docker existante passe à l'image publiée à sa prochaine mise à jour.
+- **Sauvegarde automatique avant une migration.** Avant de changer la structure d'une base déjà en service, le
+  serveur en écrit lui-même une sauvegarde complète (`data/sauvegardes`, volume `pecule-sauvegardes` avec Docker) et
+  garde les trois dernières. Si elle ne peut pas être écrite, une alerte le dit et la mise à jour se poursuit.
+- Une base trop ancienne pour une version est refusée sans être modifiée, et le message nomme la version à installer
+  d'abord ; l'écran, `maj` et `doctor` l'annoncent avant.
+- Branche `stable` : elle n'avance qu'à chaque version publiée. Un hébergeur relié à GitHub peut la suivre pour ne
+  recevoir que des versions publiées.
+- `doctor` donne la version en service et signale une mise à jour disponible ; l'assistant sait dire quelle version
+  tourne (il ne peut rien installer).
+- Réglages nouveaux, tous facultatifs : `UPDATE_CHECK=0` (ne jamais interroger GitHub), `UPDATE_REPO` (suivre les
+  versions d'une copie du projet), `BACKUP_BEFORE_MIGRATION=0` et `BACKUP_DIR`. Aucune migration.
+
 ## 1.21.0
 
 - **Accueil du téléphone : les comptes comme à la banque.** Le bloc « Comptes » est rangé comme la carte du tableau

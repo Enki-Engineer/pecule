@@ -18,7 +18,7 @@ navigateur (React)  ──  /api  ──  serveur Express  ──  MySQL / Maria
 | `src/lib/` | Règles pures partagées par l'écran et le serveur, avec leurs tests |
 | `src/i18n/` | Dictionnaires (le texte français est la clé) |
 | `drizzle/` | Migrations et schéma de départ d'une installation neuve (`initial/schema.sql`) |
-| `scripts/` | `setup`, `doctor`, `importer`, sauvegarde et restauration, base locale, outils de traduction |
+| `scripts/` | `setup`, `doctor`, `maj` (mise à jour), `importer`, sauvegarde et restauration, notes de version, base locale, outils de traduction |
 | `public/` | Fichiers statiques : icônes, service worker, script de thème |
 | `docs/` | Guides d'installation, d'import et de connexion des banques |
 
@@ -163,3 +163,23 @@ ses consignes.
 Le port s'ouvre tout de suite ; les migrations suivent, sous verrou (une base vide reçoit le schéma de départ en une
 étape, puis le jeu de catégories de départ). `GET /api/health` rend `{ ok, phase }`. Une synchronisation bancaire
 planifiée tourne dans le processus quand une source est reliée.
+
+## Versions et mises à jour
+
+- **La version en service** est inscrite dans `dist/server.mjs` au build (`scripts/build-server.mjs`,
+  `src/server/version.ts`), avec `pecule.depuis` de `package.json` : la plus ancienne version depuis laquelle
+  celle-ci se met à jour directement. Les comparaisons de versions sont des fonctions pures (`src/lib/version.ts`).
+- **Publication** : une étiquette `vX.Y.Z` lance `.github/workflows/publication.yml` — image Docker pour amd64 et
+  arm64 sur `ghcr.io`, version GitHub dont les notes sont la section de `CHANGELOG.md`
+  (`scripts/notes-de-version.mjs`), branche `stable` avancée jusqu'à elle.
+- **Annonce** : une fois par jour, `src/server/updates.ts` demande à GitHub la dernière version publiée et la garde
+  (`app_kv`, « maj:etat »). `GET /api/updates` (administrateur, fermé en démo) la donne à Réglages → Suivi technique
+  (`components/UpdateSettings.tsx`), à `doctor` et à `maj` ; l'administrateur reçoit une notification (type `maj`)
+  et l'assistant lit la version par `get_settings`. Les notes de version, écrites hors de l'installation, ne sont
+  jamais données à lire à l'IA.
+- **Installation** : `scripts/maj.mjs`, sur le serveur — sauvegarde complète téléchargée, image publiée ou
+  `git pull` et build, attente de la nouvelle version, `doctor`. Le serveur ne remplace jamais son propre code.
+- **Garde-fous** : avant d'appliquer une migration à une base déjà en service, le serveur écrit une sauvegarde
+  complète dans `data/sauvegardes` (`src/server/pre-migration.ts`, trois gardées, sous le verrou des migrations) ;
+  une migration interrompue reprend (`src/server/migrate-rules.ts`) ; une base trop ancienne pour les migrations
+  repliées est refusée sans être modifiée, et le message nomme la version palier.

@@ -34,4 +34,5 @@ L'agent n'a jamais besoin de vos identifiants bancaires, et les secrets de l'ins
   seule ou en lecture et actions. Avec un agent en ligne de commande, le jeton d'administration fait office de clé.
 - **Charger vos papiers** : « Importe le dossier `~/Documents/Papiers` dans Pécule » — voir
   [`importer-des-documents.md`](importer-des-documents.md).
-- **Mettre à jour** : « Mets à jour Pécule » — l'agent prend d'abord une sauvegarde complète.
+- **Mettre à jour** : « Mets à jour Pécule » — l'agent lance `node scripts/maj.mjs`, qui prend d'abord une sauvegarde
+  complète (voir [`mise-a-jour.md`](mise-a-jour.md)).

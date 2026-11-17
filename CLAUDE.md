@@ -75,6 +75,26 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   jour). Les migrations s'appliquent au démarrage, sous verrou. Une migration ne se modifie plus une fois publiée.
 - Toute colonne `LONGBLOB` se déclare dans `FILE_TABLES` (`src/server/backup-format.ts`) : la sauvegarde complète en
   dépend (un test compare au schéma).
+- Une migration se rejoue sans dégât : un démarrage coupé la reprend (`src/server/migrate-rules.ts`), et une base
+  déjà en service est sauvegardée sur le serveur juste avant (`src/server/pre-migration.ts`). Replier d'anciennes
+  migrations dans le schéma de départ ne se fait qu'à une version majeure, en portant `pecule.depuis`
+  (`package.json`) à la dernière version qui les contenait encore : c'est la version palier que Pécule annonce.
+
+## Versions et publication
+
+- Une version = `version` de `package.json`, sa section `## x.y.z` dans `CHANGELOG.md` (elle devient les notes de la
+  version : ce qui change pour le foyer d'abord, puis les migrations et les réglages nouveaux) et le titre du
+  commit. Versionnage sémantique : une version majeure pour ce qui demande un geste à celui qui héberge (réglage
+  obligatoire, version de Node, migrations repliées).
+- Publier : pousser l'étiquette `vX.Y.Z` sur le commit de la version (`git tag v1.22.0 && git push origin v1.22.0`).
+  `.github/workflows/publication.yml` refuse une étiquette qui n'est pas la version du paquet, publie l'image
+  (`ghcr.io/enki-engineer/pecule`), crée la version sur GitHub et avance la branche `stable`. Une étiquette publiée
+  ne se déplace pas : un correctif est une nouvelle version.
+- Le serveur ne s'installe jamais lui-même une mise à jour : il annonce la version publiée (`src/server/updates.ts`,
+  réservé à l'administrateur, fermé en démo) et `scripts/maj.mjs` l'installe sur le serveur. La version en service
+  ne se lit que par une route d'administration (`GET /api/updates`), jamais par `/api/health`, ouverte à tous.
+- Un réglage nouveau a une valeur par défaut qui ne change rien pour une installation existante, et se décrit dans
+  `.env.example` et dans les notes de la version.
 
 ## Interface
 
@@ -120,6 +140,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Une couleur proposée dans Réglages | `ACCENTS` (`src/lib/seasons.ts`) et son bloc `[data-accent="…"]`, clair et sombre (`src/styles/index.css`) |
 | Une devise (cotée par la BCE) ou un pays | `CURRENCIES` (`src/lib/currencies.ts`), `COUNTRIES` (`src/lib/countries.ts`) |
 | Un article du manuel | `src/lib/manual/<thème>.ts` : identifiant, titre, résumé, blocs, écrans à ouvrir, mots de recherche ; l'assistant et la recherche le trouvent seuls |
+| Une option de la mise à jour | `scripts/maj.mjs` (Node seul, sans dépendance) et `docs/guide/mise-a-jour.md` |
 | Un réglage que l'assistant peut changer | `src/server/tools/reglages.ts` ; s'il est gardé par l'appareil : `DeviceSettings` (`src/lib/device-settings.ts`) et `applyDeviceSettings` (`src/client/deviceSettings.ts`) |
 
 La logique qui peut être pure va dans `src/lib/` avec son test à côté (`*.test.ts`).

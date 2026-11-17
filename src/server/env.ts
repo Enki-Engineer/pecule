@@ -1,5 +1,12 @@
 import "dotenv/config";
 import { z } from "zod";
+import { DEFAULT_REPO } from "../lib/version.ts";
+
+/** Réglage « oui par défaut » : 0, false, non, no ou off le coupent. */
+const onOff = z
+  .string()
+  .default("1")
+  .transform((v) => !["0", "false", "non", "no", "off"].includes(v.trim().toLowerCase()));
 
 const schema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
@@ -46,6 +53,21 @@ const schema = z.object({
   SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(60),
   /** Nombre de proxys entre Internet et Pécule (1 : un seul, cas d'un hébergeur ou de Caddy ; 0 : aucun). Sert à lire la vraie adresse du visiteur. */
   TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(1),
+  /** Une fois par jour, demander à GitHub si une version plus récente de Pécule est publiée (0 : ne jamais le demander). */
+  UPDATE_CHECK: onOff,
+  /** Dépôt GitHub dont les versions publiées sont suivies (« propriétaire/dépôt ») : à changer pour une copie du projet. */
+  UPDATE_REPO: z
+    .string()
+    .optional()
+    // Une valeur vide ou mal écrite n'empêche pas le serveur de démarrer : le dépôt d'origine est repris.
+    .transform((v) => (v && /^[\w.-]+\/[\w.-]+$/.test(v.trim()) ? v.trim() : DEFAULT_REPO)),
+  /** Avant d'appliquer une migration à une base déjà remplie, écrire une sauvegarde complète sur le serveur (0 : ne pas le faire). */
+  BACKUP_BEFORE_MIGRATION: onOff,
+  /** Dossier des sauvegardes écrites par le serveur (par défaut `data/sauvegardes`, à la racine de l'installation). */
+  BACKUP_DIR: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim() || undefined),
 });
 
 export const env = schema.parse(process.env);

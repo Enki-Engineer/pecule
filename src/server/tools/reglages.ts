@@ -20,6 +20,8 @@ import { MANUAL, articleMarkdown, findArticle, manualOutline, manualText, search
 import { fold } from "../../lib/markdown.ts";
 import { MODULES, MODULE_INFO, type ModuleId } from "../../lib/modules.ts";
 import { ToolError, change, field, month, readTool, writeTool, type Tool } from "./registry.ts";
+import { updateStatus } from "../updates.ts";
+import { VERSION } from "../version.ts";
 
 /*
  * Aide et réglages : le manuel de Pécule (src/lib/manual.ts), que l'assistant lit avant d'expliquer un écran ou
@@ -81,7 +83,7 @@ const getSettings = readTool({
   name: "get_settings",
   progress: tk("Lecture des réglages…"),
   description:
-    "Réglages de Pécule que tu peux lire : ceux du membre (langue, équivalences amusantes, agencement de son tableau de bord, s'il est administrateur) et ceux du foyer (pays, devise, fuseau horaire, jour retenu pour les achats par carte, écrans facultatifs affichés ou retirés, personnes sans connexion, banques professionnelles), avec l'adresse de l'écran où chacun se règle. " +
+    "Réglages de Pécule que tu peux lire : la version de Pécule en service (et, pour l'administrateur, la version plus récente publiée s'il y en a une), ceux du membre (langue, équivalences amusantes, agencement de son tableau de bord, s'il est administrateur) et ceux du foyer (pays, devise, fuseau horaire, jour retenu pour les achats par carte, écrans facultatifs affichés ou retirés, personnes sans connexion, banques professionnelles), avec l'adresse de l'écran où chacun se règle. " +
     "Les réglages gardés par l'appareil (clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée, notifications) ne se lisent pas d'ici. Alerte de solde bas : get_balance_alert ; comptes masqués ou hors statistiques : list_accounts.",
   input: z.object({}),
   async run({ userId }) {
@@ -142,9 +144,25 @@ const getSettings = readTool({
           },
       low_balance_alert: { read_with: "get_balance_alert", change_with: "set_balance_alert", where: "/reglages/notifications#solde" },
       accounts: { read_with: "list_accounts", change_with: "update_account", where: "/reglages/connexions" },
+      pecule: await peculeVersion(admin),
     };
   },
 });
+
+/** Version en service et, pour l'administrateur, version plus récente publiée. Les notes de version, écrites ailleurs, ne sont pas données à lire. */
+async function peculeVersion(admin: boolean) {
+  if (isDemo()) return { note: "Indisponible en mode démo." };
+  const base = { version: VERSION, where: "/reglages/suivi#version" };
+  if (!admin) return { ...base, note: "Seul l'administrateur voit si une version plus récente est publiée, et c'est lui qui met Pécule à jour." };
+  const u = await updateStatus();
+  return {
+    ...base,
+    newer_version: u.state.kind === "a-jour" ? null : u.state.version,
+    ...(u.state.kind === "palier" ? { install_first: u.state.palier, why: "la dernière version ne reprend pas une base aussi ancienne : passer d'abord par celle-ci" } : {}),
+    checked: u.enabled ? (u.checkedAt ?? "pas encore") : "jamais : la vérification est coupée sur ce serveur (UPDATE_CHECK=0)",
+    how: "Rien ne s'installe depuis l'appli ni par l'assistant : la mise à jour se lance sur le serveur (`node scripts/maj.mjs`, qui sauvegarde d'abord). Article du manuel : mise-a-jour.",
+  };
+}
 
 /** Coût de l'IA : en euros (la facture du fournisseur), au format de la langue du membre. */
 const aiEur = (n: number) => new Intl.NumberFormat(locale(), { style: "currency", currency: "EUR" }).format(n);
@@ -287,6 +305,7 @@ const NOTIF_MEANING: Record<NotifType, string> = {
   enveloppe: "enveloppe à son seuil d'alerte ou dépassée",
   resume: "résumé de la semaine (lundi matin)",
   ia: "coût de l'IA à 80 % du plafond du mois ou dépassé (reçu par l'administrateur seulement)",
+  maj: "nouvelle version de Pécule publiée (reçu par l'administrateur seulement)",
 };
 /** Nom d'un appareil abonné (« iPhone », « Mac »…), ou « Appareil » s'il n'en a pas donné. */
 const deviceName = (d: NotifDevice) => d.device?.trim() || tr("Appareil");

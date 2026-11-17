@@ -1,0 +1,77 @@
+name: Publication
+
+# Une étiquette « v1.22.0 » poussée sur le dépôt publie la version : image Docker (amd64 et arm64) sur ghcr.io,
+# version GitHub avec la section du journal des versions pour notes, et branche « stable » avancée jusqu'à elle.
+# L'étiquette doit être celle de la version de package.json, et CHANGELOG.md doit avoir sa section : sinon rien
+# n'est publié.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: publication-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publication:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Notes de la version (étiquette et journal contrôlés)
+        run: node scripts/notes-de-version.mjs --etiquette "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # 1.22.0, 1.22 et 1 ; « latest » suit la dernière version qui n'est pas une préversion.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+      - name: Image Docker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Version sur GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pre=""
+          case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            # Version créée à la main sur GitHub : ses notes sont gardées, sauf si elle n'en a pas.
+            if [ -z "$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)" ]; then
+              gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "Pécule ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" $pre
+          fi
+
+      - name: Branche stable
+        # Les installations qui suivent une branche ne reçoivent que des versions publiées. Jamais de retour en
+        # arrière : une version plus ancienne que « stable » (correctif d'une série passée) la laisse où elle est.
+        run: |
+          case "$GITHUB_REF_NAME" in *-*) echo "Préversion : la branche stable ne bouge pas."; exit 0 ;; esac
+          git push origin "$GITHUB_SHA:refs/heads/stable" || echo "La branche stable est déjà plus avancée : elle ne bouge pas."

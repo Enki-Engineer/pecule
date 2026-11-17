@@ -10,7 +10,7 @@ Ce qu'il faut dans tous les cas :
   sur sa propre machine, `http://localhost` suffit ;
 - Node.js 24 ou plus récent (inutile pour faire tourner Pécule avec Docker, mais les scripts `setup` et `doctor` s'en
   servent) ;
-- un accès au réseau pendant la construction (paquets npm, images Docker) ;
+- un accès au réseau pendant l'installation (images Docker, paquets npm) ;
 - une base MySQL 8 ou MariaDB 10.6 et plus, vide (créée pour vous avec Docker).
 
 Rien d'autre n'est obligatoire : ni service bancaire, ni fournisseur d'IA. Ils se branchent ensuite, depuis l'appli.
@@ -20,15 +20,19 @@ Rien d'autre n'est obligatoire : ni service bancaire, ni fournisseur d'IA. Ils s
 ```sh
 git clone <adresse du dépôt> pecule && cd pecule
 node scripts/setup.mjs --docker                      # essai local : http://localhost:3000
-docker compose up -d --build
+docker compose up -d
 ```
 
 Sur un serveur, avec un nom de domaine qui pointe vers lui (ports 80 et 443 ouverts) :
 
 ```sh
 node scripts/setup.mjs --docker --url https://pecule.exemple.fr
-docker compose --profile https up -d --build         # Caddy obtient et renouvelle le certificat
+docker compose --profile https up -d                 # Caddy obtient et renouvelle le certificat
 ```
+
+Docker récupère l'image publiée avec chaque version (`ghcr.io/enki-engineer/pecule`, pour amd64 et arm64) ; s'il ne
+peut pas la récupérer, il la construit depuis le dépôt. `--build` la construit toujours depuis le dépôt (utile pour
+essayer une modification du code).
 
 `setup.mjs` écrit le fichier `.env` (jetons tirés au hasard, mots de passe de la base, `SECRET_KEY` qui chiffre les
 clés gardées en base) et affiche le **code d'installation**. Le port 3000 est pris ? `node scripts/setup.mjs --docker --port 3322` : l'adresse devient
@@ -41,6 +45,9 @@ Les données vivent dans un volume Docker nommé d'après le dossier (`pecule_pe
 base principale : le mode démo fonctionne d'emblée.
 
 ## Chemin 2 — Hébergement Node.js
+
+Récupérez le code par la branche `stable`, qui n'avance qu'à chaque version publiée (`git clone -b stable …`) —
+`main` reçoit le travail en cours.
 
 1. Créez une base MySQL ou MariaDB vide et son utilisateur.
 2. Préparez les réglages :
@@ -89,7 +96,7 @@ docker compose down          # arrête Pécule ; la base reste dans son volume
 docker compose down -v       # arrête ET efface la base (irréversible : prenez d'abord une sauvegarde)
 ```
 
-Pour tout retirer après un `down -v` : `docker rmi pecule` et supprimez `.env` (un nouveau `setup.mjs` refuse d'écraser
+Pour tout retirer après un `down -v` : `docker rmi ghcr.io/enki-engineer/pecule` et supprimez `.env` (un nouveau `setup.mjs` refuse d'écraser
 un `.env` existant sans `--force`).
 
 ## Vérifier, sauvegarder, mettre à jour
@@ -103,9 +110,10 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
   base vide : `pnpm restaurer <archive.zip> --base "mysql://…"`. Les variables d'environnement n'y figurent pas :
   gardez `.env` à part — sans `SECRET_KEY` (ou, sur une installation qui n'en a pas, `API_TOKEN`), les clés enregistrées
   dans l'appli (banque, IA) sont illisibles.
-- **Mise à jour** : prenez une sauvegarde, récupérez la nouvelle version (`git pull`), puis `docker compose up -d
-  --build` (Docker) ou `pnpm install --frozen-lockfile && pnpm build` et redémarrage (Node). Les migrations de la base
-  s'appliquent seules au démarrage.
+- **Mise à jour** : `node scripts/maj.mjs` prend une sauvegarde, installe la dernière version publiée, attend le
+  redémarrage et contrôle le résultat. L'appli prévient l'administrateur quand une version est publiée (Réglages →
+  Suivi technique). Tout le détail — branche `stable` pour un hébergeur relié à GitHub, retour à la version
+  précédente, versions palier — est dans [`mise-a-jour.md`](mise-a-jour.md).
 
 ## En cas de souci
 
@@ -115,6 +123,7 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
 | La clé d'accès ne se crée pas | L'adresse ouverte dans le navigateur n'est pas celle d'`APP_URL`, ou elle n'est pas en https. |
 | « Code d'installation incorrect » | C'est la valeur de `SETUP_CODE` (à défaut `API_TOKEN`) du fichier de réglages réellement lu par le serveur. |
 | Le port est déjà pris | `node scripts/setup.mjs --docker --port <autre> --force`, puis `docker compose up -d`. |
+| `docker compose up` construit l'image au lieu de la récupérer | L'image publiée n'a pas pu être jointe (réseau, dépôt d'une copie du projet) : l'appli est alors celle du code du dossier. |
 | MariaDB affiche `io_uring_queue_init() failed` ou « Aborted connection » au démarrage | Sans effet : seul `GET /api/health` fait foi. |
 | L'API répond 409 « pas encore de membre » avec le bon jeton | Normal sur une installation neuve : le jeton agit au nom du premier membre, créez-le d'abord dans l'appli. |
 | L'hébergeur ne publie rien | Un répertoire de sortie est renseigné : il n'en faut pas ; l'entrée est `dist/server.mjs`. |

@@ -56,16 +56,18 @@ With Docker:
 ```sh
 git clone https://github.com/Enki-Engineer/pecule.git && cd pecule
 node scripts/setup.mjs --docker          # writes .env and prints your installation code
-docker compose up -d --build             # http://localhost:3000
+docker compose up -d                     # http://localhost:3000
 ```
 
-For a server with https, a Node.js host without Docker, backups and updates: see
-[docs/guide/installation.md](docs/guide/installation.md). An AI coding agent can do the installation for you:
+For a server with https, a Node.js host without Docker and backups: see
+[docs/guide/installation.md](docs/guide/installation.md). Pécule tells its administrator when a new version is
+released; `node scripts/maj.mjs` backs up, updates and checks the result
+([docs/guide/mise-a-jour.md](docs/guide/mise-a-jour.md)). An AI coding agent can do the installation for you:
 [docs/guide/installer-avec-une-ia.md](docs/guide/installer-avec-une-ia.md).
 
 ## Documentation
 
-- [Installation](docs/guide/installation.md) · [Installing with an AI agent](docs/guide/installer-avec-une-ia.md)
+- [Installation](docs/guide/installation.md) · [Installing with an AI agent](docs/guide/installer-avec-une-ia.md) · [Updating](docs/guide/mise-a-jour.md)
 - [Connecting your banks with Enable Banking](docs/connecteurs/enable-banking.md)
 - [Importing your documents](docs/guide/importer-des-documents.md) · [Where to get your documents](docs/guide/recuperer-ses-documents.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)

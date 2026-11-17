@@ -36,6 +36,9 @@ import { auditWrites, recordAlert, requestContext } from "./journal.ts";
 import { icalRouter } from "./ical.ts";
 import { runNotifications } from "./notify.ts";
 import { runWeeklySummaries } from "./weekly.ts";
+import { backupBeforeMigration } from "./pre-migration.ts";
+import { scheduleUpdateCheck } from "./updates.ts";
+import { updatesApi } from "./routes/updates.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -144,6 +147,8 @@ export async function createApp() {
   app.use("/api", oauthApi);
   // Sauvegarde complète (administrateur) : archive zip écrite au fil de l'eau.
   app.use("/api", backupApi);
+  // Version en service et mises à jour (administrateur).
+  app.use("/api", updatesApi);
   // Enseignes du foyer et logos des banques reliées.
   app.use("/api", brandsApi);
   app.use("/api", api);
@@ -252,7 +257,8 @@ function installProcessHandlers() {
 
 async function bootstrap(): Promise<void> {
   try {
-    const applied = await migrate();
+    // Une base déjà en service est sauvegardée sur le serveur avant de recevoir une migration.
+    const applied = await migrate(undefined, { beforeApply: backupBeforeMigration });
     if (applied.length) console.log(`[db] migrations appliquées : ${applied.join(", ")}`);
     // Installation neuve : référentiel de catégories de départ (une base qui a déjà le sien n'est pas touchée).
     await seedStarter()
@@ -280,6 +286,8 @@ async function bootstrap(): Promise<void> {
     // Base de démo : migrée à part ; un échec ne bloque pas l'appli (alerte, nouvel essai à la demande).
     migrateDemo().catch(() => {});
     if (isProd || process.env.ENABLE_SYNC === "1") scheduleSync();
+    // Une fois par jour : une version plus récente est-elle publiée ? (UPDATE_CHECK=0 pour ne jamais le demander.)
+    if (isProd) scheduleUpdateCheck();
   } catch (e) {
     boot.phase = "echec";
     const locked = e instanceof Error && e.message.includes("déjà en cours");

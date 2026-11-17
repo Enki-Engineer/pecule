@@ -40,6 +40,7 @@ const BLOCKED: [method: string, path: RegExp][] = [
   ["POST", /^\/voice\//],
   ["*", /^\/ai\//],
   ["*", /^\/backup/],
+  ["*", /^\/updates/],
   ["*", /^\/bank\//],
   ["*", /^\/imports/],
   ["*", /^\/connections\//],

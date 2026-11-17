@@ -1,14 +1,19 @@
 # Pécule avec Docker : l'appli et sa base MariaDB. Réglages dans `.env` (écrit par `node scripts/setup.mjs --docker`).
 #
-#   docker compose up -d --build                 Pécule sur http://localhost:3000 (essai sur sa propre machine)
-#   docker compose --profile https up -d --build  en plus, Caddy sert https://<PECULE_DOMAIN> (certificat automatique)
+#   docker compose up -d                 Pécule sur http://localhost:3000 (essai sur sa propre machine)
+#   docker compose --profile https up -d  en plus, Caddy sert https://<PECULE_DOMAIN> (certificat automatique)
+#
+# L'image est celle qui est publiée à chaque version ; si elle ne peut pas être récupérée (hors ligne, copie du
+# projet), elle est construite depuis ce dossier. `--build` la construit toujours depuis ce dossier.
+# Mettre à jour : `node scripts/maj.mjs` (sauvegarde, nouvelle image, redémarrage, contrôle).
 #
 # Les clés d'accès (passkeys) exigent https ou localhost : sur un serveur, utiliser le profil « https » ou
 # son propre proxy, et donner la même adresse dans APP_URL.
 services:
   pecule:
     build: .
-    image: ${PECULE_IMAGE:-pecule}
+    # Une version précise plutôt que la dernière : PECULE_IMAGE=ghcr.io/enki-engineer/pecule:1.22.0 dans .env.
+    image: ${PECULE_IMAGE:-ghcr.io/enki-engineer/pecule:latest}
     restart: unless-stopped
     env_file: ${PECULE_ENV_FILE:-.env}
     environment:
@@ -19,6 +24,9 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:${PECULE_PORT:-3000}:3000"
+    volumes:
+      # Sauvegardes complètes écrites par le serveur avant une migration (les trois dernières).
+      - pecule-sauvegardes:/app/data/sauvegardes
 
   base:
     image: mariadb:11.8
@@ -55,4 +63,5 @@ services:
 
 volumes:
   pecule-base:
+  pecule-sauvegardes:
   pecule-caddy:

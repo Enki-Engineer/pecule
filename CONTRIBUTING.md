@@ -28,6 +28,8 @@ pnpm lint && pnpm test && pnpm build
   Nantes, Angers) sert partout.
 - Une modification du schéma vient avec sa migration (`pnpm db:generate --name …`) et le schéma de départ régénéré
   (`pnpm local base && pnpm db:initial`).
+- Ce qui change pour un foyer ou pour celui qui héberge s'écrit dans [`CHANGELOG.md`](CHANGELOG.md). Les versions
+  sont publiées par les mainteneurs (étiquette `vX.Y.Z`, voir « Versions et publication » dans `CLAUDE.md`).
 - Le code, ses commentaires et les messages de commit sont en français.
 
 ## Signaler un problème

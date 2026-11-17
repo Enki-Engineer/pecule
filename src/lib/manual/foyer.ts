@@ -116,6 +116,7 @@ export const foyer: ManualTheme = {
             tk("enregistrer la clé d'Enable Banking du foyer, le fournisseur d'IA, les clés de CoinStats et de CoinGecko ;"),
             tk("créer des jetons d'administration ;"),
             tk("télécharger la sauvegarde complète ;"),
+            tk("voir la version de Pécule en service et celle qui est publiée ;"),
             tk("voir les alertes techniques et le journal de tous les membres."),
           ],
         },

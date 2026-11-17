@@ -8,8 +8,12 @@ import {
   FILE_TABLES,
   filePath,
   InsertBuilder,
+  parsePreMigrationName,
   partPath,
   portableView,
+  preMigrationBackupDue,
+  preMigrationBackupsToPrune,
+  preMigrationFileName,
   readme,
   safeName,
   schemaSql,
@@ -178,5 +182,33 @@ describe("instructions admises à la restauration", () => {
     expect(allowedRestoreStatement("INSERT INTO `sessions` (`id`) VALUES (1)", "donnees", "users")).toBe(false);
     expect(allowedRestoreStatement("DELETE FROM `users`", "donnees", "users")).toBe(false);
     expect(allowedRestoreStatement("INSERT INTO `users` (`id`) VALUES (1)", "donnees", "users; drop")).toBe(false);
+  });
+});
+
+describe("sauvegarde d'avant migration", () => {
+  const now = new Date("2026-11-17T14:32:09Z");
+  const name = preMigrationFileName(now, 31, "ab12cd34");
+
+  it("porte dans son nom l'instant, l'état de la base et une fin au hasard", () => {
+    expect(name).toBe("pecule-avant-migration-2026-11-17-1432-m31-ab12cd34.zip");
+    expect(parsePreMigrationName(name)).toEqual({ applied: 31 });
+    expect(parsePreMigrationName(`${name}.partiel`)).toBeNull();
+    expect(parsePreMigrationName("pecule-sauvegarde-2026-11-17-1532.zip")).toBeNull();
+  });
+
+  it("n'est pas refaite quand le démarrage recommence sur la même base", () => {
+    const at = now.getTime();
+    expect(preMigrationBackupDue([], 31, at)).toBe(true);
+    expect(preMigrationBackupDue([{ name, at }], 31, at + 60_000)).toBe(false);
+    // Une migration de plus est passée depuis, ou la sauvegarde date : il en faut une nouvelle.
+    expect(preMigrationBackupDue([{ name, at }], 32, at + 60_000)).toBe(true);
+    expect(preMigrationBackupDue([{ name, at }], 31, at + 25 * 3_600_000)).toBe(true);
+  });
+
+  it("ne garde que les plus récentes, sans toucher aux autres fichiers du dossier", () => {
+    const files = [1, 2, 3, 4, 5].map((d) => ({ name: preMigrationFileName(new Date(`2026-11-0${d}T08:00:00Z`), 20 + d, "00ff"), at: d }));
+    const other = { name: "pecule-sauvegarde-2026-11-17-1532.zip", at: 0 };
+    expect(preMigrationBackupsToPrune([...files, other], 3)).toEqual([files[1].name, files[0].name]);
+    expect(preMigrationBackupsToPrune(files.slice(0, 2), 3)).toEqual([]);
   });
 });

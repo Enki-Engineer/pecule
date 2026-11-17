@@ -4,7 +4,7 @@ import type { ManualTheme } from "../manual.ts";
 export const securite: ManualTheme = {
   id: "securite",
   title: tk("Sécurité et suivi"),
-  hint: tk("Clés d'accès, sauvegarde, accès donnés, journal"),
+  hint: tk("Clés d'accès, sauvegarde, mise à jour, accès donnés, journal"),
   articles: [
     {
       id: "cles-d-acces",
@@ -57,7 +57,7 @@ export const securite: ManualTheme = {
         },
         tk("L'archive contient la base entière — opérations, catégories, patrimoine, réglages, conversations avec l'assistant — et tous les fichiers gardés : factures, documents du coffre, logos."),
         { warning: tk("Elle contient les données privées de tous les membres, en clair : range-la dans un endroit sûr.") },
-        tk("La restauration ne se fait pas dans l'appli : elle se lance sur le serveur, dans une base vide, par celui qui héberge Pécule. Fais une sauvegarde avant chaque mise à jour."),
+        tk("La restauration ne se fait pas dans l'appli : elle se lance sur le serveur, dans une base vide, par celui qui héberge Pécule. La commande de [mise à jour](/manuel/mise-a-jour) prend une sauvegarde avant de commencer."),
         { note: tk("Réservé à l'administrateur, à l'écran seulement. Indisponible en mode démo.") },
       ],
       links: [{ to: "/reglages/compte#sauvegarde", label: ["Réglages", "Compte et sécurité"] }],
@@ -84,6 +84,27 @@ export const securite: ManualTheme = {
       words: tk("révoquer accès autorisations applications tierces jeton token partage sécurité"),
     },
     {
+      id: "mise-a-jour",
+      title: tk("Mettre Pécule à jour"),
+      summary: tk("Savoir qu'une version est publiée, et l'installer sans risque."),
+      body: [
+        tk("Pécule ne se met pas à jour tout seul : il prévient l'administrateur, qui lance la mise à jour sur le serveur où Pécule est installé."),
+        {
+          steps: [
+            tk("Ouvre [[Réglages]] → [[Suivi technique]], section [[Version et mises à jour]] : tu y lis la version en service et, s'il y en a une plus récente, ce qu'elle apporte."),
+            tk("Sur le serveur, dans le dossier de Pécule, lance la commande affichée : `node scripts/maj.mjs`."),
+            tk("Elle télécharge une sauvegarde complète, installe la version, attend que Pécule ait redémarré et contrôle le résultat. Pendant le redémarrage, l'appli affiche « Pécule démarre… »."),
+          ],
+        },
+        tk("Une fois par jour, Pécule demande à GitHub si une version plus récente est publiée ; [[Vérifier maintenant]] pose la question tout de suite. L'administrateur peut aussi en être prévenu par une notification, type [[Nouvelle version de Pécule publiée]]."),
+        tk("Avant une mise à jour qui change la base, le serveur en garde lui-même une sauvegarde complète : la section dit où se trouve la dernière. Elle sert à revenir en arrière si la mise à jour se passe mal."),
+        { note: tk("Si ta version est très ancienne, Pécule peut demander de passer d'abord par une version intermédiaire : la commande à lancer est alors indiquée à la place.") },
+        { note: tk("Réservé à l'administrateur. Rien ne s'installe depuis l'appli ni par l'assistant, et la section n'apparaît pas en mode démo.") },
+      ],
+      links: [{ to: "/reglages/suivi#version", label: ["Réglages", "Suivi technique"] }],
+      words: tk("update upgrade nouvelle version release nouveautés numéro de version installer la dernière version changelog"),
+    },
+    {
       id: "suivi-technique",
       title: tk("Alertes techniques, synchronisations et journal"),
       summary: tk("Savoir si tout tourne, et qui a changé quoi."),
@@ -91,6 +112,7 @@ export const securite: ManualTheme = {
         tk("[[Réglages]] → [[Suivi technique]] rassemble :"),
         {
           list: [
+            tk("[[Version et mises à jour]] : la version de Pécule en service et celle qui est publiée, pour l'administrateur (voir [Mettre Pécule à jour](/manuel/mise-a-jour))."),
             tk("[[Alertes]] : les erreurs du serveur, d'une synchronisation ou d'un service de cours, regroupées quand elles se répètent. [[Marquer comme lue]] en retire une. Le menu en porte le nombre."),
             tk("[[Synchronisations bancaires]] : les dernières lectures, avec le nombre d'opérations nouvelles et de classements automatiques."),
             tk("[[Journal des modifications]] : qui a changé quoi, depuis l'écran, l'assistant ou une application connectée."),
@@ -112,6 +134,7 @@ export const securite: ManualTheme = {
             tk("La banque : un prestataire agréé lit tes comptes avec ton accord, en lecture seule. Pécule ne peut initier aucun paiement."),
             tk("L'IA : si un fournisseur est branché, il reçoit les questions posées à l'assistant et les documents à lire."),
             tk("Les cours : les services de cours de bourse et de cryptomonnaies reçoivent le nom des titres suivis, pas tes montants."),
+            tk("Les mises à jour : une fois par jour, le serveur demande à GitHub quelle est la dernière version de Pécule. Aucune donnée du foyer ne part avec la question ; celui qui héberge peut la couper."),
             tk("Les clés saisies dans l'appli sont gardées chiffrées."),
           ],
         },

@@ -21,6 +21,7 @@ import { BirthdaySettings } from "../components/BirthdaySettings.tsx";
 import { VoiceSettings } from "../components/VoiceSettings.tsx";
 import { LanguageSettings } from "../components/LanguageSettings.tsx";
 import { BackupSettings } from "../components/BackupSettings.tsx";
+import { UpdateSettings } from "../components/UpdateSettings.tsx";
 import { HouseholdSettings } from "../components/HouseholdSettings.tsx";
 import { ConnectionsSettings } from "../components/ConnectionsSettings.tsx";
 import { AiCostScreen, AiCostSummary } from "../components/AiCost.tsx";
@@ -40,7 +41,7 @@ export function Settings() {
   const desktop = useMedia("(min-width: 768px)");
   const current = GROUPS.find((g) => g.id === (GROUP_ALIASES[groupe ?? ""] ?? groupe)) ?? null;
   useCrumb(current?.label);
-  const counts = useQuery({ queryKey: ["nav-counts"], queryFn: () => api<{ alerts: number }>("/nav-counts"), staleTime: 60_000 });
+  const counts = useQuery({ queryKey: ["nav-counts"], queryFn: () => api<{ alerts: number; update?: boolean }>("/nav-counts"), staleTime: 60_000 });
   const me = useMe();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -276,6 +277,8 @@ export function Settings() {
     ),
     "cout-ia": <AiCostScreen />,
     suivi: <>
+        {/* Version en service et mise à jour disponible : c'est l'administrateur qui met Pécule à jour. */}
+        {!demo && me.data?.user?.admin && <UpdateSettings />}
         <AlertsSection />
         <Section id="synchro" title={t("Synchronisations bancaires")}>
           <Card className="divide-y divide-line">
@@ -314,6 +317,7 @@ export function Settings() {
                     <span className="block text-[16px]">{g.label}</span>
                     <span className="block truncate text-[12px] text-muted">{g.hint}</span>
                   </span>
+                  {g.id === "suivi" && counts.data?.update && <span className="rounded-full bg-accent/10 px-2 text-[12px] font-semibold text-accent">{t("Mise à jour")}</span>}
                   {g.id === "suivi" && !!counts.data?.alerts && <span className="rounded-full bg-neg/10 px-2 text-[12px] font-semibold text-neg">{counts.data.alerts}</span>}
                   <ChevronRight size={17} className="text-muted" />
                 </Link>
@@ -350,6 +354,8 @@ export function Settings() {
                 >
                   <x.icon size={15} className="shrink-0" />
                   <span className="flex-1 truncate">{x.label}</span>
+                  {/* Menu étroit : un point suffit, la section dit le reste. */}
+                  {x.id === "suivi" && counts.data?.update && <span title={t("Mise à jour")} aria-label={t("Mise à jour")} className="size-2 shrink-0 rounded-full bg-accent" />}
                   {x.id === "suivi" && !!counts.data?.alerts && <span className="rounded bg-neg/10 px-1.5 text-[11px] font-semibold text-neg">{counts.data.alerts}</span>}
                 </Link>
               ))}
@@ -381,7 +387,7 @@ const GROUPS: { id: GroupId; label: string; hint: string; icon: typeof Bell; ton
   { id: "notifications", label: t("Notifications et appareil"), hint: t("Solde bas, alertes de cet appareil, ouverture instantanée"), icon: Bell, tone: "bg-[#c2410c]" },
   { id: "assistant", label: t("Assistant"), hint: t("Mode vocal, mémoire, coût de l'IA"), icon: Sparkles, tone: "bg-accent" },
   { id: "cout-ia", label: t("Coût de l'IA"), hint: t("Dépense du mois, par usage, par membre et par modèle, plafond, tarifs"), icon: Coins, tone: "bg-[#6b4fa3]" },
-  { id: "suivi", label: t("Suivi technique"), hint: t("Alertes, synchronisations, journal des modifications"), icon: Activity, tone: "bg-[#5e6a7c]" },
+  { id: "suivi", label: t("Suivi technique"), hint: t("Version, alertes, synchronisations, journal des modifications"), icon: Activity, tone: "bg-[#5e6a7c]" },
 ];
 const GROUP_SECTIONS: { title: string; ids: GroupId[] }[] = [
   { title: t("Compte"), ids: ["compte", "foyer", "demo"] },

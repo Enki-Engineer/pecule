@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { appendFile, statfs } from "node:fs/promises";
 import path from "node:path";
 import express, { Router, type Request } from "express";
@@ -14,11 +14,11 @@ import { checkPacketSize, PacketTooSmall, restoreBackup, verifyBackup, type Veri
 import type { BackupManifest } from "./backup-format.ts";
 import { logAudit } from "./journal.ts";
 import { forgetVapidKeys } from "./notify.ts";
-import { backupDir } from "./pre-migration.ts";
+import { archivePath, backupDir, listArchives } from "./archives.ts";
 import { createSealer } from "./secret.ts";
 import { DEPUIS } from "./version.ts";
 import { fileSource, ZipError, type ZipSource } from "./zip.ts";
-import { archiveCompatibility, chunkPlacement, isArchiveName, RESTORE_CHUNK, type RestoreReport, type RestoreStage, type RestoreStatus, type SealedKind, type ServerArchive } from "../lib/restore.ts";
+import { archiveCompatibility, chunkPlacement, RESTORE_CHUNK, type RestoreReport, type RestoreStage, type RestoreStatus, type SealedKind, type ServerArchive } from "../lib/restore.ts";
 import { t, tk } from "../lib/i18n.ts";
 
 /*
@@ -122,22 +122,8 @@ export async function cleanInterruptedRestore(): Promise<boolean> {
   return true;
 }
 
-/** Archives présentes dans le dossier des sauvegardes du serveur, la plus récente d'abord. */
-function listArchives(): ServerArchive[] {
-  const dir = backupDir();
-  if (!existsSync(dir)) return [];
-  const out: ServerArchive[] = [];
-  for (const nom of readdirSync(dir)) {
-    if (!isArchiveName(nom)) continue;
-    try {
-      const s = statSync(path.join(dir, nom));
-      if (s.isFile()) out.push({ nom, octets: s.size, at: Math.round(s.mtimeMs) });
-    } catch {
-      // Retirée entre-temps.
-    }
-  }
-  return out.sort((a, b) => b.at - a.at).slice(0, 30);
-}
+/** Archives du dossier des sauvegardes du serveur proposées à la restauration, la plus récente d'abord. */
+const offered = (): ServerArchive[] => listArchives().slice(0, 30).map((a) => ({ nom: a.name, octets: a.octets, at: a.at }));
 
 const SEALED = /^v1:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]*$/;
 const SEALED_KEYS: Record<string, SealedKind> = { "ai:config": "ia", "bank:enablebanking": "banque", "services:keys": "services", vapid: "notifications" };
@@ -343,7 +329,7 @@ export function restoreApi(hooks: RestoreHooks) {
     rmSync(uploadDir(), { recursive: true, force: true });
     const jeton = randomBytes(32).toString("base64url");
     session = { hash: sha256(jeton), expires: Date.now() + SESSION_MS, upload: null, job: null };
-    res.json({ jeton, archives: listArchives(), morceau: RESTORE_CHUNK });
+    res.json({ jeton, archives: offered(), morceau: RESTORE_CHUNK });
   });
 
   /** Un morceau de l'archive (corps brut), à la suite de ce qui est déjà reçu. */
@@ -388,8 +374,9 @@ export function restoreApi(hooks: RestoreHooks) {
     if (running()) return res.status(409).json({ error: t("Une restauration est déjà en cours.") });
     let file: string;
     if (archive !== undefined) {
-      file = path.join(backupDir(), archive);
-      if (!isArchiveName(archive) || !existsSync(file)) return res.status(404).json({ error: t("Archive introuvable sur le serveur.") });
+      const found = archivePath(archive);
+      if (!found) return res.status(404).json({ error: t("Archive introuvable sur le serveur.") });
+      file = found;
     } else {
       if (!s.upload || s.upload.size !== s.upload.total) return res.status(400).json({ error: t("Envoi interrompu : recommence l'envoi de l'archive.") });
       file = s.upload.file;

@@ -87,6 +87,20 @@ if (health) {
           todo: !!newer,
         });
       }
+      // Dernière sauvegarde de toute sorte (un Pécule d'avant la 1.24.0 ne la donne pas : la ligne est alors absente).
+      const rb = await fetch(`${target}/api/backup/info`, { headers: { Authorization: `Bearer ${env.API_TOKEN}` }, signal: AbortSignal.timeout(8000) }).catch(() => null);
+      const b = rb?.ok ? await rb.json().catch(() => null) : null;
+      if (b && "latest" in b) {
+        const days = b.latest ? Math.floor((Date.now() - b.latest) / 86_400_000) : null;
+        const auto = b.auto?.auto ? (b.state?.echec ? "sauvegardes automatiques en échec" : "sauvegardes automatiques actives") : "sauvegardes automatiques éteintes";
+        checks.push({
+          id: "sauvegarde",
+          ok: true,
+          days,
+          message: days === null ? `Aucune sauvegarde encore (${auto}) : pnpm sauvegarde, ou Réglages → Compte et sécurité` : `Dernière sauvegarde : ${days === 0 ? "aujourd'hui" : days === 1 ? "hier" : `il y a ${days} jours`} (${auto})`,
+          todo: days === null || days >= 30 || (b.auto?.auto && !!b.state?.echec),
+        });
+      }
     }
   } catch {
     check("api", false, "L'API ne répond pas comme attendu", "Voir le journal du serveur.");

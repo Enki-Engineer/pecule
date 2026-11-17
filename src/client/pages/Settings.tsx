@@ -20,7 +20,7 @@ import { FunSettings } from "../components/FunSettings.tsx";
 import { BirthdaySettings } from "../components/BirthdaySettings.tsx";
 import { VoiceSettings } from "../components/VoiceSettings.tsx";
 import { LanguageSettings } from "../components/LanguageSettings.tsx";
-import { BackupSettings } from "../components/BackupSettings.tsx";
+import { AutoBackupSettings, BackupSettings } from "../components/BackupSettings.tsx";
 import { UpdateSettings } from "../components/UpdateSettings.tsx";
 import { HouseholdSettings } from "../components/HouseholdSettings.tsx";
 import { ConnectionsSettings } from "../components/ConnectionsSettings.tsx";
@@ -160,6 +160,11 @@ export function Settings() {
         {!demo && me.data?.user?.admin && (
           <Section id="sauvegarde" title={t("Sauvegarde complète")}>
             <BackupSettings />
+          </Section>
+        )}
+        {!demo && me.data?.user?.admin && (
+          <Section id="sauvegardes-automatiques" title={t("Sauvegardes automatiques")}>
+            <AutoBackupSettings />
           </Section>
         )}
         {!demo && (

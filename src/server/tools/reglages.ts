@@ -22,6 +22,7 @@ import { MODULES, MODULE_INFO, type ModuleId } from "../../lib/modules.ts";
 import { ToolError, change, field, month, readTool, writeTool, type Tool } from "./registry.ts";
 import { updateStatus } from "../updates.ts";
 import { VERSION } from "../version.ts";
+import { backupSettings, backupState, lastBackupAt } from "../auto-backup.ts";
 
 /*
  * Aide et réglages : le manuel de Pécule (src/lib/manual.ts), que l'assistant lit avant d'expliquer un écran ou
@@ -83,7 +84,7 @@ const getSettings = readTool({
   name: "get_settings",
   progress: tk("Lecture des réglages…"),
   description:
-    "Réglages de Pécule que tu peux lire : la version de Pécule en service (et, pour l'administrateur, la version plus récente publiée s'il y en a une), ceux du membre (langue, équivalences amusantes, agencement de son tableau de bord, s'il est administrateur) et ceux du foyer (pays, devise, fuseau horaire, jour retenu pour les achats par carte, écrans facultatifs affichés ou retirés, personnes sans connexion, banques professionnelles), avec l'adresse de l'écran où chacun se règle. " +
+    "Réglages de Pécule que tu peux lire : la version de Pécule en service (et, pour l'administrateur, la version plus récente publiée s'il y en a une, la date de la dernière sauvegarde et le réglage des sauvegardes automatiques), ceux du membre (langue, équivalences amusantes, agencement de son tableau de bord, s'il est administrateur) et ceux du foyer (pays, devise, fuseau horaire, jour retenu pour les achats par carte, écrans facultatifs affichés ou retirés, personnes sans connexion, banques professionnelles), avec l'adresse de l'écran où chacun se règle. " +
     "Les réglages gardés par l'appareil (clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée, notifications) ne se lisent pas d'ici. Alerte de solde bas : get_balance_alert ; comptes masqués ou hors statistiques : list_accounts.",
   input: z.object({}),
   async run({ userId }) {
@@ -145,6 +146,7 @@ const getSettings = readTool({
       low_balance_alert: { read_with: "get_balance_alert", change_with: "set_balance_alert", where: "/reglages/notifications#solde" },
       accounts: { read_with: "list_accounts", change_with: "update_account", where: "/reglages/connexions" },
       pecule: await peculeVersion(admin),
+      backup: await backupInfo(admin),
     };
   },
 });
@@ -293,6 +295,22 @@ const updateAccount = writeTool({
 
 /* ---------- Notifications : types reçus par les appareils du membre ---------- */
 
+/** Où en sont les sauvegardes (administrateur seulement : l'archive porte les données de tous les membres). */
+async function backupInfo(admin: boolean) {
+  if (isDemo()) return { note: "Indisponible en mode démo." };
+  const where = "/reglages/compte#sauvegarde";
+  if (!admin) return { where, note: "La sauvegarde complète est réservée à l'administrateur." };
+  const [settings, state, latest] = await Promise.all([backupSettings(), backupState(), lastBackupAt()]);
+  return {
+    where,
+    last_backup: latest ? new Date(latest).toISOString() : "aucune",
+    automatic: { enabled: settings.auto, frequency: settings.frequence === "semaine" ? "chaque semaine" : "chaque nuit", kept_on_server: settings.garder },
+    last_automatic: state.ok ? { at: state.ok.at, megabytes: Math.round(state.ok.octets / 1_048_576) } : null,
+    automatic_failure: settings.auto && state.echec ? state.echec : null,
+    how: "Télécharger une sauvegarde, activer les sauvegardes automatiques et choisir combien en garder se fait à l'écran, par l'administrateur. Une sauvegarde se restaure dans une installation neuve. Articles du manuel : sauvegarde, restaurer.",
+  };
+}
+
 const NOTIF_IDS = Object.keys(NOTIF_TYPES) as NotifType[];
 /** Ce que chaque type annonce, pour l'IA (les libellés de l'écran, eux, sont traduits pendant la requête). */
 const NOTIF_MEANING: Record<NotifType, string> = {
@@ -306,6 +324,7 @@ const NOTIF_MEANING: Record<NotifType, string> = {
   resume: "résumé de la semaine (lundi matin)",
   ia: "coût de l'IA à 80 % du plafond du mois ou dépassé (reçu par l'administrateur seulement)",
   maj: "nouvelle version de Pécule publiée (reçu par l'administrateur seulement)",
+  sauvegarde: "sauvegarde automatique en échec, ou aucune sauvegarde depuis un mois (reçu par l'administrateur seulement)",
 };
 /** Nom d'un appareil abonné (« iPhone », « Mac »…), ou « Appareil » s'il n'en a pas donné. */
 const deviceName = (d: NotifDevice) => d.device?.trim() || tr("Appareil");

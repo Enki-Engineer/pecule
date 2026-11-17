@@ -38,6 +38,7 @@ import { runNotifications } from "./notify.ts";
 import { runWeeklySummaries } from "./weekly.ts";
 import { backupBeforeMigration } from "./pre-migration.ts";
 import { scheduleUpdateCheck } from "./updates.ts";
+import { scheduleAutoBackup } from "./auto-backup.ts";
 import { updatesApi } from "./routes/updates.ts";
 import { cleanInterruptedRestore, restoreApi, type RestoreHooks } from "./restore.ts";
 
@@ -304,6 +305,8 @@ async function bootstrap(opts: { restored?: boolean } = {}): Promise<{ applied: 
     if (isProd || process.env.ENABLE_SYNC === "1") scheduleSync();
     // Une fois par jour : une version plus récente est-elle publiée ? (UPDATE_CHECK=0 pour ne jamais le demander.)
     if (isProd) scheduleUpdateCheck();
+    // Sauvegardes automatiques, si l'administrateur les a demandées (Réglages → Compte et sécurité).
+    scheduleAutoBackup(() => boot.ready);
     return { applied };
   } catch (e) {
     boot.phase = "echec";

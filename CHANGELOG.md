@@ -3,6 +3,23 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.24.0
+
+- **Sauvegardes automatiques.** Dans Réglages → Compte et sécurité, l'administrateur peut demander au serveur d'écrire
+  lui-même une sauvegarde complète chaque nuit, ou chaque semaine. Chaque archive est relue en entier avant d'être
+  gardée, et seules les plus récentes restent (sept au départ, réglable). « Écrire une sauvegarde maintenant » en fait
+  une tout de suite. Éteint tant qu'on ne l'a pas demandé : rien ne change pour une installation existante.
+- **Les archives du serveur se voient et se gèrent depuis l'appli** : automatiques, d'avant mise à jour ou déposées
+  dans le dossier, avec leur date et leur taille — à télécharger ou à retirer.
+- **Pécule prévient quand les sauvegardes manquent** : une notification pour l'administrateur si la sauvegarde
+  automatique échoue, ou après un mois sans aucune sauvegarde (type « Sauvegarde automatique en échec, ou aucune
+  sauvegarde depuis un mois ») ; l'échec figure aussi dans les alertes du Suivi technique. `doctor` dit de quand date
+  la dernière sauvegarde, et l'assistant sait le dire aussi.
+- Ces archives sont dans `data/sauvegardes` (ou `BACKUP_DIR`), sur le même serveur que la base : elles protègent
+  d'une erreur ou d'une mise à jour qui tourne mal, pas de la perte du serveur. Chez un hébergeur qui installe chaque
+  version dans un dossier neuf, donnez à `BACKUP_DIR` un dossier hors de l'installation.
+- Aucune migration, aucun réglage d'hébergement nouveau.
+
 ## 1.23.0
 
 - **Restaurer une sauvegarde depuis l'appli, à l'installation.** L'écran « Bienvenue dans Pécule » d'une installation

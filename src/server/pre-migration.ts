@@ -1,14 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
-import { statfs } from "node:fs/promises";
+import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
-import { finished } from "node:stream/promises";
-import { env, rpID } from "./env.ts";
-import { one, pool } from "./db.ts";
-import { writeBackup } from "./backup.ts";
+import { env } from "./env.ts";
+import { backupDir, writeArchiveFile, type ServerBackup } from "./archives.ts";
 import { PRE_MIGRATION_PREFIX, parsePreMigrationName, preMigrationBackupDue, preMigrationBackupsToPrune, preMigrationFileName } from "./backup-format.ts";
 import { recordAlert } from "./journal.ts";
-import { appRoot } from "./version.ts";
 
 /*
  * Sauvegarde d'avant migration. Une mise à jour change la structure de la base au démarrage, et une instruction de
@@ -20,16 +16,10 @@ import { appRoot } from "./version.ts";
  * signalés (journal, alerte du Suivi technique) et la migration se poursuit. BACKUP_BEFORE_MIGRATION=0 le coupe.
  */
 
+export { backupDir, type ServerBackup };
+
 /** Nombre de sauvegardes d'avant migration gardées sur le serveur. */
 const KEEP = 3;
-/** Marge de disque libre exigée en plus de la taille estimée de l'archive. */
-const MARGIN = 64 * 1_048_576;
-const PARTIAL = ".partiel";
-
-/** Dossier des sauvegardes écrites par le serveur. */
-export const backupDir = () => path.resolve(env.BACKUP_DIR ?? path.join(appRoot(), "data", "sauvegardes"));
-
-export type ServerBackup = { name: string; octets: number; at: number };
 
 /** Sauvegardes d'avant migration présentes sur le serveur, la plus récente d'abord. */
 export function listServerBackups(dir = backupDir()): ServerBackup[] {
@@ -49,43 +39,10 @@ export function listServerBackups(dir = backupDir()): ServerBackup[] {
 
 const mo = (octets: number) => `${(octets / 1_048_576).toFixed(1).replace(".", ",")} Mo`;
 
-async function write(dir: string, applied: number): Promise<ServerBackup> {
-  mkdirSync(dir, { recursive: true });
-  // Restes d'une écriture coupée par l'arrêt du serveur.
-  for (const name of readdirSync(dir)) if (name.startsWith(PRE_MIGRATION_PREFIX) && name.endsWith(PARTIAL)) rmSync(path.join(dir, name), { force: true });
-
-  const size = await one<{ octets: number }>("SELECT COALESCE(SUM(DATA_LENGTH), 0) AS octets FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'");
-  const needed = Number(size?.octets ?? 0) + MARGIN;
-  const disk = await statfs(dir);
-  const free = Number(disk.bavail) * Number(disk.bsize);
-  if (free < needed) throw new Error(`pas assez de place dans ${dir} (${mo(free)} libres, ${mo(needed)} à prévoir)`);
-
+const write = (dir: string, applied: number) => {
   const now = new Date();
-  const name = preMigrationFileName(now, applied, randomBytes(4).toString("hex"));
-  const file = path.join(dir, name);
-  const partial = `${file}${PARTIAL}`;
-  // L'archive porte toutes les données du foyer : lisible par le seul compte du serveur.
-  const out = createWriteStream(partial, { mode: 0o600 });
-  let failure: unknown = null;
-  out.on("error", (e) => (failure ??= e));
-  const conn = await pool.getConnection();
-  try {
-    await writeBackup(conn, out, { now, origine: rpID });
-    out.end();
-    await finished(out);
-    if (failure) throw failure;
-    conn.release();
-  } catch (e) {
-    // Connexion peut-être au milieu d'une lecture : elle ne retourne pas dans la réserve.
-    conn.destroy();
-    out.destroy();
-    rmSync(partial, { force: true });
-    throw failure ?? e;
-  }
-  // Le nom final ne désigne jamais qu'une archive écrite jusqu'au bout.
-  renameSync(partial, file);
-  return { name, octets: statSync(file).size, at: now.getTime() };
-}
+  return writeArchiveFile(dir, preMigrationFileName(now, applied, randomBytes(4).toString("hex")), { prefix: PRE_MIGRATION_PREFIX, now });
+};
 
 /**
  * Écrit la sauvegarde d'avant migration, sauf si la même base vient déjà d'être sauvegardée (démarrage qui recommence

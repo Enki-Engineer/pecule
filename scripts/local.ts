@@ -76,6 +76,8 @@ async function copie() {
     for (const t of ["push_subscriptions", "sessions", "api_tokens", "enrollment_tokens", "auth_challenges", "oauth_codes", "oauth_requests", "oauth_grants"]) {
       await conn.query(`DELETE FROM \`${t}\``).catch(() => {});
     }
+    // La copie n'écrit pas de sauvegarde à la place de la vraie installation.
+    await conn.query("DELETE FROM app_kv WHERE `key` IN ('sauvegarde:reglages', 'sauvegarde:etat')").catch(() => {});
     console.log(`✓ copie du ${manifest.creeLe.slice(0, 10)} en place : ${manifest.totaux.lignes.toLocaleString("fr-FR")} lignes, dernière migration ${manifest.derniereMigration}`);
   } finally {
     await conn.end();

@@ -109,6 +109,13 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
   tous les fichiers (réservée à l'administrateur). En ligne de commande : `pnpm sauvegarde`. Les variables
   d'environnement n'y figurent pas : gardez `.env` à part — sans `SECRET_KEY` (ou, sur une installation qui n'en a pas,
   `API_TOKEN`), les clés enregistrées dans l'appli (banque, IA) sont illisibles.
+- **Sauvegardes automatiques** : éteintes au départ. Dans Réglages → Compte et sécurité, l'administrateur peut demander
+  au serveur d'écrire une sauvegarde complète chaque nuit (ou chaque semaine) dans `data/sauvegardes` — `BACKUP_DIR`
+  pour un autre dossier —, relue en entier, les plus récentes seules étant gardées. Elles sont sur le même serveur que
+  la base : elles protègent d'une erreur, pas de la perte du serveur. Avec Docker, le dossier est le volume
+  `pecule-sauvegardes`. Chez un hébergeur qui installe chaque nouvelle version dans un dossier neuf, donnez à
+  `BACKUP_DIR` un dossier hors de l'installation, sinon les archives ne survivent pas à une mise en ligne. `doctor`
+  dit de quand date la dernière sauvegarde, et l'administrateur est prévenu après un mois sans aucune.
 - **Restauration** : dans une installation neuve (nouveau serveur, base perdue), l'écran « Bienvenue dans Pécule »
   propose « J'ai une sauvegarde : la restaurer ». Avec le code d'installation, on envoie l'archive — ou on en choisit
   une du dossier des sauvegardes du serveur (`data/sauvegardes`, ou `BACKUP_DIR`) — et Pécule la recharge, applique

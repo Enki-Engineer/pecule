@@ -9,18 +9,25 @@ import { isDemo, runReal } from "../demo-context.ts";
 import { logAudit, recordAlert } from "../journal.ts";
 import { BackupAborted, writeBackup } from "../backup.ts";
 import { backupFileName } from "../backup-format.ts";
+import { archivePath, backupDir, listArchives } from "../archives.ts";
+import { autoBackupRunning, backupSettings, backupState, DOWNLOAD_AUDIT, lastBackupAt, runAutoBackup, saveBackupSettings } from "../auto-backup.ts";
+import { rmSync } from "node:fs";
+import { z } from "zod";
+import { KEEP_MAX, KEEP_MIN } from "../../lib/backup-plan.ts";
 import { t } from "../../lib/i18n.ts";
 
 /*
  * Sauvegarde complète (Réglages → Compte et sécurité, `pnpm sauvegarde`) : réservée à
  * l'administrateur, car l'archive contient les données privées de tous les membres. Toujours la
  * vraie base, jamais en démo. Chaque téléchargement abouti est noté dans le journal.
+ * Ici aussi : le réglage des sauvegardes automatiques (`src/server/auto-backup.ts`) et les archives que le serveur
+ * garde dans son dossier — les lister, en télécharger une, en retirer une.
  */
 
 export const backupApi = Router();
 
 /** Action du journal : sert aussi à retrouver la dernière sauvegarde. */
-const AUDIT_ACTION = "sauvegarde complète";
+const AUDIT_ACTION = DOWNLOAD_AUDIT;
 
 const limiter = rateLimit({
   windowMs: 60 * 60_000,
@@ -62,7 +69,53 @@ backupApi.get("/backup/info", requireAdmin, async (_req, res) => {
     documents: Number(counts?.documents ?? 0),
     running,
     last: last ? { at: Number(last.at) * 1000, by: last.name, octets: lastBytes } : null,
+    // Sauvegardes automatiques : réglage, dernier résultat, et ce que le serveur garde dans son dossier.
+    auto: await backupSettings(),
+    state: await backupState(),
+    autoRunning: autoBackupRunning(),
+    dir: backupDir(),
+    archives: listArchives().slice(0, 100),
+    // Dernière sauvegarde de toute sorte (téléchargée, automatique, d'avant migration).
+    latest: await lastBackupAt(),
   });
+});
+
+/** Réglage des sauvegardes automatiques. */
+backupApi.put("/backup/settings", requireAdmin, async (req, res) => {
+  const patch = z.object({ auto: z.boolean().optional(), frequence: z.enum(["jour", "semaine"]).optional(), garder: z.number().int().min(KEEP_MIN).max(KEEP_MAX).optional() }).parse(req.body);
+  res.json(await saveBackupSettings(patch));
+});
+
+/** Écrit une sauvegarde sur le serveur tout de suite (comme celle de la nuit) ; la fin se lit dans `/backup/info`. */
+backupApi.post("/backup/run", requireAdmin, limiter, (_req, res) => {
+  if (isDemo()) return res.status(403).json({ error: t("Indisponible en mode démo") });
+  if (autoBackupRunning()) return res.status(409).json({ error: t("Une sauvegarde est déjà en cours : attends qu'elle se termine.") });
+  void runReal(() => runAutoBackup());
+  res.status(202).json({ ok: true });
+});
+
+/** Une archive du dossier des sauvegardes du serveur, à télécharger. */
+backupApi.get("/backup/archives/:name", requireAdmin, async (req, res) => {
+  if (isDemo()) return res.status(403).json({ error: t("Indisponible en mode démo") });
+  // Depuis l'appli seulement (ou par jeton) : un lien posé sur un autre site ne doit pas faire télécharger l'archive.
+  const site = req.get("sec-fetch-site");
+  if (req.user?.via === "session" && site && site !== "same-origin" && site !== "none") return res.status(403).json({ error: "Requête refusée : elle ne vient pas de Pécule." });
+  const name = String(req.params.name);
+  const file = archivePath(name);
+  if (!file) return res.status(404).json({ error: t("Archive introuvable sur le serveur.") });
+  await logAudit("archive de sauvegarde téléchargée", name);
+  res.set({ "Cache-Control": "private, no-store, no-transform", "X-Accel-Buffering": "no" });
+  // `dotfiles` : le chemin de l'installation peut passer par un dossier caché sans que l'envoi soit refusé.
+  res.download(file, name, { dotfiles: "allow" });
+});
+
+/** Retire une archive du dossier des sauvegardes du serveur. */
+backupApi.delete("/backup/archives/:name", requireAdmin, (req, res) => {
+  if (isDemo()) return res.status(403).json({ error: t("Indisponible en mode démo") });
+  const file = archivePath(String(req.params.name));
+  if (!file) return res.status(404).json({ error: t("Archive introuvable sur le serveur.") });
+  rmSync(file, { force: true });
+  res.json({ ok: true });
 });
 
 /** L'archive, écrite au fil de l'eau dans la réponse (rien n'est gardé sur le serveur). */

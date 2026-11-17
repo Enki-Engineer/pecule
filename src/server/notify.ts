@@ -17,6 +17,7 @@ import { memberLang, runInLang } from "./lang.ts";
 import { labels, locale, t, td, tk, tn } from "../lib/i18n.ts";
 import { resolvesPublic } from "./net.ts";
 import { updateAvailable } from "./updates.ts";
+import { backupWatch } from "./auto-backup.ts";
 import { VERSION } from "./version.ts";
 
 /*
@@ -40,13 +41,14 @@ export const NOTIF_TYPES = labels({
   resume: tk("Résumé de la semaine (lundi, 8 h)"),
   ia: tk("Coût de l'IA à 80 % du plafond du mois, ou dépassé"),
   maj: tk("Nouvelle version de Pécule publiée"),
+  sauvegarde: tk("Sauvegarde automatique en échec, ou aucune sauvegarde depuis un mois"),
 });
-/** Types qui ne concernent que l'administrateur du foyer (il règle le plafond de l'IA, il met Pécule à jour) : proposés à lui seul. */
-export const ADMIN_NOTIF_TYPES: ReadonlySet<string> = new Set(["ia", "maj"]);
+/** Types qui ne concernent que l'administrateur du foyer (il règle le plafond de l'IA, il met Pécule à jour, il sauvegarde) : proposés à lui seul. */
+export const ADMIN_NOTIF_TYPES: ReadonlySet<string> = new Set(["ia", "maj", "sauvegarde"]);
 export type NotifType = keyof typeof NOTIF_TYPES;
 /** `lowBalance` : ancien seuil par appareil, repris une fois par la règle du membre (src/server/balance.ts). */
 export type NotifPrefs = Partial<Record<NotifType, boolean>> & { lowBalance?: number };
-export const DEFAULT_PREFS: NotifPrefs = { aclasser: true, prelevement: true, solde: true, loyer: true, echeance: true, garantie: true, enveloppe: true, resume: true, ia: true, maj: true };
+export const DEFAULT_PREFS: NotifPrefs = { aclasser: true, prelevement: true, solde: true, loyer: true, echeance: true, garantie: true, enveloppe: true, resume: true, ia: true, maj: true, sauvegarde: true };
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const parisNow = () => {
@@ -311,6 +313,25 @@ async function checksFor(userId: number) {
         body: t("Tu utilises la version {version}. La marche à suivre est dans Réglages → Suivi technique.", { version: VERSION }),
         url: "/reglages/suivi#version",
         tag: "maj",
+      });
+  }
+
+  // 9. Sauvegardes : un échec de la sauvegarde automatique (une fois par jour), ou plus d'un mois sans aucune (une fois par mois).
+  if (admin) {
+    const watch = await backupWatch();
+    if (watch.echec)
+      await notify(userId, "sauvegarde", `sauvegarde:echec:${watch.echec.at.slice(0, 10)}`, {
+        title: t("La sauvegarde automatique a échoué"),
+        body: t("Aucune sauvegarde n'a été écrite cette fois : la raison est dans Réglages → Compte et sécurité."),
+        url: "/reglages/compte#sauvegarde",
+        tag: "sauvegarde",
+      });
+    else if (watch.jours !== null)
+      await notify(userId, "sauvegarde", `sauvegarde:rappel:${month}`, {
+        title: t("Aucune sauvegarde depuis {n} jours", { n: watch.jours }),
+        body: t("Télécharge une sauvegarde complète, ou active les sauvegardes automatiques : Réglages → Compte et sécurité."),
+        url: "/reglages/compte#sauvegarde",
+        tag: "sauvegarde",
       });
   }
 }

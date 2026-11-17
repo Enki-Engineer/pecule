@@ -96,7 +96,10 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
 - **Sauvegarde complète** : une archive de toute la base et de tous les fichiers (`src/server/backup.ts`), restaurable
   dans une base vide (`pnpm restaurer`) ou, depuis l'écran de premier démarrage, dans une installation neuve
   (`src/server/restore.ts` : archive envoyée par morceaux, relue avant d'écrire, témoin `_restauration_en_cours` qui
-  fait repartir de neuf une restauration coupée par l'arrêt du serveur).
+  fait repartir de neuf une restauration coupée par l'arrêt du serveur). Le serveur en garde dans son dossier
+  (`src/server/archives.ts`) : celles d'avant migration, et les automatiques quand l'administrateur les demande
+  (`src/server/auto-backup.ts`, règles pures dans `src/lib/backup-plan.ts` : une par nuit ou par semaine, relue,
+  rotation ; un échec ou un mois sans sauvegarde est notifié à l'administrateur).
 - Écritures tracées dans `audit_log`, erreurs dans `alerts` (Réglages → Suivi technique).
 
 ## L'IA

@@ -4,7 +4,7 @@ import { appendFile, open, statfs } from "node:fs/promises";
 import { pipeline } from "node:stream/promises";
 import { AgeError, decryptStream, looksEncrypted } from "./age.ts";
 import path from "node:path";
-import express, { Router, type Request } from "express";
+import express, { Router, type NextFunction, type Request, type Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import { createEnrollmentLink, safeEqual } from "./auth.ts";
 import { checkPacketSize, PacketTooSmall, restoreBackup, verifyBackup, type VerifiedBackup } from "./backup.ts";
 import type { BackupManifest } from "./backup-format.ts";
 import { logAudit } from "./journal.ts";
+import { setRestoring } from "./maintenance.ts";
 import { forgetVapidKeys } from "./notify.ts";
 import { archivePath, backupDir, listArchives } from "./archives.ts";
 import { createSealer } from "./secret.ts";
@@ -47,6 +48,8 @@ import { t, tk } from "../lib/i18n.ts";
 const MARKER = "_restauration_en_cours";
 const LOCK = "pecule:restauration";
 const SESSION_MS = 6 * 3_600_000;
+/** Une fois la restauration finie, sa session (et son rapport) ne vaut plus que ce temps-là. */
+const REPORT_MS = 30 * 60_000;
 /** Marge de disque libre exigée en plus de la taille de l'archive envoyée. */
 const MARGIN = 64 * 1_048_576;
 const MAX_ARCHIVE = 20 * 1024 * 1_048_576;
@@ -116,12 +119,20 @@ export async function cleanInterruptedRestore(): Promise<boolean> {
   try {
     // Le verrou est tenu par le processus qui restaure : s'il est pris, ce n'est pas une restauration coupée.
     if (!(await takeLock(conn))) throw new Error("Restauration d'une sauvegarde déjà en cours dans un autre processus");
+    // Relu sous le verrou : un autre processus a pu faire ce ménage entre-temps, et recrée peut-être déjà la base.
+    const [[still]] = await conn.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?", [MARKER]);
+    if (!Number(still?.n)) return false;
     await dropAll(conn, []);
   } finally {
     // La connexion porte le verrou et des réglages de session : elle ne retourne pas dans la réserve.
     conn.destroy();
   }
   return true;
+}
+
+/** Au démarrage : restes d'un envoi abandonné ou d'un déchiffrement coupé par l'arrêt du serveur (aucune session n'y survit). */
+export function cleanRestoreLeftovers() {
+  rmSync(uploadDir(), { recursive: true, force: true });
 }
 
 /** Archives du dossier des sauvegardes du serveur proposées à la restauration, la plus récente d'abord. */
@@ -168,12 +179,31 @@ async function buildReport(manifest: BackupManifest, migrations: number): Promis
     lignes: manifest.totaux.lignes,
     migrations,
     adresseChangee: manifest.origine ? manifest.origine !== rpID : null,
+    sauvegardesEnPause: false,
     clesIllisibles: await unreadableKeys(),
     membres,
   };
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message.split("\n")[0] : String(e)).slice(0, 300);
+
+/**
+ * Coupe les sauvegardes automatiques de la base qui vient d'être restaurée, et oublie leur état (il décrit le serveur
+ * d'origine). Rend vrai si elles étaient actives.
+ */
+async function pauseAutoBackups(conn: PoolConnection): Promise<boolean> {
+  const [rows] = await conn.query<RowDataPacket[]>("SELECT value FROM app_kv WHERE `key` = 'sauvegarde:reglages'");
+  await conn.query("DELETE FROM app_kv WHERE `key` = 'sauvegarde:etat'");
+  let settings: Record<string, unknown> | null = null;
+  try {
+    settings = rows[0] ? (JSON.parse(String(rows[0].value)) as Record<string, unknown>) : null;
+  } catch {
+    settings = null;
+  }
+  if (!settings || settings.auto !== true) return false;
+  await conn.query("UPDATE app_kv SET value = ? WHERE `key` = 'sauvegarde:reglages'", [JSON.stringify({ ...settings, auto: false })]);
+  return true;
+}
 
 /** Les premiers octets d'un fichier. */
 async function head(file: string, length: number): Promise<Buffer> {
@@ -212,6 +242,9 @@ async function decrypted(file: string, cle: string | undefined): Promise<string 
   return clear;
 }
 
+/** La clé de récupération manque ou n'ouvre pas l'archive : l'archive envoyée est gardée, il suffit de redonner la clé. */
+const keyProblem = (f: Failure | null) => f?.code === "cle-requise" || f?.code === "cle-refusee";
+
 async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHooks, cle?: string) {
   let src: ZipSource | null = null;
   let clear: string | null = null;
@@ -219,6 +252,7 @@ async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHook
   let keepAlive: NodeJS.Timeout | null = null;
   let paused = false;
   let restored = false;
+  let autoPaused = false;
   let manifest: BackupManifest | null = null;
   const started = Date.now();
   try {
@@ -246,16 +280,23 @@ async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHook
     // Le wait_timeout de certains hébergeurs est court : la connexion reste vivante pendant les relectures.
     keepAlive = setInterval(() => c.query("SELECT 1").catch(() => {}), 5000);
     if (!(await takeLock(c))) throw new Refused({ code: "occupee" });
-    if (!(await freshInstall(c))) throw new Refused({ code: "pas-neuve" });
     try {
       await checkPacketSize(manifest, c);
     } catch (e) {
       if (e instanceof PacketTooSmall) throw new Refused({ code: "paquet" });
       throw e;
     }
+    // La maintenance d'abord : plus aucune requête n'entre. Puis seulement le contrôle — une création de foyer
+    // arrivée juste avant est ainsi vue, et rien n'est vidé.
     hooks.pause();
     paused = true;
+    if (!(await freshInstall(c))) throw new Refused({ code: "pas-neuve" });
     await c.query(`CREATE TABLE IF NOT EXISTS \`${MARKER}\` (debut DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`);
+    // Dernier regard avant de vider : le témoin est retiré si la base n'est plus neuve, pour que rien ne la remette à zéro.
+    if (!(await freshInstall(c))) {
+      await c.query(`DROP TABLE IF EXISTS \`${MARKER}\``);
+      throw new Refused({ code: "pas-neuve" });
+    }
     await dropAll(c, [MARKER]);
 
     // 3. Structure, lignes, fichiers, puis contrôle contre le manifeste.
@@ -271,6 +312,9 @@ async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHook
     if (problems.length) throw new Error(problems[0]);
     // Ce qui ouvrait une session ou une inscription sur le serveur d'origine ne vaut pas ici.
     for (const table of ["sessions", "auth_challenges", "enrollment_tokens"]) await c.query(`DELETE FROM \`${table}\``);
+    // Cette installation est peut-être une copie d'essai : elle n'écrit pas de sauvegarde — et ne trie pas les copies du
+    // stockage extérieur — à la place de celle d'origine tant que l'administrateur ne l'a pas redemandé.
+    autoPaused = await pauseAutoBackups(c);
     await c.query(`DROP TABLE \`${MARKER}\``);
     restored = true;
   } catch (e) {
@@ -282,7 +326,7 @@ async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHook
     conn?.destroy();
     await src?.close?.().catch(() => {});
     if (clear) rmSync(clear, { force: true });
-    if (uploaded) rmSync(file, { force: true });
+    if (uploaded && !keyProblem(job.failure)) rmSync(file, { force: true });
   }
 
   if (!paused) {
@@ -305,7 +349,7 @@ async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHook
     return;
   }
   try {
-    job.report = await buildReport(manifest!, boot.applied.length);
+    job.report = { ...(await buildReport(manifest!, boot.applied.length)), sauvegardesEnPause: autoPaused };
     await runReal(() => logAudit("restauration d'une sauvegarde", null, { sauvegardeDu: manifest!.creeLe, ...manifest!.totaux, secondes: Math.round((Date.now() - started) / 1000) }));
     console.log(`[restauration] sauvegarde du ${manifest!.creeLe} restaurée en ${Math.round((Date.now() - started) / 1000)} s`);
     job.stage = "termine";
@@ -347,8 +391,8 @@ function failureText(f: Failure): string {
 
 const statusOf = (s: Session): RestoreStatus => {
   const j = s.job;
-  if (!j) return { etape: "envoi", fait: s.upload?.size ?? 0, total: s.upload?.total ?? 0, erreur: null, rapport: null };
-  return { etape: j.stage, fait: j.fait, total: j.total, erreur: j.stage === "echec" && j.failure ? failureText(j.failure) : null, rapport: j.report };
+  if (!j) return { etape: "envoi", fait: s.upload?.size ?? 0, total: s.upload?.total ?? 0, erreur: null, rapport: null, cleRefusee: false };
+  return { etape: j.stage, fait: j.fait, total: j.total, erreur: j.stage === "echec" && j.failure ? failureText(j.failure) : null, rapport: j.report, cleRefusee: j.stage === "echec" && keyProblem(j.failure) };
 };
 
 const EXPIRED = tk("Session de restauration expirée : recommence depuis le code d'installation.");
@@ -373,9 +417,10 @@ export function restoreApi(hooks: RestoreHooks) {
   api.post("/open", limiter, json, async (req, res) => {
     const { code } = z.object({ code: z.string().min(1).max(400) }).parse(req.body);
     if (!hooks.ready()) return res.status(503).json({ error: t(STARTING) });
-    if (!safeEqual(code.trim(), env.SETUP_CODE ?? env.API_TOKEN)) return res.status(403).json({ error: t("Code d'installation incorrect.") });
     if (running()) return res.status(409).json({ error: t("Une restauration est déjà en cours.") });
+    // Avant le code : une installation en service répond la même chose quel que soit le code, qui ne s'y essaie donc pas.
     if (!(await freshInstall())) return res.status(409).json({ error: t("Cette installation a déjà des données : une sauvegarde ne se restaure que dans une installation neuve.") });
+    if (!safeEqual(code.trim(), env.SETUP_CODE ?? env.API_TOKEN)) return res.status(403).json({ error: t("Code d'installation incorrect.") });
     // Restes d'un envoi précédent, abandonné.
     rmSync(uploadDir(), { recursive: true, force: true });
     const jeton = randomBytes(32).toString("base64url");
@@ -384,7 +429,10 @@ export function restoreApi(hooks: RestoreHooks) {
   });
 
   /** Un morceau de l'archive (corps brut), à la suite de ce qui est déjà reçu. */
-  api.put("/upload", express.raw({ type: () => true, limit: RESTORE_CHUNK + 65_536 }), async (req, res) => {
+  /** Sans session de restauration, le corps d'un morceau n'est même pas lu. */
+  const known = (req: Request, res: Response, next: NextFunction) => (current(req) ? next() : res.status(401).json({ error: t(EXPIRED) }));
+
+  api.put("/upload", known, express.raw({ type: () => true, limit: RESTORE_CHUNK + 65_536 }), async (req, res) => {
     const s = current(req);
     if (!s) return res.status(401).json({ error: t(EXPIRED) });
     if (running()) return res.status(409).json({ error: t("Une restauration est déjà en cours.") });
@@ -433,13 +481,23 @@ export function restoreApi(hooks: RestoreHooks) {
       file = s.upload.file;
     }
     const job: Job = { stage: "dechiffrement", fait: 0, total: 0, failure: null, report: null };
+    const sent = archive === undefined ? s.upload : null;
     s.job = job;
-    // L'archive envoyée est consommée par cette restauration (elle est retirée du serveur à la fin).
+    // L'archive envoyée est consommée par cette restauration (elle est retirée du serveur à la fin)…
     s.upload = null;
-    void run(job, file, archive === undefined, hooks, cle).catch((e) => {
-      job.failure = { code: "interne", detail: message(e) };
-      job.stage = "echec";
-    });
+    setRestoring(true);
+    void run(job, file, archive === undefined, hooks, cle)
+      .catch((e) => {
+        job.failure = { code: "interne", detail: message(e) };
+        job.stage = "echec";
+      })
+      .finally(() => {
+        setRestoring(false);
+        // … sauf si seule la clé de récupération manquait : elle reste là, prête pour un nouvel essai.
+        if (keyProblem(job.failure) && session === s) s.upload = sent;
+        // Le rapport porte des liens d'inscription : il ne reste lisible qu'une demi-heure.
+        if (session === s) s.expires = Math.min(s.expires, Date.now() + REPORT_MS);
+      });
     res.status(202).json(statusOf(s));
   });
 

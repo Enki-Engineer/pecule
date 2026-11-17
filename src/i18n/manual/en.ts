@@ -1007,4 +1007,5 @@ export const en: Dict = {
   "Réservé à l'administrateur. Indisponible en mode démo.": "Administrator only. Not available in demo mode.",
   "hors site offsite cloud s3 webdav nextcloud nas backblaze scaleway chiffrement chiffrer age clé de récupération externaliser stockage extérieur copie distante": "off-site offsite cloud s3 webdav nextcloud nas backblaze scaleway encryption encrypt age recovery key external storage remote copy",
   "Une copie chiffrée (son nom finit par « .age ») demande ta clé de récupération : le champ apparaît quand tu la choisis.": "An encrypted copy (its name ends in “.age”) asks for your recovery key: the field appears when you choose it.",
+  "Les sauvegardes automatiques sont mises en pause sur l'installation restaurée, pour qu'une copie d'essai n'écrive pas à la place de l'installation d'origine : réactive-les dans les réglages quand c'est bien elle qui sert.": "Automatic backups are paused on the restored installation, so that a test copy doesn't write in place of the original installation: turn them back on in the settings once it is the one in use.",
 };

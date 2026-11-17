@@ -40,7 +40,8 @@ import { backupBeforeMigration } from "./pre-migration.ts";
 import { scheduleUpdateCheck } from "./updates.ts";
 import { scheduleAutoBackup } from "./auto-backup.ts";
 import { updatesApi } from "./routes/updates.ts";
-import { cleanInterruptedRestore, restoreApi, type RestoreHooks } from "./restore.ts";
+import { cleanInterruptedRestore, cleanRestoreLeftovers, restoreApi, type RestoreHooks } from "./restore.ts";
+import { cleanOffsiteLeftovers } from "./offsite.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -274,6 +275,9 @@ async function bootstrap(opts: { restored?: boolean } = {}): Promise<{ applied: 
   try {
     // Restauration coupée par l'arrêt du serveur : la base à moitié chargée repart de neuf.
     if (await cleanInterruptedRestore()) console.warn("[restauration] une restauration interrompue a été annulée : la base repart de neuf");
+    // Fichiers de travail laissés par un arrêt du serveur (archive en cours d'envoi, copie en cours de chiffrement).
+    cleanRestoreLeftovers();
+    cleanOffsiteLeftovers();
     // Une base déjà en service est sauvegardée sur le serveur avant de recevoir une migration.
     const applied = await migrate(undefined, { beforeApply: opts.restored ? undefined : backupBeforeMigration });
     if (applied.length) console.log(`[db] migrations appliquées : ${applied.join(", ")}`);
@@ -304,7 +308,7 @@ async function bootstrap(opts: { restored?: boolean } = {}): Promise<{ applied: 
     migrateDemo().catch(() => {});
     if (isProd || process.env.ENABLE_SYNC === "1") scheduleSync();
     // Une fois par jour : une version plus récente est-elle publiée ? (UPDATE_CHECK=0 pour ne jamais le demander.)
-    if (isProd) scheduleUpdateCheck();
+    if (isProd) scheduleUpdateCheck(() => boot.ready);
     // Sauvegardes automatiques, si l'administrateur les a demandées (Réglages → Compte et sécurité).
     scheduleAutoBackup(() => boot.ready);
     return { applied };

@@ -167,9 +167,19 @@ export function allowedRestoreStatement(sql: string, kind: "structure" | "donnee
   const s = sql.trim().replace(/;+$/, "");
   // Les réglages de l'en-tête ouvrent chaque fichier de l'archive, structure comme données.
   if (SQL_PREAMBLE.some((p) => p.replace(/;$/, "") === s)) return true;
-  if (kind === "donnees") return !!table && /^[A-Za-z0-9_]+$/.test(table) && s.startsWith(`INSERT INTO \`${table}\` `);
-  if (/^CREATE TABLE `[A-Za-z0-9_]+` \(/.test(s)) return true;
-  return /^CREATE OR REPLACE (ALGORITHM=[A-Z]+ )?(SQL SECURITY (DEFINER|INVOKER) )?VIEW `[A-Za-z0-9_]+` AS select /i.test(s) && !/\binto\s+(outfile|dumpfile)\b/i.test(s);
+  // Des lignes écrites une à une (« … VALUES (… ») : jamais un INSERT … SELECT, qui lirait ailleurs.
+  if (kind === "donnees") return !!table && /^[A-Za-z0-9_]+$/.test(table) && new RegExp(`^INSERT INTO \`${table}\` \\((\`[^\`]+\`)(, ?\`[^\`]+\`)*\\) VALUES \\(`).test(s);
+  // Hors des textes entre apostrophes (valeurs par défaut, commentaires) : ce que l'instruction fait vraiment.
+  const bare = s.replace(/'(?:[^'\\]|\\.|'')*'/g, "''");
+  // Une table se décrit, elle ne se remplit pas d'une lecture (CREATE TABLE … SELECT).
+  if (/^CREATE TABLE `[A-Za-z0-9_]+` \(/.test(s)) return !/\bselect\b/i.test(bare);
+  // Une vue ne lit que les tables de sa base : ni fichier, ni table nommée avec sa base (« `autre`.`table` »).
+  return (
+    /^CREATE OR REPLACE (ALGORITHM=[A-Z]+ )?(SQL SECURITY (DEFINER|INVOKER) )?VIEW `[A-Za-z0-9_]+` AS select /i.test(s) &&
+    !/\binto\s+(outfile|dumpfile)\b/i.test(bare) &&
+    !/`[^`]+`\.`[^`]+`\.`[^`]+`/.test(bare) &&
+    !/\b(from|join)\s*\(*\s*(`[^`]+`|[A-Za-z0-9_$]+)\s*\.\s*(`|[A-Za-z0-9_$])/i.test(bare)
+  );
 }
 
 /** Nom d'une partie : `base/donnees/<table>.sql`, puis `<table>.002.sql`… quand la table est découpée. */

@@ -3191,4 +3191,10 @@ export const it: Dict = {
   "Clé publique invalide : elle commence par « age1 » et se recopie en entier.": "Chiave pubblica non valida: inizia con «age1» e va copiata per intero.",
   "Crée d'abord la clé de chiffrement : rien ne quitte le serveur sans être chiffré.": "Crea prima la chiave di cifratura: niente lascia il server senza essere cifrato.",
   "La dernière copie": ["L'ultima copia", "Le ultime {n} copie"],
+  "Adresse ou identifiant modifié : saisis de nouveau le secret du stockage.": "Indirizzo o nome utente modificato: inserisci di nuovo il segreto dell'archiviazione.",
+  "L'archive est restée sur le serveur : pas besoin de la renvoyer.": "L'archivio è rimasto sul server: non serve inviarlo di nuovo.",
+  "Réessayer avec cette clé": "Riprova con questa chiave",
+  "Les sauvegardes automatiques sont en pause sur cette installation, pour qu'elle n'écrive pas à la place de celle d'origine : réactive-les dans les réglages si c'est bien elle qui sert désormais.": "I backup automatici sono in pausa su questa installazione, perché non scriva al posto di quella originale: riattivali nelle impostazioni se d'ora in poi è questa a essere usata.",
+  "La copie de la sauvegarde hors du serveur n'est pas partie": "La copia del backup fuori dal server non è partita",
+  "La sauvegarde est écrite sur le serveur, mais pas sa copie extérieure : la raison est dans Réglages → Compte et sécurité.": "Il backup è scritto sul server, ma non la sua copia esterna: il motivo è in Impostazioni → Account e sicurezza.",
 };

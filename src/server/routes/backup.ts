@@ -10,12 +10,12 @@ import { logAudit, recordAlert } from "../journal.ts";
 import { BackupAborted, writeBackup } from "../backup.ts";
 import { backupFileName } from "../backup-format.ts";
 import { archivePath, backupDir, listArchives } from "../archives.ts";
-import { autoBackupRunning, backupSettings, backupState, DOWNLOAD_AUDIT, lastBackupAt, runAutoBackup, saveBackupSettings } from "../auto-backup.ts";
+import { autoBackupRunning, backupSettings, backupState, DOWNLOAD_AUDIT, forgetOffsiteFailure, lastBackupAt, runAutoBackup, saveBackupSettings } from "../auto-backup.ts";
 import { rmSync } from "node:fs";
 import { z } from "zod";
 import { finished } from "node:stream/promises";
 import { encryptStream, isRecipient } from "../age.ts";
-import { destination, encryptionKey, listOffsite, remoteProblemText, removeDestination, saveDestination, setEncryptionKey, testDestination } from "../offsite.ts";
+import { destination, encryptionKey, listOffsite, remoteProblemText, removeDestination, saveDestination, SecretNeeded, setEncryptionKey, testDestination } from "../offsite.ts";
 import { RemoteError } from "../remote.ts";
 import type { BackupFailure } from "../auto-backup.ts";
 import { ENCRYPTED_SUFFIX, KEEP_MAX, KEEP_MIN } from "../../lib/backup-plan.ts";
@@ -71,7 +71,8 @@ let running = false;
 const shown = (f: BackupFailure | null) => (f ? { at: f.at, raison: f.code ? remoteProblemText(f.code, f.raison) : f.raison } : null);
 
 /** Un refus du stockage extérieur n'est pas une panne de Pécule : sa raison est rendue telle quelle. */
-const remoteRefusal = (e: unknown) => (e instanceof RemoteError ? remoteProblemText(e.code, e.detail) : null);
+const remoteRefusal = (e: unknown) =>
+  e instanceof RemoteError ? remoteProblemText(e.code, e.detail) : e instanceof SecretNeeded ? t("Adresse ou identifiant modifié : saisis de nouveau le secret du stockage.") : null;
 
 /** Ce que contiendra l'archive (ordre de grandeur) et la dernière sauvegarde téléchargée. */
 backupApi.get("/backup/info", requireAdmin, async (_req, res) => {
@@ -131,7 +132,7 @@ backupApi.put("/backup/settings", requireAdmin, async (req, res) => {
 backupApi.post("/backup/run", requireAdmin, runLimiter, (_req, res) => {
   if (isDemo()) return res.status(403).json({ error: t("Indisponible en mode démo") });
   if (autoBackupRunning()) return res.status(409).json({ error: t("Une sauvegarde est déjà en cours : attends qu'elle se termine.") });
-  void runReal(() => runAutoBackup());
+  void runReal(() => runAutoBackup()).catch((e) => console.error("[sauvegarde] écriture à la demande en échec", e));
   res.status(202).json({ ok: true });
 });
 
@@ -167,6 +168,7 @@ backupApi.put("/backup/destination", requireAdmin, settingsLimiter, async (req, 
 /** Retire le stockage extérieur (les copies déjà déposées y restent). */
 backupApi.delete("/backup/destination", requireAdmin, async (_req, res) => {
   await removeDestination();
+  await forgetOffsiteFailure();
   res.json({ ok: true });
 });
 

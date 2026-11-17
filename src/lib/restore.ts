@@ -23,6 +23,8 @@ export type RestoreReport = {
   migrations: number;
   /** L'adresse de l'installation a changé depuis la sauvegarde (clés d'accès inutilisables) ; `null` : l'archive ne le dit pas. */
   adresseChangee: boolean | null;
+  /** Les sauvegardes automatiques de la sauvegarde étaient actives : elles sont en pause ici, à réactiver par l'administrateur. */
+  sauvegardesEnPause: boolean;
   /** Clés à ressaisir dans les réglages. */
   clesIllisibles: SealedKind[];
   /** Membres retrouvés ; `lien` : le lien d'inscription d'un administrateur (créer une clé d'accès ici). */
@@ -37,6 +39,8 @@ export type RestoreStatus = {
   /** Raison de l'échec, dans la langue de l'écran. */
   erreur: string | null;
   rapport: RestoreReport | null;
+  /** L'échec tient à la clé de récupération (absente ou refusée) : l'archive envoyée est gardée, il suffit de la redonner. */
+  cleRefusee: boolean;
 };
 
 /** Archive présente sur le serveur, proposée à la restauration. */

@@ -21,6 +21,7 @@ import { adminMember, listMembers } from "./members.ts";
 import { ensureDemoReady } from "./demo.ts";
 import { setMemberLang, storedLang } from "./lang.ts";
 import { runDemo, runReal } from "./demo-context.ts";
+import { isRestoring } from "./maintenance.ts";
 import { dateBasis } from "./stat-dates.ts";
 import { LANG_IDS, t as tr } from "../lib/i18n.ts";
 
@@ -239,6 +240,8 @@ authRouter.get("/me", async (req, res) => {
 authRouter.post("/setup", async (req, res) => {
   const body = z.object({ name: z.string().trim().min(1).max(80), code: z.string().min(1).max(400) }).parse(req.body);
   if (!safeEqual(body.code.trim(), env.SETUP_CODE ?? env.API_TOKEN)) return res.status(403).json({ error: tr("Code d'installation incorrect.") });
+  // Une sauvegarde est en train d'être rechargée ici : le foyer qu'on créerait serait effacé avec le reste.
+  if (isRestoring()) return res.status(409).json({ error: tr("Une restauration est déjà en cours.") });
   // Une seule instruction : deux demandes simultanées ne créent pas deux administrateurs.
   const created = await exec("INSERT INTO users (name, role) SELECT ?, 'admin' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM users)", [body.name]);
   if (!created.affectedRows) return res.status(409).json({ error: tr("Cette installation a déjà ses membres.") });

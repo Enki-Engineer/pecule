@@ -3191,4 +3191,10 @@ export const en: Dict = {
   "Clé publique invalide : elle commence par « age1 » et se recopie en entier.": "Invalid public key: it starts with “age1” and must be copied in full.",
   "Crée d'abord la clé de chiffrement : rien ne quitte le serveur sans être chiffré.": "Create the encryption key first: nothing leaves the server unencrypted.",
   "La dernière copie": ["The last copy", "The last {n} copies"],
+  "Adresse ou identifiant modifié : saisis de nouveau le secret du stockage.": "Address or username changed: enter the storage secret again.",
+  "L'archive est restée sur le serveur : pas besoin de la renvoyer.": "The archive is still on the server: no need to send it again.",
+  "Réessayer avec cette clé": "Try again with this key",
+  "Les sauvegardes automatiques sont en pause sur cette installation, pour qu'elle n'écrive pas à la place de celle d'origine : réactive-les dans les réglages si c'est bien elle qui sert désormais.": "Automatic backups are paused on this installation, so that it doesn't write in place of the original one: turn them back on in the settings if this is the one in use from now on.",
+  "La copie de la sauvegarde hors du serveur n'est pas partie": "The off-server copy of the backup did not go out",
+  "La sauvegarde est écrite sur le serveur, mais pas sa copie extérieure : la raison est dans Réglages → Compte et sécurité.": "The backup is written on the server, but not its external copy: the reason is in Settings → Account and security.",
 };

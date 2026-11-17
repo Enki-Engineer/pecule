@@ -129,7 +129,8 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
   une du dossier des sauvegardes du serveur (`data/sauvegardes`, ou `BACKUP_DIR`) — et Pécule la recharge, applique
   les migrations plus récentes, puis dit ce qu'il reste à faire : une clé d'accès à recréer si l'adresse a changé, des
   clés à ressaisir si `SECRET_KEY` n'est pas celui de l'ancien serveur. Une copie chiffrée (`.zip.age`) demande la
-  clé de récupération. Rien n'est possible sur une installation qui
+  clé de récupération. Les sauvegardes automatiques de l'installation restaurée sont mises en pause, pour qu'une
+  copie d'essai n'écrive pas à la place de l'installation d'origine : l'administrateur les réactive. Rien n'est possible sur une installation qui
   a déjà des données. En ligne de commande, dans une base sans aucune table :
   `pnpm restaurer <archive.zip> --base "mysql://…"`.
 - **Mise à jour** : `node scripts/maj.mjs` prend une sauvegarde, installe la dernière version publiée, attend le

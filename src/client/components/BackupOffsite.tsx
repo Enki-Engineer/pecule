@@ -141,7 +141,14 @@ export function OffsiteBackupSettings() {
   const editing: DestinationInput | null = form ?? (dest ? null : EMPTY.s3);
   const set = (patch: Partial<DestinationInput>) => editing && setForm({ ...editing, ...patch } as DestinationInput);
   const edit = () => dest && setForm(dest.type === "s3" ? { type: "s3", endpoint: dest.endpoint, region: dest.region, bucket: dest.bucket, prefix: dest.prefix, accessKey: dest.accessKey, secret: "" } : { type: "webdav", url: dest.url, user: dest.user, secret: "" });
-  const complete = editing && (editing.type === "s3" ? editing.endpoint.trim() && editing.bucket.trim() && editing.accessKey.trim() : editing.url.trim() && editing.user.trim()) && (editing.secret.trim() || dest?.type === editing.type);
+  const clean = (v: string) => v.trim().replace(/\/+$/, "");
+  // Le secret enregistré ne resert que pour la même adresse et le même identifiant : sinon il est à ressaisir.
+  const sameTarget =
+    !!editing &&
+    !!dest &&
+    ((editing.type === "s3" && dest.type === "s3" && clean(editing.endpoint) === dest.endpoint && editing.bucket.trim() === dest.bucket && editing.accessKey.trim() === dest.accessKey) ||
+      (editing.type === "webdav" && dest.type === "webdav" && clean(editing.url) === dest.url && editing.user.trim() === dest.user));
+  const complete = editing && (editing.type === "s3" ? editing.endpoint.trim() && editing.bucket.trim() && editing.accessKey.trim() : editing.url.trim() && editing.user.trim()) && (editing.secret.trim() || sameTarget);
   const choices = RETENTION_CHOICES.some((c) => sameRetention(c, d.auto.dehors)) ? RETENTION_CHOICES : [...RETENTION_CHOICES, d.auto.dehors];
   const out = d.state.dehors;
 
@@ -242,7 +249,7 @@ export function OffsiteBackupSettings() {
                     <Line label={t("Compartiment (bucket)")} value={editing.bucket} onChange={(bucket) => set({ bucket })} />
                     <Line label={t("Dossier dans le compartiment")} value={editing.prefix} onChange={(prefix) => set({ prefix })} placeholder="pecule" />
                     <Line label={t("Identifiant de la clé d'accès")} value={editing.accessKey} onChange={(accessKey) => set({ accessKey })} />
-                    <Line label={t("Clé secrète")} value={editing.secret} onChange={(secret) => set({ secret })} secret placeholder={dest?.type === "s3" ? t("Inchangée") : undefined} />
+                    <Line label={t("Clé secrète")} value={editing.secret} onChange={(secret) => set({ secret })} secret placeholder={sameTarget ? t("Inchangée") : undefined} />
                   </div>
                 </>
               ) : (
@@ -253,7 +260,7 @@ export function OffsiteBackupSettings() {
                       <Line label={t("Adresse du dossier")} value={editing.url} onChange={(url) => set({ url })} placeholder="https://cloud.exemple.fr/remote.php/dav/files/alex/Pecule" />
                     </div>
                     <Line label={t("Identifiant")} value={editing.user} onChange={(user) => set({ user })} />
-                    <Line label={t("Mot de passe")} value={editing.secret} onChange={(secret) => set({ secret })} secret placeholder={dest?.type === "webdav" ? t("Inchangé") : undefined} />
+                    <Line label={t("Mot de passe")} value={editing.secret} onChange={(secret) => set({ secret })} secret placeholder={sameTarget ? t("Inchangé") : undefined} />
                   </div>
                 </>
               )}

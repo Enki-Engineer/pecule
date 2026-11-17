@@ -99,6 +99,11 @@ function Report({ r }: { r: RestoreReport }) {
           {t("L'adresse de Pécule n'est plus celle de la sauvegarde : les clés d'accès créées à l'ancienne adresse ne fonctionnent pas ici. Crée la tienne ci-dessous, puis donne un lien d'inscription à chaque membre depuis les réglages.")}
         </p>
       )}
+      {r.sauvegardesEnPause && (
+        <p className="card mt-3 px-4 py-3 text-sm">
+          {t("Les sauvegardes automatiques sont en pause sur cette installation, pour qu'elle n'écrive pas à la place de celle d'origine : réactive-les dans les réglages si c'est bien elle qui sert désormais.")}
+        </p>
+      )}
       {r.clesIllisibles.length > 0 && (
         <p className="card mt-3 px-4 py-3 text-sm">
           {t("À refaire dans les réglages, car le secret de ce serveur n'est pas celui de l'ancien : {liste}.", { liste: r.clesIllisibles.map(sealedLabel).join(" ; ") })}
@@ -162,7 +167,7 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
         },
         (e) => {
           // Le serveur a redémarré : il ne connaît plus cette restauration.
-          if (!stopped && e instanceof ApiError && e.status === 401) setStatus({ etape: "echec", fait: 0, total: 0, erreur: e.message, rapport: null });
+          if (!stopped && e instanceof ApiError && e.status === 401) setStatus({ etape: "echec", fait: 0, total: 0, erreur: e.message, rapport: null, cleRefusee: false });
         },
       );
     }, 2000);
@@ -184,14 +189,15 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
     }
   }
 
-  async function start() {
+  /** `again` : l'archive est déjà sur le serveur (seule la clé de récupération était en cause) : on ne la renvoie pas. */
+  async function start(again = false) {
     if (!opened || (!file && !archive)) return;
     setBusy(true);
     setError(null);
     try {
-      if (file) {
-        setStatus({ etape: "envoi", fait: 0, total: file.size, erreur: null, rapport: null });
-        await sendArchive(file, opened, (sent) => setStatus({ etape: "envoi", fait: sent, total: file.size, erreur: null, rapport: null }));
+      if (file && !again) {
+        setStatus({ etape: "envoi", fait: 0, total: file.size, erreur: null, rapport: null, cleRefusee: false });
+        await sendArchive(file, opened, (sent) => setStatus({ etape: "envoi", fait: sent, total: file.size, erreur: null, rapport: null, cleRefusee: false }));
       }
       setStatus(await api<RestoreStatus>("/restore/start", { method: "POST", headers: { "X-Restauration": opened.jeton }, json: file ? (encrypted ? { cle: cle.trim() } : {}) : { archive } }));
     } catch (e) {
@@ -218,6 +224,22 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
   );
 
   if (status?.etape === "termine" && status.rapport) return <Report r={status.rapport} />;
+
+  // Clé de récupération absente ou refusée : l'archive est restée sur le serveur, il suffit de redonner la clé.
+  if (status?.etape === "echec" && status.cleRefusee && file)
+    return (
+      <>
+        <p className="mb-1 text-lg font-semibold">{t("Clé de récupération")}</p>
+        <p className="max-w-xs text-sm text-neg">{status.erreur ?? t("Erreur inattendue")}</p>
+        <input key="cle" value={cle} onChange={(e) => setCle(e.target.value)} placeholder={t("Clé de récupération")} aria-label={t("Clé de récupération")} autoComplete="off" spellCheck={false} className={`${field} mt-4`} />
+        <p className="mt-2 max-w-xs text-xs text-muted">{t("L'archive est restée sur le serveur : pas besoin de la renvoyer.")}</p>
+        <button type="button" onClick={() => start(true)} disabled={busy || !cle.trim()} className={main}>
+          {t("Réessayer avec cette clé")}
+        </button>
+        {error && <p className="mt-4 max-w-xs text-sm text-neg">{error}</p>}
+        {back}
+      </>
+    );
 
   if (status?.etape === "echec")
     return (
@@ -309,7 +331,7 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
           <p className="mt-2 max-w-xs text-xs text-muted">{t("Cette archive est chiffrée. Sa clé de récupération commence par AGE-SECRET-KEY-1 : Pécule te l'a montrée le jour où tu as créé la clé de chiffrement.")}</p>
         </>
       )}
-      <button type="button" onClick={start} disabled={busy || (!file && !archive) || (encrypted && !cle.trim())} className={main}>
+      <button type="button" onClick={() => start()} disabled={busy || (!file && !archive) || (encrypted && !cle.trim())} className={main}>
         {t("Restaurer cette sauvegarde")}
       </button>
       {error && <p className="mt-4 max-w-xs text-sm text-neg">{error}</p>}

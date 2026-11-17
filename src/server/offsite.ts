@@ -114,19 +114,32 @@ const withProbe = async (remote: Remote) => {
   }
 };
 
+/** Le secret du stockage doit être saisi : il n'y en a pas d'enregistré pour cette adresse et cet identifiant. */
+export class SecretNeeded extends Error {}
+
+/** Au démarrage : restes d'un envoi coupé par l'arrêt du serveur. */
+export function cleanOffsiteLeftovers() {
+  rmSync(workDir(), { recursive: true, force: true });
+}
+
 /**
  * Enregistre le stockage extérieur, après l'avoir essayé pour de bon (dépôt, liste et suppression d'un petit fichier) :
- * rien n'est gardé s'il refuse. Un secret laissé vide reprend celui déjà enregistré pour le même genre de stockage.
+ * rien n'est gardé s'il refuse. Un secret laissé vide reprend celui déjà enregistré, si l'adresse et l'identifiant n'ont pas changé.
  */
 export async function saveDestination(input: DestinationInput): Promise<PublicDestination> {
   const before = await stored();
-  const kept = before && before.type === input.type ? sealer.open(before.secret) : null;
-  const secret = input.secret.trim() || kept;
-  if (!secret) throw new RemoteError("identifiants");
   const clean: Stored =
     input.type === "s3"
       ? { type: "s3", endpoint: input.endpoint.trim().replace(/\/+$/, ""), region: input.region.trim() || "us-east-1", bucket: input.bucket.trim(), prefix: input.prefix.trim(), accessKey: input.accessKey.trim(), secret: "" }
       : { type: "webdav", url: input.url.trim().replace(/\/+$/, ""), user: input.user.trim(), secret: "" };
+  // Le secret déjà enregistré ne repart que vers la même adresse et pour le même identifiant : changer l'un ou l'autre
+  // demande de le ressaisir (sinon il suffirait de modifier l'adresse pour se le faire envoyer).
+  const sameTarget =
+    !!before &&
+    ((before.type === "s3" && clean.type === "s3" && before.endpoint === clean.endpoint && before.bucket === clean.bucket && before.accessKey === clean.accessKey) ||
+      (before.type === "webdav" && clean.type === "webdav" && before.url === clean.url && before.user === clean.user));
+  const secret = input.secret.trim() || (sameTarget ? sealer.open(before!.secret) : null);
+  if (!secret) throw new SecretNeeded();
   await withProbe(remoteOf(clean, secret));
   const next = { ...clean, secret: sealer.seal(secret) };
   await save(DESTINATION, next);

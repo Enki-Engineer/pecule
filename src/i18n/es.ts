@@ -3191,4 +3191,10 @@ export const es: Dict = {
   "Clé publique invalide : elle commence par « age1 » et se recopie en entier.": "Clave pública no válida: empieza por «age1» y hay que copiarla entera.",
   "Crée d'abord la clé de chiffrement : rien ne quitte le serveur sans être chiffré.": "Crea primero la clave de cifrado: nada sale del servidor sin cifrar.",
   "La dernière copie": ["La última copia", "Las {n} últimas copias"],
+  "Adresse ou identifiant modifié : saisis de nouveau le secret du stockage.": "Dirección o usuario modificado: vuelve a introducir el secreto del almacenamiento.",
+  "L'archive est restée sur le serveur : pas besoin de la renvoyer.": "El archivo sigue en el servidor: no hace falta volver a enviarlo.",
+  "Réessayer avec cette clé": "Reintentar con esta clave",
+  "Les sauvegardes automatiques sont en pause sur cette installation, pour qu'elle n'écrive pas à la place de celle d'origine : réactive-les dans les réglages si c'est bien elle qui sert désormais.": "Las copias de seguridad automáticas están en pausa en esta instalación, para que no escriba en lugar de la original: reactívalas en los ajustes si a partir de ahora es esta la que se usa.",
+  "La copie de la sauvegarde hors du serveur n'est pas partie": "La copia de la copia de seguridad fuera del servidor no ha salido",
+  "La sauvegarde est écrite sur le serveur, mais pas sa copie extérieure : la raison est dans Réglages → Compte et sécurité.": "La copia de seguridad está escrita en el servidor, pero no su copia externa: el motivo está en Ajustes → Cuenta y seguridad.",
 };

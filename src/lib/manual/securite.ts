@@ -110,6 +110,7 @@ export const securite: ManualTheme = {
           list: [
             tk("Si l'adresse de Pécule a changé, les clés d'accès d'avant ne fonctionnent plus : l'administrateur crée la sienne par le bouton proposé, puis donne un lien d'inscription à chaque membre."),
             tk("Si le secret du serveur n'est pas celui de l'ancien, les clés enregistrées dans l'appli (IA, banque, crypto) sont à ressaisir, et les notifications à réactiver sur chaque appareil."),
+            tk("Les sauvegardes automatiques sont mises en pause sur l'installation restaurée, pour qu'une copie d'essai n'écrive pas à la place de l'installation d'origine : réactive-les dans les réglages quand c'est bien elle qui sert.")
           ],
         },
         { warning: tk("Une archive abîmée, ou faite par une version plus récente de Pécule, est refusée avant que quoi que ce soit soit modifié.") },

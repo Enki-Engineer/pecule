@@ -12,7 +12,7 @@ const through = (data: Buffer, t: NodeJS.ReadWriteStream) => buffer(Readable.fro
  * un vrai secret par les outils qui en cherchent dans le dépôt.
  */
 const VECTOR = {
-  identity: ["AGE-SECRET-KEY-", "1NJVGC4JCSE782XNRGWP56DCJVPZJ33MNXTXLTLP24MR0D3QSNTXSR5AQZ4"].join(""),
+  identity: ["AGE-SECRET-KEY-", "1NJVGC4JCSE782XNRGWP56DCJVPZJ33MNXTXLTLP24MR0D3QSNTXSR5AQZ4"].join(""), // gitleaks:allow (clé d'essai jetable)
   recipient: "age1dg7x58d6sy55pzpf640x7kxucpjecadqm0020a4z87g07xu4ed8qtlrmjp",
   text: "Pécule — sauvegarde d'essai (famille de la démo : Alex, Camille, Léo).",
   sealed:

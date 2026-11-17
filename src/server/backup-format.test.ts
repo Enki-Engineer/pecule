@@ -170,6 +170,9 @@ describe("instructions admises à la restauration", () => {
     const { allowedRestoreStatement, SQL_PREAMBLE, InsertBuilder } = await import("./backup-format.ts");
     for (const s of SQL_PREAMBLE) expect(allowedRestoreStatement(s, "structure")).toBe(true);
     expect(allowedRestoreStatement("CREATE TABLE `users` (\n  `id` int NOT NULL\n)", "structure")).toBe(true);
+    // Le mot « select » dans un commentaire ou une valeur par défaut n'est pas une lecture.
+    expect(allowedRestoreStatement("CREATE TABLE `notes` (\n  `texte` varchar(40) DEFAULT 'select' COMMENT 'ce qu''on a pu select from ailleurs'\n) COMMENT='select'", "structure")).toBe(true);
+    expect(allowedRestoreStatement("CREATE OR REPLACE VIEW `v` AS select `t`.`id` AS `id`,'from autre.base' AS `texte` from (`transactions` `t` left join `transaction_splits` `s` on(`s`.`transaction_id` = `t`.`id`))", "structure")).toBe(true);
     expect(allowedRestoreStatement("CREATE OR REPLACE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `tx_lines` AS select `t`.`id` AS `id` from `transactions` `t`", "structure")).toBe(true);
     const b = new InsertBuilder("INSERT INTO `users` (`id`, `name`) VALUES ");
     b.add(["1", "'Alex'"]);
@@ -181,6 +184,14 @@ describe("instructions admises à la restauration", () => {
       expect(allowedRestoreStatement(s, "structure"), s).toBe(false);
     expect(allowedRestoreStatement("INSERT INTO `sessions` (`id`) VALUES (1)", "donnees", "users")).toBe(false);
     expect(allowedRestoreStatement("DELETE FROM `users`", "donnees", "users")).toBe(false);
+    // Rien qui lise ailleurs que dans l'archive : ni table remplie d'une lecture, ni vue sur une autre base.
+    expect(allowedRestoreStatement("INSERT INTO `users` SELECT * FROM `autre`.`users`", "donnees", "users")).toBe(false);
+    expect(allowedRestoreStatement("INSERT INTO `users` (`id`) SELECT 1", "donnees", "users")).toBe(false);
+    expect(allowedRestoreStatement("CREATE TABLE `t` (`id` int) SELECT * FROM `autre`.`secrets`", "structure")).toBe(false);
+    expect(allowedRestoreStatement("CREATE TABLE `t` (`id` int) AS select 1", "structure")).toBe(false);
+    expect(allowedRestoreStatement("CREATE OR REPLACE VIEW `v` AS select `s`.`cle` AS `cle` from `autre`.`secrets` `s`", "structure")).toBe(false);
+    expect(allowedRestoreStatement("CREATE OR REPLACE VIEW `v` AS select 1 from (`a` join autre.secrets on(1))", "structure")).toBe(false);
+    expect(allowedRestoreStatement("CREATE OR REPLACE VIEW `v` AS select `autre`.`secrets`.`cle` AS `cle` from `a`", "structure")).toBe(false);
     expect(allowedRestoreStatement("INSERT INTO `users` (`id`) VALUES (1)", "donnees", "users; drop")).toBe(false);
   });
 });

@@ -186,10 +186,11 @@ export async function updateStatus(): Promise<UpdateStatus> {
 let scheduled = false;
 
 /** Une vérification peu après le démarrage, puis toutes les six heures (elle ne part vraiment qu'une fois par jour). */
-export function scheduleUpdateCheck() {
+export function scheduleUpdateCheck(ready: () => boolean = () => true) {
   if (scheduled || !env.UPDATE_CHECK) return;
   scheduled = true;
-  const run = () => void checkUpdates().catch((e) => console.error("[mise à jour] vérification en échec", e));
+  // Jamais pendant une maintenance (restauration d'une sauvegarde) : rien ne s'écrit alors dans la base.
+  const run = () => void (ready() && checkUpdates().catch((e) => console.error("[mise à jour] vérification en échec", e)));
   setTimeout(run, 90_000).unref();
   setInterval(run, 6 * 3_600_000).unref();
 }

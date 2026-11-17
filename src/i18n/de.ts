@@ -3191,4 +3191,10 @@ export const de: Dict = {
   "Clé publique invalide : elle commence par « age1 » et se recopie en entier.": "Ungültiger öffentlicher Schlüssel: Er beginnt mit „age1“ und muss vollständig übernommen werden.",
   "Crée d'abord la clé de chiffrement : rien ne quitte le serveur sans être chiffré.": "Erstelle zuerst den Verschlüsselungsschlüssel: Nichts verlässt den Server unverschlüsselt.",
   "La dernière copie": ["Die letzte Kopie", "Die letzten {n} Kopien"],
+  "Adresse ou identifiant modifié : saisis de nouveau le secret du stockage.": "Adresse oder Benutzername geändert: Gib das Geheimnis des Speichers erneut ein.",
+  "L'archive est restée sur le serveur : pas besoin de la renvoyer.": "Das Archiv liegt noch auf dem Server: Du musst es nicht erneut hochladen.",
+  "Réessayer avec cette clé": "Mit diesem Schlüssel erneut versuchen",
+  "Les sauvegardes automatiques sont en pause sur cette installation, pour qu'elle n'écrive pas à la place de celle d'origine : réactive-les dans les réglages si c'est bien elle qui sert désormais.": "Die automatischen Sicherungen sind auf dieser Installation pausiert, damit sie nicht anstelle der ursprünglichen schreibt: Schalte sie in den Einstellungen wieder ein, wenn ab jetzt diese hier genutzt wird.",
+  "La copie de la sauvegarde hors du serveur n'est pas partie": "Die Kopie der Sicherung außerhalb des Servers wurde nicht gesendet",
+  "La sauvegarde est écrite sur le serveur, mais pas sa copie extérieure : la raison est dans Réglages → Compte et sécurité.": "Die Sicherung ist auf dem Server geschrieben, ihre externe Kopie aber nicht: Der Grund steht unter Einstellungen → Konto und Sicherheit.",
 };

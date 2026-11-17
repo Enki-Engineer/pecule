@@ -98,6 +98,12 @@ async function sendOffsite(name: string, before: OffsiteState): Promise<OffsiteS
   }
 }
 
+/** Le stockage extérieur vient d'être retiré : l'échec d'envoi et l'archive en attente n'ont plus d'objet. */
+export async function forgetOffsiteFailure() {
+  const s = await backupState();
+  if (s.dehors.echec || s.dehors.attente) await save(STATE, { ...s, dehors: { ...s.dehors, echec: null, attente: null } });
+}
+
 let current: Promise<BackupState> | null = null;
 
 /** Une sauvegarde automatique est en cours d'écriture dans ce processus. */
@@ -155,15 +161,18 @@ export async function lastBackupAt(): Promise<number | null> {
   return Math.max(fromLog, onDisk) || null;
 }
 
-/** Ce qu'il faut dire à l'administrateur : un échec de la sauvegarde automatique, ou trop de jours sans aucune sauvegarde. */
-export async function backupWatch(now = Date.now()): Promise<{ echec: BackupState["echec"]; jours: number | null }> {
+/**
+ * Ce qu'il faut dire à l'administrateur : un échec de la sauvegarde automatique (`dehors` : elle est écrite sur le
+ * serveur, c'est sa copie extérieure qui n'est pas partie), ou trop de jours sans aucune sauvegarde.
+ */
+export async function backupWatch(now = Date.now()): Promise<{ echec: BackupState["echec"]; dehors: boolean; jours: number | null }> {
   const [settings, state, last, first] = await Promise.all([
     backupSettings(),
     backupState(),
     lastBackupAt(),
     runReal(() => one<{ at: number | null }>("SELECT UNIX_TIMESTAMP(MIN(created_at)) AS at FROM users")),
   ]);
-  return { echec: settings.auto ? (state.echec ?? state.dehors.echec) : null, jours: backupReminder(last, first?.at ? Number(first.at) * 1000 : null, now) };
+  return { echec: settings.auto ? (state.echec ?? state.dehors.echec) : null, dehors: !state.echec && !!state.dehors.echec, jours: backupReminder(last, first?.at ? Number(first.at) * 1000 : null, now) };
 }
 
 let scheduled = false;

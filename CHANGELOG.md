@@ -3,6 +3,27 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.25.1
+
+Corrections issues d'une relecture des trois versions précédentes.
+
+- **Restauration.** Une installation restaurée met ses sauvegardes automatiques en pause, et le dit : une copie
+  d'essai ne dépose plus ses archives, ni ne trie celles du stockage extérieur, à la place de l'installation
+  d'origine. Quand la clé de récupération est refusée, l'archive envoyée reste sur le serveur : on redonne la clé,
+  sans tout renvoyer. Le rapport de fin (qui porte un lien d'inscription) n'est plus lisible qu'une demi-heure.
+- **Garde-fous resserrés autour du vidage de la base neuve** : Pécule passe en maintenance avant de contrôler que
+  l'installation est neuve, le contrôle est refait juste avant, et la création du premier membre est refusée pendant
+  une restauration ; le témoin d'une restauration interrompue est relu sous verrou avant tout ménage.
+- **Stockage extérieur** : le secret enregistré ne resert que pour la même adresse et le même identifiant —
+  modifier l'un ou l'autre demande de le ressaisir. Retirer le stockage efface l'échec d'envoi affiché.
+- **Archives** : une archive ne peut plus faire lire une autre base à la restauration (table remplie d'une lecture,
+  vue sur une table d'une autre base) ; les archives écrites par Pécule ne sont pas concernées.
+- « Sauvegarde terminée » ne s'affiche plus avant la fin de l'écriture, et un échec d'une sauvegarde demandée à la
+  main se voit même quand les sauvegardes automatiques sont éteintes. La notification distingue une sauvegarde qui
+  n'a pas été écrite d'une copie extérieure qui n'est pas partie.
+- Les fichiers de travail laissés par un arrêt du serveur (archive en cours d'envoi, copie en cours de chiffrement)
+  sont retirés au démarrage. Aucune migration.
+
 ## 1.25.0
 
 - **Copie des sauvegardes hors du serveur.** Dans Réglages → Compte et sécurité, section « Copie hors du serveur »,

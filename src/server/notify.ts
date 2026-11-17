@@ -321,8 +321,10 @@ async function checksFor(userId: number) {
     const watch = await backupWatch();
     if (watch.echec)
       await notify(userId, "sauvegarde", `sauvegarde:echec:${watch.echec.at.slice(0, 10)}`, {
-        title: t("La sauvegarde automatique a échoué"),
-        body: t("Aucune sauvegarde n'a été écrite cette fois : la raison est dans Réglages → Compte et sécurité."),
+        title: watch.dehors ? t("La copie de la sauvegarde hors du serveur n'est pas partie") : t("La sauvegarde automatique a échoué"),
+        body: watch.dehors
+          ? t("La sauvegarde est écrite sur le serveur, mais pas sa copie extérieure : la raison est dans Réglages → Compte et sécurité.")
+          : t("Aucune sauvegarde n'a été écrite cette fois : la raison est dans Réglages → Compte et sécurité."),
         url: "/reglages/compte#sauvegarde",
         tag: "sauvegarde",
       });

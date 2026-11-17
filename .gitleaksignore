@@ -1,0 +1,3 @@
+# Constats de gitleaks qui ne sont pas des secrets (une empreinte par ligne).
+# Clé d'essai jetable du vecteur de test du chiffrement age (src/server/age.test.ts) : elle ne protège rien.
+746a17ab7973586e1175a53a77eeef85cb3cf6db:src/server/age.test.ts:generic-api-key:15

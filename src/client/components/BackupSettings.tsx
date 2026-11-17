@@ -49,18 +49,21 @@ function kindLabel(kind: Archive["kind"]): string {
  */
 export function AutoBackupSettings() {
   const qc = useQueryClient();
-  // L'écriture se suit en relisant l'état : elle peut durer plusieurs minutes.
-  const [asked, setAsked] = useState(false);
-  const info = useQuery({ queryKey: ["backup-info"], queryFn: () => api<Info>("/backup/info"), refetchInterval: (q) => (asked || q.state.data?.autoRunning ? 3000 : false) });
+  // L'écriture se suit en relisant l'état : elle peut durer plusieurs minutes. `asked` : le dernier résultat connu au
+  // moment du clic — tant qu'il n'a pas changé, la sauvegarde demandée n'est pas finie.
+  const [asked, setAsked] = useState<string | null>(null);
+  const info = useQuery({ queryKey: ["backup-info"], queryFn: () => api<Info>("/backup/info"), refetchInterval: (q) => (asked !== null || q.state.data?.autoRunning ? 3000 : false) });
   const d = info.data;
   const running = d?.autoRunning === true;
+  const outcome = d ? `${d.state.ok?.at ?? ""}|${d.state.echec?.at ?? ""}` : null;
 
   useEffect(() => {
-    if (!asked || !d || running) return;
-    setAsked(false);
-    if (d.state.echec) toast.error(t("La sauvegarde n'a pas abouti : {raison}", { raison: d.state.echec.raison }));
+    if (asked === null || !d || running || outcome === asked) return;
+    setAsked(null);
+    // Un échec plus récent que la dernière réussite : c'est lui, le résultat de cette sauvegarde.
+    if (d.state.echec && d.state.echec.at > (d.state.ok?.at ?? "")) toast.error(t("La sauvegarde n'a pas abouti : {raison}", { raison: d.state.echec.raison }));
     else toast.success(t("Sauvegarde terminée"));
-  }, [asked, d, running]);
+  }, [asked, d, running, outcome]);
 
   const save = useMutation({
     mutationFn: (patch: Partial<AutoSettings>) => api<AutoSettings>("/backup/settings", { method: "PUT", json: patch }),
@@ -69,11 +72,12 @@ export function AutoBackupSettings() {
   });
   const run = useMutation({
     mutationFn: () => api("/backup/run", { method: "POST" }),
-    onSuccess: () => {
-      setAsked(true);
-      void qc.invalidateQueries({ queryKey: ["backup-info"] });
+    onMutate: () => setAsked(outcome ?? ""),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["backup-info"] }),
+    onError: (e) => {
+      setAsked(null);
+      toast.error(e instanceof Error ? e.message : t("Sauvegarde impossible"));
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : t("Sauvegarde impossible")),
   });
   const remove = useMutation({
     mutationFn: (name: string) => api(`/backup/archives/${encodeURIComponent(name)}`, { method: "DELETE" }),
@@ -82,7 +86,7 @@ export function AutoBackupSettings() {
   });
 
   if (!d) return null;
-  const busy = running || asked || run.isPending;
+  const busy = running || asked !== null || run.isPending;
   const total = d.archives.reduce((sum, a) => sum + a.octets, 0);
   return (
     <Card className="p-4">
@@ -119,7 +123,7 @@ export function AutoBackupSettings() {
         </div>
       )}
 
-      {d.auto.auto && d.state.echec && <p className="mt-3 text-sm text-warn">{t("Dernier essai en échec, le {date} à {heure} : {raison}", { date: day(d.state.echec.at), heure: hour(d.state.echec.at), raison: d.state.echec.raison })}</p>}
+      {d.state.echec && <p className="mt-3 text-sm text-warn">{t("Dernier essai en échec, le {date} à {heure} : {raison}", { date: day(d.state.echec.at), heure: hour(d.state.echec.at), raison: d.state.echec.raison })}</p>}
       {d.auto.auto && !d.state.echec && (
         <p className="mt-3 text-sm text-muted">
           {d.state.ok

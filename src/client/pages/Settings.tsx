@@ -21,6 +21,7 @@ import { BirthdaySettings } from "../components/BirthdaySettings.tsx";
 import { VoiceSettings } from "../components/VoiceSettings.tsx";
 import { LanguageSettings } from "../components/LanguageSettings.tsx";
 import { AutoBackupSettings, BackupSettings } from "../components/BackupSettings.tsx";
+import { OffsiteBackupSettings } from "../components/BackupOffsite.tsx";
 import { UpdateSettings } from "../components/UpdateSettings.tsx";
 import { HouseholdSettings } from "../components/HouseholdSettings.tsx";
 import { ConnectionsSettings } from "../components/ConnectionsSettings.tsx";
@@ -165,6 +166,11 @@ export function Settings() {
         {!demo && me.data?.user?.admin && (
           <Section id="sauvegardes-automatiques" title={t("Sauvegardes automatiques")}>
             <AutoBackupSettings />
+          </Section>
+        )}
+        {!demo && me.data?.user?.admin && (
+          <Section id="sauvegardes-dehors" title={t("Copie hors du serveur")}>
+            <OffsiteBackupSettings />
           </Section>
         )}
         {!demo && (

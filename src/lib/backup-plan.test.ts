@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoBackupDue, autoBackupName, autoBackupsToPrune, backupReminder, cleanBackupSettings, DEFAULT_BACKUP_SETTINGS, parseAutoName } from "./backup-plan.ts";
+import { autoBackupDue, autoBackupName, autoBackupsToPrune, backupReminder, cleanBackupSettings, DEFAULT_BACKUP_SETTINGS, parseAutoName, parseRemoteName, remoteName, remoteToPrune } from "./backup-plan.ts";
 
 const at = (iso: string) => new Date(iso);
 const ms = (iso: string) => Date.parse(iso);
@@ -9,7 +9,8 @@ describe("réglage des sauvegardes automatiques", () => {
   it("part éteint, et ramène une valeur inattendue à celle d'origine", () => {
     expect(cleanBackupSettings(null)).toEqual(DEFAULT_BACKUP_SETTINGS);
     expect(cleanBackupSettings({ auto: "oui", frequence: "heure", garder: "beaucoup" })).toEqual(DEFAULT_BACKUP_SETTINGS);
-    expect(cleanBackupSettings({ auto: true, frequence: "semaine", garder: 4 })).toEqual({ auto: true, frequence: "semaine", garder: 4 });
+    expect(cleanBackupSettings({ auto: true, frequence: "semaine", garder: 4 })).toEqual({ auto: true, frequence: "semaine", garder: 4, dehors: { jours: 7, semaines: 4, mois: 6 } });
+    expect(cleanBackupSettings({ dehors: { jours: 0, semaines: 0, mois: 12 } }).dehors).toEqual({ jours: 1, semaines: 0, mois: 12 });
   });
 
   it("borne le nombre de sauvegardes gardées", () => {
@@ -81,6 +82,55 @@ describe("rotation", () => {
     expect(autoBackupsToPrune(names, 2)).toEqual(["pecule-auto-2026-11-15-0205.zip"]);
     expect(autoBackupsToPrune(names, 1)).toEqual(["pecule-auto-2026-11-16-0205.zip", "pecule-auto-2026-11-15-0205.zip"]);
     expect(autoBackupsToPrune(names, 7)).toEqual([]);
+  });
+});
+
+describe("conservation hors du serveur", () => {
+  const copy = (day: string) => remoteName(`pecule-auto-${day}-0205.zip`);
+  // Une copie par nuit, du 1er octobre au 17 novembre 2026.
+  const days: string[] = [];
+  for (let t = Date.parse("2026-10-01T00:00:00Z"); t <= Date.parse("2026-11-17T00:00:00Z"); t += 86_400_000) days.push(new Date(t).toISOString().slice(0, 10));
+  const names = days.map(copy);
+
+  it("reconnaît ses copies à leur nom", () => {
+    expect(parseRemoteName(copy("2026-11-17"))).toBe(ms("2026-11-17T02:05:00Z"));
+    expect(parseRemoteName("pecule-auto-2026-11-17-0205.zip")).toBeNull();
+    expect(parseRemoteName("vacances.zip.age")).toBeNull();
+  });
+
+  it("garde les dernières, puis la première de chaque semaine et de chaque mois", () => {
+    const pruned = new Set(remoteToPrune([...names, "notes.txt", "vacances.zip.age"], { jours: 7, semaines: 4, mois: 6 }));
+    const kept = names.filter((n) => !pruned.has(n));
+    expect(kept).toEqual(
+      [
+        // Premières de chaque mois.
+        "2026-10-01",
+        // Premières (lundis) des quatre dernières semaines : la semaine en cours a commencé le 16.
+        "2026-10-26",
+        "2026-11-01",
+        "2026-11-02",
+        "2026-11-09",
+        // Sept dernières.
+        "2026-11-11",
+        "2026-11-12",
+        "2026-11-13",
+        "2026-11-14",
+        "2026-11-15",
+        "2026-11-16",
+        "2026-11-17",
+      ].map(copy),
+    );
+    // Ce qui n'est pas une copie de Pécule reste où il est.
+    expect(pruned.has("notes.txt")).toBe(false);
+    expect(pruned.has("vacances.zip.age")).toBe(false);
+  });
+
+  it("ne garde que les dernières quand on ne demande rien d'autre", () => {
+    expect(names.length - remoteToPrune(names, { jours: 3, semaines: 0, mois: 0 }).length).toBe(3);
+  });
+
+  it("ne retire rien tant qu'il y en a moins que demandé", () => {
+    expect(remoteToPrune(names.slice(-5), { jours: 7, semaines: 4, mois: 6 })).toEqual([]);
   });
 });
 

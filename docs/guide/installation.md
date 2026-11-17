@@ -116,11 +116,20 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
   `pecule-sauvegardes`. Chez un hébergeur qui installe chaque nouvelle version dans un dossier neuf, donnez à
   `BACKUP_DIR` un dossier hors de l'installation, sinon les archives ne survivent pas à une mise en ligne. `doctor`
   dit de quand date la dernière sauvegarde, et l'administrateur est prévenu après un mois sans aucune.
+- **Copie hors du serveur** : dans la même page, l'administrateur crée une clé de chiffrement (Pécule n'en garde que
+  la clé publique et lui montre une fois la clé de récupération, à ranger), puis règle un stockage extérieur —
+  compatible S3 (Amazon S3, Backblaze B2, Scaleway, OVH, Cloudflare R2, MinIO…) ou WebDAV (Nextcloud, kDrive, un
+  NAS…). Le stockage est essayé avant d'être enregistré. Chaque sauvegarde automatique y est alors déposée, chiffrée
+  au format [age](https://age-encryption.org) ; on choisit ce qui y reste (les dernières, puis une par semaine et
+  par mois). Une copie se déchiffre sans Pécule (`age -d -i cle.txt archive.zip.age > archive.zip`) ou avec lui
+  (`pnpm sauvegarde --dechiffrer archive.zip.age --cle cle.txt`). **Sans la clé de récupération, une copie est
+  perdue.** Le secret du stockage est gardé chiffré en base, avec `SECRET_KEY`.
 - **Restauration** : dans une installation neuve (nouveau serveur, base perdue), l'écran « Bienvenue dans Pécule »
   propose « J'ai une sauvegarde : la restaurer ». Avec le code d'installation, on envoie l'archive — ou on en choisit
   une du dossier des sauvegardes du serveur (`data/sauvegardes`, ou `BACKUP_DIR`) — et Pécule la recharge, applique
   les migrations plus récentes, puis dit ce qu'il reste à faire : une clé d'accès à recréer si l'adresse a changé, des
-  clés à ressaisir si `SECRET_KEY` n'est pas celui de l'ancien serveur. Rien n'est possible sur une installation qui
+  clés à ressaisir si `SECRET_KEY` n'est pas celui de l'ancien serveur. Une copie chiffrée (`.zip.age`) demande la
+  clé de récupération. Rien n'est possible sur une installation qui
   a déjà des données. En ligne de commande, dans une base sans aucune table :
   `pnpm restaurer <archive.zip> --base "mysql://…"`.
 - **Mise à jour** : `node scripts/maj.mjs` prend une sauvegarde, installe la dernière version publiée, attend le

@@ -5,7 +5,10 @@ import { runReal } from "./demo-context.ts";
 import { backupDir, listArchives, writeArchiveFile } from "./archives.ts";
 import { logAudit, recordAlert } from "./journal.ts";
 import { householdTimeZone } from "./region.ts";
-import { AUTO_PREFIX, autoBackupDue, autoBackupName, autoBackupsToPrune, backupReminder, cleanBackupSettings, type BackupSettings } from "../lib/backup-plan.ts";
+import { archivePath } from "./archives.ts";
+import { copyOffsite, offsiteReady } from "./offsite.ts";
+import { RemoteError, type RemoteProblem } from "./remote.ts";
+import { AUTO_PREFIX, autoBackupDue, autoBackupName, autoBackupsToPrune, backupReminder, cleanBackupSettings, RETRY_MS, type BackupSettings } from "../lib/backup-plan.ts";
 
 /*
  * Sauvegardes automatiques. Quand l'administrateur l'a demandé (Réglages → Compte et sécurité), le serveur écrit
@@ -15,6 +18,9 @@ import { AUTO_PREFIX, autoBackupDue, autoBackupName, autoBackupsToPrune, backupR
  *
  * Le réglage et l'état (dernière réussite, dernier échec) vivent dans `app_kv`, toujours dans la vraie base. Un
  * échec est signalé (alerte du Suivi technique, notification de l'administrateur) et retenté six heures plus tard.
+ *
+ * Quand un stockage extérieur est réglé (`offsite.ts`), chaque sauvegarde automatique y est aussi déposée, chiffrée.
+ * L'envoi a son propre état : une archive écrite mais pas encore partie reste « en attente », et repart seule.
  */
 
 const SETTINGS = "sauvegarde:reglages";
@@ -24,14 +30,29 @@ export const AUTO_AUDIT = "sauvegarde automatique";
 /** Action du journal d'une sauvegarde téléchargée (Réglages, `pnpm sauvegarde`, commande de mise à jour). */
 export const DOWNLOAD_AUDIT = "sauvegarde complète";
 
+/** Un échec : sa raison telle quelle, et pour un refus du stockage extérieur son code (l'écran en fait une phrase). */
+export type BackupFailure = { at: string; raison: string; code?: RemoteProblem };
+
+export type OffsiteState = {
+  /** Dernière copie déposée hors du serveur. */
+  ok: { at: string; name: string; octets: number } | null;
+  essai: string | null;
+  echec: BackupFailure | null;
+  /** Archive du serveur écrite mais pas encore déposée dehors (l'envoi a échoué) : elle repart seule. */
+  attente: string | null;
+};
+
 export type BackupState = {
   /** Dernière sauvegarde automatique écrite et relue. */
   ok: { at: string; name: string; octets: number; secondes: number } | null;
   /** Dernier essai (ISO), abouti ou non. */
   essai: string | null;
   /** Dernier échec, tant qu'aucune sauvegarde n'a abouti depuis. */
-  echec: { at: string; raison: string } | null;
+  echec: BackupFailure | null;
+  dehors: OffsiteState;
 };
+
+const NO_OFFSITE: OffsiteState = { ok: null, essai: null, echec: null, attente: null };
 
 const read = async (key: string): Promise<unknown> => {
   const row = await runReal(() => one<{ value: string }>("SELECT value FROM app_kv WHERE `key` = ?", [key]));
@@ -53,7 +74,28 @@ export async function saveBackupSettings(patch: Partial<BackupSettings>): Promis
 
 export async function backupState(): Promise<BackupState> {
   const s = (await read(STATE)) as Partial<BackupState> | null;
-  return { ok: s?.ok ?? null, essai: s?.essai ?? null, echec: s?.echec ?? null };
+  return { ok: s?.ok ?? null, essai: s?.essai ?? null, echec: s?.echec ?? null, dehors: { ...NO_OFFSITE, ...(s?.dehors ?? {}) } };
+}
+
+/**
+ * Dépose une archive du serveur sur le stockage extérieur et rend l'état de l'envoi. Sans stockage réglé, rien ne
+ * change. Un échec garde l'archive en attente : la vérification suivante la renvoie, six heures plus tard au plus tôt.
+ */
+async function sendOffsite(name: string, before: OffsiteState): Promise<OffsiteState> {
+  if (!(await offsiteReady())) return before.attente ? { ...before, attente: null } : before;
+  const at = new Date().toISOString();
+  try {
+    const file = archivePath(name);
+    if (!file) return { ...before, attente: null };
+    const copy = await copyOffsite(file, name, (await backupSettings()).dehors);
+    console.log(`[sauvegarde] copie hors du serveur : ${copy.name} (${(copy.octets / 1_048_576).toFixed(1).replace(".", ",")} Mo)`);
+    return { ok: { at, name: copy.name, octets: copy.octets }, essai: at, echec: null, attente: null };
+  } catch (e) {
+    const failure: BackupFailure = e instanceof RemoteError ? { at, raison: e.detail, code: e.code } : { at, raison: (e instanceof Error ? e.message : String(e)).slice(0, 300) };
+    console.error(`[sauvegarde] copie hors du serveur impossible : ${e instanceof Error ? e.message : String(e)}`);
+    void recordAlert("sauvegarde", `Copie de la sauvegarde hors du serveur impossible : ${e instanceof Error ? e.message : String(e)}`.slice(0, 500), e, "alerte");
+    return { ...before, essai: at, echec: failure, attente: name };
+  }
 }
 
 let current: Promise<BackupState> | null = null;
@@ -79,10 +121,13 @@ async function run(): Promise<BackupState> {
     );
     if (!done) return before;
     const secondes = Math.round((Date.now() - started) / 1000);
-    const next: BackupState = { ok: { at: now.toISOString(), name: done.name, octets: done.octets, secondes }, essai: now.toISOString(), echec: null };
-    await save(STATE, next);
+    const written: BackupState = { ...before, ok: { at: now.toISOString(), name: done.name, octets: done.octets, secondes }, essai: now.toISOString(), echec: null };
+    await save(STATE, written);
     await runReal(() => logAudit(AUTO_AUDIT, done.name, { octets: done.octets, secondes }));
     console.log(`[sauvegarde] ${path.join(dir, done.name)} écrite et relue (${(done.octets / 1_048_576).toFixed(1).replace(".", ",")} Mo, ${secondes} s)`);
+    // Puis sa copie chiffrée hors du serveur, s'il y a un stockage extérieur.
+    const next: BackupState = { ...written, dehors: await sendOffsite(done.name, written.dehors) };
+    await save(STATE, next);
     return next;
   } catch (e) {
     const raison = (e instanceof Error ? e.message : String(e)).slice(0, 300);
@@ -118,7 +163,7 @@ export async function backupWatch(now = Date.now()): Promise<{ echec: BackupStat
     lastBackupAt(),
     runReal(() => one<{ at: number | null }>("SELECT UNIX_TIMESTAMP(MIN(created_at)) AS at FROM users")),
   ]);
-  return { echec: settings.auto ? state.echec : null, jours: backupReminder(last, first?.at ? Number(first.at) * 1000 : null, now) };
+  return { echec: settings.auto ? (state.echec ?? state.dehors.echec) : null, jours: backupReminder(last, first?.at ? Number(first.at) * 1000 : null, now) };
 }
 
 let scheduled = false;
@@ -137,7 +182,19 @@ export function scheduleAutoBackup(ready: () => boolean) {
       if (!settings.auto) return;
       const state = await backupState();
       const due = autoBackupDue(settings, { lastOk: state.ok ? Date.parse(state.ok.at) : null, lastTry: state.essai ? Date.parse(state.essai) : null }, new Date(), householdTimeZone());
-      if (due) await runAutoBackup();
+      if (due) return void (await runAutoBackup());
+      // Une archive attend encore sa copie hors du serveur : nouvel essai, six heures au plus tôt après le dernier.
+      const waiting = state.dehors.attente;
+      if (waiting && Date.now() - Date.parse(state.dehors.essai ?? "") >= RETRY_MS) {
+        current = (async () => {
+          const next = { ...state, dehors: await sendOffsite(waiting, state.dehors) };
+          await save(STATE, next);
+          return next;
+        })().finally(() => {
+          current = null;
+        });
+        await current;
+      }
     } catch (e) {
       console.error("[sauvegarde] vérification en échec", e);
     }

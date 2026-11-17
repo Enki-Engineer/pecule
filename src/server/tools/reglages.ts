@@ -23,6 +23,7 @@ import { ToolError, change, field, month, readTool, writeTool, type Tool } from 
 import { updateStatus } from "../updates.ts";
 import { VERSION } from "../version.ts";
 import { backupSettings, backupState, lastBackupAt } from "../auto-backup.ts";
+import { destination, encryptionKey } from "../offsite.ts";
 
 /*
  * Aide et réglages : le manuel de Pécule (src/lib/manual.ts), que l'assistant lit avant d'expliquer un écran ou
@@ -300,14 +301,20 @@ async function backupInfo(admin: boolean) {
   if (isDemo()) return { note: "Indisponible en mode démo." };
   const where = "/reglages/compte#sauvegarde";
   if (!admin) return { where, note: "La sauvegarde complète est réservée à l'administrateur." };
-  const [settings, state, latest] = await Promise.all([backupSettings(), backupState(), lastBackupAt()]);
+  const [settings, state, latest, dest, key] = await Promise.all([backupSettings(), backupState(), lastBackupAt(), destination(), encryptionKey()]);
   return {
     where,
     last_backup: latest ? new Date(latest).toISOString() : "aucune",
     automatic: { enabled: settings.auto, frequency: settings.frequence === "semaine" ? "chaque semaine" : "chaque nuit", kept_on_server: settings.garder },
     last_automatic: state.ok ? { at: state.ok.at, megabytes: Math.round(state.ok.octets / 1_048_576) } : null,
-    automatic_failure: settings.auto && state.echec ? state.echec : null,
-    how: "Télécharger une sauvegarde, activer les sauvegardes automatiques et choisir combien en garder se fait à l'écran, par l'administrateur. Une sauvegarde se restaure dans une installation neuve. Articles du manuel : sauvegarde, restaurer.",
+    automatic_failure: settings.auto && state.echec ? { at: state.echec.at, reason: state.echec.raison } : null,
+    off_server_copy: {
+      storage: dest ? (dest.type === "s3" ? "compatible S3" : "WebDAV") : "aucun",
+      encryption_key: key ? "créée" : "pas encore créée",
+      last_copy: state.dehors.ok?.at ?? null,
+      failing: state.dehors.echec ? { at: state.dehors.echec.at, waiting_archive: state.dehors.attente } : null,
+    },
+    how: "Télécharger une sauvegarde, activer les sauvegardes automatiques, choisir combien en garder, créer la clé de chiffrement et régler le stockage extérieur se font à l'écran, par l'administrateur. Une sauvegarde se restaure dans une installation neuve. Articles du manuel : sauvegarde, sauvegarde-hors-serveur, restaurer.",
   };
 }
 

@@ -3,13 +3,17 @@
  * factures, les documents du coffre, les logos), puis la relit en entier et la compare à son manifeste.
  * Usage : pnpm sauvegarde [--vers <dossier>]         (par défaut data/sauvegardes, hors dépôt)
  *         pnpm sauvegarde --verifier <archive.zip>    (relit une archive déjà téléchargée)
+ *         pnpm sauvegarde --dechiffrer <archive.zip.age> --cle <fichier ou clé>
+ *                                                     (déchiffre une copie chiffrée avec la clé de récupération, puis la relit ;
+ *                                                      l'outil « age » fait la même chose : age -d -i cle.txt archive.zip.age > archive.zip)
  * PECULE_URL et PECULE_API_TOKEN dans .env (jeton d'administration).
  */
 import "dotenv/config";
-import { createWriteStream, mkdirSync, renameSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { decryptStream } from "../src/server/age.ts";
 import { verifyBackup } from "../src/server/backup.ts";
 import { fileSource } from "../src/server/zip.ts";
 
@@ -41,6 +45,33 @@ const existing = option("--verifier");
 if (existing) {
   console.log(`Vérification de ${existing}`);
   process.exit((await verify(existing)) ? 0 : 1);
+}
+
+const sealed = option("--dechiffrer");
+if (sealed) {
+  const given = option("--cle");
+  if (!given) throw new Error("Usage : pnpm sauvegarde --dechiffrer <archive.zip.age> --cle <fichier qui contient la clé de récupération, ou la clé elle-même>");
+  // Un fichier de clé peut porter des lignes de commentaire (« # … »), comme ceux de l'outil age.
+  const key = existsSync(given)
+    ? (readFileSync(given, "utf8")
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => l && !l.startsWith("#")) ?? "")
+    : given;
+  const out = sealed.endsWith(".age") ? sealed.slice(0, -4) : `${sealed}.zip`;
+  if (existsSync(out)) throw new Error(`${out} existe déjà : déplace-le d'abord.`);
+  console.log(`Déchiffrement de ${sealed}`);
+  try {
+    const opener = decryptStream(key);
+    await pipeline(createReadStream(sealed), opener, createWriteStream(`${out}.partiel`, { mode: 0o600 }));
+  } catch (e) {
+    rmSync(`${out}.partiel`, { force: true });
+    console.error(`✗ ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+  renameSync(`${out}.partiel`, out);
+  console.log(`→ ${out}`);
+  process.exit((await verify(out)) ? 0 : 1);
 }
 
 const url = process.env.PECULE_URL;

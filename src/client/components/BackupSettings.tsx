@@ -22,6 +22,9 @@ type Info = {
   /** Sauvegardes automatiques : réglage, dernier résultat, écriture en cours, dossier et archives du serveur. */
   auto: AutoSettings;
   state: { ok: { at: string; name: string; octets: number } | null; echec: { at: string; raison: string } | null };
+  /** Clé de chiffrement de l'installation (sa moitié publique), quand elle est créée. */
+  key: { recipient: string } | null;
+  destination: object | null;
   autoRunning: boolean;
   dir: string;
   archives: Archive[];
@@ -165,7 +168,9 @@ export function AutoBackupSettings() {
       )}
 
       <p className="mt-3 text-xs text-muted">
-        {t("Dossier du serveur : {dossier}. Ces archives sont sur le même serveur que la base : elles protègent d'une erreur ou d'une mise à jour qui tourne mal, pas de la perte du serveur. Télécharges-en une de temps en temps.", { dossier: d.dir })}
+        {d.destination
+          ? t("Dossier du serveur : {dossier}. Ces archives sont sur le même serveur que la base ; une copie chiffrée de chaque sauvegarde automatique part aussi sur ton stockage extérieur.", { dossier: d.dir })
+          : t("Dossier du serveur : {dossier}. Ces archives sont sur le même serveur que la base : elles protègent d'une erreur ou d'une mise à jour qui tourne mal, pas de la perte du serveur. Télécharges-en une de temps en temps.", { dossier: d.dir })}
       </p>
     </Card>
   );
@@ -179,6 +184,8 @@ export function AutoBackupSettings() {
 export function BackupSettings() {
   // Dernière sauvegarde connue au moment du clic : tant qu'elle n'a pas changé, le téléchargement est en cours.
   const [since, setSince] = useState<number | null | undefined>(undefined);
+  // Archive chiffrée avec la clé de l'installation (proposé quand elle existe).
+  const [sealed, setSealed] = useState(false);
   const waiting = since !== undefined;
   const info = useQuery({ queryKey: ["backup-info"], queryFn: () => api<Info>("/backup/info"), refetchInterval: waiting ? 4000 : false });
   const d = info.data;
@@ -206,8 +213,14 @@ export function BackupSettings() {
           ].join(" · ")}
         </p>
       )}
+      {d?.key && (
+        <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" checked={sealed} onChange={(e) => setSealed(e.target.checked)} className="size-5 shrink-0 accent-[var(--color-accent)]" />
+          {t("Chiffrer l'archive : elle ne s'ouvrira qu'avec ta clé de récupération")}
+        </label>
+      )}
       <a
-        href="/api/backup"
+        href={sealed && d?.key ? "/api/backup?chiffre=1" : "/api/backup"}
         download
         aria-disabled={busy}
         onClick={(e) => {
@@ -229,7 +242,9 @@ export function BackupSettings() {
           : d
             ? t("Aucune sauvegarde téléchargée pour l'instant.")
             : null}{" "}
-        {t("L'archive contient les données privées de tous les membres, en clair : range-la dans un endroit sûr. Tu es le seul à voir ce réglage.")}
+        {sealed && d?.key
+          ? t("L'archive contient les données privées de tous les membres, chiffrées : sans ta clé de récupération, elle est illisible. Tu es le seul à voir ce réglage.")
+          : t("L'archive contient les données privées de tous les membres, en clair : range-la dans un endroit sûr. Tu es le seul à voir ce réglage.")}
       </p>
     </Card>
   );

@@ -23,7 +23,12 @@ libre : une réponse arrive en général sous une semaine. Seule la dernière ve
 - **`API_TOKEN`** donne tous les droits sur l'API : gardez-le hors du dépôt et ne le partagez pas. **`SECRET_KEY`**
   chiffre les secrets gardés en base (clé de la banque, clé d'IA, clé des notifications) : le perdre ou le changer
   les rend illisibles. Une installation sans `SECRET_KEY` chiffre avec `API_TOKEN`.
-- La **sauvegarde complète** n'est pas chiffrée : rangez l'archive comme un document sensible.
+- La **sauvegarde complète** téléchargée ou gardée sur le serveur n'est pas chiffrée : rangez l'archive comme un
+  document sensible. Ce qui part vers un stockage extérieur l'est toujours (format age, destinataire X25519) : le
+  serveur ne garde que la clé publique, et ne peut pas relire ce qu'il a envoyé. La clé de récupération n'est montrée
+  qu'une fois à l'administrateur.
+- L'adresse du **stockage extérieur** est donnée par l'administrateur et peut désigner un appareil du réseau du
+  serveur (un NAS) : seul l'administrateur la règle, jamais en mode démo.
 - La **restauration depuis l'appli** n'existe que sur une installation sans membre ni donnée, et demande le code
   d'installation (`SETUP_CODE`, à défaut `API_TOKEN`) : une installation en service ne peut pas être écrasée par là.
 - Les documents envoyés à la lecture partent chez le **fournisseur d'IA que vous avez choisi**, et nulle part ailleurs.

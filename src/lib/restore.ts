@@ -7,10 +7,10 @@
 export const RESTORE_CHUNK = 4 * 1_048_576;
 
 /** Où en est la restauration. `envoi` : aucune n'est lancée (l'archive est peut-être en cours d'envoi). */
-export type RestoreStage = "envoi" | "verification" | "preparation" | "donnees" | "fichiers" | "controle" | "demarrage" | "termine" | "echec";
+export type RestoreStage = "envoi" | "dechiffrement" | "verification" | "preparation" | "donnees" | "fichiers" | "controle" | "demarrage" | "termine" | "echec";
 
 /** Clés gardées chiffrées en base, illisibles quand le secret du serveur n'est plus celui de la sauvegarde. */
-export type SealedKind = "ia" | "banque" | "services" | "notifications";
+export type SealedKind = "ia" | "banque" | "services" | "notifications" | "stockage";
 
 export type RestoreReport = {
   /** Instant de la sauvegarde restaurée (ISO, UTC). */

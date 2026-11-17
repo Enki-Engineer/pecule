@@ -99,7 +99,10 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   fait repartir de neuf une restauration coupée par l'arrêt du serveur). Le serveur en garde dans son dossier
   (`src/server/archives.ts`) : celles d'avant migration, et les automatiques quand l'administrateur les demande
   (`src/server/auto-backup.ts`, règles pures dans `src/lib/backup-plan.ts` : une par nuit ou par semaine, relue,
-  rotation ; un échec ou un mois sans sauvegarde est notifié à l'administrateur).
+  rotation ; un échec ou un mois sans sauvegarde est notifié à l'administrateur). Une copie chiffrée de chaque
+  sauvegarde automatique peut partir hors du serveur (`src/server/offsite.ts`) : chiffrement au format age écrit sans
+  dépendance (`src/server/age.ts`, le serveur ne garde que la clé publique), vers un stockage compatible S3 ou WebDAV
+  (`src/server/remote.ts`), essayé avant d'être enregistré.
 - Écritures tracées dans `audit_log`, erreurs dans `alerts` (Réglages → Suivi technique).
 
 ## L'IA

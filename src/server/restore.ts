@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
-import { appendFile, statfs } from "node:fs/promises";
+import { createReadStream, createWriteStream, mkdirSync, rmSync, statSync } from "node:fs";
+import { appendFile, open, statfs } from "node:fs/promises";
+import { pipeline } from "node:stream/promises";
+import { AgeError, decryptStream, looksEncrypted } from "./age.ts";
 import path from "node:path";
 import express, { Router, type Request } from "express";
 import { rateLimit } from "express-rate-limit";
@@ -59,7 +61,7 @@ export type RestoreHooks = {
   resume(opts: { restored: boolean }): Promise<{ applied: string[] } | { error: string }>;
 };
 
-type FailureCode = "pas-une-sauvegarde" | "abimee" | "trop-recente" | "trop-ancienne" | "pas-neuve" | "paquet" | "occupee" | "demarrage" | "interne";
+type FailureCode = "cle-requise" | "cle-refusee" | "place" | "pas-une-sauvegarde" | "abimee" | "trop-recente" | "trop-ancienne" | "pas-neuve" | "paquet" | "occupee" | "demarrage" | "interne";
 type Failure = { code: FailureCode; detail?: string };
 
 class Refused extends Error {
@@ -126,7 +128,7 @@ export async function cleanInterruptedRestore(): Promise<boolean> {
 const offered = (): ServerArchive[] => listArchives().slice(0, 30).map((a) => ({ nom: a.name, octets: a.octets, at: a.at }));
 
 const SEALED = /^v1:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]*$/;
-const SEALED_KEYS: Record<string, SealedKind> = { "ai:config": "ia", "bank:enablebanking": "banque", "services:keys": "services", vapid: "notifications" };
+const SEALED_KEYS: Record<string, SealedKind> = { "ai:config": "ia", "bank:enablebanking": "banque", "services:keys": "services", vapid: "notifications", "sauvegarde:destination": "stockage" };
 
 /** Vrai si la valeur porte une clé chiffrée que le secret de ce serveur n'ouvre pas. */
 function hasUnreadable(value: unknown, open: (sealed: string) => string | null, depth = 0): boolean {
@@ -173,8 +175,46 @@ async function buildReport(manifest: BackupManifest, migrations: number): Promis
 
 const message = (e: unknown) => (e instanceof Error ? e.message.split("\n")[0] : String(e)).slice(0, 300);
 
-async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHooks) {
+/** Les premiers octets d'un fichier. */
+async function head(file: string, length: number): Promise<Buffer> {
+  const fd = await open(file, "r");
+  try {
+    const buf = Buffer.alloc(length);
+    const { bytesRead } = await fd.read(buf, 0, length, 0);
+    return buf.subarray(0, bytesRead);
+  } finally {
+    await fd.close();
+  }
+}
+
+/**
+ * Une archive chiffrée (« .zip.age », copie hors du serveur ou téléchargement chiffré) est d'abord déchiffrée à côté
+ * d'elle, avec la clé de récupération donnée à l'écran — qui ne sert qu'à cela et n'est gardée nulle part. Rend le
+ * chemin de l'archive en clair, ou `null` si le fichier n'était pas chiffré.
+ */
+async function decrypted(file: string, cle: string | undefined): Promise<string | null> {
+  if (!looksEncrypted(await head(file, 64))) return null;
+  if (!cle?.trim()) throw new Refused({ code: "cle-requise" });
+  const dir = uploadDir();
+  mkdirSync(dir, { recursive: true });
+  const disk = await statfs(dir);
+  if (Number(disk.bavail) * Number(disk.bsize) < statSync(file).size + MARGIN) throw new Refused({ code: "place" });
+  const clear = path.join(dir, `clair-${randomBytes(6).toString("hex")}.zip`);
+  try {
+    // Le déchiffrement d'abord : une clé mal recopiée est refusée avant qu'un fichier soit ouvert.
+    const opener = decryptStream(cle);
+    await pipeline(createReadStream(file), opener, createWriteStream(clear, { mode: 0o600 }));
+  } catch (e) {
+    rmSync(clear, { force: true });
+    if (e instanceof AgeError) throw new Refused({ code: /n'ouvre pas|invalide/.test(e.message) ? "cle-refusee" : "abimee", detail: e.message });
+    throw e;
+  }
+  return clear;
+}
+
+async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHooks, cle?: string) {
   let src: ZipSource | null = null;
+  let clear: string | null = null;
   let conn: PoolConnection | null = null;
   let keepAlive: NodeJS.Timeout | null = null;
   let paused = false;
@@ -182,8 +222,12 @@ async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHook
   let manifest: BackupManifest | null = null;
   const started = Date.now();
   try {
+    // 0. Chiffrée : déchiffrée d'abord, avec la clé de récupération.
+    job.stage = "dechiffrement";
+    clear = await decrypted(file, cle);
     // 1. L'archive, relue en entier avant de toucher à quoi que ce soit.
-    src = await fileSource(file);
+    job.stage = "verification";
+    src = await fileSource(clear ?? file);
     let verified: VerifiedBackup;
     try {
       verified = await verifyBackup(src);
@@ -237,6 +281,7 @@ async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHook
     // Elle porte le verrou et les réglages du chargement (clés étrangères suspendues) : elle ne retourne pas dans la réserve.
     conn?.destroy();
     await src?.close?.().catch(() => {});
+    if (clear) rmSync(clear, { force: true });
     if (uploaded) rmSync(file, { force: true });
   }
 
@@ -273,6 +318,12 @@ async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHook
 /** Raison d'un échec, dans la langue de la requête. */
 function failureText(f: Failure): string {
   switch (f.code) {
+    case "cle-requise":
+      return t("Cette archive est chiffrée : donne ta clé de récupération pour la restaurer.");
+    case "cle-refusee":
+      return t("Cette clé de récupération n'ouvre pas cette archive.");
+    case "place":
+      return t("Pas assez de place sur le serveur pour recevoir cette archive.");
     case "pas-une-sauvegarde":
       return t("Ce fichier n'est pas une sauvegarde de Pécule.");
     case "abimee":
@@ -369,7 +420,7 @@ export function restoreApi(hooks: RestoreHooks) {
   api.post("/start", json, async (req, res) => {
     const s = current(req);
     if (!s) return res.status(401).json({ error: t(EXPIRED) });
-    const { archive } = z.object({ archive: z.string().max(200).optional() }).parse(req.body ?? {});
+    const { archive, cle } = z.object({ archive: z.string().max(200).optional(), cle: z.string().max(200).optional() }).parse(req.body ?? {});
     if (!hooks.ready()) return res.status(503).json({ error: t(STARTING) });
     if (running()) return res.status(409).json({ error: t("Une restauration est déjà en cours.") });
     let file: string;
@@ -381,11 +432,11 @@ export function restoreApi(hooks: RestoreHooks) {
       if (!s.upload || s.upload.size !== s.upload.total) return res.status(400).json({ error: t("Envoi interrompu : recommence l'envoi de l'archive.") });
       file = s.upload.file;
     }
-    const job: Job = { stage: "verification", fait: 0, total: 0, failure: null, report: null };
+    const job: Job = { stage: "dechiffrement", fait: 0, total: 0, failure: null, report: null };
     s.job = job;
     // L'archive envoyée est consommée par cette restauration (elle est retirée du serveur à la fin).
     s.upload = null;
-    void run(job, file, archive === undefined, hooks).catch((e) => {
+    void run(job, file, archive === undefined, hooks, cle).catch((e) => {
       job.failure = { code: "interne", detail: message(e) };
       job.stage = "echec";
     });

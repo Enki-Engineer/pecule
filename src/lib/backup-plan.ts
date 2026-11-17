@@ -7,15 +7,23 @@ import { dayIn } from "./countries.ts";
 
 export type BackupFrequency = "jour" | "semaine";
 
+/** Ce qui est gardé hors du serveur : les dernières copies, puis la première de chaque semaine et de chaque mois. */
+export type Retention = { jours: number; semaines: number; mois: number };
+
 export type BackupSettings = {
   /** Le serveur écrit lui-même une sauvegarde complète, à la fréquence choisie. Éteint tant qu'on ne l'a pas demandé. */
   auto: boolean;
   frequence: BackupFrequency;
   /** Nombre de sauvegardes automatiques gardées sur le serveur (les plus récentes). */
   garder: number;
+  /** Conservation des copies chiffrées envoyées hors du serveur. */
+  dehors: Retention;
 };
 
-export const DEFAULT_BACKUP_SETTINGS: BackupSettings = { auto: false, frequence: "jour", garder: 7 };
+export const DEFAULT_RETENTION: Retention = { jours: 7, semaines: 4, mois: 6 };
+/** Conservations proposées à l'écran, de la plus courte à la plus longue. */
+export const RETENTION_CHOICES: Retention[] = [{ jours: 7, semaines: 0, mois: 0 }, { jours: 7, semaines: 4, mois: 0 }, DEFAULT_RETENTION, { jours: 7, semaines: 4, mois: 12 }];
+export const DEFAULT_BACKUP_SETTINGS: BackupSettings = { auto: false, frequence: "jour", garder: 7, dehors: DEFAULT_RETENTION };
 export const KEEP_MIN = 1;
 export const KEEP_MAX = 60;
 
@@ -23,10 +31,14 @@ export const KEEP_MAX = 60;
 export function cleanBackupSettings(raw: unknown): BackupSettings {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const keep = Number(r.garder);
+  const out = r.dehors && typeof r.dehors === "object" ? (r.dehors as Record<string, unknown>) : {};
+  const count = (v: unknown, fallback: number, min: number) => (Number.isFinite(Number(v)) && v !== null && v !== "" ? Math.max(min, Math.min(120, Math.round(Number(v)))) : fallback);
   return {
     auto: r.auto === true,
     frequence: r.frequence === "semaine" ? "semaine" : "jour",
     garder: Number.isFinite(keep) ? Math.max(KEEP_MIN, Math.min(KEEP_MAX, Math.round(keep))) : DEFAULT_BACKUP_SETTINGS.garder,
+    // Au moins une copie reste toujours dehors.
+    dehors: { jours: count(out.jours, DEFAULT_RETENTION.jours, 1), semaines: count(out.semaines, DEFAULT_RETENTION.semaines, 0), mois: count(out.mois, DEFAULT_RETENTION.mois, 0) },
   };
 }
 
@@ -75,6 +87,43 @@ export function autoBackupsToPrune(names: string[], keep: number): string[] {
     .sort((a, b) => b.at - a.at)
     .slice(Math.max(0, keep))
     .map((f) => f.name);
+}
+
+/** Stockage extérieur tel que l'écran le saisit ; `secret` vide : garder celui qui est déjà enregistré. */
+export type DestinationInput =
+  | { type: "s3"; endpoint: string; region: string; bucket: string; prefix: string; accessKey: string; secret: string }
+  | { type: "webdav"; url: string; user: string; secret: string };
+
+/** Le même, tel que le serveur le rend : jamais le secret. `unreadable` : le secret enregistré ne s'ouvre plus (secret du serveur changé). */
+export type PublicDestination = (Omit<Extract<DestinationInput, { type: "s3" }>, "secret"> | Omit<Extract<DestinationInput, { type: "webdav" }>, "secret">) & { unreadable: boolean };
+
+/** Une copie envoyée hors du serveur est chiffrée (format age) : son nom est celui de l'archive, suivi de « .age ». */
+export const ENCRYPTED_SUFFIX = ".age";
+export const remoteName = (archive: string) => `${archive}${ENCRYPTED_SUFFIX}`;
+
+/** Instant porté par le nom d'une copie hors du serveur ; `null` si ce n'en est pas une de Pécule. */
+export const parseRemoteName = (name: string): number | null => (name.endsWith(ENCRYPTED_SUFFIX) ? parseAutoName(name.slice(0, -ENCRYPTED_SUFFIX.length)) : null);
+
+/**
+ * Copies à retirer du stockage extérieur. Restent : les `jours` dernières, puis la première de chacune des
+ * `semaines` dernières semaines où il y en a eu, et la première de chacun des `mois` derniers mois. Un fichier qui
+ * n'est pas une copie de Pécule n'est jamais touché.
+ */
+export function remoteToPrune(names: string[], keep: Retention): string[] {
+  const items = names
+    .map((name) => ({ name, at: parseRemoteName(name) }))
+    .filter((f): f is { name: string; at: number } => f.at !== null)
+    .sort((a, b) => b.at - a.at);
+  const kept = new Set(items.slice(0, Math.max(1, keep.jours)).map((f) => f.name));
+  // La première copie de chaque période, pour les périodes les plus récentes (les semaines commencent le lundi).
+  const firstOfEach = (periodOf: (at: number) => string, periods: number) => {
+    const first = new Map<string, string>();
+    for (const f of items) first.set(periodOf(f.at), f.name);
+    for (const name of [...first.values()].slice(0, Math.max(0, periods))) kept.add(name);
+  };
+  firstOfEach((at) => String(Math.floor((Math.floor(at / DAY_MS) + 3) / 7)), keep.semaines);
+  firstOfEach((at) => new Date(at).toISOString().slice(0, 7), keep.mois);
+  return items.filter((f) => !kept.has(f.name)).map((f) => f.name);
 }
 
 /** Au-delà de ce nombre de jours sans aucune sauvegarde, Pécule le rappelle à l'administrateur. */

@@ -60,11 +60,35 @@ export const securite: ManualTheme = {
         tk("Pour ne plus avoir à y penser, coche [[Écrire une sauvegarde sur le serveur, sans que j'aie à y penser]], section [[Sauvegardes automatiques]] : Pécule en écrit une chaque nuit ou chaque semaine, la relit en entier, et ne garde que les plus récentes. La liste des archives du serveur permet d'en télécharger une ou d'en retirer une ; [[Écrire une sauvegarde maintenant]] en fait une tout de suite."),
         { warning: tk("Ces archives sont sur le même serveur que la base : elles protègent d'une erreur ou d'une mise à jour qui tourne mal, pas de la perte du serveur. Télécharges-en une de temps en temps, et range-la ailleurs.") },
         tk("Si la sauvegarde automatique échoue, ou si aucune sauvegarde n'a été prise depuis un mois, l'administrateur est prévenu par une notification, type [[Sauvegarde automatique en échec, ou aucune sauvegarde depuis un mois]]."),
+        tk("Pour qu'une copie parte toute seule ailleurs que sur le serveur, voir [Garder une copie des sauvegardes hors du serveur](/manuel/sauvegarde-hors-serveur)."),
         tk("Une sauvegarde se [restaure](/manuel/restaurer) dans une installation neuve de Pécule. La commande de [mise à jour](/manuel/mise-a-jour) en prend une avant de commencer."),
         { note: tk("Réservé à l'administrateur, à l'écran seulement. Indisponible en mode démo.") },
       ],
       links: [{ to: "/reglages/compte#sauvegarde", label: ["Réglages", "Compte et sécurité"] }],
       words: tk("backup archive exporter mes données export zip copie de sécurité automatique chaque nuit planifiée programmée rotation"),
+    },
+    {
+      id: "sauvegarde-hors-serveur",
+      title: tk("Garder une copie des sauvegardes hors du serveur"),
+      summary: tk("Une copie chiffrée de chaque sauvegarde automatique, sur un stockage à toi."),
+      body: [
+        tk("Une sauvegarde gardée sur le même serveur que la base ne protège pas de la perte du serveur. Pécule peut déposer une copie chiffrée de chaque sauvegarde automatique sur un stockage extérieur : compatible S3 (Amazon S3, Backblaze B2, Scaleway, OVH, Cloudflare R2…) ou WebDAV (Nextcloud, kDrive, un NAS…)."),
+        {
+          steps: [
+            tk("Ouvre [[Réglages]] → [[Compte et sécurité]], section [[Copie hors du serveur]]."),
+            tk("Touche [[Créer la clé de chiffrement]] : Pécule te montre une seule fois ta clé de récupération. Range-la dans ton gestionnaire de mots de passe, coche [[Je l'ai rangée en lieu sûr]], puis touche [[Continuer]]."),
+            tk("Choisis [[Compatible S3]] ou WebDAV, donne l'adresse et les identifiants, puis touche [[Essayer et enregistrer]] : Pécule dépose un petit fichier d'essai, le retrouve et le retire avant d'enregistrer quoi que ce soit."),
+            tk("Active les sauvegardes automatiques, section [[Sauvegardes automatiques]] : chaque sauvegarde part alors aussi sur ton stockage."),
+          ],
+        },
+        { warning: tk("Sans ta clé de récupération, une copie chiffrée ne peut être relue par personne : ni par toi, ni par Pécule, qui ne la garde pas.") },
+        tk("[[Copies gardées sur ce stockage]] règle la conservation : les dernières copies, puis la première de chaque semaine et de chaque mois. Si un envoi échoue, l'archive attend sur le serveur et Pécule réessaie tout seul ; l'administrateur en est prévenu."),
+        tk("Pour reprendre une copie, télécharge-la depuis ton stockage, puis [restaure-la](/manuel/restaurer) dans une installation neuve avec ta clé de récupération. Elle se déchiffre aussi sans Pécule, avec l'outil libre « age »."),
+        tk("La sauvegarde téléchargée à la main peut être chiffrée de la même façon : coche [[Chiffrer l'archive : elle ne s'ouvrira qu'avec ta clé de récupération]] avant de la télécharger."),
+        { note: tk("Réservé à l'administrateur. Indisponible en mode démo.") },
+      ],
+      links: [{ to: "/reglages/compte#sauvegardes-dehors", label: ["Réglages", "Compte et sécurité"] }],
+      words: tk("hors site offsite cloud s3 webdav nextcloud nas backblaze scaleway chiffrement chiffrer age clé de récupération externaliser stockage extérieur copie distante"),
     },
     {
       id: "restaurer",
@@ -80,6 +104,7 @@ export const securite: ManualTheme = {
             tk("Garde la page ouverte : Pécule vérifie l'archive, recharge la base et les fichiers, puis redémarre."),
           ],
         },
+        tk("Une copie chiffrée (son nom finit par « .age ») demande ta clé de récupération : le champ apparaît quand tu la choisis."),
         tk("À la fin, Pécule dit ce qu'il a retrouvé et ce qu'il reste à faire :"),
         {
           list: [

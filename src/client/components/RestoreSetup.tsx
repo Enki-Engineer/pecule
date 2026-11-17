@@ -19,6 +19,7 @@ function stageLabel(stage: RestoreStage): string {
   switch (stage) {
     case "envoi":
       return t("Envoi de l'archive…");
+    case "dechiffrement":
     case "verification":
       return t("Vérification de l'archive…");
     case "preparation":
@@ -42,6 +43,8 @@ function sealedLabel(kind: SealedKind): string {
       return t("la clé d'Enable Banking");
     case "services":
       return t("les clés des services de crypto");
+    case "stockage":
+      return t("le secret du stockage des sauvegardes");
     default:
       return t("les notifications, à réactiver sur chaque appareil");
   }
@@ -137,12 +140,15 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
   const [opened, setOpened] = useState<Opened | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [archive, setArchive] = useState<string | null>(null);
+  // Clé de récupération d'une archive chiffrée (« .zip.age ») : elle ne sert qu'à cette restauration.
+  const [cle, setCle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Suivi : envoi puis chargement. `null` tant que rien n'est lancé.
   const [status, setStatus] = useState<RestoreStatus | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const jeton = opened?.jeton;
+  const encrypted = !!file && /\.age$/i.test(file.name);
   const following = status !== null && status.etape !== "envoi" && status.etape !== "termine" && status.etape !== "echec";
 
   // Pendant le chargement, l'état se relit toutes les deux secondes ; une réponse manquée (maintenance, réseau) n'arrête rien.
@@ -187,7 +193,7 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
         setStatus({ etape: "envoi", fait: 0, total: file.size, erreur: null, rapport: null });
         await sendArchive(file, opened, (sent) => setStatus({ etape: "envoi", fait: sent, total: file.size, erreur: null, rapport: null }));
       }
-      setStatus(await api<RestoreStatus>("/restore/start", { method: "POST", headers: { "X-Restauration": opened.jeton }, json: file ? {} : { archive } }));
+      setStatus(await api<RestoreStatus>("/restore/start", { method: "POST", headers: { "X-Restauration": opened.jeton }, json: file ? (encrypted ? { cle: cle.trim() } : {}) : { archive } }));
     } catch (e) {
       setStatus(null);
       setError(errorText(e));
@@ -253,12 +259,12 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
   return (
     <>
       <p className="mb-1 text-lg font-semibold">{t("Choisis la sauvegarde")}</p>
-      <p className="mb-5 max-w-xs text-sm text-muted">{t("L'archive zip téléchargée depuis Réglages → Compte et sécurité, ou écrite par le serveur avant une mise à jour.")}</p>
+      <p className="mb-5 max-w-xs text-sm text-muted">{t("L'archive téléchargée depuis Réglages → Compte et sécurité, une copie chiffrée reprise de ton stockage extérieur, ou une archive écrite par le serveur.")}</p>
       <input
         key="archive"
         ref={input}
         type="file"
-        accept=".zip,application/zip"
+        accept=".zip,.age,application/zip"
         className="hidden"
         onChange={(e) => {
           setFile(e.target.files?.[0] ?? null);
@@ -297,7 +303,13 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
           </div>
         </div>
       )}
-      <button type="button" onClick={start} disabled={busy || (!file && !archive)} className={main}>
+      {encrypted && (
+        <>
+          <input value={cle} onChange={(e) => setCle(e.target.value)} placeholder={t("Clé de récupération")} aria-label={t("Clé de récupération")} autoComplete="off" spellCheck={false} className={`${field} mt-4`} />
+          <p className="mt-2 max-w-xs text-xs text-muted">{t("Cette archive est chiffrée. Sa clé de récupération commence par AGE-SECRET-KEY-1 : Pécule te l'a montrée le jour où tu as créé la clé de chiffrement.")}</p>
+        </>
+      )}
+      <button type="button" onClick={start} disabled={busy || (!file && !archive) || (encrypted && !cle.trim())} className={main}>
         {t("Restaurer cette sauvegarde")}
       </button>
       {error && <p className="mt-4 max-w-xs text-sm text-neg">{error}</p>}

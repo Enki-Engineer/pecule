@@ -3,6 +3,26 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.25.0
+
+- **Copie des sauvegardes hors du serveur.** Dans Réglages → Compte et sécurité, section « Copie hors du serveur »,
+  l'administrateur règle un stockage à lui — compatible S3 (Amazon S3, Backblaze B2, Scaleway, OVH, Cloudflare R2,
+  MinIO…) ou WebDAV (Nextcloud, kDrive, un NAS…). Chaque sauvegarde automatique y est alors déposée, et l'on choisit
+  ce qui y reste : les dernières copies, puis la première de chaque semaine et de chaque mois. Le stockage est essayé
+  pour de bon avant d'être enregistré ; si un envoi échoue, l'archive attend et repart seule, et l'administrateur
+  est prévenu.
+- **Tout ce qui quitte le serveur est chiffré.** Pécule crée une clé de chiffrement, n'en garde que la moitié
+  publique, et montre une seule fois la clé de récupération, à ranger. Le format est celui d'[age](https://age-encryption.org) :
+  une copie se déchiffre sans Pécule (`age -d -i cle.txt archive.zip.age`), ou avec lui
+  (`pnpm sauvegarde --dechiffrer archive.zip.age --cle cle.txt`). **Sans la clé de récupération, une copie ne peut
+  être relue par personne.** On peut aussi donner sa propre clé publique age.
+- **Sauvegarde téléchargée chiffrée**, au choix : une case « Chiffrer l'archive » à côté de « Télécharger la
+  sauvegarde », une fois la clé créée.
+- **Restaurer une copie chiffrée** : l'écran de restauration d'une installation neuve accepte une archive `.zip.age`
+  et demande la clé de récupération.
+- Le secret du stockage est gardé chiffré en base (avec `SECRET_KEY`, comme les autres clés). Rien ne change tant
+  qu'aucun stockage n'est réglé. Aucune migration, aucun réglage d'hébergement nouveau.
+
 ## 1.24.0
 
 - **Sauvegardes automatiques.** Dans Réglages → Compte et sécurité, l'administrateur peut demander au serveur d'écrire

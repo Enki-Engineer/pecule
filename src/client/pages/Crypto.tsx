@@ -205,26 +205,50 @@ function Portfolios({ positions, st }: { positions: CryptoPosition[]; st: Crypto
     api(`/crypto/sources/${encodeURIComponent(s.portfolioId)}`, { method: "PATCH", json: { enabled: !s.enabled } })
       .then(() => Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]))
       .then(() => toast.success(s.enabled ? t("Portefeuille exclu (pris en compte à la prochaine synchro si réactivé)") : t("Portefeuille réactivé : synchronise pour le compter")));
+  // Un portefeuille « à vérifier » garde ses positions d'avant : le membre confirme s'il a vraiment été vidé ou vendu.
+  const [accepting, setAccepting] = useState<string | null>(null);
+  const accept = async (s: CryptoSource) => {
+    setAccepting(s.portfolioId);
+    try {
+      await api(`/crypto/sources/${encodeURIComponent(s.portfolioId)}/accept`, { method: "POST" });
+      await Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
+      toast.success(t("Nouvelle valeur confirmée"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("Synchro impossible"));
+    } finally {
+      setAccepting(null);
+    }
+  };
   const sources = [...st.sources].sort((a, b) => valueOf(positions, b) - valueOf(positions, a));
   return (
     <Card className="divide-y divide-line">
       {sources.map((s) => {
         const v = valueOf(positions, s);
         return (
-          <div key={s.portfolioId} className="flex items-center gap-3 px-4 py-3">
-            <BrandLogo texts={[s.name, s.type]} size="md" tone="neutral" />
-            <div className="min-w-0 flex-1">
-              <div className={clsx("truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</div>
-              <div className="truncate text-xs text-muted" title={s.note ?? undefined}>
-                {TYPES[s.type] ?? s.type}
-                {s.lines ? ` · ${tn("{n} ligne", "{n} lignes", s.lines)}` : ""}
-                {STATUS[s.status] && <span className={clsx("ml-1 font-medium", s.status === "a_verifier" || s.status === "erreur" ? "text-warn" : "")}> · {STATUS[s.status]}</span>}
+          <div key={s.portfolioId} className="px-4 py-3">
+            <div className="flex items-center gap-3">
+              <BrandLogo texts={[s.name, s.type]} size="md" tone="neutral" />
+              <div className="min-w-0 flex-1">
+                <div className={clsx("truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</div>
+                <div className="truncate text-xs text-muted" title={s.note ?? undefined}>
+                  {TYPES[s.type] ?? s.type}
+                  {s.lines ? ` · ${tn("{n} ligne", "{n} lignes", s.lines)}` : ""}
+                  {STATUS[s.status] && <span className={clsx("ml-1 font-medium", s.status === "a_verifier" || s.status === "erreur" ? "text-warn" : "")}> · {STATUS[s.status]}</span>}
+                </div>
               </div>
+              <span className="tnum text-sm font-semibold">{money(v, v >= 1000)}</span>
+              <label className="flex items-center gap-1 text-xs text-muted">
+                <input type="checkbox" checked={!!s.enabled} onChange={() => toggle(s)} className="size-[18px] accent-[var(--color-accent)]" />
+              </label>
             </div>
-            <span className="tnum text-sm font-semibold">{money(v, v >= 1000)}</span>
-            <label className="flex items-center gap-1 text-xs text-muted">
-              <input type="checkbox" checked={!!s.enabled} onChange={() => toggle(s)} className="size-[18px] accent-[var(--color-accent)]" />
-            </label>
+            {s.status === "a_verifier" && !!s.enabled && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                <span className="min-w-0 flex-1">{t("CoinStats rend ce portefeuille vide ou bien plus bas qu'avant. Tant que tu ne confirmes pas, Pécule garde ses positions d'avant.")}</span>
+                <button type="button" onClick={() => accept(s)} disabled={accepting === s.portfolioId} className="press shrink-0 text-xs font-medium text-accent disabled:opacity-50">
+                  {t("C'est exact")}
+                </button>
+              </div>
+            )}
           </div>
         );
       })}

@@ -309,10 +309,29 @@ export async function cryptoStatus(userId: number) {
 
 export async function setSourceEnabled(userId: number, portfolioId: string, enabled: boolean) {
   // Seulement une source de ce membre : celle d'un autre n'est ni réglée ni vidée de ses positions.
-  const own = await db.select({ id: cryptoSources.portfolioId }).from(cryptoSources).where(and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId)));
+  const mine = and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId));
+  const own = await db.select({ id: cryptoSources.portfolioId, status: cryptoSources.status }).from(cryptoSources).where(mine);
   if (!own.length) return;
-  await db.update(cryptoSources).set({ enabled: enabled ? 1 : 0 }).where(and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId)));
-  if (!enabled) await db.delete(cryptoPositions).where(and(inArray(cryptoPositions.source, ["coinstats", "onchain"]), eq(cryptoPositions.portfolioId, portfolioId)));
+  await db.update(cryptoSources).set({ enabled: enabled ? 1 : 0 }).where(mine);
+  if (enabled) return;
+  await db.delete(cryptoPositions).where(and(inArray(cryptoPositions.source, ["coinstats", "onchain"]), eq(cryptoPositions.portfolioId, portfolioId)));
+  // Plus aucune position n'est gardée : le garde-fou n'a plus de valeur d'avant à défendre si le portefeuille revient.
+  await db
+    .update(cryptoSources)
+    .set(own[0].status === "a_verifier" ? { lastTotalEur: null, status: "vide", lines: 0, note: null } : { lastTotalEur: null })
+    .where(mine);
+}
+
+/**
+ * Le membre confirme qu'un portefeuille « à vérifier » a bien changé (vidé, vendu, transféré ailleurs) : la valeur
+ * d'avant est oubliée, et la synchro suivante écrit ce que CoinStats rend. Faux si le portefeuille n'attend rien.
+ */
+export async function acceptSourceValue(userId: number, portfolioId: string) {
+  const mine = and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId));
+  const [src] = await db.select({ status: cryptoSources.status }).from(cryptoSources).where(mine);
+  if (src?.status !== "a_verifier") return false;
+  await db.update(cryptoSources).set({ lastTotalEur: null }).where(mine);
+  return true;
 }
 
 /** Désarchive une ligne manuelle (elle recompte dans le total). */

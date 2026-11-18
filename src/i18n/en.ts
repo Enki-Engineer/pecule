@@ -3269,4 +3269,8 @@ export const en: Dict = {
   "Voir la ligne à vérifier": ["See the row to check", "See the {n} rows to check"],
   "{n} relevé": ["{n} statement", "{n} statements"],
   "{n} relevé dont la période n'a pas été lue.": ["{n} statement whose period could not be read.", "{n} statements whose period could not be read."],
+  "Nouvelle valeur confirmée": "New value confirmed",
+  "CoinStats rend ce portefeuille vide ou bien plus bas qu'avant. Tant que tu ne confirmes pas, Pécule garde ses positions d'avant.": "CoinStats returns this portfolio empty or much lower than before. Until you confirm, Pécule keeps its earlier positions.",
+  "C'est exact": "That's right",
+  "Ce portefeuille n'attend pas de confirmation": "This portfolio isn't waiting for a confirmation",
 };

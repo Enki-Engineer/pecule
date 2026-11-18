@@ -102,6 +102,7 @@ export const patrimoine: ManualTheme = {
             tk("Avec CoinStats : les quantités de tous les portefeuilles de ton compte sont lues une fois par jour ; [[Synchroniser CoinStats]] les relit tout de suite."),
             tk("Les cours viennent de CoinGecko et se rafraîchissent d'eux-mêmes."),
             tk("Décoche un portefeuille pour l'écarter du total."),
+            tk("Un portefeuille que CoinStats rend vide, ou bien plus bas qu'à la lecture d'avant, est marqué « [[à vérifier]] » et garde ses positions : sa connexion est peut-être cassée. S'il a vraiment été vidé ou vendu, [[C'est exact]] confirme la nouvelle valeur."),
             tk("Sans CoinStats, les positions sont saisies à la main : demande à l'assistant d'en ajouter une, puis touche une crypto pour corriger sa quantité."),
           ],
         },

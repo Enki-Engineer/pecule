@@ -25,7 +25,7 @@ const OTHER_PERSONAS = ["Léo", "Zoé", "Noa"];
 /** Ce qui ne doit jamais partir d'une session de démo (vraies données ou vrais accès). */
 const BLOCKED: [method: string, path: RegExp][] = [
   ["*", /^\/sync$/],
-  ["POST", /^\/crypto\/(sync|onchain)/],
+  ["POST", /^\/crypto\/(sync|onchain|sources\/[^/]+\/accept)/],
   ["*", /^\/push\//],
   ["POST", /^\/tokens/],
   ["DELETE", /^\/tokens/],

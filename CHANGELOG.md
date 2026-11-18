@@ -3,6 +3,22 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.27.1
+
+Crypto : un portefeuille marqué « à vérifier » ne reste plus bloqué.
+
+- **Confirmer qu'un portefeuille a bien changé.** Quand CoinStats rend un portefeuille vide, ou bien plus bas qu'à la
+  lecture d'avant, Pécule garde ses positions et le marque « à vérifier », au cas où sa connexion serait cassée. S'il
+  a vraiment été vidé ou vendu, rien ne permettait de le dire : il restait « à vérifier », ses anciennes positions
+  comptées pour toujours — et parfois deux fois, quand elles étaient parties vers un autre portefeuille suivi. L'écran
+  Crypto l'explique désormais sous le portefeuille, et « C'est exact » confirme la nouvelle valeur : CoinStats est
+  relu aussitôt et les positions sont mises à jour.
+- **Un portefeuille écarté repart de zéro.** Décocher un portefeuille oublie sa valeur d'avant : recoché, il est relu
+  tel que CoinStats le rend, sans rester « à vérifier ».
+- Manuel : l'article « Suivre ses cryptomonnaies » décrit le garde-fou et sa confirmation.
+
+Aucune migration, aucun réglage nouveau.
+
 ## 1.27.0
 
 Reprendre l'historique d'un compte en déposant ses relevés en PDF dans le coffre.

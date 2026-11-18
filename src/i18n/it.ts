@@ -3269,4 +3269,8 @@ export const it: Dict = {
   "Voir la ligne à vérifier": ["Vedi la riga da verificare", "Vedi le {n} righe da verificare"],
   "{n} relevé": ["{n} estratto", "{n} estratti"],
   "{n} relevé dont la période n'a pas été lue.": ["{n} estratto il cui periodo non è stato letto.", "{n} estratti il cui periodo non è stato letto."],
+  "Nouvelle valeur confirmée": "Nuovo valore confermato",
+  "CoinStats rend ce portefeuille vide ou bien plus bas qu'avant. Tant que tu ne confirmes pas, Pécule garde ses positions d'avant.": "CoinStats restituisce questo portafoglio vuoto o molto più basso di prima. Finché non confermi, Pécule conserva le posizioni di prima.",
+  "C'est exact": "È corretto",
+  "Ce portefeuille n'attend pas de confirmation": "Questo portafoglio non attende alcuna conferma",
 };

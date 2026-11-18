@@ -8,7 +8,7 @@ import { z } from "zod";
 import { db, exec, one, q } from "../db.ts";
 import { desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { alerts, auditLog, users } from "../db/schema/index.ts";
-import { addChainSource, cryptoStatus, restoreManualLine, setSourceEnabled, syncCrypto } from "../crypto.ts";
+import { acceptSourceValue, addChainSource, cryptoStatus, restoreManualLine, setSourceEnabled, syncCrypto } from "../crypto.ts";
 import { requireAdmin, requireApiToken, requireAuth, requireSyncAccess, createEnrollmentLink } from "../auth.ts";
 import { guessCategory, lastSyncRuns, markCardDuplicates, fintaConnections, fintaEnabled } from "../finta.ts";
 import { syncBanks } from "../bank-sync.ts";
@@ -465,6 +465,14 @@ api.patch("/crypto/sources/:id", async (req, res) => {
   const { enabled } = z.object({ enabled: z.boolean() }).parse(req.body);
   await setSourceEnabled(req.user!.id, z.string().max(96).parse(req.params.id), enabled);
   res.json({ ok: true });
+});
+
+/** Confirmer la nouvelle valeur d'un portefeuille « à vérifier » (vidé ou vendu pour de bon), puis relire CoinStats. */
+api.post("/crypto/sources/:id/accept", hourly(12), async (req, res) => {
+  if (!(await acceptSourceValue(req.user!.id, z.string().max(96).parse(req.params.id)))) throw new ActionError(409, tr("Ce portefeuille n'attend pas de confirmation"));
+  const r = await syncCrypto("manuel");
+  if (r === null) throw new ActionError(409, tr("Une synchro crypto est déjà en cours, ou CoinStats n'est pas configuré"));
+  res.json(r);
 });
 
 /** Ajouter une source lue sur la blockchain (staking EGLD MultiversX, validateur Ethereum). */

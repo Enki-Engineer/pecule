@@ -150,7 +150,8 @@ export async function dataCoverage(userId: number) {
     ),
     one<{ first: string | null; last: string | null; n: number }>("SELECT MIN(invoice_date) AS first, MAX(invoice_date) AS last, COUNT(*) AS n FROM invoices"),
     one<{ first: string | null; last: string | null; n: number }>("SELECT MIN(period) AS first, MAX(period) AS last, COUNT(*) AS n FROM payslips WHERE owner_user_id = ?", [userId]),
-    one<{ first: number | null; last: number | null }>("SELECT MIN(income_year) AS first, MAX(income_year) AS last FROM tax_returns"),
+    // Les déclarations du foyer et les siennes (celles d'un autre membre ne le regardent pas).
+    one<{ first: number | null; last: number | null }>("SELECT MIN(income_year) AS first, MAX(income_year) AS last FROM tax_returns WHERE owner_user_id IN (0, ?)", [userId]),
     one<{ first: string | null }>("SELECT MIN(date) AS first FROM wealth_snapshots WHERE user_id = ?", [userId]),
     one<{ n: number }>("SELECT COUNT(*) AS n FROM documents"),
   ]);

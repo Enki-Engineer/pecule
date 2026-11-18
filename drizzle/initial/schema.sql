@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0030_nature_contrat.sql
+-- inclut-jusqu-a: drizzle/0031_declarations_impot.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -897,6 +897,7 @@ CREATE TABLE `sync_runs` (
 -- § table tax_returns
 CREATE TABLE `tax_returns` (
   `income_year` int(11) NOT NULL,
+  `owner_user_id` int(11) NOT NULL DEFAULT 0,
   `notice_year` int(11) DEFAULT NULL,
   `parts` decimal(4,2) DEFAULT NULL,
   `situation` varchar(40) DEFAULT NULL,
@@ -915,7 +916,7 @@ CREATE TABLE `tax_returns` (
   `notes` text DEFAULT NULL,
   `document_id` int(11) DEFAULT NULL,
   `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`income_year`)
+  PRIMARY KEY (`income_year`,`owner_user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table tax_return_salaries
 CREATE TABLE `tax_return_salaries` (
@@ -924,7 +925,6 @@ CREATE TABLE `tax_return_salaries` (
   `amount` decimal(12,2) NOT NULL,
   PRIMARY KEY (`income_year`,`user_id`),
   KEY `fk_tax_salaries_user` (`user_id`),
-  CONSTRAINT `fk_tax_salaries_return` FOREIGN KEY (`income_year`) REFERENCES `tax_returns` (`income_year`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `fk_tax_salaries_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 -- § table transactions

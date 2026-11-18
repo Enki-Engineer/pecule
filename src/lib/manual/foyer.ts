@@ -36,7 +36,8 @@ export const foyer: ManualTheme = {
           list: [
             tk("Comptes : chacun voit les comptes du foyer, et règle pour lui seul ceux qu'il masque ou sort de ses statistiques. [[Moi]] ne garde que ses propres comptes."),
             tk("Patrimoine : chacun voit sa part — un bien ou un crédit commun compte pour sa quote-part, un compte commun pour moitié."),
-            tk("Toujours privés : la retraite, les bulletins de paie et l'écran [[Revenus]], les conversations avec l'assistant et ce qu'il retient, l'alerte de solde bas, les imports en cours."),
+            tk("Toujours privés : la retraite, les conversations avec l'assistant et ce qu'il retient, l'alerte de solde bas, les imports en cours."),
+            tk("Privés tant que tu ne les partages pas : tes bulletins de paie et tes déclarations d'impôt personnelles. Avec [[Partager mes revenus avec le foyer]] ([[Réglages]] → [[Compte et sécurité]]), les autres membres en lisent les montants dans la vue [[Foyer]] de [[Revenus]] et d'[[Impôts]] — jamais les documents eux-mêmes."),
             tk("Privés au choix : une facture, un document, une tâche de l'échéancier, avec la case [[Visible par moi seul]]."),
             tk("Communs au foyer : les catégories, les règles de classement, les enseignes, le budget, et les réglages du foyer."),
           ],

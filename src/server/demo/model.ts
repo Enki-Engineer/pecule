@@ -130,6 +130,9 @@ const perPart = (q: number) => {
 };
 /** IR au barème ; l'avantage des demi-parts au-delà de 2 est plafonné à 1 791 € chacune. */
 export const bareme = (income: number, parts: number) => Math.round(Math.max(perPart(income / parts) * parts, perPart(income / 2) * 2 - (parts - 2) * 2 * 1_791));
+/** IR d'une personne imposée seule (une part), et son taux marginal (en %). */
+export const baremeSeul = (income: number) => Math.round(perPart(income));
+export const tmiSeul = (income: number) => 100 * (BRACKETS.find(([limit]) => income <= limit)?.[1] ?? 0.45);
 /** Taux marginal (en %) : celui de la tranche du revenu par part (deux parts, le quotient étant plafonné). */
 export const tmiOf = (income: number) => 100 * (BRACKETS.find(([limit]) => income / 2 <= limit)?.[1] ?? 0.45);
 
@@ -194,6 +197,18 @@ export function incomeModel(s: Scenario) {
     return { ...t, withheld: r2(withheld), balance: Math.round(t.total - withheld) };
   }
 
+  /**
+   * Impôt d'une année d'imposition séparée, avant le Pacs : chacun sa déclaration, une part, ses seuls salaires
+   * (les loyers du studio, à Alex, n'avaient pas commencé).
+   */
+  function taxAlone(who: "a" | "c", y: number) {
+    const t = rawTax(y);
+    const salary = who === "a" ? t.salA : t.salC;
+    const taxable = Math.round(0.9 * salary);
+    const ir = baremeSeul(taxable);
+    return { salary, taxable, netTax: ir, total: ir, tmi: tmiSeul(taxable), avgRate: r2((100 * ir) / taxable) };
+  }
+
   /** Taxe foncière d'une année (résidence principale ou studio), +4 % par an. */
   function tf(kind: "rp" | "studio", y: number) {
     const total = Math.round((kind === "rp" ? 1412 : 702) * 1.04 ** (y - s.TY));
@@ -203,7 +218,7 @@ export function incomeModel(s: Scenario) {
     return { total, teom, fees, contributions, base: Math.round(contributions / 0.46) };
   }
 
-  return { payslip, tax, rateAt, acompteAt, tf };
+  return { payslip, tax, taxAlone, rateAt, acompteAt, tf };
 }
 
 export type IncomeModel = ReturnType<typeof incomeModel>;

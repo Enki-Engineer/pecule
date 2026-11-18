@@ -10,6 +10,9 @@ import { AxisTick, StackedBars } from "../components/StackedBars.tsx";
 import { HypothesisCard } from "../components/Hypotheses.tsx";
 import { dateFr, money } from "../format.ts";
 import { cn } from "../cn.ts";
+import { SharingNote } from "../components/ScopeSwitch.tsx";
+import { TaxOwner, ownerLabel } from "../components/TaxOwner.tsx";
+import { taxYears } from "../../lib/taxes.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
 
 /*
@@ -61,19 +64,30 @@ function usePick<T>(initial: T) {
 
 /* ---------- Impôts ---------- */
 
+/** Clé d'une déclaration : son année de revenus et son déclarant. */
+const returnKey = (r: TaxReturn) => `${r.income_year}:${r.owner_user_id}`;
+
 export function TaxesDesktop({ d }: { d: Taxes }) {
   const navigate = useNavigate();
-  const last = d.returns[0];
-  const prev = d.returns[1];
-  const [year, pickYear, picked] = usePick<number | null>(last?.income_year ?? null);
-  const sel = d.returns.find((r) => r.income_year === year) ?? last;
+  // Une année de revenus peut compter plusieurs déclarations (imposition séparée) : chiffres clés et graphique lisent
+  // l'année, le détail et le tableau lisent la déclaration.
+  const years = useMemo(() => taxYears(d.returns), [d.returns]);
+  const last = years[0];
+  const prev = years[1];
+  const [picked, pick, touched] = usePick<string | null>(null);
+  const sel = d.returns.find((r) => returnKey(r) === picked) ?? last?.returns[0];
+  const selYear = sel ? years.find((y) => y.income_year === sel.income_year) : undefined;
+  const pickYear = (year: number) => pick(returnKey(years.find((y) => y.income_year === year)!.returns[0]));
   const [taxYear, pickTaxYear, taxPicked] = usePick<number | null>(null);
   const propertyIds = [...new Map(d.propertyTaxes.map((p) => [p.property_id, cleanName(p.property_name ?? p.property_id)])).entries()];
-  const taxYears = [...new Set(d.propertyTaxes.map((p) => p.year))].sort();
-  const latestTaxYear = taxYear ?? taxYears.at(-1) ?? null;
+  const propertyYears = [...new Set(d.propertyTaxes.map((p) => p.year))].sort();
+  const latestTaxYear = taxYear ?? propertyYears.at(-1) ?? null;
+  const mine = d.scope === "moi";
 
   const irColumns: Column<TaxReturn>[] = [
     { key: "year", header: t("Revenus"), sort: (r) => r.income_year, cell: (r) => <span className="font-medium">{r.income_year}</span>, width: "90px" },
+    // Foyer de plusieurs membres : de qui est la déclaration (elle se change dans le détail de l'année).
+    ...(d.several ? [{ key: "decl", header: t("Déclaration"), sort: (r: TaxReturn) => r.owner?.name ?? "", cell: (r: TaxReturn) => <span className={r.owner ? "" : "text-muted"}>{ownerLabel(r)}</span> }] : []),
     { key: "sit", header: t("Situation##foyer"), sort: (r) => r.situation ?? "", cell: (r) => <span className="text-muted">{r.situation ?? "—"}</span>, hideBelow: "2xl" },
     { key: "parts", header: t("Parts##fiscales"), align: "right", sort: (r) => n(r.parts), cell: (r) => r.parts ?? "—", hideBelow: "xl" },
     { key: "taxable", header: t("Imposable"), align: "right", sort: (r) => n(r.taxable_income), cell: (r) => money(r.taxable_income, true) },
@@ -126,7 +140,8 @@ export function TaxesDesktop({ d }: { d: Taxes }) {
 
   return (
     <>
-      <PageHeader title={t("Impôts")} subtitle={t("Impôt sur le revenu et taxes foncières du foyer · clique sur une année pour son détail")} />
+      <PageHeader title={t("Impôts")} subtitle={mine ? t("Tes déclarations, la commune comprise, et les taxes foncières") : t("Impôt sur le revenu et taxes foncières du foyer · clique sur une année pour son détail")} />
+      <SharingNote what="impots" several={d.several} sharing={d.sharing} withheld={d.withheld} scope={d.scope} />
       {last && (
         <StatGrid>
           <Stat
@@ -136,14 +151,14 @@ export function TaxesDesktop({ d }: { d: Taxes }) {
           />
           <Stat label={t("Revenu imposable")} value={money(last.taxable_income, true)} hint={last.rfr != null ? t("RFR {montant}", { montant: money(last.rfr, true) }) : undefined} />
           <Stat label={t("Tranche marginale")} value={pct(last.tmi, 0)} hint={t("taux moyen {taux}", { taux: pct(last.avg_rate) })} />
-          <Stat label={t("Taxes foncières")} value={money(d.propertyTaxes.filter((p) => p.year === taxYears.at(-1)).reduce((s, p) => s + (n(p.total) ?? 0), 0), true)} hint={taxYears.length ? `${taxYears.at(-1)}, ${tn("{n} bien", "{n} biens", propertyIds.length)}` : undefined} />
+          <Stat label={t("Taxes foncières")} value={money(d.propertyTaxes.filter((p) => p.year === propertyYears.at(-1)).reduce((s, p) => s + (n(p.total) ?? 0), 0), true)} hint={propertyYears.length ? `${propertyYears.at(-1)}, ${tn("{n} bien", "{n} biens", propertyIds.length)}` : undefined} />
         </StatGrid>
       )}
 
       <div className="grid grid-cols-12 gap-4">
-        <Panel title={t("Impôt du foyer par année de revenus")} right={t("Clic : détail de l'année")} className="col-span-12 xl:col-span-8">
+        <Panel title={mine ? t("Ton impôt par année de revenus") : t("Impôt du foyer par année de revenus")} right={t("Clic : détail de l'année")} className="col-span-12 xl:col-span-8">
           <StackedBars
-            data={[...d.returns].reverse().map((r) => ({ year: String(r.income_year), net: n(r.net_tax) ?? 0, ps: n(r.social_levies) ?? 0, rate: r.avg_rate }))}
+            data={[...years].reverse().map((y) => ({ year: String(y.income_year), net: n(y.net_tax) ?? 0, ps: n(y.social_levies) ?? 0, rate: y.avg_rate }))}
             xKey="year"
             height={260}
             series={[
@@ -158,13 +173,30 @@ export function TaxesDesktop({ d }: { d: Taxes }) {
         </Panel>
 
         <Panel
-          key={sel?.income_year ?? "detail"}
+          key={sel ? returnKey(sel) : "detail"}
           title={sel ? <>{t("Revenus")} <Chip>{sel.income_year}</Chip></> : t("Détail")}
           right={sel?.notice_year ? t("avis {annee}", { annee: sel.notice_year }) : undefined}
-          className={cn("col-span-12 xl:col-span-4", picked && "sel-swap")}
+          className={cn("col-span-12 xl:col-span-4", touched && "sel-swap")}
         >
           {sel && (
             <>
+              {/* Plusieurs déclarations cette année-là (imposition séparée) : on passe de l'une à l'autre. */}
+              {selYear && selYear.returns.length > 1 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {selYear.returns.map((r) => (
+                    <button
+                      key={returnKey(r)}
+                      type="button"
+                      aria-pressed={r === sel}
+                      onClick={() => pick(returnKey(r))}
+                      className={cn("rounded-full px-2.5 py-0.5 text-[12.5px] font-medium", r === sel ? "bg-accent-soft text-ink" : "text-muted hover:text-ink")}
+                    >
+                      {ownerLabel(r)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {d.several && <Line2 label={t("Déclaration")} value={<TaxOwner r={sel} />} />}
               <Line2 label={t("Situation##foyer")} value={`${sel.situation ?? "—"}${sel.parts ? ` · ${tn("{n} part", "{n} parts", Number(sel.parts), { n: sel.parts })}` : ""}`} />
               {sel.salaries.map((s) => (
                 <Line2 key={s.user_id} label={t("Salaires {nom}", { nom: s.name })} value={money(s.amount, true)} />
@@ -179,6 +211,7 @@ export function TaxesDesktop({ d }: { d: Taxes }) {
               <Line2 label={t("Total")} value={money(sel.total, true)} strong />
               <Line2 label={t("TMI · taux moyen")} value={`${pct(sel.tmi, 0)} · ${pct(sel.avg_rate)}`} />
               {sel.balance != null && <Line2 label={t("Solde de l'avis")} value={money(sel.balance, true)} tone={sel.balance > 0 ? "neg" : "pos"} />}
+              {selYear && selYear.returns.length > 1 && <Line2 label={t("Total des {n} déclarations", { n: selYear.returns.length })} value={money(selYear.total, true)} strong />}
               {sel.credits_detail && <p className="mt-2 text-[12px] leading-relaxed text-muted">{sel.credits_detail}</p>}
               {sel.notes && <p className="mt-2 text-[12px] leading-relaxed text-muted">{sel.notes}</p>}
               {sel.document_id && (
@@ -196,14 +229,14 @@ export function TaxesDesktop({ d }: { d: Taxes }) {
 
         <div className="col-span-12">
           <h2 className="mb-2 font-semibold">{t("Impôt sur le revenu")}</h2>
-          <DataTable rows={d.returns} columns={irColumns} rowKey={(r) => String(r.income_year)} selectedKey={sel ? String(sel.income_year) : null} onRowClick={(r) => pickYear(r.income_year)} initialSort={{ key: "year", dir: "desc" }} />
+          <DataTable rows={d.returns} columns={irColumns} rowKey={returnKey} selectedKey={sel ? returnKey(sel) : null} onRowClick={(r) => pick(returnKey(r))} initialSort={{ key: "year", dir: "desc" }} />
         </div>
 
         {d.propertyTaxes.length > 0 && (
           <>
             <Panel title={t("Taxes foncières par année")} right={t("Clic : détail de l'année")} className="col-span-12 xl:col-span-8">
               <StackedBars
-                data={taxYears.map((y) => ({ year: String(y), ...Object.fromEntries(propertyIds.map(([id]) => [id, n(d.propertyTaxes.find((p) => p.year === y && p.property_id === id)?.total) ?? 0])) }))}
+                data={propertyYears.map((y) => ({ year: String(y), ...Object.fromEntries(propertyIds.map(([id]) => [id, n(d.propertyTaxes.find((p) => p.year === y && p.property_id === id)?.total) ?? 0])) }))}
                 xKey="year"
                 height={220}
                 series={propertyIds.map(([id, name], i) => ({ key: id, label: name, color: `var(--series-${(i % 8) + 1})` }))}

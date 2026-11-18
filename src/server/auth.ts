@@ -202,15 +202,20 @@ async function takeChallenge(req: Request, res: Response, purpose: string) {
   return row ?? null;
 }
 
-/** Ce qui règle les écrans d'un membre et dépend de sa base : le jour retenu pour les statistiques, et l'intérêt du choix Foyer / Moi. */
+/**
+ * Ce qui règle les écrans d'un membre et dépend de sa base : le jour retenu pour les statistiques, et l'intérêt du
+ * choix Foyer / Moi — pour ses comptes (`scopeChoice`) et pour les revenus et les impôts (`several`).
+ */
 async function memberView(userId: number) {
-  const [basis, counts] = await Promise.all([
+  const [basis, counts, members] = await Promise.all([
     dateBasis(),
     // « Moi » = les comptes à son nom. Le choix n'a de sens que s'il en a, et s'il n'a pas que ceux-là.
     one<{ total: number; mine: number }>("SELECT COUNT(*) AS total, COALESCE(SUM(a.owner = (SELECT LOWER(u.name) FROM users u WHERE u.id = ?)), 0) AS mine FROM accounts a", [userId]),
+    // Revenus et impôts : le choix n'a de sens que dans un foyer de plusieurs membres.
+    one<{ n: number }>("SELECT COUNT(*) AS n FROM users"),
   ]);
   const mine = Number(counts?.mine ?? 0);
-  return { dateBasis: basis, scopeChoice: mine > 0 && mine < Number(counts?.total ?? 0) };
+  return { dateBasis: basis, scopeChoice: mine > 0 && mine < Number(counts?.total ?? 0), several: Number(members?.n ?? 0) > 1 };
 }
 
 const limiter = rateLimit({ windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
@@ -227,9 +232,10 @@ authRouter.get("/me", async (req, res) => {
   // modulesOff : écrans facultatifs retirés par le foyer (la démo les montre tous).
   const modulesOff = req.user && !req.user.demo ? (await householdSettings().catch(() => null))?.modulesOff ?? [] : [];
   // dateBasis : jour retenu pour les statistiques (jour d'achat ou d'écriture) ; scopeChoice : « Moi » montre-t-il autre
-  // chose que « Foyer » pour ce membre (sinon l'écran ne propose pas le choix). Lus dans la base du membre (démo comprise).
+  // chose que « Foyer » pour ce membre (sinon l'écran ne propose pas le choix) ; several : le foyer compte-t-il plusieurs
+  // membres (le choix vaut alors pour les revenus et les impôts). Lus dans la base du membre (démo comprise).
   const view = req.user ? await (req.user.demo ? runDemo : runReal)(() => memberView(req.user!.id)).catch(() => null) : null;
-  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true } : {}) });
+  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true } : {}) });
 });
 
 /**

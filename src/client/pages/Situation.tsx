@@ -1,15 +1,20 @@
+import { useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { Card, Empty, ErrorBox, PageHeader, Spinner } from "../components/ui.tsx";
 import { StackedBars } from "../components/StackedBars.tsx";
 import { HypothesisCard } from "../components/Hypotheses.tsx";
 import { DocList, FactsCard, SectionTitle, Stat, StatGrid, Table } from "../components/blocks.tsx";
 import { dateFr, money } from "../format.ts";
-import { usePayslips, useProjections, useRetirement, useTaxes } from "../api-situation.ts";
+import { usePayslips, useProjections, useRetirement, useTaxes, type Payslip } from "../api-situation.ts";
 import { useWealth } from "../api.ts";
 import { DataTable } from "../components/DataTable.tsx";
 import { useMedia } from "../useMedia.ts";
 import { includesHome, netWithHomeDebtShare } from "../../lib/projections.ts";
 import { ProjectionsDesktop, RetirementDesktop, TaxesDesktop } from "./SituationDesktop.tsx";
+import { ScopeSwitch, SharingNote } from "../components/ScopeSwitch.tsx";
+import { TaxOwner, ownerLabel } from "../components/TaxOwner.tsx";
+import { payslipMonths } from "../../lib/payslips.ts";
+import { taxYears } from "../../lib/taxes.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
 
 /* Situation : impôts, retraite, projections (repris de Notion, chiffres recalculés). */
@@ -21,20 +26,31 @@ export function Taxes() {
   const q = useTaxes();
   const navigate = useNavigate();
   const d = q.data;
-  const last = d?.returns[0];
-  const prev = d?.returns[1];
+  // Une année de revenus peut compter plusieurs déclarations (imposition séparée) : les chiffres clés et le graphique lisent l'année.
+  const years = useMemo(() => taxYears(d?.returns ?? []), [d]);
+  const last = years[0];
+  const prev = years[1];
   const desktop = useMedia("(min-width: 768px)");
   if (desktop && d && (d.returns.length || d.propertyTaxes.length)) return <TaxesDesktop d={d} />;
+  const mine = d?.scope === "moi";
   return (
     <>
-      <PageHeader title={t("Impôts")} subtitle={t("Impôt sur le revenu et taxes foncières du foyer")} />
+      <PageHeader
+        title={t("Impôts")}
+        subtitle={mine ? t("Tes déclarations, la commune comprise, et les taxes foncières") : t("Impôt sur le revenu et taxes foncières du foyer")}
+        right={d?.several ? <ScopeSwitch /> : undefined}
+      />
       {q.error && <ErrorBox error={q.error} />}
       {!d ? (
         <Spinner />
       ) : !d.returns.length && !d.propertyTaxes.length ? (
-        <Empty>{t("Aucune donnée fiscale pour l'instant.")}</Empty>
+        <>
+          <SharingNote what="impots" several={d.several} sharing={d.sharing} withheld={d.withheld} scope={d.scope} />
+          <Empty>{t("Aucune donnée fiscale pour l'instant.")}</Empty>
+        </>
       ) : (
         <>
+          <SharingNote what="impots" several={d.several} sharing={d.sharing} withheld={d.withheld} scope={d.scope} />
           {last && (
             <StatGrid>
               <Stat
@@ -44,14 +60,18 @@ export function Taxes() {
               />
               <Stat label={t("Revenu imposable")} value={money(last.taxable_income, true)} hint={last.rfr != null ? t("RFR {montant}", { montant: money(last.rfr, true) }) : undefined} />
               <Stat label={t("Tranche marginale")} value={pct(last.tmi)} hint={t("taux moyen {taux}", { taux: pct(last.avg_rate) })} />
-              <Stat label={t("Parts##fiscales")} value={last.parts ?? "—"} hint={last.situation ?? undefined} />
+              {last.returns.length === 1 ? (
+                <Stat label={t("Parts##fiscales")} value={last.returns[0].parts ?? "—"} hint={last.returns[0].situation ?? undefined} />
+              ) : (
+                <Stat label={t("Déclarations##impot")} value={last.returns.length} hint={last.returns.map(ownerLabel).join(" + ")} />
+              )}
             </StatGrid>
           )}
 
-          {d.returns.length > 1 && (
-            <ChartCard title={t("Impôt du foyer par année de revenus")} hint={t("Clique sur une barre pour ouvrir l'avis")}>
+          {years.length > 1 && (
+            <ChartCard title={mine ? t("Ton impôt par année de revenus") : t("Impôt du foyer par année de revenus")} hint={t("Clique sur une barre pour ouvrir l'avis")}>
               <StackedBars
-                data={[...d.returns].reverse().map((r) => ({ year: String(r.income_year), net: Number(r.net_tax) || 0, ps: Number(r.social_levies) || 0, doc: r.document_id, rate: r.avg_rate }))}
+                data={[...years].reverse().map((y) => ({ year: String(y.income_year), net: Number(y.net_tax) || 0, ps: Number(y.social_levies) || 0, doc: y.returns.find((r) => r.document_id)?.document_id ?? null, rate: y.avg_rate }))}
                 xKey="year"
                 series={[
                   { key: "net", label: t("Impôt sur le revenu"), color: "var(--series-1)" },
@@ -68,7 +88,20 @@ export function Taxes() {
           <Table
             head={[t("Revenus"), t("Imposable"), t("RFR"), t("Impôt net"), t("PS"), t("Total"), t("TMI"), t("Taux moyen"), t("Avis##impot")]}
             rows={d.returns.map((r) => [
-              r.income_year,
+              // Le titre de la ligne porte l'année et, dans un foyer de plusieurs membres, de qui est la déclaration :
+              // un choix pour la commune ou la sienne, le prénom pour celle d'un autre membre.
+              d.several ? (
+                <span key="y" className="flex items-center justify-between gap-3">
+                  <span>{r.editable ? r.income_year : `${r.income_year} · ${ownerLabel(r)}`}</span>
+                  {r.editable && (
+                    <span className="font-normal">
+                      <TaxOwner r={r} />
+                    </span>
+                  )}
+                </span>
+              ) : (
+                r.income_year
+              ),
               money(r.taxable_income, true),
               money(r.rfr, true),
               money(r.net_tax, true),
@@ -79,6 +112,7 @@ export function Taxes() {
               docLink(r.document_id, "PDF"),
             ])}
           />
+          {d.several && <p className="mt-2 px-1 text-xs text-muted">{t("Une déclaration est commune (l'imposition du foyer) ou personnelle (la tienne seule, avant la vie commune par exemple) : choisis-le sur sa ligne.")}</p>}
 
           {d.propertyTaxes.length > 0 && (
             <>
@@ -249,65 +283,125 @@ export function ProjectionsPage() {
 
 const monthName = (p: string) => new Date(`${p}-15T12:00:00`).toLocaleDateString(locale(), { month: "long", year: "numeric" });
 
-/** Revenus salariaux (privé) : bulletins de paie lus par Claude, totaux par année. */
+/**
+ * Revenus salariaux : bulletins de paie lus par l'IA, totaux par année. Vue « Moi » : les bulletins du membre. Vue
+ * « Foyer » : les siens et ceux des membres qui partagent leurs revenus, mois par mois et membre par membre.
+ */
 export function Income() {
   const p = usePayslips();
   const navigate = useNavigate();
   const d = p.data;
-  const last = d?.payslips[0];
+  const months = useMemo(() => payslipMonths(d?.payslips ?? []), [d]);
+  // Plusieurs membres comptés : l'écran montre le foyer, et la part de chacun.
+  const household = (d?.members.length ?? 0) > 1;
+  const name = new Map(d?.members.map((m) => [m.id, m.name]));
+  const lastPeriod = d?.payslips[0]?.period;
+  const lastRows = d?.payslips.filter((b) => b.period === lastPeriod) ?? [];
+  const sum = (f: (b: Payslip) => number | null) => lastRows.reduce((s, b) => s + (Number(f(b)) || 0), 0);
   const year = d?.years[0];
+  const rate = lastRows.length === 1 ? lastRows[0].tax_rate : null;
   return (
     <>
-      <PageHeader title={t("Revenus")} subtitle={t("D'après tes bulletins de paie · privé")} />
+      <PageHeader
+        title={t("Revenus")}
+        subtitle={household ? t("D'après les bulletins de paie du foyer") : d?.several && d.sharing ? t("D'après tes bulletins de paie · partagés avec le foyer") : t("D'après tes bulletins de paie · privé")}
+        right={d?.several ? <ScopeSwitch /> : undefined}
+      />
       {p.error && <ErrorBox error={p.error} />}
       {!d ? (
         <Spinner />
       ) : !d.payslips.length ? (
-        <Empty>{t("Aucun bulletin de paie lu pour l'instant.")}</Empty>
+        <>
+          <SharingNote what="revenus" several={d.several} sharing={d.sharing} withheld={d.withheld} scope={d.scope} />
+          <Empty>{t("Aucun bulletin de paie lu pour l'instant.")}</Empty>
+        </>
       ) : (
         <>
+          <SharingNote what="revenus" several={d.several} sharing={d.sharing} withheld={d.withheld} scope={d.scope} />
           <StatGrid>
-            <Stat label={t("Net payé · {mois}", { mois: last ? monthName(last.period) : "" })} value={money(last?.net_paid, true)} hint={last?.employer} />
-            <Stat label={t("Brut du mois")} value={money(last?.gross, true)} hint={last?.tax_rate != null ? t("prélèvement à la source {taux}", { taux: pct(last.tax_rate) }) : undefined} />
+            <Stat
+              label={t("Net payé · {mois}", { mois: lastPeriod ? monthName(lastPeriod) : "" })}
+              value={money(sum((b) => b.net_paid), true)}
+              // Le dernier mois du foyer peut ne compter qu'un membre (bulletin de l'autre pas encore déposé) : on dit lesquels.
+              hint={household ? [...new Set(lastRows.map((b) => name.get(b.user_id)))].join(" + ") : [...new Set(lastRows.map((b) => b.employer))].join(", ")}
+            />
+            <Stat label={t("Brut du mois")} value={money(sum((b) => b.gross), true)} hint={rate != null ? t("prélèvement à la source {taux}", { taux: pct(rate) }) : household ? tn("{n} bulletin", "{n} bulletins", lastRows.length) : undefined} />
             <Stat label={t("Net imposable {annee}", { annee: year?.year ?? "" })} value={money(year?.netTaxable, true)} hint={year ? tn("{n} bulletin", "{n} bulletins", year.months) : undefined} />
             <Stat label={t("Impôt prélevé {annee}", { annee: year?.year ?? "" })} value={money(year?.incomeTax, true)} />
           </StatGrid>
-          <ChartCard title={t("Salaire des 36 derniers mois")} hint={t("Net payé + impôt prélevé à la source · clic : bulletin")}>
-            <StackedBars
-              data={monthlyPay(d.payslips)}
-              xKey="period"
-              height={220}
-              series={[
-                { key: "net", label: t("Net payé"), color: "var(--series-1)" },
-                { key: "tax", label: t("Impôt prélevé"), color: "var(--series-2)" },
-              ]}
-              xFormatter={(v) => new Date(`${v}-15T12:00:00`).toLocaleDateString(locale(), { month: "short", year: "2-digit" })}
-              labelFormatter={(r) => monthName(r.period)}
-              totalLabel={t("Net avant impôt")}
-              extra={(r) => (r.bonus ? t("dont primes {montant}", { montant: money(r.bonus, true) }) : r.employers)}
-              onBarClick={(r) => r.doc && navigate(`/documents?id=${r.doc}`, { viewTransition: true })}
+          {household ? (
+            <ChartCard title={t("Salaires du foyer sur 36 mois")} hint={t("Net payé par membre")}>
+              <StackedBars
+                data={months.map((m) => ({ period: m.period, tax: m.tax, ...Object.fromEntries(d.members.map((u) => [`m${u.id}`, m.byMember[u.id] ?? 0])) }))}
+                xKey="period"
+                height={220}
+                series={d.members.map((u, i) => ({ key: `m${u.id}`, label: u.name, color: `var(--series-${(i % 8) + 1})` }))}
+                xFormatter={(v) => new Date(`${v}-15T12:00:00`).toLocaleDateString(locale(), { month: "short", year: "2-digit" })}
+                labelFormatter={(r) => monthName(r.period)}
+                totalLabel={t("Net payé du foyer")}
+                extra={(r) => (r.tax ? t("impôt prélevé {montant}", { montant: money(r.tax, true) }) : null)}
+              />
+            </ChartCard>
+          ) : (
+            <ChartCard title={t("Salaire des 36 derniers mois")} hint={t("Net payé + impôt prélevé à la source · clic : bulletin")}>
+              <StackedBars
+                data={months.map((m) => ({ period: m.period, net: m.net, tax: m.tax, bonus: m.bonus, doc: m.doc, employers: m.employers.join(", ") }))}
+                xKey="period"
+                height={220}
+                series={[
+                  { key: "net", label: t("Net payé"), color: "var(--series-1)" },
+                  { key: "tax", label: t("Impôt prélevé"), color: "var(--series-2)" },
+                ]}
+                xFormatter={(v) => new Date(`${v}-15T12:00:00`).toLocaleDateString(locale(), { month: "short", year: "2-digit" })}
+                labelFormatter={(r) => monthName(r.period)}
+                totalLabel={t("Net avant impôt")}
+                extra={(r) => (r.bonus ? t("dont primes {montant}", { montant: money(r.bonus, true) }) : r.employers)}
+                onBarClick={(r) => r.doc && navigate(`/documents?id=${r.doc}`, { viewTransition: true })}
+              />
+            </ChartCard>
+          )}
+          <SectionTitle right={household ? <span className="text-[12.5px] text-muted">{t("Net payé de chacun, puis totaux du foyer")}</span> : undefined}>{t("Par année")}</SectionTitle>
+          {household ? (
+            <Table
+              head={[t("Année"), ...d.members.map((u) => u.name), t("Net payé"), t("Brut"), t("Net imposable"), t("Impôt prélevé"), t("Primes")]}
+              align={["left", ...d.members.map(() => "right" as const), "right", "right", "right", "right", "right"]}
+              rows={d.years.map((y) => [
+                y.year,
+                ...d.members.map((u) => {
+                  const part = y.members.find((m) => m.user_id === u.id);
+                  return part ? money(part.netPaid, true) : "—";
+                }),
+                <strong key="n">{money(y.netPaid, true)}</strong>,
+                money(y.gross, true),
+                money(y.netTaxable, true),
+                money(y.incomeTax, true),
+                y.bonus ? money(y.bonus, true) : "—",
+              ])}
             />
-          </ChartCard>
-          <SectionTitle>{t("Par année")}</SectionTitle>
-          <Table
-            head={[t("Année"), t("Employeur(s)"), t("Bulletins"), t("Brut"), t("Net imposable"), t("Impôt prélevé"), t("Net payé"), t("Primes")]}
-            align={["left", "left", "right", "right", "right", "right", "right", "right"]}
-            rows={d.years.map((y) => [y.year, y.employers.join(", "), y.months, money(y.gross, true), money(y.netTaxable, true), money(y.incomeTax, true), <strong key="n">{money(y.netPaid, true)}</strong>, y.bonus ? money(y.bonus, true) : "—"])}
-          />
+          ) : (
+            <Table
+              head={[t("Année"), t("Employeur(s)"), t("Bulletins"), t("Brut"), t("Net imposable"), t("Impôt prélevé"), t("Net payé"), t("Primes")]}
+              align={["left", "left", "right", "right", "right", "right", "right", "right"]}
+              rows={d.years.map((y) => [y.year, y.employers.join(", "), y.months, money(y.gross, true), money(y.netTaxable, true), money(y.incomeTax, true), <strong key="n">{money(y.netPaid, true)}</strong>, y.bonus ? money(y.bonus, true) : "—"])}
+            />
+          )}
           <SectionTitle>{t("Bulletins")}</SectionTitle>
           <DataTable
             rows={d.payslips}
-            rowKey={(b) => `${b.period}|${b.employer}`}
+            rowKey={(b) => `${b.user_id}|${b.period}|${b.employer}`}
             initialSort={{ key: "period", dir: "desc" }}
             columns={[
               { key: "period", header: t("Mois"), width: "150px", sort: (b) => b.period, cell: (b) => <span className="whitespace-nowrap capitalize">{monthName(b.period)}</span> },
-              { key: "employer", header: t("Employeur"), width: "170px", sort: (b) => b.employer, cell: (b) => <span className="whitespace-nowrap">{b.employer}</span> },
+              ...(household ? [{ key: "member", header: t("Membre"), width: "120px", sort: (b: Payslip) => name.get(b.user_id) ?? "", cell: (b: Payslip) => <span className="whitespace-nowrap">{name.get(b.user_id)}</span> }] : []),
+              // Vue du foyer sur un petit écran : le membre prend la place de l'employeur, les montants restent à portée.
+              { key: "employer", header: t("Employeur"), width: "170px", hideBelow: household ? ("lg" as const) : undefined, sort: (b) => b.employer, cell: (b) => <span className="whitespace-nowrap">{b.employer}</span> },
               { key: "notes", header: t("Remarque"), hideBelow: "xl", className: "max-w-0 w-full", cell: (b) => <span className="block truncate text-muted">{b.notes ?? ""}</span> },
               { key: "gross", header: t("Brut"), width: "100px", align: "right", sort: (b) => b.gross, cell: (b) => money(b.gross) },
               { key: "net_taxable", header: t("Net imposable"), width: "120px", align: "right", sort: (b) => b.net_taxable, cell: (b) => money(b.net_taxable) },
               { key: "tax", header: t("Impôt"), width: "90px", align: "right", sort: (b) => b.income_tax, cell: (b) => money(b.income_tax) },
               { key: "net_paid", header: t("Net payé"), width: "110px", align: "right", sort: (b) => b.net_paid, cell: (b) => <strong>{money(b.net_paid)}</strong> },
-              { key: "pdf", header: "", width: "50px", align: "right", cell: (b) => docLink(b.document_id, "PDF") },
+              // Le bulletin lui-même reste à son propriétaire : seuls les siens s'ouvrent.
+              { key: "pdf", header: "", width: "50px", align: "right", cell: (b) => (b.document_id ? docLink(b.document_id, "PDF") : "") },
             ]}
           />
         </>
@@ -347,18 +441,4 @@ function PropertyTaxChart({ rows }: { rows: { year: number; property_id: string;
       />
     </ChartCard>
   );
-}
-
-/** Salaire mois par mois (plusieurs bulletins le même mois : additionnés), 36 derniers mois. */
-function monthlyPay(list: { period: string; employer: string; net_paid: number | null; income_tax: number | null; bonus: number | null; document_id: number | null }[]) {
-  const map = new Map<string, { period: string; net: number; tax: number; bonus: number; doc: number | null; employers: string }>();
-  for (const b of list) {
-    const m = map.get(b.period) ?? { period: b.period, net: 0, tax: 0, bonus: 0, doc: b.document_id, employers: b.employer };
-    m.net += Number(b.net_paid) || 0;
-    m.tax += Number(b.income_tax) || 0;
-    m.bonus += Number(b.bonus) || 0;
-    if (!m.employers.includes(b.employer)) m.employers += `, ${b.employer}`;
-    map.set(b.period, m);
-  }
-  return [...map.values()].sort((a, b) => a.period.localeCompare(b.period)).slice(-36);
 }

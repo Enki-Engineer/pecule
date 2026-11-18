@@ -12,11 +12,13 @@ import {
   saveCommitment,
   saveProjections,
   saveRetirement,
+  setReturnOwner,
   taxes,
   visibleCommitment,
 } from "../situation.ts";
 import { ToolError, change, day, money, field, longDate, readTool, today, writeTool } from "./registry.ts";
 import { t as tr, tk, tn } from "../../lib/i18n.ts";
+import { JOINT, taxYears } from "../../lib/taxes.ts";
 
 /* Domaines repris de Notion : immobilier, budget, impôts, retraite, projections, mouvements crypto. */
 
@@ -92,13 +94,52 @@ const updateCommitment = writeTool({
   },
 });
 
+const perimetre = z.enum(["foyer", "moi"]).optional();
+
 const getTaxes = readTool({
   name: "get_taxes",
   progress: tk("Lecture des impôts…"),
   description:
-    "Impôts du foyer : impôt sur le revenu par année de revenus (revenu imposable, RFR, impôt net, prélèvements sociaux, TMI, taux moyen, parts, crédits), taxes foncières par année et par bien, et documents fiscaux du coffre (avis, fiches d'analyse).",
-  input: z.object({}),
-  run: ({ userId }) => taxes(userId),
+    "Impôts du foyer : impôt sur le revenu par déclaration (revenu imposable, RFR, impôt net, prélèvements sociaux, TMI, taux moyen, parts, crédits), taxes foncières par année et par bien, et documents fiscaux du coffre (avis, fiches d'analyse). " +
+    "Une déclaration est commune (`declaration` = « commune » : imposition commune du foyer) ou personnelle (`declaration` = prénom du membre : imposition séparée, avant la vie commune ou dans un couple ni marié ni pacsé) ; une année peut en compter plusieurs. `years` donne le total de chaque année de revenus, toutes déclarations lues confondues. " +
+    "`perimetre` : « foyer » (défaut) = la déclaration commune, celles de l'utilisateur et celles des membres qui partagent leurs revenus ; « moi » = la commune et les siennes. `not_shared` nomme les membres dont les déclarations personnelles ne sont pas lues, faute de partage : le dire plutôt que de présenter un total du foyer comme complet. Changer le déclarant d'une déclaration : update_tax_return.",
+  input: z.object({ perimetre: perimetre.describe("foyer (défaut) ou moi") }),
+  async run({ userId }, i) {
+    const d = await taxes(userId, i.perimetre ?? "foyer");
+    return {
+      scope: d.scope,
+      not_shared: d.withheld,
+      years: taxYears(d.returns).map(({ returns, ...y }) => ({ ...y, declarations: returns.map((r) => r.owner?.name ?? "commune") })),
+      returns: d.returns.map(({ owner, editable: _e, owner_user_id: _o, ...r }) => ({ ...r, declaration: owner?.name ?? "commune" })),
+      propertyTaxes: d.propertyTaxes,
+      documents: d.documents,
+    };
+  },
+});
+
+const updateTaxReturn = writeTool({
+  name: "update_tax_return",
+  description:
+    "Dit d'une déclaration d'impôt qu'elle est personnelle à l'utilisateur (« personnelle » : imposition séparée — elle ne compte plus comme celle du foyer, et les autres membres ne la voient que s'il partage ses revenus) ou qu'elle est celle du foyer (« commune »). " +
+    "`income_year` : année de revenus (get_taxes). Ne vaut que pour la déclaration commune de l'année ou pour la sienne ; refusé si la déclaration porte le salaire d'un autre membre.",
+  input: z.object({ income_year: z.number().int().min(1990).max(2100), declaration: z.enum(["personnelle", "commune"]) }),
+  async describe({ userId }, i) {
+    const d = await taxes(userId, "moi");
+    const from = i.declaration === "personnelle" ? JOINT : userId;
+    const r = d.returns.find((x) => x.income_year === i.income_year && x.owner_user_id === from);
+    if (!r) throw new ToolError(i.declaration === "personnelle" ? `Pas de déclaration commune pour les revenus ${i.income_year} (voir get_taxes)` : `L'utilisateur n'a pas de déclaration personnelle pour les revenus ${i.income_year} (voir get_taxes)`);
+    return {
+      label: tr("Modifier la déclaration des revenus {annee}", { annee: i.income_year }),
+      details: [
+        change(tr("Déclaration"), i.declaration === "personnelle" ? tr("Commune##declaration") : tr("Personnelle##declaration"), i.declaration === "personnelle" ? tr("Personnelle##declaration") : tr("Commune##declaration")),
+        i.declaration === "personnelle" ? tr("Elle ne compte plus comme celle du foyer : les autres membres ne la voient que si tu partages tes revenus.") : tr("Elle redevient celle du foyer : tous les membres la voient."),
+      ],
+    };
+  },
+  async run({ userId }, i) {
+    await setReturnOwner(userId, i.income_year, i.declaration === "personnelle");
+    return "Fait : déclaration mise à jour.";
+  },
 });
 
 const getRetirement = readTool({
@@ -130,11 +171,22 @@ const getPayslips = readTool({
   name: "get_payslips",
   progress: tk("Lecture des fiches de paie…"),
   description:
-    "Revenus salariaux de l'utilisateur connecté (privé), lus dans ses bulletins de paie : par mois (brut, net imposable, impôt prélevé à la source, net payé, primes, employeur) et totaux par année.",
-  input: z.object({ months: z.number().int().min(1).max(240).optional().describe("Nombre de bulletins détaillés, défaut 24") }),
-  async run({ userId }, { months }) {
-    const h = await payslipHistory(userId);
-    return { years: h.years, payslips: h.payslips.slice(0, months ?? 24) };
+    "Revenus salariaux lus dans les bulletins de paie : par mois (brut, net imposable, impôt prélevé à la source, net payé, primes, employeur) et totaux par année. " +
+    "`perimetre` : « moi » (défaut) = les bulletins de l'utilisateur connecté, privés ; « foyer » = les siens et ceux des membres qui partagent leurs revenus avec le foyer (`member` nomme le membre de chaque bulletin, `years[].members` donne la part de chacun). " +
+    "`not_shared` nomme les membres dont les revenus ne sont pas lus, faute de partage : le dire plutôt que de présenter un total du foyer comme complet. Le partage se règle par chaque membre, à l'écran seulement (Réglages → Compte et sécurité, /reglages/compte#partage).",
+  input: z.object({ months: z.number().int().min(1).max(240).optional().describe("Nombre de mois détaillés, défaut 24"), perimetre: perimetre.describe("moi (défaut) ou foyer") }),
+  async run({ userId }, { months, perimetre: scope }) {
+    const h = await payslipHistory(userId, scope ?? "moi");
+    const name = new Map(h.members.map((m) => [m.id, m.name]));
+    // Les derniers mois, tous membres confondus : un mois du foyer compte un bulletin par membre.
+    const periods = new Set([...new Set(h.payslips.map((p) => p.period))].slice(0, months ?? 24));
+    return {
+      scope: h.scope,
+      members: h.members.map((m) => m.name),
+      not_shared: h.withheld,
+      years: h.years.map((y) => ({ ...y, members: y.members.map(({ user_id, ...m }) => ({ member: name.get(user_id), ...m })) })),
+      payslips: h.payslips.filter((p) => periods.has(p.period)).map(({ user_id, ...p }) => ({ member: name.get(user_id), ...p })),
+    };
   },
 });
 
@@ -274,4 +326,4 @@ const saveRetirementTool = writeTool({
   },
 });
 
-export const situationTools = [getPayslips, getProperty, getBudget, getTaxes, getRetirement, getProjections, getCryptoEvents, updateCommitment, setProjection, deleteProjection, saveRetirementTool];
+export const situationTools = [getPayslips, getProperty, getBudget, getTaxes, updateTaxReturn, getRetirement, getProjections, getCryptoEvents, updateCommitment, setProjection, deleteProjection, saveRetirementTool];

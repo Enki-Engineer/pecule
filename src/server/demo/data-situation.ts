@@ -95,18 +95,26 @@ export function buildSituation(s: Scenario, model: IncomeModel, [ua, uc]: readon
     { ownerUserId: ua.id, person: person(ua), label: "Loyer du studio d'Angers", kind: "loyer", monthly: rentAt(s, s.T), validFrom: s.leaseStart, notes: "Charges comprises, bail meublé", sortOrder: 3 },
   ];
 
-  // Bulletins d'Alex : les 12 derniers déjà versés.
+  // Bulletins d'Alex et de Camille : les 12 derniers déjà versés à chacun (la famille de la démo partage ses revenus :
+  // l'écran Revenus montre le foyer, et « Moi » les seuls bulletins du membre).
   const payslips: Insert<typeof schema.payslips>[] = [];
-  for (let k = 0; payslips.length < 12 && k < 14; k++) {
-    const first = addMonths(`${s.T.slice(0, 7)}-01`, -k, 1);
-    const y = yearOf(first);
-    const m = monthOf(first);
-    const payDate = workdayBefore(ymd(y, m, 27));
-    if (payDate > s.T) continue;
-    const p = model.payslip("a", y, m);
-    let ytd = 0;
-    for (let j = 1; j <= m; j++) ytd += model.payslip("a", y, j).netTaxable;
-    payslips.push({ ownerUserId: ua.id, employer: "Nexalia Conseil", period: `${y}-${pad(m)}`, payDate, gross: p.gross, netBeforeTax: p.netBefore, netTaxable: p.netTaxable, incomeTax: p.pas, taxRate: p.rate, netPaid: p.netPaid, bonus: p.bonus || null, employerCost: p.employerCost, ytdNetTaxable: r2(ytd), notes: p.bonus ? "Prime annuelle sur objectifs" : null });
+  for (const [who, user, employer, payDay] of [
+    ["a", ua, "Nexalia Conseil", 27],
+    ["c", uc, "Clinique de l'Estuaire", 28],
+  ] as const) {
+    let n = 0;
+    for (let k = 0; n < 12 && k < 14; k++) {
+      const first = addMonths(`${s.T.slice(0, 7)}-01`, -k, 1);
+      const y = yearOf(first);
+      const m = monthOf(first);
+      const payDate = workdayBefore(ymd(y, m, payDay));
+      if (payDate > s.T) continue;
+      const p = model.payslip(who, y, m);
+      let ytd = 0;
+      for (let j = 1; j <= m; j++) ytd += model.payslip(who, y, j).netTaxable;
+      payslips.push({ ownerUserId: user.id, employer, period: `${y}-${pad(m)}`, payDate, gross: p.gross, netBeforeTax: p.netBefore, netTaxable: p.netTaxable, incomeTax: p.pas, taxRate: p.rate, netPaid: p.netPaid, bonus: p.bonus || null, employerCost: p.employerCost, ytdNetTaxable: r2(ytd), notes: p.bonus ? "Prime annuelle sur objectifs" : null });
+      n++;
+    }
   }
 
   const taxReturns: Insert<typeof schema.taxReturns>[] = taxYears(s).map((iy) => {
@@ -133,6 +141,33 @@ export function buildSituation(s: Scenario, model: IncomeModel, [ua, uc]: readon
     };
   });
 
+  // L'année d'avant le Pacs : deux déclarations personnelles, une par membre (la vue « Foyer » des impôts les additionne).
+  const separate = taxYears(s)[0] - 1;
+  for (const [who, user] of [
+    ["a", ua],
+    ["c", uc],
+  ] as const) {
+    const t = model.taxAlone(who, separate);
+    taxReturns.push({
+      incomeYear: separate,
+      ownerUserId: user.id,
+      noticeYear: separate + 1,
+      parts: 1,
+      situation: "Célibataire",
+      otherIncome: 0,
+      taxableIncome: t.taxable,
+      rfr: t.taxable,
+      netTax: t.netTax,
+      socialLevies: 0,
+      total: t.total,
+      decote: 0,
+      credits: 0,
+      tmi: t.tmi,
+      avgRate: t.avgRate,
+      notes: "Dernière année d'imposition séparée, avant le Pacs",
+    });
+  }
+
   const lastTf = tfYears(s).at(-1);
   const propertyTaxes: Insert<typeof schema.propertyTaxes>[] = tfYears(s).flatMap((y) =>
     (["rp", "studio"] as const).map((k) => {
@@ -141,8 +176,8 @@ export function buildSituation(s: Scenario, model: IncomeModel, [ua, uc]: readon
     }),
   );
 
-  // Salaires déclarés par chacun des deux membres.
-  const taxReturnSalaries: Insert<typeof schema.taxReturnSalaries>[] = taxYears(s).flatMap((iy) => {
+  // Salaires déclarés par chacun des deux membres (l'année d'imposition séparée : chacun sur sa déclaration).
+  const taxReturnSalaries: Insert<typeof schema.taxReturnSalaries>[] = [separate, ...taxYears(s)].flatMap((iy) => {
     const t = model.tax(iy);
     return [
       { incomeYear: iy, userId: ua.id, amount: t.salA },

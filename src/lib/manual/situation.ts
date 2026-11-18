@@ -9,7 +9,7 @@ export const situation: ManualTheme = {
     {
       id: "revenus",
       title: tk("Revenus et bulletins de paie"),
-      summary: tk("Ton salaire mois par mois, lu dans tes bulletins de paie."),
+      summary: tk("Ton salaire mois par mois, lu dans tes bulletins de paie, et celui du foyer si chacun partage les siens."),
       module: "revenus",
       body: [
         tk("L'écran [[Revenus]] se remplit avec tes bulletins de paie : dépose-les dans le coffre, un par un ou par dossier entier. Pécule lit le brut, le net imposable, l'impôt prélevé à la source, le net payé et les primes, et te propose ces données à valider."),
@@ -20,14 +20,23 @@ export const situation: ManualTheme = {
             tk("Les tableaux par année et par bulletin."),
           ],
         },
-        { note: tk("Tes bulletins sont privés : toi seul les vois, et l'écran ne montre que les tiens.") },
+        tk("**Les revenus du foyer.** Dans un foyer de plusieurs membres, [[Foyer]] et [[Moi]] — dans la barre du haut sur ordinateur, à côté du titre sur téléphone — choisissent ce que l'écran compte."),
+        {
+          list: [
+            tk("[[Moi]] : tes seuls bulletins."),
+            tk("[[Foyer]] : les tiens et ceux des membres qui partagent leurs revenus. Le graphique empile le net payé de chacun, le tableau par année donne la part de chaque membre puis le total du foyer."),
+          ],
+        },
+        tk("Chacun décide pour lui-même : dans [[Réglages]] → [[Compte et sécurité]], [[Partager mes revenus avec le foyer]]. Tant que tu ne l'as pas activé, toi seul vois tes bulletins. Si un membre ne partage pas les siens, la vue du foyer le dit et ne compte que les autres."),
+        { note: tk("Le partage ne montre que des montants. Tes bulletins restent privés au coffre : personne d'autre ne les ouvre, et la remarque de lecture d'un bulletin n'est montrée qu'à toi.") },
         tk("Les revenus mensuels du foyer qui servent au budget se règlent à part : voir [Le budget](/manuel/budget)."),
       ],
       links: [
         { to: "/revenus", label: ["Revenus"] },
+        { to: "/reglages/compte#partage", label: ["Réglages", "Compte et sécurité"] },
         { to: "/documents", label: ["Coffre"] },
       ],
-      words: tk("salaire fiche de paie bulletin net brut prime bonus prélèvement à la source employeur"),
+      words: tk("salaire fiche de paie bulletin net brut prime bonus prélèvement à la source employeur revenus du foyer couple conjoint partager partage privé foyer moi"),
     },
     {
       id: "impots",
@@ -43,6 +52,15 @@ export const situation: ManualTheme = {
             tk("Sur ordinateur, un clic sur une année ouvre son détail."),
           ],
         },
+        tk("**Déclaration commune ou personnelle.** Une déclaration est celle du foyer (imposition commune : mariés, pacsés) ou celle d'un seul membre (imposition séparée : avant la vie commune, ou dans un couple ni marié ni pacsé). Une même année peut donc compter une déclaration par membre."),
+        {
+          list: [
+            tk("À la relecture d'un avis déposé au coffre, le champ [[Déclaration]] propose [[Commune (foyer)]] ou le membre que l'avis nomme : corrige-le au besoin."),
+            tk("Pour une déclaration déjà enregistrée, choisis [[Commune##declaration]] ou la tienne dans le détail de l'année (sur téléphone : sur sa ligne). L'assistant le fait aussi : « la déclaration 2018 est la mienne »."),
+            tk("[[Foyer]] additionne, pour chaque année, la déclaration commune et les déclarations personnelles — les tiennes, et celles des membres qui partagent leurs revenus. [[Moi]] ne garde que la commune et les tiennes."),
+          ],
+        },
+        { note: tk("Une déclaration personnelle ne regarde que son déclarant : les autres membres ne la voient que s'il a activé [[Partager mes revenus avec le foyer]] dans [[Réglages]] → [[Compte et sécurité]]. Les taxes foncières ne dépendent pas de ce choix.") },
         tk("Les dates du calendrier fiscal (déclaration, solde, taxe foncière) figurent dans l'échéancier."),
         { note: tk("Cet écran lit des documents français : il est retiré d'office quand le foyer vit dans un autre pays, et peut être remis dans [[Réglages]] → [[Foyer]].") },
       ],
@@ -50,7 +68,7 @@ export const situation: ManualTheme = {
         { to: "/impots", label: ["Impôts"] },
         { to: "/documents", label: ["Coffre"] },
       ],
-      words: tk("impôt sur le revenu avis d'imposition taxe foncière fiscalité tmi déclaration revenu fiscal de référence"),
+      words: tk("impôt sur le revenu avis d'imposition taxe foncière fiscalité tmi déclaration revenu fiscal de référence déclaration commune séparée personnelle pacs mariage concubinage foyer moi"),
     },
     {
       id: "retraite",

@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "./api.ts";
 import { currentScopeKey } from "./shell.ts";
 import { t } from "../lib/i18n.ts";
+import type { PayslipYear } from "../lib/payslips.ts";
 
 /* Domaines repris de Notion (phase 14) : types et requêtes des écrans. */
 
@@ -82,6 +83,12 @@ export type Budget = {
 
 export type TaxReturn = {
   income_year: number;
+  /** Déclarant : 0 pour la déclaration commune du foyer, sinon le membre. */
+  owner_user_id: number;
+  /** Membre déclarant (null : déclaration commune). */
+  owner: { id: number; name: string } | null;
+  /** Le membre peut dire si c'est la déclaration du foyer ou la sienne. */
+  editable: boolean;
   notice_year: number | null;
   parts: number | null;
   situation: string | null;
@@ -103,6 +110,13 @@ export type TaxReturn = {
   document_id: number | null;
 };
 export type Taxes = {
+  scope: "foyer" | "moi";
+  /** Le foyer compte plusieurs membres : une déclaration peut être commune ou personnelle. */
+  several: boolean;
+  /** Le membre partage-t-il ses revenus avec le foyer ? */
+  sharing: boolean;
+  /** Vue du foyer : membres dont les déclarations personnelles ne sont pas comptées, faute de partage. */
+  withheld: string[];
   returns: TaxReturn[];
   propertyTaxes: { year: number; property_id: string; property_name: string | null; base: number | null; contributions: number | null; teom: number | null; fees: number | null; total: number | null; notes: string | null; document_id: number | null }[];
   documents: DocLine[];
@@ -126,7 +140,8 @@ export type CryptoEvent = { id: number; date: string; title: string; asset: stri
 export const useProperties = () => useQuery({ queryKey: ["properties"], queryFn: () => api<{ properties: Property[] }>("/properties") });
 export const useProperty = (id: string) => useQuery({ queryKey: ["property", id], queryFn: () => api<PropertyDetail>(`/properties/${encodeURIComponent(id)}`) });
 export const useBudget = () => useQuery({ queryKey: ["budget"], queryFn: () => api<Budget>("/budget") });
-export const useTaxes = () => useQuery({ queryKey: ["taxes"], queryFn: () => api<Taxes>("/taxes") });
+// Revenus et impôts dépendent du périmètre Foyer / Moi : la clé le porte, et l'écran garde ses chiffres pendant la bascule.
+export const useTaxes = () => useQuery({ placeholderData: keepPreviousData, queryKey: ["taxes", currentScopeKey()], queryFn: () => api<Taxes>("/taxes") });
 export const useRetirement = () => useQuery({ queryKey: ["retirement"], queryFn: () => api<Retirement>("/retirement") });
 export const useProjections = () => useQuery({ queryKey: ["projections"], queryFn: () => api<Projections>("/projections") });
 export const useCryptoEvents = () => useQuery({ queryKey: ["crypto-events"], queryFn: () => api<{ events: CryptoEvent[] }>("/crypto/events") });
@@ -135,11 +150,22 @@ export const COMMITMENT_TYPES: Record<string, string> = { credit: t("Crédit"), 
 export const COMMITMENT_STATUS: Record<string, string> = { actif: t("Actif##engagement"), a_verifier: t("À vérifier"), a_completer: t("À compléter"), resilie: t("Résilié"), non_compte: t("Non compté") };
 export const PROPERTY_KINDS: Record<string, string> = { residence_principale: t("Résidence principale"), locatif: t("Location##bien"), sci: "SCI" };
 
+export type Payslip = { user_id: number; period: string; employer: string; gross: number | null; net_taxable: number | null; income_tax: number | null; net_paid: number | null; bonus: number | null; tax_rate: number | null; document_id: number | null; notes: string | null };
 export type Payslips = {
-  payslips: { period: string; employer: string; gross: number | null; net_taxable: number | null; income_tax: number | null; net_paid: number | null; bonus: number | null; tax_rate: number | null; document_id: number | null; notes: string | null }[];
-  years: { year: string; months: number; gross: number; netTaxable: number; incomeTax: number; netPaid: number; bonus: number; employers: string[] }[];
+  scope: "foyer" | "moi";
+  /** Membres comptés qui ont au moins un bulletin, dans l'ordre des membres. */
+  members: { id: number; name: string; me: boolean }[];
+  /** Vue du foyer : membres dont les revenus ne sont pas comptés, faute de partage. */
+  withheld: string[];
+  several: boolean;
+  sharing: boolean;
+  payslips: Payslip[];
+  years: PayslipYear[];
 };
-export const usePayslips = () => useQuery({ queryKey: ["payslips"], queryFn: () => api<Payslips>("/payslips") });
+export const usePayslips = () => useQuery({ placeholderData: keepPreviousData, queryKey: ["payslips", currentScopeKey()], queryFn: () => api<Payslips>("/payslips") });
+
+/** Partage de ses revenus avec le foyer (Réglages → Compte et sécurité). */
+export const useSharing = () => useQuery({ queryKey: ["sharing"], queryFn: () => api<{ income: boolean; several: boolean }>("/sharing") });
 
 /* ---------- Enveloppes et objectifs d'épargne ---------- */
 

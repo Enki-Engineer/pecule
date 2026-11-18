@@ -11,7 +11,10 @@ libre : une réponse arrive en général sous une semaine. Seule la dernière ve
 
 - Une installation sert **un foyer dont les membres se font confiance** : les comptes bancaires et leurs opérations sont
   visibles de tous les membres (chacun règle seulement ce qu'il masque). Sont privés, quand ils sont rattachés à un
-  membre : bulletins de paie, retraite, documents et factures personnels, placements, crédits et biens à son nom.
+  membre : bulletins de paie, déclarations d'impôt personnelles, retraite, documents et factures personnels,
+  placements, crédits et biens à son nom. Un membre peut choisir de partager ses revenus avec le foyer (Réglages →
+  Compte et sécurité) : les autres lisent alors les montants de ses bulletins et ses déclarations personnelles,
+  jamais les documents. Ce réglage ne se change qu'à l'écran, par le membre lui-même.
 - L'**administrateur** (le premier membre) ajoute les membres, règle le fournisseur d'IA, voit le journal complet et
   peut télécharger la sauvegarde de tout le foyer.
 - Le mode démo est une commodité pour montrer l'appli, pas une barrière de sécurité entre deux personnes : ne prêtez

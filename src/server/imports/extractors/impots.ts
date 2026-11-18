@@ -3,6 +3,7 @@ import { ActionError } from "../../actions.ts";
 import { one, q } from "../../db.ts";
 import { listMembers } from "../../members.ts";
 import { near } from "../../../lib/imports.ts";
+import { JOINT, proposedOwner, salaryReturn } from "../../../lib/taxes.ts";
 import { t, tk } from "../../../lib/i18n.ts";
 import { diffs, money, num, str, type Extractor } from "../registry.ts";
 
@@ -28,8 +29,24 @@ const avisParse = z.object({
   balance: z.number().nullable(),
   avg_rate: z.number().nullable(),
   notes: z.string().nullable(),
+  // Choisi à la relecture, jamais lu par l'IA : « 0 » = déclaration commune du foyer, sinon l'identifiant du membre déclarant.
+  owner: z.string().regex(/^\d+$/).nullish(),
 });
 type Avis = z.infer<typeof avisParse>;
+
+/**
+ * Déclarant retenu pour cet avis : le choix fait à la relecture, sinon celui que l'avis laisse deviner
+ * (`proposedOwner`). Une année déjà enregistrée comme déclaration du foyer, sans déclaration du membre, reste
+ * proposée commune : relire un ancien avis met à jour la ligne en place au lieu d'en créer une seconde.
+ */
+async function ownerOf(d: Avis, members: { id: number; name: string }[]): Promise<number> {
+  const chosen = d.owner == null ? null : Number(d.owner);
+  if (chosen != null && (chosen === JOINT || members.some((m) => m.id === chosen))) return chosen;
+  const proposed = proposedOwner({ situation: d.situation, declarants: d.salaries.map((x) => x.first_name) }, members);
+  if (proposed === JOINT) return JOINT;
+  const owners = (await q<{ owner_user_id: number }>("SELECT owner_user_id FROM tax_returns WHERE income_year = ?", [d.income_year])).map((r) => r.owner_user_id);
+  return owners.includes(JOINT) && !owners.includes(proposed) ? JOINT : proposed;
+}
 
 const AVIS_LABELS = {
   notice_year: tk("Année de l'avis"),
@@ -78,15 +95,22 @@ export const avisImpot: Extractor<Avis> = {
   parse: avisParse,
   rejected: (d) => !d.is_income_tax_notice,
   title: (d) => t("Avis d'impôt — revenus {annee}", { annee: d.income_year }),
-  fields: (d) => [
+  async fields(d) {
+    const members = await listMembers();
+    return [
     { key: "income_year", label: tk("Année des revenus"), type: "annee", value: d.income_year, required: true },
+    // Un foyer de plusieurs membres : l'avis est celui du foyer (imposition commune) ou celui d'un seul membre.
+    ...(members.length > 1
+      ? [{ key: "owner", label: tk("Déclaration"), type: "choix" as const, value: String(await ownerOf(d, members)), options: [{ value: String(JOINT), label: t("Commune (foyer)") }, ...members.map((m) => ({ value: String(m.id), label: t("Personnelle : {nom}", { nom: m.name }) }))], required: true }]
+      : []),
     ...(Object.keys(AVIS_LABELS) as (keyof typeof AVIS_LABELS)[]).map((k) => ({
       key: k,
       label: AVIS_LABELS[k],
       type: k === "notice_year" ? ("annee" as const) : k === "situation" ? ("texte" as const) : k === "parts" ? ("nombre" as const) : k === "avg_rate" ? ("pourcent" as const) : ("montant" as const),
       value: d[k],
     })),
-  ],
+    ];
+  },
   table: (d) => (d.salaries.length ? { title: t("Salaires déclarés"), columns: [t("Déclarant"), t("Montant")], lines: d.salaries.map((s) => [s.first_name, s.amount]), total: d.salaries.length } : null),
   checks(d) {
     const out = [{ ok: d.rfr != null && d.taxable_income != null, label: t("Revenu imposable et revenu fiscal de référence lus") }];
@@ -97,26 +121,35 @@ export const avisImpot: Extractor<Avis> = {
     return out;
   },
   async existing(d) {
-    const row = await one<Record<string, unknown>>("SELECT * FROM tax_returns WHERE income_year = ?", [d.income_year]);
+    const members = await listMembers();
+    const owner = await ownerOf(d, members);
+    const row = await one<Record<string, unknown>>("SELECT * FROM tax_returns WHERE income_year = ? AND owner_user_id = ?", [d.income_year, owner]);
     if (!row) return null;
     const out = diffs(row, d, AVIS_LABELS);
-    // Un avis personnel d'avant la vie commune ne doit pas remplacer la ligne du foyer pour la même année : si les
-    // déclarants ne sont pas ceux de la ligne enregistrée, l'écart est montré (et la proposition n'est jamais « sûre »).
-    const recorded = (await q<{ name: string }>("SELECT u.name FROM tax_return_salaries s JOIN users u ON u.id = s.user_id WHERE s.income_year = ? ORDER BY u.id", [d.income_year])).map((r) => r.name);
-    const members = await listMembers();
+    // Un avis personnel d'avant la vie commune ne doit pas remplacer la déclaration du foyer pour la même année : si les
+    // déclarants ne sont pas ceux de la déclaration enregistrée, l'écart est montré (et la proposition n'est jamais « sûre »).
+    const owners = (await q<{ owner_user_id: number }>("SELECT owner_user_id FROM tax_returns WHERE income_year = ?", [d.income_year])).map((r) => r.owner_user_id);
+    const recorded = (await q<{ user_id: number; name: string }>("SELECT s.user_id, u.name FROM tax_return_salaries s JOIN users u ON u.id = s.user_id WHERE s.income_year = ? ORDER BY u.id", [d.income_year]))
+      .filter((r) => salaryReturn(r.user_id, owners) === owner)
+      .map((r) => r.name);
     const declared = d.salaries.map((x) => members.find((m) => first(m.name) === first(x.first_name))?.name ?? x.first_name);
     if (recorded.length && declared.length && [...recorded].sort().join("|") !== [...new Set(declared)].sort().join("|")) out.push({ label: t("Déclarants"), before: recorded.join(", "), after: [...new Set(declared)].join(", ") });
-    return { summary: t("Les revenus {annee} sont déjà enregistrés.", { annee: d.income_year }), diffs: out };
+    const who = members.find((m) => m.id === owner)?.name;
+    return { summary: who ? t("La déclaration de {nom} pour les revenus {annee} est déjà enregistrée.", { nom: who, annee: d.income_year }) : t("Les revenus {annee} sont déjà enregistrés.", { annee: d.income_year }), diffs: out };
   },
   async apply(d, ctx, track) {
-    const { is_income_tax_notice: _, income_year, salaries, ...values } = d;
-    const done = await track.upsert("tax_returns", { income_year }, { ...values, document_id: ctx.documentId });
-    // Salaires : rattachés aux membres du foyer par leur prénom ; un déclarant inconnu n'est pas inventé.
+    const { is_income_tax_notice: _, income_year, salaries, owner: _owner, ...values } = d;
     const members = await listMembers();
+    const owner = await ownerOf(d, members);
+    const done = await track.upsert("tax_returns", { income_year, owner_user_id: owner }, { ...values, document_id: ctx.documentId });
+    // Salaires : rattachés aux membres du foyer par leur prénom ; un déclarant inconnu n'est pas inventé. Sur une
+    // déclaration personnelle, seul le salaire de son déclarant est écrit.
     for (const s of salaries) {
       const member = members.find((m) => first(m.name) === first(s.first_name));
-      if (member) await track.upsert("tax_return_salaries", { income_year, user_id: member.id }, { amount: s.amount });
+      if (member && (owner === JOINT || member.id === owner)) await track.upsert("tax_return_salaries", { income_year, user_id: member.id }, { amount: s.amount });
     }
+    const who = members.find((m) => m.id === owner)?.name;
+    if (who) return done === "cree" ? t("Déclaration de {nom} pour les revenus {annee} ajoutée aux impôts.", { nom: who, annee: income_year }) : t("Déclaration de {nom} pour les revenus {annee} mise à jour.", { nom: who, annee: income_year });
     return done === "cree" ? t("Revenus {annee} ajoutés aux impôts.", { annee: income_year }) : t("Revenus {annee} mis à jour.", { annee: income_year });
   },
 };

@@ -3,6 +3,37 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.26.0
+
+Les revenus et les impôts se lisent pour tout le foyer, ou pour soi.
+
+- **Foyer / Moi sur Revenus et Impôts.** La bascule de la barre du haut, jusque-là grisée sur ces deux écrans, y
+  choisit ce qui est compté ; sur téléphone, elle est à côté du titre de l'écran. Elle n'apparaît que dans un foyer de
+  plusieurs membres.
+- **Revenus du foyer.** « Foyer » réunit les bulletins de paie des membres : net payé du mois et de l'année, graphique
+  empilé par membre, part de chacun dans le tableau par année, colonne « Membre » dans la liste des bulletins.
+  « Moi » garde l'écran d'avant, avec ses seuls bulletins.
+- **Chacun décide de partager ses revenus.** Réglages → Compte et sécurité → « Partager mes revenus avec le foyer »,
+  éteint au départ : tant qu'un membre ne l'a pas allumé, lui seul voit ses bulletins, et la vue du foyer des autres
+  dit qu'il n'y est pas compté. Le partage ne montre que des montants — ni le bulletin, ni sa remarque de lecture.
+  Ce réglage ne se change qu'à l'écran, par le membre lui-même : l'assistant le lit, il ne le modifie pas.
+- **Déclarations d'impôt communes ou personnelles.** Une déclaration est celle du foyer (imposition commune) ou celle
+  d'un seul membre (avant la vie commune, ou dans un couple ni marié ni pacsé) ; une année de revenus peut en compter
+  plusieurs. Elle se choisit dans le détail de l'année (sur sa ligne, au téléphone), à la relecture d'un avis déposé
+  au coffre — Pécule propose le membre quand l'avis ne nomme que lui —, ou par l'assistant (« la déclaration 2018 est
+  la mienne »). « Foyer » additionne par année la déclaration commune et les déclarations personnelles ; « Moi » ne
+  garde que la commune et les siennes. Une déclaration personnelle suit le partage des revenus de son déclarant.
+  Pécule refuse de rendre personnelle une déclaration qui porte le salaire d'un autre membre.
+- L'avis d'une déclaration n'est proposé à l'ouverture que si le membre peut le lire au coffre.
+- Assistant et serveur MCP : `get_payslips` et `get_taxes` prennent `perimetre` (« foyer » ou « moi ») et nomment
+  les membres qui ne partagent pas ; `update_tax_return` change le déclarant d'une déclaration ; `get_settings` dit
+  si le membre partage ses revenus.
+- Démo : Camille a ses bulletins de paie, et la famille une année d'imposition séparée, avant son Pacs.
+
+Migration `0031_declarations_impot` : `tax_returns` reçoit `owner_user_id` (0 = déclaration commune) et sa clé
+devient l'année de revenus et le déclarant. Les déclarations en place restent communes : rien ne change tant qu'un
+membre ne dit pas qu'une déclaration est la sienne. Aucun réglage nouveau dans `.env`.
+
 ## 1.25.1
 
 Corrections issues d'une relecture des trois versions précédentes.

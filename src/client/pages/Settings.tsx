@@ -17,6 +17,7 @@ import { BrandSettings } from "../components/BrandSettings.tsx";
 import { AddMember } from "../components/AddMember.tsx";
 import { LogoSettings } from "../components/LogoSettings.tsx";
 import { FunSettings } from "../components/FunSettings.tsx";
+import { SharingSettings } from "../components/SharingSettings.tsx";
 import { BirthdaySettings } from "../components/BirthdaySettings.tsx";
 import { VoiceSettings } from "../components/VoiceSettings.tsx";
 import { LanguageSettings } from "../components/LanguageSettings.tsx";
@@ -158,6 +159,8 @@ export function Settings() {
           </Card>
           {!demo && me.data?.user?.admin && <AddMember />}
         </Section>
+        {/* Partage de ses revenus avec le foyer : chaque membre règle le sien (absent d'un foyer d'un seul membre). */}
+        <SharingSettings />
         {!demo && me.data?.user?.admin && (
           <Section id="sauvegarde" title={t("Sauvegarde complète")}>
             <BackupSettings />
@@ -389,7 +392,7 @@ type GroupId = "compte" | "foyer" | "connexions" | "demo" | "classement" | "appa
 /** Anciennes adresses de groupes, gardées valides (liens déjà enregistrés, notifications). */
 const GROUP_ALIASES: Record<string, GroupId> = { appareil: "notifications", comptes: "connexions" };
 const GROUPS: { id: GroupId; label: string; hint: string; icon: typeof Bell; tone: string }[] = [
-  { id: "compte", label: t("Compte et sécurité"), hint: t("Membres, clés d'accès, déconnexion"), icon: KeyRound, tone: "bg-[#5e6a7c]" },
+  { id: "compte", label: t("Compte et sécurité"), hint: t("Membres, clés d'accès, partage avec le foyer, déconnexion"), icon: KeyRound, tone: "bg-[#5e6a7c]" },
   { id: "foyer", label: t("Foyer"), hint: t("Pays et devise, écrans affichés, personnes sans connexion, banques professionnelles"), icon: House, tone: "bg-[#7a5c1f]" },
   { id: "demo", label: t("Mode démo"), hint: t("Montrer Pécule avec une famille fictive"), icon: Presentation, tone: "bg-[#0f766e]" },
   { id: "connexions", label: t("Comptes et connexions"), hint: t("Tes comptes et ce qui les alimente, IA, crypto, applications reliées"), icon: Plug, tone: "bg-[#1863c2]" },

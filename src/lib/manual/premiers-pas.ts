@@ -131,14 +131,16 @@ export const premiersPas: ManualTheme = {
     {
       id: "foyer-moi",
       title: tk("Foyer ou Moi"),
-      summary: tk("Voir tous les comptes du foyer, ou seulement les tiens."),
+      summary: tk("Voir tout le foyer — comptes, revenus, impôts — ou seulement ce qui est à toi."),
       body: [
         tk("[[Foyer]] compte tous les comptes que tu vois, comptes communs compris. [[Moi]] ne garde que tes comptes : ni le compte commun, ni ceux des autres."),
         tk("Sur ordinateur, le choix est dans la barre du haut. Sur téléphone, il est en tête du menu [[Tout Pécule]]. Il est mémorisé sur l'appareil."),
-        tk("Il change le tableau de bord, [[Opérations]], les opérations à classer, [[Analyse]], [[Comparer]] et [[Budget]]. Ailleurs il est grisé : ces écrans ne dépendent pas des comptes."),
-        { note: tk("Le choix n'est pas proposé quand il ne changerait rien : tous les comptes sont à toi.") },
+        tk("Il change le tableau de bord, [[Opérations]], les opérations à classer, [[Analyse]], [[Comparer]] et [[Budget]]."),
+        tk("Il vaut aussi pour [[Revenus]] et [[Impôts]], où il compte les membres : [[Foyer]] réunit tes bulletins et tes déclarations avec ceux des membres qui partagent les leurs, [[Moi]] ne garde que les tiens. Sur téléphone, le choix est alors à côté du titre de l'écran. Voir [Revenus et bulletins de paie](/manuel/revenus) et [Impôts](/manuel/impots)."),
+        tk("Ailleurs il est grisé : ces écrans n'en dépendent pas."),
+        { note: tk("Le choix n'est pas proposé quand il ne changerait rien : tous les comptes sont à toi, ou le foyer n'a qu'un membre.") },
       ],
-      words: tk("périmètre personnel commun compte joint mes comptes vue"),
+      words: tk("périmètre personnel commun compte joint mes comptes vue revenus du foyer impôts du foyer"),
     },
     {
       id: "mode-discret",

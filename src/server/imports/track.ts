@@ -60,9 +60,17 @@ export function same(a: unknown, b: unknown): boolean {
   return String(a).trim() === String(b).trim();
 }
 
+/**
+ * Clés complétées à l'annulation d'un journal écrit avant qu'une table gagne une colonne de clé : une déclaration
+ * d'impôt notée par sa seule année était celle du foyer. Sans cela, l'annuler retirerait toutes les déclarations de l'année.
+ */
+const LEGACY_KEYS: Record<string, Row> = { tax_returns: { owner_user_id: 0 } };
+const fullKey = (table: string, key: Row): Row => ({ ...LEGACY_KEYS[table], ...key });
+
 /** Défait un journal d'écritures, de la dernière à la première. */
 export async function undo(log: Written[]) {
-  for (const w of [...log].reverse()) {
+  for (const entry of [...log].reverse()) {
+    const w = entry.op === "upsert" ? { ...entry, key: fullKey(entry.table, entry.key) } : entry;
     if (w.op === "replace") {
       await exec(`DELETE FROM \`${w.table}\` WHERE ${whereOf(w.where)}`, Object.values(w.where));
       if (w.before.length) await insertRows(w.table, w.before);

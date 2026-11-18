@@ -3,7 +3,8 @@ import { z } from "zod";
 import { exec, one, q } from "./db.ts";
 import { aiClient, aiEnabled, aiModel, recordUsage } from "./ai.ts";
 import { ActionError } from "./actions.ts";
-import { canonicalEmployer } from "../lib/payslips.ts";
+import { canonicalEmployer, payslipYears } from "../lib/payslips.ts";
+import { audience, type Scope } from "./sharing.ts";
 
 /*
  * Bulletins de paie : chaque fiche rangée au coffre (domaine revenus, privée) est lue par Claude
@@ -167,28 +168,30 @@ export async function payslipsToReread(): Promise<number[]> {
   return rows.map((r) => r.id);
 }
 
-/** Historique des revenus salariaux d'un membre : bulletins et totaux par année. */
-export async function payslipHistory(userId: number) {
-  const rows = await q<{ period: string; employer: string; gross: number | null; net_taxable: number | null; income_tax: number | null; net_paid: number | null; bonus: number | null; tax_rate: number | null; document_id: number | null; notes: string | null }>(
-    "SELECT period, employer, gross, net_taxable, income_tax, net_paid, bonus, tax_rate, document_id, notes FROM payslips WHERE owner_user_id = ? ORDER BY period DESC",
-    [userId],
+/**
+ * Historique des revenus salariaux : bulletins et totaux par année. Vue « moi » : les bulletins du membre. Vue
+ * « foyer » : les siens et ceux des membres qui partagent leurs revenus (src/server/sharing.ts) — de ceux-là, les
+ * montants seuls : ni le document, ni la remarque de lecture, qui restent à leur propriétaire.
+ */
+export async function payslipHistory(userId: number, scope: Scope = "moi") {
+  const who = await audience(userId, scope);
+  const ids = who.shown.map((m) => m.id);
+  const rows = await q<{ user_id: number; period: string; employer: string; gross: number | null; net_taxable: number | null; income_tax: number | null; net_paid: number | null; bonus: number | null; tax_rate: number | null; document_id: number | null; notes: string | null }>(
+    `SELECT owner_user_id AS user_id, period, employer, gross, net_taxable, income_tax, net_paid, bonus, tax_rate,
+            IF(owner_user_id = ?, document_id, NULL) AS document_id, IF(owner_user_id = ?, notes, NULL) AS notes
+     FROM payslips WHERE owner_user_id IN (${ids.map(() => "?").join(", ")}) ORDER BY period DESC, owner_user_id, employer`,
+    [userId, userId, ...ids],
   );
-  const years = new Map<string, { year: string; months: number; gross: number; netTaxable: number; incomeTax: number; netPaid: number; bonus: number; employers: Set<string> }>();
-  for (const r of rows) {
-    const y = r.period.slice(0, 4);
-    const t = years.get(y) ?? { year: y, months: 0, gross: 0, netTaxable: 0, incomeTax: 0, netPaid: 0, bonus: 0, employers: new Set<string>() };
-    t.months++;
-    t.gross += Number(r.gross ?? 0);
-    t.netTaxable += Number(r.net_taxable ?? 0);
-    t.incomeTax += Number(r.income_tax ?? 0);
-    t.netPaid += Number(r.net_paid ?? 0);
-    t.bonus += Number(r.bonus ?? 0);
-    t.employers.add(r.employer);
-    years.set(y, t);
-  }
-  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const present = new Set(rows.map((r) => r.user_id));
   return {
+    scope,
+    /** Membres comptés qui ont au moins un bulletin, dans l'ordre des membres. */
+    members: who.shown.filter((m) => present.has(m.id)).map((m) => ({ id: m.id, name: m.name, me: m.id === userId })),
+    /** Vue du foyer : membres dont les revenus ne sont pas comptés, faute de partage. */
+    withheld: scope === "foyer" ? who.withheld.map((m) => m.name) : [],
+    several: who.several,
+    sharing: who.sharing,
     payslips: rows,
-    years: [...years.values()].map((y) => ({ ...y, gross: r2(y.gross), netTaxable: r2(y.netTaxable), incomeTax: r2(y.incomeTax), netPaid: r2(y.netPaid), bonus: r2(y.bonus), employers: [...y.employers] })),
+    years: payslipYears(rows),
   };
 }

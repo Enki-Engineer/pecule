@@ -6,6 +6,8 @@ import { summarizeLoan, type ScheduleRow } from "../lib/loans.ts";
 import { documentVisible } from "./documents.ts";
 import { nameDebits } from "./debits.ts";
 import { tk, t as tr } from "../lib/i18n.ts";
+import { JOINT, salaryReturn, type ReturnFigures } from "../lib/taxes.ts";
+import { audience, type Scope } from "./sharing.ts";
 
 /*
  * Domaines repris de Notion : biens immobiliers, budget (engagements + revenus), impôts, retraite,
@@ -290,9 +292,35 @@ export async function deleteCommitment(userId: number, id: number) {
 
 /* ---------- Impôts ---------- */
 
-export async function taxes(userId: number) {
-  const [rows, salaries, propertyTaxes, documents] = await Promise.all([
-    q<{ income_year: number }>("SELECT * FROM tax_returns ORDER BY income_year DESC"),
+export type TaxReturnRow = ReturnFigures & {
+  notice_year: number | null;
+  parts: number | null;
+  situation: string | null;
+  other_income: number | null;
+  decote: number | null;
+  credits: number | null;
+  credits_detail: string | null;
+  notes: string | null;
+  document_id: number | null;
+};
+
+/**
+ * Impôts lus par un membre. Vue « foyer » : la déclaration commune de chaque année, ses déclarations personnelles
+ * et celles des membres qui partagent leurs revenus (src/server/sharing.ts). Vue « moi » : la commune et les
+ * siennes. Les taxes foncières et les documents ne dépendent pas du périmètre.
+ */
+export async function taxes(userId: number, scope: Scope = "foyer") {
+  const who = await audience(userId, scope);
+  const owners = [JOINT, ...who.shown.map((m) => m.id)];
+  const [rows, keys, salaries, propertyTaxes, documents] = await Promise.all([
+    // L'avis n'est donné à ouvrir que si le membre peut le lire au coffre.
+    q<TaxReturnRow & { doc_visible: number }>(
+      `SELECT r.*, (d.id IS NOT NULL AND ${documentVisible(userId)}) AS doc_visible FROM tax_returns r LEFT JOIN documents d ON d.id = r.document_id
+       WHERE r.owner_user_id IN (${owners.map(() => "?").join(", ")}) ORDER BY r.income_year DESC, r.owner_user_id`,
+      owners,
+    ),
+    // Toutes les déclarations, même celles qu'il ne voit pas : elles disent sur laquelle figure le salaire d'un membre.
+    q<{ income_year: number; owner_user_id: number }>("SELECT income_year, owner_user_id FROM tax_returns"),
     q<{ income_year: number; user_id: number; name: string; amount: number }>(
       "SELECT s.income_year, s.user_id, u.name, s.amount FROM tax_return_salaries s JOIN users u ON u.id = s.user_id ORDER BY s.user_id",
     ),
@@ -305,9 +333,41 @@ export async function taxes(userId: number) {
       `SELECT d.id, d.title, d.kind, d.doc_date FROM documents d WHERE d.domain = 'impots' AND ${documentVisible(userId)} ORDER BY d.kind = 'fiche' DESC, d.doc_date DESC LIMIT 60`,
     ),
   ]);
-  // Salaires déclarés par chaque membre, dans l'ordre des membres.
-  const returns = rows.map((r) => ({ ...r, salaries: salaries.filter((s) => s.income_year === r.income_year).map(({ user_id, name, amount }) => ({ user_id, name, amount })) }));
-  return { returns, propertyTaxes, documents };
+  const ownersOf = (year: number) => keys.filter((k) => k.income_year === year).map((k) => k.owner_user_id);
+  const returns = rows.map(({ doc_visible, ...r }) => {
+    const owner = r.owner_user_id === JOINT ? null : (who.shown.find((m) => m.id === r.owner_user_id) ?? null);
+    return {
+      ...r,
+      document_id: doc_visible ? r.document_id : null,
+      /** Déclarant : null pour la déclaration commune du foyer. */
+      owner: owner && { id: owner.id, name: owner.name },
+      /** Le membre peut dire si c'est la déclaration commune ou la sienne. */
+      editable: who.several && (r.owner_user_id === JOINT || r.owner_user_id === userId),
+      // Salaires déclarés sur cette déclaration, dans l'ordre des membres.
+      salaries: salaries.filter((s) => s.income_year === r.income_year && salaryReturn(s.user_id, ownersOf(r.income_year)) === r.owner_user_id).map(({ user_id, name, amount }) => ({ user_id, name, amount })),
+    };
+  });
+  return { scope, several: who.several, sharing: who.sharing, withheld: scope === "foyer" ? who.withheld.map((m) => m.name) : [], returns, propertyTaxes, documents };
+}
+
+/**
+ * Dit d'une déclaration qu'elle est celle du membre (`personal`) ou celle du foyer. Refusé si la place est prise
+ * (une déclaration commune et une par membre au plus par année), ou si la déclaration porte le salaire d'un autre
+ * membre : c'est alors une imposition commune.
+ */
+export async function setReturnOwner(userId: number, incomeYear: number, personal: boolean) {
+  const [from, to] = personal ? [JOINT, userId] : [userId, JOINT];
+  if (!(await one("SELECT 1 FROM tax_returns WHERE income_year = ? AND owner_user_id = ?", [incomeYear, from]))) throw new ActionError(404, tr("Déclaration introuvable"));
+  if (await one("SELECT 1 FROM tax_returns WHERE income_year = ? AND owner_user_id = ?", [incomeYear, to]))
+    throw new ActionError(409, personal ? tr("Tu as déjà une déclaration personnelle pour les revenus {annee}.", { annee: incomeYear }) : tr("Le foyer a déjà une déclaration commune pour les revenus {annee}.", { annee: incomeYear }));
+  if (personal) {
+    const owners = (await q<{ owner_user_id: number }>("SELECT owner_user_id FROM tax_returns WHERE income_year = ?", [incomeYear])).map((r) => r.owner_user_id);
+    const others = (await q<{ user_id: number; name: string }>("SELECT s.user_id, u.name FROM tax_return_salaries s JOIN users u ON u.id = s.user_id WHERE s.income_year = ? AND s.user_id <> ? ORDER BY s.user_id", [incomeYear, userId])).filter(
+      (s) => salaryReturn(s.user_id, owners) === JOINT,
+    );
+    if (others.length) throw new ActionError(409, tr("Cette déclaration porte aussi les salaires de {noms} : c'est une déclaration commune.", { noms: others.map((o) => o.name).join(", ") }));
+  }
+  await exec("UPDATE tax_returns SET owner_user_id = ? WHERE income_year = ? AND owner_user_id = ?", [to, incomeYear, from]);
 }
 
 /* ---------- Retraite ---------- */

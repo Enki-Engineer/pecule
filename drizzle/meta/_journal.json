@@ -43,6 +43,13 @@
       "when": 1794765936761,
       "tag": "0030_nature_contrat",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "5",
+      "when": 1795001558733,
+      "tag": "0031_declarations_impot",
+      "breakpoints": true
     }
   ]
 }

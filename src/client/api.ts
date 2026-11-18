@@ -194,6 +194,8 @@ export type Me = {
     dateBasis?: "achat" | "debit";
     /** « Moi » montre-t-il autre chose que « Foyer » pour ce membre ? Sinon le choix n'est pas proposé. */
     scopeChoice?: boolean;
+    /** Le foyer compte plusieurs membres : Foyer / Moi vaut aussi pour les revenus et les impôts. */
+    several?: boolean;
   } | null;
   demoAvailable?: boolean;
   setup?: boolean;

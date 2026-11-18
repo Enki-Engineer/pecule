@@ -24,6 +24,7 @@ import { updateStatus } from "../updates.ts";
 import { VERSION } from "../version.ts";
 import { backupSettings, backupState, lastBackupAt } from "../auto-backup.ts";
 import { destination, encryptionKey } from "../offsite.ts";
+import { audience } from "../sharing.ts";
 
 /*
  * Aide et réglages : le manuel de Pécule (src/lib/manual.ts), que l'assistant lit avant d'expliquer un écran ou
@@ -85,17 +86,27 @@ const getSettings = readTool({
   name: "get_settings",
   progress: tk("Lecture des réglages…"),
   description:
-    "Réglages de Pécule que tu peux lire : la version de Pécule en service (et, pour l'administrateur, la version plus récente publiée s'il y en a une, la date de la dernière sauvegarde et le réglage des sauvegardes automatiques), ceux du membre (langue, équivalences amusantes, agencement de son tableau de bord, s'il est administrateur) et ceux du foyer (pays, devise, fuseau horaire, jour retenu pour les achats par carte, écrans facultatifs affichés ou retirés, personnes sans connexion, banques professionnelles), avec l'adresse de l'écran où chacun se règle. " +
+    "Réglages de Pécule que tu peux lire : la version de Pécule en service (et, pour l'administrateur, la version plus récente publiée s'il y en a une, la date de la dernière sauvegarde et le réglage des sauvegardes automatiques), ceux du membre (langue, équivalences amusantes, partage de ses revenus avec le foyer, agencement de son tableau de bord, s'il est administrateur) et ceux du foyer (pays, devise, fuseau horaire, jour retenu pour les achats par carte, écrans facultatifs affichés ou retirés, personnes sans connexion, banques professionnelles), avec l'adresse de l'écran où chacun se règle. " +
     "Les réglages gardés par l'appareil (clair ou sombre, couleur, thèmes de l'année, densité, montants masqués, ouverture instantanée, notifications) ne se lisent pas d'ici. Alerte de solde bas : get_balance_alert ; comptes masqués ou hors statistiques : list_accounts.",
   input: z.object({}),
   async run({ userId }) {
-    const [household, basis, lang, fun, admin, budget, dash] = await Promise.all([householdSettings(), dateBasis(), memberLang(userId), funEnabled(userId), isAdmin(userId), aiBudget(), dashLayout(userId)]);
+    const [household, basis, lang, fun, admin, budget, dash, who] = await Promise.all([householdSettings(), dateBasis(), memberLang(userId), funEnabled(userId), isAdmin(userId), aiBudget(), dashLayout(userId), audience(userId, "foyer")]);
     const layout = dash ?? defaultLayout();
     return {
       member: {
         administrator: admin,
         language: { value: lang, name: langInfo(lang).label, choices: LANGS.map((l) => l.id), where: "/reglages/apparence", change_with: "update_settings" },
         fun_equivalences: { value: fun, where: "/reglages/apparence", change_with: "update_settings" },
+        // Partage des revenus : un choix de vie privée, que chaque membre fait lui-même à l'écran.
+        income_sharing: {
+          value: who.sharing,
+          meaning: who.sharing
+            ? "ses bulletins de paie (montants seuls) et ses déclarations d'impôt personnelles comptent dans la vue « Foyer » des écrans Revenus et Impôts des autres membres"
+            : "ses bulletins de paie et ses déclarations d'impôt personnelles ne sont vus que de lui",
+          other_members_not_sharing: who.withheld.map((m) => m.name),
+          where: "/reglages/compte#partage",
+          change_with: "écran seulement : chaque membre décide pour lui-même",
+        },
         // Tableau de bord de l'ordinateur ; l'accueil du téléphone a son propre réglage, gardé par l'appareil.
         dashboard: {
           template: templateOf(layout) ?? "personnalisé",

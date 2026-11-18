@@ -94,30 +94,45 @@ export const incomeSources = mysqlTable(
   (t) => [uniqueIndex("uq_income_source_ref").on(t.sourceRef)],
 );
 
-/** Impôt sur le revenu, une ligne par année de revenus (foyer) ; les salaires déclarés par chacun sont dans `tax_return_salaries`. */
-export const taxReturns = mysqlTable("tax_returns", {
-  incomeYear: int("income_year").primaryKey(),
-  noticeYear: int("notice_year"),
-  parts: decimal("parts", { precision: 4, scale: 2, mode: "number" }),
-  situation: varchar("situation", { length: 40 }),
-  otherIncome: decimal("other_income", { precision: 12, scale: 2, mode: "number" }),
-  taxableIncome: decimal("taxable_income", { precision: 12, scale: 2, mode: "number" }),
-  rfr: decimal("rfr", { precision: 12, scale: 2, mode: "number" }),
-  netTax: decimal("net_tax", { precision: 12, scale: 2, mode: "number" }),
-  socialLevies: decimal("social_levies", { precision: 12, scale: 2, mode: "number" }),
-  total: decimal("total", { precision: 12, scale: 2, mode: "number" }),
-  decote: decimal("decote", { precision: 12, scale: 2, mode: "number" }),
-  credits: decimal("credits", { precision: 12, scale: 2, mode: "number" }),
-  balance: decimal("balance", { precision: 12, scale: 2, mode: "number" }),
-  tmi: decimal("tmi", { precision: 5, scale: 2, mode: "number" }),
-  avgRate: decimal("avg_rate", { precision: 5, scale: 2, mode: "number" }),
-  creditsDetail: text("credits_detail"),
-  notes: text("notes"),
-  documentId: int("document_id"),
-  updatedAt: updatedAt(),
-});
+/**
+ * Impôt sur le revenu, une ligne par déclaration : celle du foyer (imposition commune) ou celle d'un membre
+ * (imposition séparée : avant la vie commune, ou couple ni marié ni pacsé). `owner_user_id` : 0 = déclaration commune,
+ * sinon le membre déclarant — 0 et non NULL, parce que la colonne fait partie de la clé (une déclaration commune et
+ * une par membre au plus pour une année de revenus). Une déclaration personnelle n'est vue des autres membres que si
+ * son déclarant partage ses revenus (src/server/sharing.ts). Les salaires déclarés par chacun sont dans
+ * `tax_return_salaries`.
+ */
+export const taxReturns = mysqlTable(
+  "tax_returns",
+  {
+    incomeYear: int("income_year").notNull(),
+    ownerUserId: int("owner_user_id").notNull().default(0),
+    noticeYear: int("notice_year"),
+    parts: decimal("parts", { precision: 4, scale: 2, mode: "number" }),
+    situation: varchar("situation", { length: 40 }),
+    otherIncome: decimal("other_income", { precision: 12, scale: 2, mode: "number" }),
+    taxableIncome: decimal("taxable_income", { precision: 12, scale: 2, mode: "number" }),
+    rfr: decimal("rfr", { precision: 12, scale: 2, mode: "number" }),
+    netTax: decimal("net_tax", { precision: 12, scale: 2, mode: "number" }),
+    socialLevies: decimal("social_levies", { precision: 12, scale: 2, mode: "number" }),
+    total: decimal("total", { precision: 12, scale: 2, mode: "number" }),
+    decote: decimal("decote", { precision: 12, scale: 2, mode: "number" }),
+    credits: decimal("credits", { precision: 12, scale: 2, mode: "number" }),
+    balance: decimal("balance", { precision: 12, scale: 2, mode: "number" }),
+    tmi: decimal("tmi", { precision: 5, scale: 2, mode: "number" }),
+    avgRate: decimal("avg_rate", { precision: 5, scale: 2, mode: "number" }),
+    creditsDetail: text("credits_detail"),
+    notes: text("notes"),
+    documentId: int("document_id"),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ name: "pk_tax_returns", columns: [t.incomeYear, t.ownerUserId] })],
+);
 
-/** Salaires déclarés par un membre pour une année de revenus (une ligne par déclarant). */
+/**
+ * Salaires déclarés par un membre pour une année de revenus (une ligne par déclarant). Un membre ne figure que sur
+ * une déclaration par année : la sienne s'il en a une, sinon la déclaration commune (`returnOf`, src/lib/taxes.ts).
+ */
 export const taxReturnSalaries = mysqlTable(
   "tax_return_salaries",
   {
@@ -127,7 +142,6 @@ export const taxReturnSalaries = mysqlTable(
   },
   (t) => [
     primaryKey({ name: "pk_tax_return_salaries", columns: [t.incomeYear, t.userId] }),
-    foreignKey({ name: "fk_tax_salaries_return", columns: [t.incomeYear], foreignColumns: [taxReturns.incomeYear] }).onDelete("cascade"),
     foreignKey({ name: "fk_tax_salaries_user", columns: [t.userId], foreignColumns: [users.id] }).onDelete("cascade"),
   ],
 );

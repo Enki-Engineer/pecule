@@ -21,7 +21,7 @@ import { isYearPeriod, PERIOD_RE, shiftPeriod } from "../../lib/periods.ts";
 import { COUNT_LINKS, type Counts } from "../nav.ts";
 import { useModulesOff, useNav } from "../modules.ts";
 import { pathEnabled } from "../../lib/modules.ts";
-import { scopeApplies } from "../../lib/scope.ts";
+import { scopeKind } from "../../lib/scope.ts";
 import { screenKey } from "../../lib/ops-tabs.ts";
 import { NavTracker, PullToRefresh, isTopLevel, useBack, useEdgeSwipeBack } from "./MobileShell.tsx";
 import { useMedia } from "../useMedia.ts";
@@ -357,8 +357,15 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
   const discreet = useDiscreet();
   const [scope, setScope] = useScope();
   const showPeriod = pathname.startsWith("/mois") || pathname.startsWith("/operations");
-  const scoped = scopeApplies(pathname);
-  const scopeChoice = useMe().data?.user?.scopeChoice !== false;
+  // Ce que Foyer / Moi règle ici : les comptes lus, les membres comptés (revenus, impôts), ou rien.
+  const kind = scopeKind(pathname);
+  const scoped = kind !== null;
+  const member = useMe().data?.user;
+  // Y a-t-il un choix à faire sur cet écran ? Pour les comptes : en avoir à soi, et d'autres. Pour les revenus et les
+  // impôts : un foyer de plusieurs membres. Ailleurs, la bascule reste visible (grisée) dès que l'un des deux vaut.
+  const accountsChoice = member?.scopeChoice !== false;
+  const membersChoice = member?.several !== false;
+  const scopeChoice = kind === "comptes" ? accountsChoice : kind === "situation" ? membersChoice : accountsChoice || membersChoice;
   // Sans choix à faire, on reste sur « Foyer » : un « Moi » gardé d'avant ne doit pas vider les écrans sans moyen d'en sortir.
   useEffect(() => {
     if (!scopeChoice && scope === "moi") setScope("foyer");
@@ -408,12 +415,18 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
       </nav>
       <DemoBadge className="py-1 text-[12px]" />
       {showPeriod && <PeriodPicker operations={pathname.startsWith("/operations")} label={label} />}
-      {/* Foyer / Moi : grisé sur les écrans qui ne dépendent pas des comptes (le choix n'y changerait rien) ; absent quand
-          tous les comptes sont ceux du membre (« Moi » et « Foyer » diraient la même chose). */}
+      {/* Foyer / Moi : grisé sur les écrans qui n'en dépendent pas (le choix n'y changerait rien) ; absent quand « Moi » et
+          « Foyer » diraient la même chose (tous les comptes sont ceux du membre, ou le foyer n'a qu'un membre). */}
       {scopeChoice && (
       <div
         className={cn("flex shrink-0 rounded-full bg-line/70 p-0.5 text-[12.5px] font-medium", !scoped && "cursor-not-allowed opacity-45")}
-        title={scoped ? t("Foyer : tous les comptes · Moi : mes comptes, sans le compte commun") : t("Foyer / Moi : sans effet sur cet écran, qui ne dépend pas des comptes")}
+        title={
+          kind === "comptes"
+            ? t("Foyer : tous les comptes · Moi : mes comptes, sans le compte commun")
+            : kind === "situation"
+              ? t("Foyer : les revenus et les impôts de tous les membres qui les partagent · Moi : les miens")
+              : t("Foyer / Moi : sans effet sur cet écran")
+        }
       >
         {(["foyer", "moi"] as const).map((s) => (
           <button

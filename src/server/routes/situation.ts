@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { z } from "zod";
 import { exec, one } from "../db.ts";
 import { memberIdByName } from "../members.ts";
@@ -14,15 +14,21 @@ import {
   saveCommitment,
   saveProjections,
   saveRetirement,
+  setReturnOwner,
   taxes,
   updateProperty,
   upsertFacts,
 } from "../situation.ts";
 import { extractPayslip, normalizePayslips, payslipHistory, payslipsToReread } from "../payslips.ts";
+import { audience, setIncomeShared } from "../sharing.ts";
+import { JOINT } from "../../lib/taxes.ts";
 import { t as tr } from "../../lib/i18n.ts";
 
 /** Domaines repris de Notion (biens, budget, impôts, retraite, projections, mouvements crypto) : sous /api. */
 export const situationApi = Router();
+
+/** Périmètre choisi dans la barre du haut : « Foyer » par défaut, « Moi » = mes seuls revenus et déclarations. */
+const scopeOf = (req: Request): "foyer" | "moi" => (req.get("x-perimetre") === "moi" ? "moi" : "foyer");
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const money = z.number().nullable().optional();
@@ -104,7 +110,26 @@ situationApi.delete("/commitments/:id", async (req, res) => {
 });
 
 situationApi.get("/taxes", async (req, res) => {
-  res.json(await taxes(req.user!.id));
+  res.json(await taxes(req.user!.id, scopeOf(req)));
+});
+
+// Déclaration commune ou personnelle : le membre le dit pour la déclaration du foyer ou pour la sienne.
+situationApi.put("/taxes/returns/:year/owner", async (req, res) => {
+  const { personal } = z.object({ personal: z.boolean() }).parse(req.body);
+  await setReturnOwner(req.user!.id, z.coerce.number().int().min(1990).max(2100).parse(req.params.year), personal);
+  res.json({ ok: true });
+});
+
+// Partage de ses revenus avec le foyer : chacun règle le sien.
+situationApi.get("/sharing", async (req, res) => {
+  const who = await audience(req.user!.id, "foyer");
+  res.json({ income: who.sharing, several: who.several });
+});
+
+situationApi.put("/sharing", async (req, res) => {
+  const { income } = z.object({ income: z.boolean() }).parse(req.body);
+  await setIncomeShared(req.user!.id, income);
+  res.json({ ok: true, income });
 });
 
 situationApi.get("/retirement", async (req, res) => {
@@ -116,7 +141,7 @@ situationApi.get("/projections", async (req, res) => {
 });
 
 situationApi.get("/payslips", async (req, res) => {
-  res.json(await payslipHistory(req.user!.id));
+  res.json(await payslipHistory(req.user!.id, scopeOf(req)));
 });
 
 situationApi.get("/crypto/events", async (req, res) => {
@@ -260,18 +285,24 @@ const TAX_COLS = [
 
 situationAdmin.post("/import/tax-returns", async (req, res) => {
   // `salaries` : salaires déclarés par membre, { "<prénom>": montant } (un montant nul retire la ligne).
+  // `owner` : prénom du déclarant d'une déclaration personnelle ; absent = déclaration commune du foyer.
   const list = z
-    .array(z.record(z.string(), z.unknown()).and(z.object({ incomeYear: z.number().int(), salaries: z.record(z.string().min(1).max(80), z.number().nullable()).optional() })))
+    .array(
+      z
+        .record(z.string(), z.unknown())
+        .and(z.object({ incomeYear: z.number().int(), owner: z.string().min(1).max(80).nullable().optional(), salaries: z.record(z.string().min(1).max(80), z.number().nullable()).optional() })),
+    )
     .max(60)
     .parse(req.body);
   for (const r of list) {
     // Les prénoms sont vérifiés avant d'écrire quoi que ce soit.
+    const owner = (await memberIdByName(r.owner)) ?? JOINT;
     const salaries = await Promise.all(Object.entries(r.salaries ?? {}).map(async ([name, amount]) => ({ member: await memberIdByName(name), amount })));
     const vals = TAX_COLS.map(([k]) => (r[k] === undefined ? null : r[k]));
     await exec(
-      `INSERT INTO tax_returns (income_year, ${TAX_COLS.map(([, c]) => c).join(", ")}) VALUES (?, ${TAX_COLS.map(() => "?").join(", ")})
+      `INSERT INTO tax_returns (income_year, owner_user_id, ${TAX_COLS.map(([, c]) => c).join(", ")}) VALUES (?, ?, ${TAX_COLS.map(() => "?").join(", ")})
        ON DUPLICATE KEY UPDATE ${TAX_COLS.map(([, c]) => `${c} = VALUES(${c})`).join(", ")}`,
-      [r.incomeYear, ...vals],
+      [r.incomeYear, owner, ...vals],
     );
     for (const { member, amount } of salaries) {
       if (amount == null) await exec("DELETE FROM tax_return_salaries WHERE income_year = ? AND user_id = ?", [r.incomeYear, member]);

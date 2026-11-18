@@ -231,10 +231,17 @@ describe("données de démo", () => {
   });
 
   it("paient les salaires des bulletins et produisent des PDF valides", () => {
-    const alex = d.accounts.find((a) => a.owner === "alex" && a.kind === "courant")!;
-    for (const p of d.payslips) expect(d.transactions.some((t) => t.accountId === alex.id && t.date === p.payDate && t.amount === p.netPaid && t.categoryId === "A1"), p.period).toBe(true);
-    expect(d.payslips).toHaveLength(12);
-    expect(d.payslips.find((p) => p.period === "2026-03")!.bonus).toBeGreaterThan(0);
+    // Douze bulletins par membre, chacun versé sur le compte courant de son titulaire.
+    for (const [owner, user] of [
+      ["alex", USERS[0]],
+      ["camille", USERS[1]],
+    ] as const) {
+      const account = d.accounts.find((a) => a.owner === owner && a.kind === "courant")!;
+      const mine = d.payslips.filter((p) => p.ownerUserId === user.id);
+      for (const p of mine) expect(d.transactions.some((t) => t.accountId === account.id && t.date === p.payDate && t.amount === p.netPaid && t.categoryId === "A1"), `${owner} ${p.period}`).toBe(true);
+      expect(mine).toHaveLength(12);
+    }
+    expect(d.payslips.find((p) => p.ownerUserId === USERS[0].id && p.period === "2026-03")!.bonus).toBeGreaterThan(0);
     const files: Buffer[] = [...d.documentFiles.map((f) => f.content), ...d.invoiceFiles.map((f) => f.content)];
     for (const f of files) {
       const s = f.toString("latin1");

@@ -69,6 +69,12 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   instantané par membre et par jour).
 - **Situation** — `properties`, `commitments` (engagements récurrents), `payslips`, `tax_returns`, `property_taxes`,
   `retirement_simulations`, `career_periods`, `projections`. Les indicateurs sont recalculés, jamais stockés.
+- **Revenus et impôts du foyer** — Foyer / Moi (`scopeKind`, `src/lib/scope.ts`) vaut aussi pour Revenus et Impôts,
+  où il compte les membres. Une déclaration (`tax_returns`) est commune (`owner_user_id` = 0) ou celle d'un membre,
+  plusieurs par année de revenus ; les totaux par année viennent de `taxYears` (`src/lib/taxes.ts`), ceux des
+  bulletins de `payslipYears` (`src/lib/payslips.ts`). Bulletins et déclarations personnelles d'un membre ne
+  comptent dans la vue du foyer des autres que s'il partage ses revenus (`src/server/sharing.ts`, app_kv
+  « partage:revenus:<id> », éteint par défaut) : montants seuls, jamais le document.
 - **Documents** — `documents` (coffre, texte indexé, identifiants masqués par `src/lib/redact.ts`) et `agenda_items` ;
   les échéances des crédits, garanties et contrats sont calculées à la volée.
 - **Nature d'un contrat** — `documents.topic` (`TOPICS`, `src/lib/contracts.ts`) : assurance auto, habitation,

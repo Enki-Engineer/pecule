@@ -69,7 +69,7 @@ export const documents: ManualTheme = {
             tk("Relevé de carrière ou estimation de retraite → [[Retraite]]."),
             tk("Acte, compromis ou bail → un bien, dans [[Immobilier]]."),
             tk("Relevé de placement → la valeur d'un placement, dans [[Patrimoine]]."),
-            tk("Relevé de compte et export de la banque → des opérations."),
+            tk("Relevé de compte et export de la banque → des opérations ([Reprendre l'historique d'un compte avec ses relevés](/manuel/reprendre-un-historique))."),
             tk("Contrat d'assurance ou d'abonnement → un engagement du budget."),
           ],
         },
@@ -107,6 +107,35 @@ export const documents: ManualTheme = {
       words: tk("import en masse lot dossier plusieurs fichiers archives reprise historique glisser déposer"),
     },
     {
+      id: "reprendre-un-historique",
+      title: tk("Reprendre l'historique d'un compte avec ses relevés"),
+      summary: tk("Dépose tes relevés de compte en PDF : Pécule en tire toutes les opérations, compte par compte."),
+      body: [
+        tk("Une banque ne donne souvent que quelques mois d'opérations ; ses relevés, eux, remontent à l'ouverture du compte. Dépose-les dans le coffre : Pécule lit chaque relevé avec ton fournisseur d'IA et te propose ses opérations. Rien n'est écrit sans ta validation."),
+        {
+          steps: [
+            tk("Télécharge tes relevés en PDF dans l'espace client de ta banque, et réunis-les dans un dossier."),
+            tk("Sur ordinateur, ouvre le [[Coffre]] et glisse le dossier sur l'écran, ou touche [[Choisir un dossier]]."),
+            tk("Ouvre le premier relevé d'un compte et choisis, dans [[Compte]], le compte de Pécule qui reçoit ses opérations, ou [[Nouveau compte…]]. Ce choix vaut pour les autres relevés du même compte."),
+            tk("Valide d'un coup les fichiers sûrs, puis relis ceux qui restent."),
+          ],
+        },
+        {
+          list: [
+            tk("Un relevé qui porte plusieurs comptes (un compte courant et des livrets) donne une proposition par compte."),
+            tk("Chaque relevé est vérifié : son solde de départ et ses opérations doivent donner son solde d'arrivée. S'il ne tombe pas juste, sa fiche montre toutes les opérations avec le solde après chacune, et désigne la ligne dont le signe ou la présence expliquerait l'écart."),
+            tk("Touche une opération pour la corriger : [[Inverser le signe]], [[Retirer la ligne]], ou [[Ajouter une ligne]] pour une opération oubliée."),
+            tk("En haut de l'import, l'encadré [[Relevés de compte : la série]] dit quelle période couvrent les relevés de chaque compte, et s'il en manque un entre deux autres."),
+            tk("Une opération que le compte connaît déjà n'est pas ajoutée deux fois : tu peux déposer des relevés qui recouvrent ce que la banque a déjà fourni."),
+            tk("Les opérations ajoutées sont classées par tes règles et par les libellés déjà classés."),
+          ],
+        },
+        { note: tk("La lecture d'un relevé coûte quelques centimes à ton fournisseur d'IA, davantage pour un relevé de plusieurs centaines d'opérations. Si ta banque propose un export (OFX, QIF, CSV), il est lu sans IA : voir [Importer un fichier de la banque](/manuel/importer-fichier-banque).") },
+      ],
+      links: [{ to: "/documents", label: ["Coffre"] }],
+      words: tk("relevé de compte relevés bancaires pdf historique ancien reprise années passées opérations manquantes plusieurs comptes livret solde"),
+    },
+    {
       id: "relire-un-import",
       title: tk("Relire, valider ou annuler un import"),
       summary: tk("Ce que Pécule a lu dans chaque fichier, à corriger avant de l'écrire dans tes écrans."),
@@ -115,6 +144,7 @@ export const documents: ManualTheme = {
         {
           list: [
             tk("Les champs lus se corrigent sur place."),
+            tk("Les opérations d'un relevé de compte sont toutes listées : touche une ligne pour la corriger, la retirer, ou en ajouter une ([Reprendre l'historique d'un compte avec ses relevés](/manuel/reprendre-un-historique))."),
             tk("[[Contrôles]] liste les vérifications faites (totaux qui tombent juste, dates cohérentes) ; l'encadré du haut dit ce qui changerait dans ce que Pécule contient déjà."),
             tk("[[Valider]] écrit les données dans tes écrans ; [[Annuler la validation]] les en retire."),
             tk("[[Écarter]] laisse le document au coffre, sans rien écrire."),

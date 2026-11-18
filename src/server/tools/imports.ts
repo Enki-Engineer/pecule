@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ActionError } from "../actions.ts";
-import { batchView, discardItem, editItem, itemView, listBatches, retryItem, revertItem, validateItem, validateSafe } from "../imports/batches.ts";
+import { batchView, discardItem, editItem, itemView, listBatches, retryItem, revertItem, validateItem, validateSafe, type RowEdit } from "../imports/batches.ts";
 import { ToolError, readTool, writeTool } from "./registry.ts";
 import { t as tr } from "../../lib/i18n.ts";
 
@@ -28,29 +28,51 @@ const listImports = readTool({
 
 const getImportItem = readTool({
   name: "get_import_item",
-  description: "Proposition d'un fichier d'un import massif : champs lus (clé, libellé, valeur, choix possibles), contrôles arithmétiques, doutes de la lecture, ce que Pécule contient déjà pour la même clé et ce qui changerait, aperçu du tableau (échéancier, carrière, opérations).",
-  input: z.object({ item_id: z.number().int() }),
-  run: ({ userId }, i) => guard(() => itemView(userId, i.item_id)),
+  description:
+    "Proposition d'un fichier d'un import massif : champs lus (clé, libellé, valeur, choix possibles), contrôles arithmétiques, doutes de la lecture, ce que Pécule contient déjà pour la même clé et ce qui changerait, aperçu du tableau (échéancier, carrière, opérations). lignes : true pour recevoir toutes les lignes d'un relevé de compte (ses opérations, numérotées à partir de 0, avec celles dont le signe ou la présence expliquerait un relevé qui ne tombe pas juste) — à demander seulement pour corriger une opération.",
+  input: z.object({ item_id: z.number().int(), lignes: z.boolean().optional() }),
+  run: ({ userId }, i) =>
+    guard(async () => {
+      const { rows, ...view } = await itemView(userId, i.item_id);
+      return i.lignes && rows ? { ...view, lignes: { devise: rows.currency, solde_de_depart: rows.opening, a_verifier: rows.marks, liste: rows.lines.map((l, index) => ({ index, ...l })) } } : { ...view, lignes: rows ? rows.lines.length : null };
+    }),
 });
 
 const ACTIONS = { valider: validateItem, ecarter: discardItem, relire: retryItem, annuler: revertItem } as const;
 
+type RowInput = { op: "set" | "remove" | "add"; index?: number; values?: Record<string, string | number | null> };
+/** Corrections de lignes données par l'assistant, ramenées à la forme attendue par la relecture. */
+function rowEdits(list: RowInput[] | undefined): RowEdit[] {
+  return (list ?? []).map((r) => {
+    if (r.op === "add") return { op: "add", index: r.index, values: r.values ?? {} };
+    if (r.index === undefined) throw new ToolError("index manquant pour corriger ou retirer une ligne.");
+    return r.op === "remove" ? { op: "remove", index: r.index } : { op: "set", index: r.index, values: r.values ?? {} };
+  });
+}
+
 const reviewImportItem = writeTool({
   name: "review_import_item",
   description:
-    "Relecture d'un fichier d'un import massif. action : « valider » (écrit la proposition dans les écrans), « ecarter » (le document reste au coffre, rien n'est écrit), « relire » (relance la lecture), « annuler » (défait une validation). corrections : valeurs corrigées avant de valider, par clé de champ (voir get_import_item ; une date en AAAA-MM-JJ, un choix par sa valeur).",
-  input: z.object({ item_id: z.number().int(), action: z.enum(["valider", "ecarter", "relire", "annuler"]), corrections: z.record(z.string(), z.union([z.string(), z.number(), z.null()])).optional() }),
+    "Relecture d'un fichier d'un import massif. action : « valider » (écrit la proposition dans les écrans), « ecarter » (le document reste au coffre, rien n'est écrit), « relire » (relance la lecture), « annuler » (défait une validation), « corriger » (enregistre les corrections sans valider : la proposition reste à relire). corrections : valeurs corrigées, par clé de champ (voir get_import_item ; une date en AAAA-MM-JJ, un choix par sa valeur) ; le compte choisi pour un relevé vaut pour les autres relevés du même compte dans le lot. lignes : corrections des opérations d'un relevé de compte, appliquées dans l'ordre — { op: « set », index, values: { date, label, amount } } change une ligne (seules les valeurs données), { op: « remove », index } la retire, { op: « add », index?, values } en ajoute une (avant la ligne index, à la fin sinon) ; les index sont ceux de get_import_item avec lignes: true, et se décalent après un retrait ou un ajout.",
+  input: z.object({
+    item_id: z.number().int(),
+    action: z.enum(["valider", "ecarter", "relire", "annuler", "corriger"]),
+    corrections: z.record(z.string(), z.union([z.string(), z.number(), z.null()])).optional(),
+    lignes: z.array(z.object({ op: z.enum(["set", "remove", "add"]), index: z.number().int().min(0).optional(), values: z.record(z.string(), z.union([z.string(), z.number(), z.null()])).optional() })).max(200).optional(),
+  }),
   describe: ({ userId }, i) =>
     guard(async () => {
       const item = await itemView(userId, i.item_id);
       const titre = item.title ?? item.path;
-      const label = i.action === "valider" ? tr("Valider « {titre} »", { titre }) : i.action === "ecarter" ? tr("Écarter « {titre} »", { titre }) : i.action === "relire" ? tr("Relire « {titre} »", { titre }) : tr("Annuler la validation de « {titre} »", { titre });
+      const label =
+        i.action === "valider" ? tr("Valider « {titre} »", { titre }) : i.action === "ecarter" ? tr("Écarter « {titre} »", { titre }) : i.action === "relire" ? tr("Relire « {titre} »", { titre }) : i.action === "corriger" ? tr("Corriger « {titre} »", { titre }) : tr("Annuler la validation de « {titre} »", { titre });
       const failed = item.checks.filter((c) => !c.ok).map((c) => c.label);
       return {
         label,
         details: [
           item.path,
           ...Object.entries(i.corrections ?? {}).map(([k, v]) => `${k} → ${v ?? "—"}`),
+          ...rowEdits(i.lignes).map((r) => (r.op === "remove" ? tr("Ligne {n} retirée", { n: r.index + 1 }) : `${r.op === "add" ? tr("Ligne ajoutée") : tr("Ligne {n}", { n: r.index + 1 })} : ${Object.values(r.values).join(" · ")}`)),
           ...(i.action === "valider" && failed.length ? [tr("Contrôles en échec : {liste}", { liste: failed.join(" ; ") })] : []),
           ...(i.action === "valider" && item.existing?.diffs.length ? item.existing.diffs.map((d) => `${d.label} : ${d.before} → ${d.after}`) : []),
         ],
@@ -58,7 +80,12 @@ const reviewImportItem = writeTool({
     }),
   run: ({ userId }, i) =>
     guard(async () => {
-      if (i.corrections && Object.keys(i.corrections).length) await editItem(userId, i.item_id, i.corrections);
+      const rows = rowEdits(i.lignes);
+      const corrected = (i.corrections && Object.keys(i.corrections).length) || rows.length ? await editItem(userId, i.item_id, i.corrections ?? {}, rows) : null;
+      if (i.action === "corriger") {
+        if (!corrected) throw new ToolError("Aucune correction donnée.");
+        return `Corrigé. Contrôles : ${corrected.checks.map((c) => `${c.ok ? "✓" : "✗"} ${c.label}`).join(" ; ")}.`;
+      }
       const r = await ACTIONS[i.action](userId, i.item_id);
       return r.summary ?? `Fait : ${r.status}.`;
     }),

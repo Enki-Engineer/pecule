@@ -3,6 +3,41 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.27.0
+
+Reprendre l'historique d'un compte en déposant ses relevés en PDF dans le coffre.
+
+- **Un relevé de plusieurs comptes donne une proposition par compte.** Jusque-là, seul le premier compte d'un
+  relevé qui en portait plusieurs (un compte courant et des livrets) était lu, sans que rien ne le dise. Chaque compte
+  a désormais sa ligne dans l'import, avec ses soldes, ses opérations et ses contrôles.
+- **Le compte se choisit une fois.** Le compte de Pécule choisi pour un relevé — ou « Nouveau compte… » — vaut pour
+  les autres relevés du même compte déposés avec lui : ils deviennent « sûrs » et se valident d'un coup. Le compte
+  créé par le premier relevé validé reçoit les suivants.
+- **La série se vérifie d'elle-même.** En haut de l'import, l'encadré « Relevés de compte : la série » donne, compte
+  par compte, la période couverte et le nombre d'opérations, et signale un relevé manquant ou deux soldes qui ne
+  s'enchaînent pas (le solde d'arrivée d'un relevé doit être le solde de départ du suivant).
+- **Les opérations se relisent et se corrigent.** La fiche d'un relevé liste toutes ses opérations, avec le solde du
+  compte après chacune. On touche une ligne pour la corriger, inverser son signe ou la retirer, et on peut ajouter une
+  opération oubliée. Quand le relevé ne tombe pas juste, Pécule donne l'écart, compare ses totaux aux totaux imprimés
+  (débits, crédits) et désigne la ligne dont le signe ou la présence expliquerait l'écart.
+- **Les longs relevés sont lus en entier.** La lecture arrive en flux et, au-delà de 400 opérations, en plusieurs
+  réponses : un relevé de plusieurs centaines d'opérations n'échoue plus après deux minutes. Les pages sont lues
+  telles qu'elles sont imprimées jusqu'à 40 pages (20 auparavant). Les dates sans année, les relevés à cheval sur deux
+  années et les colonnes Débit / Crédit sont précisés à l'IA ; un compte encore inconnu de Pécule ne fait plus
+  baisser la confiance de la lecture.
+- **Moins de doublons avec ce que la banque a déjà fourni.** Une opération du relevé est rapprochée d'une opération
+  de la banque au même montant jusqu'à trois jours d'écart (la banque ne date pas toujours comme son relevé) ; deux
+  relevés, eux, se comparent toujours au jour près. La fiche dit combien d'opérations ont été rapprochées ainsi.
+- Un relevé sans mouvement n'est plus écarté : ses soldes comptent dans la série. Le solde d'arrivée de chaque relevé
+  validé est gardé dans l'historique du compte, et retiré si la validation est annulée ; le relevé suivant d'un compte
+  tenu par ses relevés y compare son solde de départ.
+- L'assistant et le serveur MCP relisent les opérations d'un relevé (`get_import_item` avec `lignes`) et les
+  corrigent (`review_import_item` : `lignes`, action « corriger »).
+- Manuel : article « Reprendre l'historique d'un compte avec ses relevés » ; guide d'import mis à jour.
+
+Une migration : la colonne `part` des lignes d'import (le compte lu, pour un relevé de plusieurs comptes), et les
+corrections de relecture gardées dans un champ plus grand. Aucun réglage nouveau.
+
 ## 1.26.0
 
 Les revenus et les impôts se lisent pour tout le foyer, ou pour soi.

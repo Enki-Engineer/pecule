@@ -6,6 +6,8 @@ import { acceptFile, cleanPath, MAX_BATCH_FILES, type Check, type ItemStatus } f
 export type ImportItem = {
   id: number;
   path: string;
+  /** Partie du fichier lue par cette ligne (un compte d'un relevé qui en porte plusieurs). */
+  part: string | null;
   size: number;
   status: ItemStatus;
   extractor: string | null;
@@ -36,6 +38,8 @@ export type ImportBatch = {
   ai: boolean;
   counts: Partial<Record<ItemStatus, number>>;
   safe: number;
+  /** Ce que les fichiers d'un même type disent ensemble : les relevés d'un compte, leur période, ce qui manque. */
+  overview: { title: string; detail: string; warnings: string[] }[];
   items: ImportItem[];
   estimateEur?: number;
 };
@@ -45,9 +49,21 @@ export type ImportDetail = ImportItem & {
   fields: ImportField[];
   edited: string[];
   table: { title: string; columns: string[]; lines: (string | number | null)[][]; total: number } | null;
+  rows: ImportRows | null;
   checks: Check[];
   existing: { summary: string; diffs: { label: string; before: string; after: string }[] } | null;
 };
+/** Lignes d'un fichier montrées en entier et corrigeables une à une (les opérations d'un relevé). */
+export type ImportRows = {
+  key: string;
+  columns: { key: string; label: string; type: "date" | "texte" | "montant" }[];
+  lines: Record<string, string | number | null>[];
+  currency: string | null;
+  /** Solde avant la première ligne : l'écran en tire le solde après chaque ligne. */
+  opening: number | null;
+  marks: { index: number; note: string }[];
+};
+export type RowEdit = { op: "set"; index: number; values: Record<string, string | number | null> } | { op: "remove"; index: number } | { op: "add"; index?: number; values: Record<string, string | number | null> };
 export type BatchLine = { id: number; name: string; status: string; created_at: string; files: number; to_review: number; done: number; cost_eur: number };
 
 export type Picked = { path: string; file: File };

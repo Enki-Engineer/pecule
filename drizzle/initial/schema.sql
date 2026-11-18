@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0031_declarations_impot.sql
+-- inclut-jusqu-a: drizzle/0032_import_releves.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -506,7 +506,7 @@ CREATE TABLE `import_items` (
   `invoice_id` int(11) DEFAULT NULL,
   `title` varchar(255) DEFAULT NULL,
   `proposal` mediumtext DEFAULT NULL,
-  `edits` text DEFAULT NULL,
+  `edits` mediumtext DEFAULT NULL,
   `checks` text DEFAULT NULL,
   `existing` text DEFAULT NULL,
   `confidence` varchar(8) DEFAULT NULL,
@@ -516,6 +516,7 @@ CREATE TABLE `import_items` (
   `attempts` int(11) NOT NULL DEFAULT 0,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `part` varchar(160) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_import_items_batch` (`batch_id`,`status`),
   KEY `idx_import_items_status` (`status`),

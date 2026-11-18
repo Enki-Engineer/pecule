@@ -89,7 +89,17 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   consignes de l'assistant ; ce qui est propre à la France (résiliation à tout moment) n'y figure que pour un foyer
   français.
 - **Import massif** — `import_batches`, `import_items` ; `src/server/imports/` : file de lecture, registre
-  d'extracteurs (schéma pour l'IA, contrôles arithmétiques, écriture), journal d'écritures annulable.
+  d'extracteurs (schéma pour l'IA, contrôles arithmétiques, écriture), journal d'écritures annulable. La lecture
+  arrive en flux (`read.ts`). Un extracteur peut déclarer une liste de lignes (`rows` : lue en plusieurs réponses
+  quand elle est longue, montrée en entier et corrigeable ligne à ligne à la relecture), les autres parties d'un même
+  fichier (`parts` : une ligne `import_items` par partie, colonne `part`), un choix partagé entre les fichiers d'un
+  lot (`shared`) et une vue d'ensemble du lot (`overview`).
+- **Reprise d'un historique par les relevés** — l'extracteur `releve` se sert des quatre : un relevé de plusieurs
+  comptes donne une proposition par compte, ses opérations se corrigent une à une, le compte choisi pour un relevé
+  vaut pour les autres relevés du même compte, et le lot dit si la série s'enchaîne (solde d'arrivée d'un relevé =
+  solde de départ du suivant) ou s'il manque un relevé. Les règles sont pures (`src/lib/statements.ts` : même
+  compte, écart de solde, ligne qui l'expliquerait, série). Une opération déjà connue n'est pas recréée : même jour
+  et même montant, puis à trois jours près contre les seules opérations fournies par une banque.
 
 ## Membres, accès, vie privée
 

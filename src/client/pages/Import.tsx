@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Check, CheckCheck, ChevronRight, FileDown, RotateCcw, Trash2, Undo2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, CheckCheck, ChevronRight, FileDown, Plus, RotateCcw, Trash2, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../api.ts";
 import { useCrumb } from "../shell.ts";
 import { Card, Empty, ErrorBox, PageHeader, Sheet, Spinner } from "../components/ui.tsx";
 import { cn } from "../cn.ts";
-import { money } from "../format.ts";
-import type { ImportBatch, ImportDetail, ImportField, ImportItem } from "../importer.ts";
+import { dateFr, money, moneyIn } from "../format.ts";
+import type { ImportBatch, ImportDetail, ImportField, ImportItem, ImportRows, RowEdit } from "../importer.ts";
 import { isPending, STATUS_LABELS, type ItemStatus } from "../../lib/imports.ts";
 import { t, tn } from "../../lib/i18n.ts";
 
@@ -156,6 +156,7 @@ export function Batch({ id, onBack }: { id: number; onBack: () => void }) {
           </div>
         )}
         {b.safe > 0 && <p className="px-1 text-xs text-muted">{t("« Sûr » : tous les contrôles passent, la lecture est sans doute, et rien de ce que Pécule contient déjà ne changerait.")}</p>}
+        {b.overview.length > 0 && <Series list={b.overview} />}
 
         <Card className="divide-y divide-line">
           {shown.length === 0 && <Empty>{t("Aucun fichier dans cette vue.")}</Empty>}
@@ -166,6 +167,35 @@ export function Batch({ id, onBack }: { id: number; onBack: () => void }) {
       </div>
       {open !== null && <Review id={open} onClose={() => setOpen(null)} onChange={() => qc.invalidateQueries()} />}
     </>
+  );
+}
+
+/** Relevés d'un même compte déposés ensemble : la période qu'ils couvrent, et ce qui manque entre eux. */
+function Series({ list }: { list: ImportBatch["overview"] }) {
+  return (
+    <Card className="space-y-3 p-4">
+      <div>
+        <h3 className="text-sm font-semibold">{t("Relevés de compte : la série")}</h3>
+        <p className="text-xs text-muted">{t("Deux relevés s'enchaînent quand le solde d'arrivée de l'un est le solde de départ du suivant : aucune opération ne manque entre eux.")}</p>
+      </div>
+      {list.map((o) => (
+        <div key={o.title} className="text-sm">
+          <p className="font-medium">{o.title}</p>
+          <p className="text-xs text-muted">{o.detail}</p>
+          {o.warnings.length === 0 ? (
+            <p className="mt-1 flex items-start gap-2">
+              <Check size={16} className="mt-0.5 shrink-0 text-pos" /> {t("Les relevés s'enchaînent, du premier au dernier.")}
+            </p>
+          ) : (
+            o.warnings.map((w) => (
+              <p key={w} className="mt-1 flex items-start gap-2">
+                <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" /> {w}
+              </p>
+            ))
+          )}
+        </div>
+      ))}
+    </Card>
   );
 }
 
@@ -190,7 +220,7 @@ function Row({ item, onOpen }: { item: ImportItem; onOpen: () => void }) {
           <span className="truncate text-[15px] font-medium">{item.title ?? name}</span>
           {item.safe && <span className="shrink-0 rounded-full bg-pos/15 px-2 py-0.5 text-[11px] font-semibold text-pos">{t("Sûr")}</span>}
         </span>
-        {(dir || item.title) && <span className="block truncate text-xs text-muted">{[dir, item.title ? name : null].filter(Boolean).join(" / ")}</span>}
+        {(dir || item.title || item.part) && <span className="block truncate text-xs text-muted">{[dir, item.title ? name : null, item.part].filter(Boolean).join(" / ")}</span>}
         {detail && <span className={cn("mt-0.5 block text-xs", item.status === "erreur" ? "text-neg" : "text-muted")}>{detail}</span>}
       </span>
       <Pill status={item.status} />
@@ -221,15 +251,18 @@ function Review({ id, onClose, onChange }: { id: number; onClose: () => void; on
       setBusy(false);
     }
   }
-  async function edit(key: string, value: string | number | null) {
+  async function patch(json: { edits?: Record<string, string | number | null>; rows?: RowEdit[] }) {
     try {
-      qc.setQueryData(["import-item", id], await api<ImportDetail>(`/imports/items/${id}`, { method: "PATCH", json: { edits: { [key]: value } } }));
+      qc.setQueryData(["import-item", id], await api<ImportDetail>(`/imports/items/${id}`, { method: "PATCH", json }));
       onChange();
+      return true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Correction refusée"));
       void detail.refetch();
+      return false;
     }
   }
+  const edit = (key: string, value: string | number | null) => patch({ edits: { [key]: value } });
 
   return (
     <Sheet open onClose={onClose} title={d?.title ?? t("Fichier")}>
@@ -243,7 +276,10 @@ function Review({ id, onClose, onChange }: { id: number; onClose: () => void; on
             <Pill status={d.status} />
             {d.type && <span>{t(d.type)}</span>}
             {d.confidence && d.status === "a_relire" && <span>· {d.confidence === "haute" ? t("lecture sans doute") : d.confidence === "moyenne" ? t("lecture à vérifier") : t("lecture incertaine")}</span>}
-            <span className="min-w-0 truncate">· {d.path}</span>
+            <span className="min-w-0 truncate">
+              · {d.path}
+              {d.part && ` · ${d.part}`}
+            </span>
           </div>
           {(d.documentId || d.invoiceId) && (
             <a href={d.invoiceId ? `/api/invoices/${d.invoiceId}/file` : `/api/documents/${d.documentId}/file`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-medium text-accent">
@@ -301,7 +337,8 @@ function Review({ id, onClose, onChange }: { id: number; onClose: () => void; on
               ))}
             </div>
           )}
-          {d.table && (
+          {d.rows && <Rows title={d.table?.title ?? t("Lignes")} rows={d.rows} edited={d.edited.includes(d.rows.key)} editable={d.status === "a_relire" && !busy} onEdit={(row) => patch({ rows: [row] })} />}
+          {d.table && !d.rows && (
             <div>
               <h3 className="mb-1 text-[12.5px] font-medium text-muted">
                 {d.table.title} · {tn("{n} ligne##tableau", "{n} lignes##tableau", d.table.total, { n: d.table.total })}
@@ -360,6 +397,130 @@ function Review({ id, onClose, onChange }: { id: number; onClose: () => void; on
         </div>
       )}
     </Sheet>
+  );
+}
+
+/* ---------- Lignes d'un fichier (les opérations d'un relevé) : toutes montrées, corrigeables une à une ---------- */
+
+type RowValues = Record<string, string>;
+const rowText = (v: string | number | null | undefined) => (v == null ? "" : typeof v === "number" ? String(v).replace(".", ",") : v);
+
+function Rows({ title, rows, edited, editable, onEdit }: { title: string; rows: ImportRows; edited: boolean; editable: boolean; onEdit: (edit: RowEdit) => Promise<boolean> }) {
+  const [open, setOpen] = useState<number | "ajout" | null>(null);
+  const marked = useRef<HTMLButtonElement>(null);
+  const amount = rows.columns.find((c) => c.type === "montant")?.key;
+  const date = rows.columns.find((c) => c.type === "date")?.key;
+  const texts = rows.columns.filter((c) => c.type === "texte");
+  const marks = new Map(rows.marks.map((m) => [m.index, m.note]));
+  // Solde après chaque ligne, quand le solde de départ est lu : c'est lui qu'on compare au relevé pour trouver l'erreur.
+  let balance = rows.opening;
+  const after = rows.lines.map((l) => (balance == null || !amount ? null : (balance = Math.round((balance + Number(l[amount] ?? 0)) * 100) / 100)));
+  const currency = rows.currency ?? undefined;
+  const done = async (edit: RowEdit) => {
+    if (await onEdit(edit)) setOpen(null);
+  };
+  return (
+    <div>
+      <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <h3 className="min-w-0 flex-1 text-[12.5px] font-medium text-muted">
+          {title} · {tn("{n} ligne##tableau", "{n} lignes##tableau", rows.lines.length, { n: rows.lines.length })}
+          {edited && <span className="text-accent"> · {t("corrigé")}</span>}
+        </h3>
+        {marks.size > 0 && (
+          <button type="button" className="press inline-flex items-center gap-1 text-xs font-medium text-warn" onClick={() => marked.current?.scrollIntoView({ block: "center", behavior: "smooth" })}>
+            <AlertTriangle size={13} /> {tn("Voir la ligne à vérifier", "Voir les {n} lignes à vérifier", marks.size, { n: marks.size })}
+          </button>
+        )}
+        {editable && (
+          <button type="button" className="press inline-flex items-center gap-1 text-xs font-medium text-accent" onClick={() => setOpen("ajout")}>
+            <Plus size={14} /> {t("Ajouter une ligne")}
+          </button>
+        )}
+      </div>
+      <div className="max-h-[26rem] divide-y divide-line overflow-y-auto rounded-xl border border-line">
+        {open === "ajout" && <RowForm rows={rows} values={{ ...(date && rows.lines.length ? { [date]: rowText(rows.lines.at(-1)![date]) } : {}) }} onCancel={() => setOpen(null)} onSave={(values) => done({ op: "add", values })} />}
+        {rows.lines.length === 0 && open !== "ajout" && <p className="px-3 py-3 text-sm text-muted">{t("Aucune ligne.")}</p>}
+        {rows.lines.map((line, i) =>
+          open === i ? (
+            <RowForm key={i} rows={rows} values={Object.fromEntries(rows.columns.map((c) => [c.key, rowText(line[c.key])]))} onCancel={() => setOpen(null)} onSave={(values) => done({ op: "set", index: i, values })} onRemove={() => done({ op: "remove", index: i })} />
+          ) : (
+            <button key={i} ref={i === rows.marks[0]?.index ? marked : undefined} type="button" disabled={!editable} onClick={() => setOpen(i)} className={cn("flex w-full items-start gap-3 px-3 py-1.5 text-left text-xs", editable && "press", marks.has(i) && "bg-warn/10")}>
+              {date && <span className="tnum w-[4.6rem] shrink-0 text-muted">{line[date] ? dateFr(String(line[date])) : "—"}</span>}
+              <span className="min-w-0 flex-1">
+                <span className="block [overflow-wrap:anywhere]">{texts.map((c) => line[c.key]).filter(Boolean).join(" · ") || "—"}</span>
+                {marks.has(i) && (
+                  <span className="flex items-start gap-1 text-warn">
+                    <AlertTriangle size={13} className="mt-px shrink-0" /> {marks.get(i)}
+                  </span>
+                )}
+              </span>
+              {amount && (
+                <span className="shrink-0 text-right">
+                  <span className={cn("tnum block font-medium", Number(line[amount]) > 0 && "text-pos")}>{moneyIn(Number(line[amount] ?? 0), currency)}</span>
+                  {after[i] != null && <span className="tnum block text-[11px] text-muted">{moneyIn(after[i], currency)}</span>}
+                </span>
+              )}
+            </button>
+          ),
+        )}
+      </div>
+      <p className="mt-1 text-xs text-muted">
+        {rows.opening != null && amount ? t("Sous chaque montant, le solde du compte après l'opération : compare-le au relevé pour trouver la ligne fausse.") : t("Toutes les lignes seront enregistrées.")} {editable && t("Touche une ligne pour la corriger ou la retirer.")}
+      </p>
+    </div>
+  );
+}
+
+/** Une ligne en cours de correction (ou une ligne ajoutée) : un champ par colonne. */
+function RowForm({ rows, values, onSave, onCancel, onRemove }: { rows: ImportRows; values: RowValues; onSave: (values: RowValues) => void; onCancel: () => void; onRemove?: () => void }) {
+  const [draft, setDraft] = useState<RowValues>(values);
+  const input = "card w-full px-2 py-1.5 text-sm outline-none";
+  const set = (key: string, v: string) => setDraft((d) => ({ ...d, [key]: v }));
+  const flip = (v: string) => (v.trim().startsWith("-") ? v.trim().slice(1) : v.trim() ? `-${v.trim()}` : v);
+  return (
+    <form
+      className="space-y-2 bg-accent-soft/40 px-3 py-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(draft);
+      }}
+    >
+      <div className="grid gap-2 md:grid-cols-[9.5rem_1fr_8rem]">
+        {rows.columns.map((c) => (
+          <label key={c.key} className="block text-xs text-muted">
+            {t(c.label)}
+            <input
+              type={c.type === "date" ? "date" : "text"}
+              inputMode={c.type === "montant" ? "decimal" : undefined}
+              required
+              value={draft[c.key] ?? ""}
+              onChange={(e) => set(c.key, e.target.value)}
+              className={cn(input, c.type === "montant" && "tnum text-right")}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" className="press rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white">
+          {t("Enregistrer")}
+        </button>
+        <button type="button" className="press rounded-lg px-2 py-1.5 text-xs text-muted" onClick={onCancel}>
+          {t("Annuler")}
+        </button>
+        {rows.columns
+          .filter((c) => c.type === "montant")
+          .map((c) => (
+            <button key={c.key} type="button" className="press rounded-lg px-2 py-1.5 text-xs font-medium text-accent" onClick={() => set(c.key, flip(draft[c.key] ?? ""))}>
+              {t("Inverser le signe")}
+            </button>
+          ))}
+        {onRemove && (
+          <button type="button" className="press ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-neg" onClick={onRemove}>
+            <Trash2 size={13} /> {t("Retirer la ligne")}
+          </button>
+        )}
+      </div>
+    </form>
   );
 }
 

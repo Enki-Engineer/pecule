@@ -78,6 +78,54 @@ describe("contrôles arithmétiques", () => {
     expect(failed(byId("releve"), { ...ok, operations: [...ok.operations, { date: "2026-02-02", label: "HORS PÉRIODE", amount: 0 }] })).toBe(1);
   });
 
+  it("relevé : les totaux imprimés ne sont comparés que si le relevé ne tombe pas juste, et la ligne fautive est désignée", () => {
+    const x = byId("releve");
+    const ok = { is_bank_statement: true, account_id: "m:compte", owner: null, bank: "Banque", account_label: "Compte courant", account_tail: "1234", period_start: "2026-01-01", period_end: "2026-01-31", opening_balance: 100, closing_balance: 2529.9, total_debit: 20.1, total_credit: 2450, operations: [{ date: "2026-01-03", label: "VIR SALAIRE", amount: 2450 }, { date: "2026-01-09", label: "CARTE BOULANGERIE", amount: -20.1 }] };
+    // Totaux qui comptent autre chose (le solde de départ) : sans effet tant que le relevé tombe juste.
+    expect(x.checks({ ...ok, total_credit: 2550 })).toHaveLength(4);
+    expect(failed(x, { ...ok, total_credit: 2550 })).toBe(0);
+    expect(x.rows!.marks!(ok)).toEqual([]);
+    // Le débit lu comme un crédit : le solde ne tombe plus, le total des débits non plus, celui des crédits non plus.
+    const flipped = { ...ok, operations: [ok.operations[0], { ...ok.operations[1], amount: 20.1 }] };
+    expect(x.checks(flipped).filter((c) => !c.ok)).toHaveLength(3);
+    expect(x.rows!.marks!(flipped).map((m) => m.index)).toEqual([1]);
+    expect(x.rows!.opening!(ok)).toBe(100);
+  });
+
+  it("relevé : un relevé sans mouvement compte, un document sans soldes ni opérations non", () => {
+    const x = byId("releve");
+    const empty = { is_bank_statement: true, account_id: null, owner: null, bank: "Banque", account_label: "Livret A", account_tail: "7702", period_start: "2026-01-01", period_end: "2026-01-31", opening_balance: 500, closing_balance: 500, operations: [] };
+    expect(x.rejected!(empty)).toBe(false);
+    expect(x.rejected!({ ...empty, closing_balance: null })).toBe(true);
+    expect(x.rejected!({ ...empty, is_bank_statement: false })).toBe(true);
+  });
+
+  it("relevé : les autres comptes du fichier sont lus à part, et les relevés d'un même compte se reconnaissent", () => {
+    const x = byId("releve");
+    const base = { is_bank_statement: true, account_id: null, owner: null, bank: "Banque de l'Estuaire", account_label: "Compte courant", account_tail: "48 21", opening_balance: 0, closing_balance: 0, operations: [] };
+    const january = { ...base, period_start: "2026-01-01", period_end: "2026-01-31", other_accounts: [{ label: "Livret A", tail: "7702" }, { label: "Compte courant", tail: "4821" }, { label: "Livret A", tail: "77 02" }, { label: " ", tail: null }] };
+    // Ni le compte lu lui-même, ni deux fois le même, ni un compte sans nom.
+    expect(x.parts!(january)).toEqual(["Livret A •••• 7702"]);
+    expect(x.parts!(base)).toEqual([]);
+    expect(x.title(january)).toContain("•••• 4821");
+    expect(x.shared!.same(january, { ...base, account_label: "Compte de dépôt", account_tail: "4821" })).toBe(true);
+    expect(x.shared!.same(january, { ...base, account_label: "Livret A", account_tail: "7702" })).toBe(false);
+  });
+
+  it("relevé : une série dit la période couverte et le relevé qui manque", () => {
+    const x = byId("releve");
+    const one = (id: number, month: string, end: string, opening: number, closing: number, tail = "4821") => ({ id, status: "a_relire", data: { is_bank_statement: true, account_id: null, owner: null, bank: "Banque de l'Estuaire", account_label: "Compte courant", account_tail: tail, period_start: `${month}-01`, period_end: `${month}-${end}`, opening_balance: opening, closing_balance: closing, operations: [{ date: `${month}-05`, label: "CARTE", amount: closing - opening }] } });
+    const complete = x.overview!([one(1, "2026-01", "31", 100, 150), one(2, "2026-02", "28", 150, 90), one(3, "2026-03", "31", 90, 300)]);
+    expect(complete).toHaveLength(1);
+    expect(complete[0].title).toContain("•••• 4821");
+    expect(complete[0].warnings).toEqual([]);
+    const holed = x.overview!([one(1, "2026-01", "31", 100, 150), one(3, "2026-03", "31", 90, 300), one(4, "2026-01", "31", 10, 20, "7702")]);
+    // Le compte qui n'a qu'un relevé n'a rien à enchaîner.
+    expect(holed).toHaveLength(1);
+    expect(holed[0].warnings).toHaveLength(1);
+    expect(holed[0].warnings[0]).toContain("2026");
+  });
+
   it("contrat : 12 mensualités = montant annuel", () => {
     const ok = { is_recurring_contract: true, type: "assurance", label: "Assurance habitation", provider: "Assureur", monthly: 21.5, annual: 258, start_date: "2025-01-01", end_date: null, renewal_date: "2027-01-01", notice_days: 60 };
     expect(failed(byId("contrat"), ok)).toBe(0);

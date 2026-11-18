@@ -117,6 +117,7 @@ export const apiTokens = mysqlTable(
  * valide (écrit dans les écrans) | range (au coffre ou aux factures, rien d'autre à écrire) | ecarte |
  * doublon (fichier déjà connu avant le lot) | ignore (écarté avant l'envoi : type, taille) | erreur.
  * Le fichier lui-même est au coffre (`document_id`) ou aux factures (`invoice_id`) : rien n'est gardé ici.
+ * Un fichier qui porte plusieurs parties (un relevé de plusieurs comptes) a une ligne par partie, sur le même document.
  */
 export const importBatches = mysqlTable(
   "import_batches",
@@ -143,6 +144,8 @@ export const importItems = mysqlTable(
     batchId: int("batch_id").notNull(),
     /** Chemin dans le dossier déposé (indice pour reconnaître le document). */
     relPath: varchar("rel_path", { length: 500 }).notNull(),
+    /** Partie du fichier lue par cette ligne, quand il en porte plusieurs (un compte d'un relevé multi-comptes) ; NULL pour le fichier entier. */
+    part: varchar("part", { length: 160 }),
     fileSize: int("file_size").notNull().default(0),
     fileMime: varchar("file_mime", { length: 80 }),
     fileSha256: char("file_sha256", { length: 64 }),
@@ -154,7 +157,7 @@ export const importItems = mysqlTable(
     title: varchar("title", { length: 255 }),
     /** Données lues (JSON), corrections de relecture (JSON), contrôles (JSON), ce que Pécule contient déjà (JSON). */
     proposal: mediumtext("proposal"),
-    edits: text("edits"),
+    edits: mediumtext("edits"),
     checks: text("checks"),
     existing: text("existing"),
     /** haute | moyenne | basse */

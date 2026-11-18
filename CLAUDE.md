@@ -129,7 +129,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Ajouter | Où |
 | --- | --- |
 | Un outil de l'assistant et du serveur MCP | `src/server/tools/` : nom, description, schéma zod, `run` (et `describe` pour une action) |
-| Un type de document lu par l'import massif | `src/server/imports/extractors/` + une ligne dans `EXTRACTORS` |
+| Un type de document lu par l'import massif | `src/server/imports/extractors/` + une ligne dans `EXTRACTORS` ; au besoin `rows` (longue liste lue en plusieurs réponses, corrigeable ligne à ligne), `parts` (plusieurs objets dans un fichier), `shared` (choix reporté aux fichiers du même objet), `overview` (ce que le lot dit d'ensemble) — voir `releve.ts` |
 | Une marque (logo, reconnaissance d'un libellé) | une ligne dans `src/lib/brands.ts` |
 | Un fournisseur d'IA qui parle l'API Messages | `src/lib/ai-providers.ts` et `buildClient` (`src/server/ai.ts`) |
 | Un appel à l'IA d'un nouveau genre, ou le tarif d'un modèle | `recordUsage(nom, …)` après l'appel ; son usage dans `usageKind` et `KIND_GROUP`, le tarif dans `MODEL_PRICES` (`src/lib/ai-usage.ts`) ; son libellé dans `components/AiCost.tsx` |

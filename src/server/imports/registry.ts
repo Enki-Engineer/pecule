@@ -20,7 +20,31 @@ export type Table = { title: string; columns: string[]; lines: (string | number 
 /** Ce que Pécule contient déjà pour la même clé : `diffs` vide = rien ne changerait. */
 export type Existing = { summary: string; diffs: { label: string; before: string; after: string }[] } | null;
 
-export type Ctx = { userId: number; documentId: number | null; relPath: string };
+/** `part` : la partie du fichier à lire quand il en porte plusieurs (un compte d'un relevé multi-comptes). */
+export type Ctx = { userId: number; documentId: number | null; relPath: string; part?: string | null };
+
+export type RowColumn = { key: string; label: string; type: "date" | "texte" | "montant" };
+/**
+ * Liste de lignes d'un document (les opérations d'un relevé) : lue en plusieurs réponses quand elle est longue,
+ * montrée en entier à la relecture et corrigeable ligne à ligne.
+ */
+export type Rows<T> = {
+  /** Clé de la liste dans les données lues. */
+  key: string;
+  /** Lignes demandées par réponse de l'IA : s'il en reste, la suite lui est redemandée. */
+  perReply: number;
+  columns: RowColumn[];
+  /** Devise des montants, quand ce n'est pas celle du foyer. */
+  currency?(data: T): string | undefined;
+  /** Solde avant la première ligne : l'écran en tire le solde après chaque ligne. */
+  opening?(data: T): number | null;
+  /** Lignes à regarder de près (celle dont le signe expliquerait un relevé qui ne tombe pas juste). */
+  marks?(data: T): { index: number; note: string }[];
+};
+/** Vue d'ensemble des fichiers d'un même type dans un lot (les relevés d'un compte : période couverte, trous). */
+export type Overview = { title: string; detail: string; warnings: string[] };
+/** Ce qu'une validation a fait ; `share` : ce qu'elle a fixé et qui vaut pour les fichiers du lot qui parlent du même objet. */
+export type Applied = string | { summary: string; share?: Record<string, { from: string | number | null; to: string | number | null }> };
 
 export type Extractor<T extends Record<string, unknown> = Record<string, unknown>> = {
   id: string;
@@ -37,6 +61,16 @@ export type Extractor<T extends Record<string, unknown> = Record<string, unknown
   maxTokens?: number;
   /** Un PDF d'au plus ce nombre de pages est montré tel quel (12 par défaut) ; au-delà, son texte. */
   pdfUpTo?: number;
+  /** Liste de lignes lue en plusieurs réponses et corrigeable à la relecture. */
+  rows?: Rows<T>;
+  /** Autres parties du même fichier, à lire chacune à part (les autres comptes d'un relevé). */
+  parts?(data: T): string[];
+  /**
+   * Fichiers d'un même lot qui parlent du même objet (les relevés d'un même compte) : une correction de l'un de ces
+   * champs est reportée aux autres, tant qu'ils n'ont pas reçu une autre valeur.
+   */
+  shared?: { keys: string[]; same(a: T, b: T): boolean };
+  overview?(items: { id: number; status: string; data: T }[]): Overview[];
   /** Contexte du foyer utile à la lecture (liste des biens, des crédits connus…). */
   context?(ctx: Ctx): Promise<string>;
   /** Vrai si la lecture dit que ce n'est finalement pas ce type de document : il reste rangé au coffre. */
@@ -47,7 +81,7 @@ export type Extractor<T extends Record<string, unknown> = Record<string, unknown
   checks(data: T): Check[];
   existing(data: T, ctx: Ctx): Promise<Existing>;
   /** Écrit les données dans les écrans, par le journal `track` ; rend une phrase qui dit ce qui a été fait. */
-  apply(data: T, ctx: Ctx, track: Tracker): Promise<string>;
+  apply(data: T, ctx: Ctx, track: Tracker): Promise<Applied>;
 };
 
 export type Reading = { data: Record<string, unknown>; confidence: Confidence; doubts: string[] };

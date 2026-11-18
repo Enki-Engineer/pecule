@@ -22,6 +22,15 @@ const source = (via: string | undefined) => (via === "mcp" ? "mcp" : via === "ap
 
 const uploads = rateLimit({ windowMs: 3600_000, limit: 3000, standardHeaders: "draft-8", legacyHeaders: false, keyGenerator: (req) => String(req.user?.id ?? "anonyme"), message: () => ({ error: t("Trop de fichiers envoyés cette heure-ci.") }) });
 
+const value = z.union([z.string().max(500), z.number(), z.null()]);
+const values = z.record(z.string().max(60), value);
+/** Correction d'une ligne d'un fichier (une opération d'un relevé) : la changer, la retirer, en ajouter une. */
+const rowEdit = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("set"), index: z.number().int().min(0), values }),
+  z.object({ op: z.literal("remove"), index: z.number().int().min(0) }),
+  z.object({ op: z.literal("add"), index: z.number().int().min(0).optional(), values }),
+]);
+
 importsApi.get("/imports", async (req, res) => {
   res.json({ batches: await listBatches(req.user!.id) });
 });
@@ -74,8 +83,8 @@ importsApi.get("/imports/items/:item", async (req, res) => {
 });
 
 importsApi.patch("/imports/items/:item", async (req, res) => {
-  const { edits } = z.object({ edits: z.record(z.string().max(60), z.union([z.string().max(500), z.number(), z.null()])) }).parse(req.body);
-  res.json(await editItem(req.user!.id, id(req.params.item), edits));
+  const { edits, rows } = z.object({ edits: z.record(z.string().max(60), value).default({}), rows: z.array(rowEdit).max(200).default([]) }).parse(req.body);
+  res.json(await editItem(req.user!.id, id(req.params.item), edits, rows));
 });
 
 importsApi.post("/imports/items/:item/:action", async (req, res) => {

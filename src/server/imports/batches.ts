@@ -11,16 +11,17 @@ import { logAudit, recordAlert, runAs } from "../journal.ts";
 import { memberLang, runInLang } from "../lang.ts";
 import { acceptFile, cleanPath, estimateUsd, isBankFile, isSafe, MAX_BATCH_FILES, MAX_FILE_SIZE, type Check, type ItemStatus } from "../../lib/imports.ts";
 import { t } from "../../lib/i18n.ts";
-import { extractorById, pickExtractor } from "./extractors/index.ts";
+import { EXTRACTORS, extractorById, pickExtractor } from "./extractors/index.ts";
 import type { BankFileData } from "./extractors/fichier-banque.ts";
 import { readDocument } from "./read.ts";
-import type { Ctx, Existing, Extractor, Field, Table } from "./registry.ts";
+import type { Ctx, Existing, Extractor, Field, Overview, RowColumn, Table } from "./registry.ts";
 import { Tracker, undo, type Written } from "./track.ts";
 
 /*
  * Import massif de documents : lots, lignes, file de lecture, relecture, validation et annulation.
  * Un fichier reçu est tout de suite rangé au coffre ; la file le reconnaît, le lit avec son extracteur et laisse
  * une proposition. Rien n'est écrit dans les écrans avant la validation, et toute validation peut être annulée.
+ * Un fichier qui porte plusieurs parties (un relevé de plusieurs comptes) a une ligne par partie (`part`).
  */
 
 const PRIVATE_DOMAINS = new Set(["retraite", "revenus"]);
@@ -40,6 +41,8 @@ type ItemRow = {
   id: number;
   batch_id: number;
   rel_path: string;
+  /** Partie du fichier lue par cette ligne (un compte d'un relevé qui en porte plusieurs), null pour le fichier entier. */
+  part: string | null;
   file_size: number;
   file_mime: string | null;
   file_sha256: string | null;
@@ -83,6 +86,7 @@ function itemSummary(i: ItemRow) {
   return {
     id: i.id,
     path: i.rel_path,
+    part: i.part,
     size: i.file_size,
     status: i.status,
     extractor: i.extractor,
@@ -104,7 +108,8 @@ function itemSummary(i: ItemRow) {
 
 export async function batchView(userId: number, batchId: number) {
   const b = await ownBatch(userId, batchId);
-  const items = (await q<ItemRow>("SELECT * FROM import_items WHERE batch_id = ? ORDER BY rel_path, id", [batchId])).map(itemSummary);
+  const rows = await q<ItemRow>("SELECT * FROM import_items WHERE batch_id = ? ORDER BY rel_path, id", [batchId]);
+  const items = rows.map(itemSummary);
   const counts: Partial<Record<ItemStatus, number>> = {};
   for (const i of items) counts[i.status] = (counts[i.status] ?? 0) + 1;
   const costEur = Math.round(items.reduce((s, i) => s + i.costEur, 0) * 10_000) / 10_000;
@@ -123,8 +128,25 @@ export async function batchView(userId: number, batchId: number) {
     ai: aiEnabled(),
     counts,
     safe: items.filter((i) => i.safe).length,
+    overview: b.status === "annule" ? [] : overview(rows),
     items,
   };
+}
+
+/** Ce que les fichiers d'un même type disent ensemble (les relevés d'un compte : période couverte, relevé manquant). */
+function overview(rows: ItemRow[]): Overview[] {
+  return EXTRACTORS.flatMap((x) => {
+    if (!x.overview) return [];
+    const list = rows.flatMap((i) => {
+      if (i.extractor !== x.id || !i.proposal || (i.status !== "a_relire" && i.status !== "valide")) return [];
+      try {
+        return [{ id: i.id, status: i.status, data: merged(i, x).data }];
+      } catch {
+        return [];
+      }
+    });
+    return list.length ? x.overview(list) : [];
+  });
 }
 
 export async function listBatches(userId: number) {
@@ -218,7 +240,7 @@ export async function readVaultDocument(userId: number, documentId: number) {
   if (!pickExtractor(doc)) throw new ActionError(400, t("Pécule ne sait pas encore tirer de données de ce type de document."));
   const open = await one<{ id: number }>("SELECT id FROM import_batches WHERE user_id = ? AND source = 'coffre' AND status = 'ouvert' ORDER BY id DESC LIMIT 1", [userId]);
   const batchId = open?.id ?? (await exec("INSERT INTO import_batches (user_id, name, source) VALUES (?, ?, 'coffre')", [userId, t("Documents du coffre")])).insertId;
-  const known = await one<{ id: number; status: ItemStatus }>("SELECT id, status FROM import_items WHERE batch_id = ? AND document_id = ? ORDER BY id DESC LIMIT 1", [batchId, doc.id]);
+  const known = await one<{ id: number; status: ItemStatus }>("SELECT id, status FROM import_items WHERE batch_id = ? AND document_id = ? AND part IS NULL ORDER BY id DESC LIMIT 1", [batchId, doc.id]);
   if (known && ["attente", "lecture", "a_relire", "valide"].includes(known.status)) return { batchId, itemId: known.id };
   const item = await exec("INSERT INTO import_items (batch_id, rel_path, file_size, file_mime, file_sha256, status, document_id, title) VALUES (?, ?, ?, ?, ?, 'attente', ?, ?)", [batchId, (doc.file_name ?? doc.title).slice(0, 500), doc.file_size ?? 0, doc.file_mime, doc.file_sha256, doc.id, doc.title]);
   kick();
@@ -270,9 +292,11 @@ async function next(): Promise<void> {
   }
 }
 
+/** Fournisseur saturé ou erreur passagère : par son code, ou par son type quand elle arrive au milieu d'une réponse en flux (sans code). */
 const transient = (e: unknown) => {
-  const status = (e as { status?: number } | null)?.status;
-  return status === 429 || status === 529 || status === 503 || status === 500;
+  const err = e as { status?: number; error?: { type?: string; error?: { type?: string } } } | null;
+  const type = err?.error?.error?.type ?? err?.error?.type;
+  return [429, 500, 503, 529].includes(err?.status ?? 0) || type === "overloaded_error" || type === "rate_limit_error" || type === "api_error";
 };
 
 async function readItem(item: ItemRow, userId: number) {
@@ -302,10 +326,10 @@ async function process(item: ItemRow, userId: number) {
   if (!doc || !file) throw new ActionError(404, t("Le fichier n'est plus au coffre."));
   const mime = item.file_mime ?? doc.file_mime ?? "application/octet-stream";
   const name = item.rel_path.split("/").pop() ?? item.rel_path;
-  const ctx: Ctx = { userId, documentId: doc.id, relPath: item.rel_path };
+  const ctx: Ctx = { userId, documentId: doc.id, relPath: item.rel_path, part: item.part };
 
-  // Document qui était déjà au coffre (lecture demandée depuis sa fiche) : son rangement n'est pas refait, seul son
-  // extracteur le lit.
+  // Document qui était déjà au coffre (lecture demandée depuis sa fiche), ou autre partie d'un fichier du lot déjà
+  // rangé (le deuxième compte d'un relevé) : son rangement n'est pas refait, seul son extracteur le lit.
   if (doc.source_ref !== `lot:${item.batch_id}:${item.id}`) {
     const x = pickExtractor(doc);
     if (!x || !aiEnabled()) return settle(item.id, "range", { title: doc.title });
@@ -313,6 +337,7 @@ async function process(item: ItemRow, userId: number) {
     const reading = await readDocument(x, { content: file.content, mime, text: text.trim() ? text : (doc.content_text ?? ""), pages, title: doc.title }, ctx);
     if (!reading) return settle(item.id, "range", { title: doc.title, error: t("Les données de ce document n'ont pas pu être lues.") });
     if (x.rejected?.(reading.data)) return settle(item.id, "range", { title: doc.title, error: reading.doubts.join(" ").slice(0, 500) || null });
+    await openParts(item, x, reading.data);
     return propose(item, x, { data: reading.data, doubts: reading.doubts }, reading.confidence, ctx);
   }
 
@@ -359,7 +384,21 @@ async function process(item: ItemRow, userId: number) {
   if (!reading) return settle(item.id, "range", { title: c.title, error: t("Le document a été rangé, mais ses données n'ont pas pu être lues.") });
   // Reconnu d'après son début, mais sa lecture complète dit autre chose : il reste rangé, avec ce qu'en dit la lecture.
   if (x.rejected?.(reading.data)) return settle(item.id, "range", { title: c.title, error: reading.doubts.join(" ").slice(0, 500) || null });
+  await openParts(item, x, reading.data);
   return propose(item, x, { data: reading.data, doubts: reading.doubts }, reading.confidence, ctx);
+}
+
+/**
+ * Le fichier porte d'autres parties que celle qui vient d'être lue (les autres comptes d'un relevé) : une ligne de
+ * plus par partie, lue à son tour par le même extracteur. Seule la ligne du fichier entier en ouvre, une fois.
+ */
+async function openParts(item: ItemRow, x: Extractor, data: Record<string, unknown>) {
+  if (item.part || !x.parts || !item.document_id) return;
+  const known = new Set((await q<{ part: string }>("SELECT part FROM import_items WHERE batch_id = ? AND document_id = ? AND part IS NOT NULL", [item.batch_id, item.document_id])).map((r) => r.part));
+  for (const part of x.parts(data)) {
+    if (known.has(part)) continue;
+    await exec("INSERT INTO import_items (batch_id, rel_path, part, file_size, file_mime, file_sha256, status, document_id) VALUES (?, ?, ?, ?, ?, ?, 'attente', ?)", [item.batch_id, item.rel_path, part, item.file_size, item.file_mime, item.file_sha256, item.document_id]);
+  }
 }
 
 async function propose(item: ItemRow, x: Extractor, proposal: Proposal, confidence: string, ctx: Ctx) {
@@ -380,32 +419,125 @@ function merged(item: ItemRow, x: Extractor): { data: Record<string, unknown>; d
 export async function itemView(userId: number, itemId: number) {
   const item = await ownItem(userId, itemId);
   const x = extractorById(item.extractor);
-  const base = { ...itemSummary(item), doubts: [] as string[], fields: [] as Field[], edited: [] as string[], table: null as Table | null, checks: json<Check[]>(item.checks, []), existing: json<Existing>(item.existing, null) };
+  const base = { ...itemSummary(item), doubts: [] as string[], fields: [] as Field[], edited: [] as string[], table: null as Table | null, rows: null as RowsView | null, checks: json<Check[]>(item.checks, []), existing: json<Existing>(item.existing, null) };
   if (!x || !item.proposal) return base;
   const { data, doubts } = merged(item, x);
-  const ctx: Ctx = { userId, documentId: item.document_id, relPath: item.rel_path };
-  return { ...base, doubts, fields: await x.fields(data, ctx), edited: Object.keys(json<Record<string, unknown>>(item.edits, {})), table: x.table?.(data) ?? null };
+  const ctx = ctxOf(userId, item);
+  const rows: RowsView | null = x.rows
+    ? { key: x.rows.key, columns: x.rows.columns, lines: rowsOf(data, x.rows.key), currency: x.rows.currency?.(data) ?? null, opening: x.rows.opening?.(data) ?? null, marks: item.status === "a_relire" ? (x.rows.marks?.(data) ?? []) : [] }
+    : null;
+  return { ...base, doubts, fields: await x.fields(data, ctx), edited: Object.keys(json<Record<string, unknown>>(item.edits, {})), table: x.table?.(data) ?? null, rows };
 }
 
-/** Corrections de relecture : gardées à part de la lecture d'origine, puis contrôles et écarts recalculés. */
-export async function editItem(userId: number, itemId: number, edits: Record<string, unknown>) {
+/** Lignes d'un document montrées en entier à la relecture (les opérations d'un relevé), corrigeables une à une. */
+export type RowsView = { key: string; columns: RowColumn[]; lines: Record<string, string | number | null>[]; currency: string | null; opening: number | null; marks: { index: number; note: string }[] };
+/** Correction d'une ligne : la changer, la retirer, ou en ajouter une (avant la ligne `index`, à la fin sinon). */
+export type RowEdit = { op: "set"; index: number; values: Record<string, unknown> } | { op: "remove"; index: number } | { op: "add"; index?: number; values: Record<string, unknown> };
+
+const ctxOf = (userId: number, item: ItemRow): Ctx => ({ userId, documentId: item.document_id, relPath: item.rel_path, part: item.part });
+const rowsOf = (data: Record<string, unknown>, key: string) => (Array.isArray(data[key]) ? (data[key] as Record<string, string | number | null>[]) : []);
+const MAX_ROWS = 5000;
+
+function rowValue(c: RowColumn, raw: unknown): string | number {
+  if (c.type === "montant") {
+    const n = typeof raw === "number" ? raw : Number(String(raw ?? "").replace(/\s/g, "").replace(",", "."));
+    if (!Number.isFinite(n)) throw new ActionError(400, t("« {champ} » : nombre attendu.", { champ: t(c.label) }));
+    return Math.round(n * 100) / 100;
+  }
+  const text = String(raw ?? "").trim().replace(/\s+/g, " ").slice(0, 500);
+  if (c.type === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(text)) throw new ActionError(400, t("« {champ} » : date attendue.", { champ: t(c.label) }));
+  if (!text) throw new ActionError(400, t("« {champ} » : à renseigner.", { champ: t(c.label) }));
+  return text;
+}
+
+/** La liste après les corrections demandées, appliquées dans l'ordre. */
+function editRows(x: Extractor, list: Record<string, string | number | null>[], changes: RowEdit[]) {
+  const out = [...list];
+  const inside = (i: number) => {
+    if (!Number.isInteger(i) || i < 0 || i >= out.length) throw new ActionError(400, t("Cette ligne n'existe plus : rouvre le fichier."));
+    return i;
+  };
+  for (const c of changes) {
+    if (c.op === "remove") out.splice(inside(c.index), 1);
+    else if (c.op === "set") {
+      const i = inside(c.index);
+      out[i] = { ...out[i], ...Object.fromEntries(x.rows!.columns.filter((col) => col.key in c.values).map((col) => [col.key, rowValue(col, c.values[col.key])])) };
+    } else {
+      if (out.length >= MAX_ROWS) throw new ActionError(400, t("Trop de lignes dans ce fichier."));
+      const row = Object.fromEntries(x.rows!.columns.map((col) => [col.key, rowValue(col, c.values[col.key])]));
+      out.splice(c.index === undefined ? out.length : Math.min(Math.max(0, c.index), out.length), 0, row);
+    }
+  }
+  return out;
+}
+
+/**
+ * Corrections de relecture : gardées à part de la lecture d'origine, puis contrôles et écarts recalculés. `rows` :
+ * corrections des lignes d'une liste (les opérations d'un relevé). Un choix que l'extracteur partage (le compte d'un
+ * relevé) est reporté aux autres fichiers du lot qui parlent du même objet.
+ */
+export async function editItem(userId: number, itemId: number, edits: Record<string, unknown>, rows: RowEdit[] = []) {
   const item = await ownItem(userId, itemId);
   const x = extractorById(item.extractor);
   if (item.status !== "a_relire" || !x) throw new ActionError(400, t("Ce fichier n'est pas en relecture."));
-  const ctx: Ctx = { userId, documentId: item.document_id, relPath: item.rel_path };
+  const ctx = ctxOf(userId, item);
   const before = merged(item, x);
   const fields = await x.fields(before.data, ctx);
   const next = { ...json<Record<string, unknown>>(item.edits, {}) };
+  const changes: Changes = {};
   for (const [key, raw] of Object.entries(edits)) {
     const f = fields.find((x) => x.key === key);
     if (!f) continue;
     next[key] = coerce(f, raw);
+    changes[key] = { from: (before.data[key] as string | number | null | undefined) ?? null, to: next[key] as string | number | null };
+  }
+  if (rows.length) {
+    if (!x.rows) throw new ActionError(400, t("Ce fichier n'a pas de lignes à corriger."));
+    next[x.rows.key] = editRows(x, rowsOf(before.data, x.rows.key), rows);
   }
   const data = x.parse.safeParse({ ...json<Proposal>(item.proposal, { data: {}, doubts: [] }).data, ...next });
   if (!data.success) throw new ActionError(400, t("Une valeur corrigée n'est pas valide."));
-  const existing = await x.existing(data.data, ctx);
-  await exec("UPDATE import_items SET edits = ?, checks = ?, existing = ?, title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [JSON.stringify(next), JSON.stringify(x.checks(data.data)), existing ? JSON.stringify(existing) : null, x.title(data.data).slice(0, 255), item.id]);
+  await saveEdits(item, x, next, data.data, ctx);
+  await spread(userId, item, x, data.data, changes);
   return itemView(userId, itemId);
+}
+
+async function saveEdits(item: ItemRow, x: Extractor, edits: Record<string, unknown>, data: Record<string, unknown>, ctx: Ctx) {
+  const existing = await x.existing(data, ctx);
+  await exec("UPDATE import_items SET edits = ?, checks = ?, existing = ?, title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [JSON.stringify(edits), JSON.stringify(x.checks(data)), existing ? JSON.stringify(existing) : null, x.title(data).slice(0, 255), item.id]);
+}
+
+type Changes = Record<string, { from: string | number | null; to: string | number | null }>;
+
+/**
+ * Reporte un choix aux autres fichiers à relire du lot qui parlent du même objet (`shared` : les relevés d'un même
+ * compte). Un fichier ne le reçoit que s'il n'avait rien, ou la valeur que ce choix remplace : ce qui a été choisi
+ * exprès pour lui reste.
+ */
+async function spread(userId: number, item: ItemRow, x: Extractor, data: Record<string, unknown>, changes: Changes) {
+  const keys = Object.keys(changes).filter((k) => x.shared?.keys.includes(k) && changes[k].from !== changes[k].to);
+  if (!x.shared || !keys.length) return;
+  const others = await q<ItemRow>("SELECT * FROM import_items WHERE batch_id = ? AND id <> ? AND status = 'a_relire' AND extractor = ?", [item.batch_id, item.id, x.id]);
+  for (const other of others) {
+    let theirs: Record<string, unknown>;
+    try {
+      theirs = merged(other, x).data;
+    } catch {
+      continue;
+    }
+    if (!x.shared.same(data, theirs)) continue;
+    const next = { ...json<Record<string, unknown>>(other.edits, {}) };
+    let touched = false;
+    for (const k of keys) {
+      const current = (theirs[k] as string | number | null | undefined) ?? null;
+      if (current === changes[k].to || (current !== null && current !== changes[k].from)) continue;
+      next[k] = changes[k].to;
+      touched = true;
+    }
+    if (!touched) continue;
+    const parsed = x.parse.safeParse({ ...json<Proposal>(other.proposal, { data: {}, doubts: [] }).data, ...next });
+    if (parsed.success) await saveEdits(other, x, next, parsed.data, ctxOf(userId, other));
+  }
 }
 
 function coerce(f: Field, raw: unknown): string | number | null {
@@ -434,9 +566,12 @@ export async function validateItem(userId: number, itemId: number) {
   if (!taken.affectedRows) throw new ActionError(409, t("Ce fichier est déjà en cours de validation."));
   const track = new Tracker();
   try {
-    const summary = await x.apply(data, { userId, documentId: item.document_id, relPath: item.rel_path }, track);
+    const applied = await x.apply(data, ctxOf(userId, item), track);
+    const summary = typeof applied === "string" ? applied : applied.summary;
     await exec("UPDATE import_items SET status = 'valide', result = ?, error = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [JSON.stringify({ log: track.log, summary } satisfies Result), item.id]);
-    await logAudit("import massif : fichier validé", item.id, { type: x.id, fichier: item.rel_path });
+    await logAudit("import massif : fichier validé", item.id, { type: x.id, fichier: item.rel_path, ...(item.part ? { partie: item.part } : {}) });
+    // Ce que la validation a fixé (le compte créé pour ce relevé) vaut pour les autres fichiers du même objet.
+    if (typeof applied !== "string" && applied.share) await spread(userId, item, x, data, applied.share).catch((e) => console.error("[import] report aux fichiers du même objet", e));
   } catch (e) {
     await undo(track.log).catch((err) => recordAlert("import", `Annulation incomplète après un échec de validation (fichier ${item.id})`, err));
     await exec("UPDATE import_items SET status = 'a_relire' WHERE id = ?", [item.id]);
@@ -457,7 +592,7 @@ export async function validateSafe(userId: number, batchId: number) {
     const x = extractorById(item.extractor);
     if (!x || item.status !== "a_relire") continue;
     const { data } = merged(item, x);
-    const existing = await x.existing(data, { userId, documentId: item.document_id, relPath: item.rel_path });
+    const existing = await x.existing(data, ctxOf(userId, item));
     if (!isSafe({ status: item.status, checks: x.checks(data), confidence: item.confidence, changes: existing?.diffs.length ?? 0 })) continue;
     try {
       await validateItem(userId, item.id);

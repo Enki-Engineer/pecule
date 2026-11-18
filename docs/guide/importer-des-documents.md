@@ -44,18 +44,40 @@ pas de regard ; le reste se valide un par un.
 | Tableau d'amortissement, offre de prêt | Crédit et son échéancier | capital remboursé = capital emprunté ; restant dû décroissant et nul à la fin ; chaque ligne tombe juste |
 | Relevé de carrière, estimation de retraite | Retraite | 4 trimestres au plus par an ; total proche du total enregistré |
 | Acte de vente, compromis, bail | Fiche du bien | prix et date, ou loyer et début du bail |
-| Relevé de compte (PDF) | Opérations du compte | solde de départ + opérations = solde d'arrivée |
+| Relevé de compte (PDF) | Opérations du compte | solde de départ + opérations = solde d'arrivée ; la série des relevés d'un compte s'enchaîne |
 | Export de la banque (OFX, QIF, CSV) | Opérations du compte | lu sans IA ; une opération déjà connue n'est pas recréée |
 | Facture d'achat | Factures | articles, rapprochement avec l'opération |
 
 Un document d'un autre type reste simplement au coffre, avec son titre, son résumé et ses faits clés.
 
+## Reprendre l'historique d'un compte avec ses relevés
+
+Une banque ne donne souvent que quelques mois d'opérations ; ses relevés en PDF remontent à l'ouverture du compte.
+Déposez le dossier des relevés comme n'importe quel autre :
+
+- **Un relevé de plusieurs comptes** (compte courant et livrets) donne une proposition par compte.
+- **Le compte se choisit une fois** : sur le premier relevé d'un compte, choisissez le compte de Pécule qui reçoit
+  ses opérations, ou « Nouveau compte… » ; le choix vaut pour les autres relevés du même compte dans le lot, qui
+  deviennent « sûrs » et se valident d'un coup.
+- **Chaque relevé doit tomber juste.** Sinon sa fiche liste toutes ses opérations avec le solde après chacune, et
+  désigne la ligne dont le signe ou la présence expliquerait l'écart : on la corrige, on la retire, ou on ajoute
+  l'opération oubliée. Quand le relevé imprime ses totaux, ils disent de quel côté chercher (débits ou crédits).
+- **La série se vérifie d'elle-même** : en haut du lot, l'encadré des relevés de compte donne la période couverte
+  pour chaque compte et signale un relevé manquant (le solde d'arrivée d'un relevé doit être le solde de départ du
+  suivant).
+- **Rien n'est ajouté deux fois** : une opération déjà connue du compte, par un relevé précédent ou par la banque
+  elle-même, n'est pas recréée. Redéposer un relevé ne change rien.
+
+Un relevé de plusieurs centaines d'opérations est lu en plusieurs fois. Jusqu'à 40 pages, l'IA lit les pages telles
+qu'elles sont imprimées ; au-delà, seulement leur texte, où débits et crédits se distinguent moins bien. Si la banque
+propose un export (OFX, QIF, CSV), préférez-le : il est lu sans IA.
+
 ## Coût et confidentialité
 
 La lecture passe par **votre** fournisseur d'IA (Réglages → Comptes et connexions → Intelligence artificielle) : les documents lui sont envoyés. Le coût est
 estimé avant l'envoi, mesuré appel par appel et **plafonné par lot** (5 € par défaut ; la lecture se met en pause au
-plafond et reprend si vous l'élevez). Ordres de grandeur : quelques centimes pour un bulletin ou un avis, quelques
-dizaines de centimes pour un échéancier de 300 lignes. Sans fournisseur d'IA, les fichiers sont rangés au coffre sans
+plafond et reprend si vous l'élevez). Ordres de grandeur : quelques centimes pour un bulletin, un avis ou un relevé
+de compte mensuel, quelques dizaines de centimes pour un échéancier de 300 lignes ou un relevé de 300 opérations. Sans fournisseur d'IA, les fichiers sont rangés au coffre sans
 être lus ; les exports de la banque, eux, sont toujours lus.
 
 ## En ligne de commande, ou par un agent

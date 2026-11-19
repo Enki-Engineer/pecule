@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
@@ -18,6 +19,7 @@ import { brandsApi } from "./routes/brands.ts";
 import { langContext } from "./lang.ts";
 import { dataI18nApi, dataNames } from "./data-i18n.ts";
 import { DEFAULT_LANG, isLang, t, tk, translate } from "../lib/i18n.ts";
+import { asLogoId, HOME_ICON_COOKIE, pageWithHomeIcon } from "../lib/logo.ts";
 import { loadAiConfig } from "./ai-config.ts";
 import { readEnableBankingNow, syncBanks } from "./bank-sync.ts";
 import { seedStarter } from "./starter.ts";
@@ -195,10 +197,12 @@ export async function createApp() {
       res.status(404).set("Cache-Control", "no-store").type("text/plain").send("Introuvable");
     });
     app.use(express.static(client, { index: false, maxAge: 0 }));
-    app.get("/{*path}", (_req, res) => {
-      res.set("Cache-Control", "no-cache");
-      // `root` : le chemin de l'installation peut passer par un dossier caché (« .apps/… ») sans que l'envoi soit refusé.
-      res.sendFile("index.html", { root: client });
+    // La page part avec l'icône choisie sur l'appareil (cookie posé par le script d'apparence) : à l'ajout au Dock ou
+    // à l'écran d'accueil, Safari retient le manifeste et l'icône de la page envoyée, pas ceux qu'un script y met ensuite.
+    const page = readFileSync(path.join(client, "index.html"), "utf8");
+    app.get("/{*path}", (req, res) => {
+      const icon = asLogoId(req.cookies?.[HOME_ICON_COOKIE]);
+      res.set("Cache-Control", "no-cache").vary("Cookie").type("html").send(icon ? pageWithHomeIcon(page, icon) : page);
     });
   } else {
     const { createServer } = await import("vite");

@@ -6,7 +6,7 @@
 //                              anime (src/client/components/ChestLogo.tsx, src/styles/coffre.css).
 //   coffre/onglet-<id>.svg     coffre fermé, coins arrondis : onglet du navigateur (lisible en 16 px)
 //   coffre/<id>-{180,192,512}.png et coffre/<id>.webmanifest : icône de l'écran d'accueil
-//   icon.svg, icon-192.png, icon-512.png, apple-touch-icon.png : valeurs par défaut (fond pétrole)
+//   icon.svg, icon-192.png, icon-512.png, apple-touch-icon.png : valeurs par défaut (fond sable, DEFAULT_FOND de src/lib/logo.ts)
 // Usage : node scripts/logo.mjs [--svg]   (--svg : sans les PNG, qui demandent Chrome)
 // Les identifiants sont ceux de src/lib/logo.ts (fonds) et src/lib/seasons.ts (thèmes).
 // Après une retouche du dessin : changer le nom du cache dans public/sw.js (les icônes sont servies « cache d'abord »).
@@ -354,8 +354,9 @@ for (const id of ids) {
   writeFileSync(path.join(OUT, "coffre", `${id}.webmanifest`), manifest(id));
 }
 // Valeurs par défaut (avant le script d'apparence, anciennes installations, notifications).
-writeFileSync(path.join(OUT, "icon.svg"), logo(VARIANTS.petrole, true));
-writeFileSync(path.join(OUT, "..", "manifest.webmanifest"), manifest("petrole"));
+const DEFAULT = "sable";
+writeFileSync(path.join(OUT, "icon.svg"), logo(VARIANTS[DEFAULT], true));
+writeFileSync(path.join(OUT, "..", "manifest.webmanifest"), manifest(DEFAULT));
 
 if (!process.argv.includes("--svg")) {
   const { chromium } = await import("playwright-core");
@@ -369,8 +370,8 @@ if (!process.argv.includes("--svg")) {
     await page.close();
   }
   await browser.close();
-  copyFileSync(path.join(OUT, "coffre", "petrole-180.png"), path.join(OUT, "apple-touch-icon.png"));
-  copyFileSync(path.join(OUT, "coffre", "petrole-192.png"), path.join(OUT, "icon-192.png"));
-  copyFileSync(path.join(OUT, "coffre", "petrole-512.png"), path.join(OUT, "icon-512.png"));
+  copyFileSync(path.join(OUT, "coffre", `${DEFAULT}-180.png`), path.join(OUT, "apple-touch-icon.png"));
+  copyFileSync(path.join(OUT, "coffre", `${DEFAULT}-192.png`), path.join(OUT, "icon-192.png"));
+  copyFileSync(path.join(OUT, "coffre", `${DEFAULT}-512.png`), path.join(OUT, "icon-512.png"));
 }
 console.log(`${ids.length} déclinaisons écrites dans public/icons/coffre`);

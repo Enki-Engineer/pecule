@@ -23,7 +23,7 @@
     var FONDS = ["petrole","nuit","foret","sable","corail"];
     var THEMES = ["hiver", "printemps", "ete", "automne", "anniversaire", "nouvel-an", "epiphanie", "chandeleur", "saint-valentin", "saint-patrick", "paques", "14-juillet", "rentree", "halloween", "fete-lumieres", "noel"];
     var fond = localStorage.getItem("pecule.logo.fond");
-    if (FONDS.indexOf(fond) < 0) fond = "petrole";
+    if (FONDS.indexOf(fond) < 0) fond = "sable";
     var logo = s || fond;
     root.dataset.logo = logo;
     var home = localStorage.getItem("pecule.logo.icone");
@@ -31,6 +31,9 @@
     link("icon", "/icons/coffre/onglet-" + logo + ".svg");
     link("apple-touch-icon", "/icons/coffre/" + home + "-180.png");
     link("manifest", "/icons/coffre/" + home + ".webmanifest");
+    // Recopiée dans un cookie : le serveur écrit la page avec cette icône (Safari, à l'ajout au Dock ou à l'écran
+    // d'accueil, lit la page envoyée et non ce qu'un script y change). Même nom que HOME_ICON_COOKIE (src/lib/logo.ts).
+    document.cookie = "pecule_icone=" + home + "; path=/; max-age=31536000; samesite=lax" + (location.protocol === "https:" ? "; secure" : "");
   } catch (e) {
     root.dataset.theme = "light";
   }

@@ -3,6 +3,23 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.30.1
+
+Logo : l'icône choisie est celle que reçoit le Dock du Mac, et le coffre d'origine passe au fond « Sable ».
+
+- **L'icône du Dock est enfin celle qu'on a choisie.** Ajouté au Dock depuis Safari, Pécule gardait le coffre
+  d'origine quel que soit le choix fait dans Réglages → Apparence : Safari retient le manifeste et l'icône écrits
+  dans la page telle que le serveur l'envoie, pas ceux que le script d'apparence y met ensuite. Le choix de
+  l'appareil est maintenant recopié dans un cookie (`pecule_icone`, un identifiant de la liste des logos, rien
+  d'autre) et le serveur écrit la page avec ce manifeste et cette icône. Après un changement de logo : recharger la
+  page, puis Fichier → « Ajouter au Dock » ; une icône déjà dans le Dock garde son dessin, il faut la supprimer
+  d'abord. Réglages et le manuel le disent.
+- **« Sable » est le logo d'origine**, à la place de « Pétrole » : page, onglet, manifeste, icône d'une
+  installation, notifications. Un appareil qui avait choisi un fond le garde ; un appareil qui n'avait rien choisi
+  passe au sable (« Pétrole » reste proposé dans Réglages → Apparence → Logo).
+
+Aucune migration, aucun réglage nouveau.
+
 ## 1.30.0
 
 Patrimoine : un placement peut suivre les versements qu'il rapporte.

@@ -3316,4 +3316,5 @@ export const de: Dict = {
   "le dernier versement reçu": "die letzte erhaltene Auszahlung",
   "saisie à la main": "von Hand eingegeben",
   "{n} versement": ["{n} Auszahlung", "{n} Auszahlungen"],
+  "Sur Mac, Safari lit l'icône à l'ouverture de la page : après ton choix, recharge la page, puis Fichier → « Ajouter au Dock ». Une icône déjà dans le Dock garde son dessin : supprime-la d'abord.": "Auf dem Mac liest Safari das Symbol beim Öffnen der Seite: Lade die Seite nach deiner Wahl neu und dann Ablage → „Zum Dock hinzufügen“. Ein Symbol, das schon im Dock liegt, behält sein Aussehen: Lösche es zuerst.",
 };

@@ -3316,4 +3316,5 @@ export const it: Dict = {
   "le dernier versement reçu": "l'ultimo versamento ricevuto",
   "saisie à la main": "inserito a mano",
   "{n} versement": ["{n} versamento", "{n} versamenti"],
+  "Sur Mac, Safari lit l'icône à l'ouverture de la page : après ton choix, recharge la page, puis Fichier → « Ajouter au Dock ». Une icône déjà dans le Dock garde son dessin : supprime-la d'abord.": "Su Mac, Safari legge l'icona all'apertura della pagina: dopo la scelta, ricarica la pagina, poi File → «Aggiungi al Dock». Un'icona già nel Dock conserva il suo disegno: eliminala prima.",
 };

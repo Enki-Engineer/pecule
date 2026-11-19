@@ -2,7 +2,7 @@ import { region } from "./region.ts";
 import { useEffect, useState } from "react";
 import { asAccent, birthdaysAt, DEFAULT_ACCENT, parseBirthdays, seasonAt, SEASONS, type Accent, type Birthday, type Season, type SeasonMode } from "../lib/seasons.ts";
 import { locale } from "../lib/i18n.ts";
-import { asFond, asHomeTheme, homeIconId, logoId, manifestSrc, tabIconSrc, touchIconSrc, type LogoFond, type LogoId } from "../lib/logo.ts";
+import { asFond, asHomeTheme, HOME_ICON_COOKIE, homeIconId, logoId, manifestSrc, tabIconSrc, touchIconSrc, type LogoFond, type LogoId } from "../lib/logo.ts";
 import type { Density, ThemePref } from "../lib/device-settings.ts";
 
 export type { Density, ThemePref };
@@ -98,7 +98,7 @@ function setLink(rel: string, href: string) {
   if (l && l.getAttribute("href") !== href) l.setAttribute("href", href);
 }
 
-/** Logo du moment (thème, sinon fond choisi) dans l'onglet ; icône et manifeste de l'écran d'accueil selon le choix. */
+/** Logo du moment (thème, sinon fond choisi) dans l'onglet ; icône et manifeste de l'appli installée selon le choix. */
 function applyLogo(season: Season | null) {
   const fond = asFond(localStorage.getItem(FOND_KEY));
   const id = logoId(season, fond);
@@ -107,6 +107,8 @@ function applyLogo(season: Season | null) {
   const home = homeIconId(localStorage.getItem(HOME_KEY), fond);
   setLink("apple-touch-icon", touchIconSrc(home));
   setLink("manifest", manifestSrc(home));
+  // Recopiée pour le serveur, qui écrit la page avec cette icône (comme public/theme-init.js à chaque ouverture).
+  document.cookie = `${HOME_ICON_COOKIE}=${home}; path=/; max-age=31536000; samesite=lax${location.protocol === "https:" ? "; secure" : ""}`;
 }
 
 /** Logo affiché en ce moment (posé par theme-init.js avant le premier rendu), suivi en direct. */

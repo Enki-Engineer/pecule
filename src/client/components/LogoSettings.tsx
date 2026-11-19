@@ -13,7 +13,7 @@ function Choice({ id, label, selected, onSelect }: { id: LogoId; label: string; 
   );
 }
 
-/** Logo (réglages de l'appareil) : fond du coffre de tous les jours, et icône de l'écran d'accueil — que l'iPhone fige à l'installation. */
+/** Logo (réglages de l'appareil) : fond du coffre de tous les jours, et icône de l'appli installée — figée à l'installation, sur l'iPhone comme dans le Dock du Mac. */
 export function LogoSettings() {
   const { fond, setFond, home, setHome } = useLogo();
   const season = useSeason();
@@ -44,6 +44,7 @@ export function LogoSettings() {
         <p className="mt-2 px-1 text-xs text-muted">
           {t("L'iPhone garde l'icône du jour où Pécule a été ajouté à l'écran d'accueil : elle ne peut pas changer toute seule. Pour en changer, ouvre Pécule dans Safari, choisis l'icône ici, supprime l'ancienne de l'écran d'accueil, puis Partager → « Sur l'écran d'accueil ». Il faudra te reconnecter et réactiver les notifications.")}
         </p>
+        <p className="mt-1 px-1 text-xs text-muted">{t("Sur Mac, Safari lit l'icône à l'ouverture de la page : après ton choix, recharge la page, puis Fichier → « Ajouter au Dock ». Une icône déjà dans le Dock garde son dessin : supprime-la d'abord.")}</p>
         {installed && <p className="mt-1 px-1 text-xs font-medium text-ink">{t("Tu es dans l'appli installée : fais ce choix depuis Safari, c'est lui qui crée l'icône.")}</p>}
       </div>
     </>

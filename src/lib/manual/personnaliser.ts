@@ -87,9 +87,10 @@ export const personnaliser: ManualTheme = {
           ],
         },
         { warning: tk("L'iPhone garde l'icône du jour où Pécule a été ajouté à l'écran d'accueil. Pour en changer : ouvre Pécule dans Safari, choisis l'icône, supprime l'ancienne de l'écran d'accueil, puis ajoute Pécule de nouveau. Il faudra te reconnecter et réactiver les notifications.") },
+        { note: tk("Sur Mac, Safari lit l'icône à l'ouverture de la page : après ton choix, recharge la page, puis Fichier → « Ajouter au Dock ». Une icône déjà dans le Dock garde son dessin : supprime-la d'abord.") },
       ],
       links: [{ to: "/reglages/apparence", label: ["Réglages", "Apparence"] }],
-      words: tk("icône app logo coffre fond écran d'accueil changer l'icône"),
+      words: tk("icône app logo coffre fond écran d'accueil dock mac changer l'icône"),
     },
     {
       id: "personnaliser-accueil",

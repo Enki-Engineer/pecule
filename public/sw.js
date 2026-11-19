@@ -3,8 +3,9 @@
 // les données de synthèse gardées sur l'appareil le sont par l'appli (src/client/offline.tsx, liste
 // fermée, 7 jours, effacées à la déconnexion, désactivables).
 // Changer ce nom vide l'ancien cache : à faire quand un fichier de /icons est redessiné sans changer de nom, ou quand
-// des réponses gardées à tort doivent partir (v4 : une page avait pu être gardée à la place d'un fichier disparu).
-const CACHE = "pecule-v5";
+// des réponses gardées à tort doivent partir (v4 : une page avait pu être gardée à la place d'un fichier disparu ;
+// v6 : les icônes d'origine passent au fond sable).
+const CACHE = "pecule-v6";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {
@@ -58,8 +59,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Pécule", {
       body: data.body || "",
-      icon: "/icons/coffre/petrole-192.png",
-      badge: "/icons/coffre/petrole-192.png",
+      icon: "/icons/coffre/sable-192.png",
+      badge: "/icons/coffre/sable-192.png",
       tag: data.tag,
       data: { url: data.url || "/" },
     }),

@@ -77,18 +77,22 @@ export function Month({ bare = false }: { bare?: boolean }) {
   const prevSameRank = useMemo(() => (data ? (cumulative(data.dailyPrev, year ? 12 : 31)[Math.min(rank, year ? 12 : 31) - 1] ?? 0) : 0), [data, rank, year]);
   const stepName = (d: number) => (year ? monthLabel(`${p}-${String(d).padStart(2, "0")}`).split(" ")[0] : t("Jour {n}", { n: String(d) }));
 
+  const switcher = (
+    <div className="flex items-center justify-between">
+      <button type="button" onClick={() => setP(shiftPeriod(p, -1))} className="press card grid size-10 place-items-center" aria-label={year ? t("Année précédente") : t("Mois précédent")}>
+        <ChevronLeft size={20} />
+      </button>
+      <div className="text-lg font-semibold">{periodLabel(p)}</div>
+      <button type="button" onClick={() => setP(shiftPeriod(p, 1))} disabled={isCurrent} className="press card grid size-10 place-items-center disabled:opacity-30" aria-label={year ? t("Année suivante") : t("Mois suivant")}>
+        <ChevronRight size={20} />
+      </button>
+    </div>
+  );
+
   return (
     <>
-      {!bare && <PageHeader title={t("Mois")} />}
-      <div className="mb-4 flex items-center justify-between md:hidden">
-        <button type="button" onClick={() => setP(shiftPeriod(p, -1))} className="press card grid size-10 place-items-center" aria-label={year ? t("Année précédente") : t("Mois précédent")}>
-          <ChevronLeft size={20} />
-        </button>
-        <div className="text-lg font-semibold">{periodLabel(p)}</div>
-        <button type="button" onClick={() => setP(shiftPeriod(p, 1))} disabled={isCurrent} className="press card grid size-10 place-items-center disabled:opacity-30" aria-label={year ? t("Année suivante") : t("Mois suivant")}>
-          <ChevronRight size={20} />
-        </button>
-      </div>
+      {/* Téléphone : le choix de la période reste sous la barre au défilement, pour comparer deux mois depuis le bas de l'écran. */}
+      {bare ? <div className="mb-4 md:hidden">{switcher}</div> : <PageHeader title={t("Mois")} sticky={switcher} />}
 
       {error && <ErrorBox error={error} />}
       {isLoading || !data || !tot || !tp ? (

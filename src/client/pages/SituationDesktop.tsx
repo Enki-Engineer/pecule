@@ -140,7 +140,7 @@ export function TaxesDesktop({ d }: { d: Taxes }) {
 
   return (
     <>
-      <PageHeader title={t("Impôts")} subtitle={mine ? t("Tes déclarations, la commune comprise, et les taxes foncières") : t("Impôt sur le revenu et taxes foncières du foyer · clique sur une année pour son détail")} />
+      <PageHeader title={t("Impôts")} subtitle={mine ? t("Tes déclarations, la commune et les taxes foncières") : t("Impôt sur le revenu et taxes foncières du foyer · clique sur une année pour son détail")} />
       <SharingNote what="impots" several={d.several} sharing={d.sharing} withheld={d.withheld} scope={d.scope} />
       {last && (
         <StatGrid>

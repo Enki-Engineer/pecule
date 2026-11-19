@@ -37,7 +37,7 @@ export function Taxes() {
     <>
       <PageHeader
         title={t("Impôts")}
-        subtitle={mine ? t("Tes déclarations, la commune comprise, et les taxes foncières") : t("Impôt sur le revenu et taxes foncières du foyer")}
+        subtitle={mine ? t("Tes déclarations, la commune et les taxes foncières") : t("Impôt sur le revenu et taxes foncières du foyer")}
         right={d?.several ? <ScopeSwitch /> : undefined}
       />
       {q.error && <ErrorBox error={q.error} />}

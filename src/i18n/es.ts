@@ -3208,7 +3208,6 @@ export const es: Dict = {
   "Commune : l'imposition du foyer. Personnelle : la tienne seule (imposition séparée) ; les autres membres ne la voient que si tu partages tes revenus.": "Conjunta: la tributación del hogar. Personal: solo la tuya (tributación separada); los demás miembros solo la ven si compartes tus ingresos.",
   "Personnelle : {nom}": "Personal: {nom}",
   "Membres, clés d'accès, partage avec le foyer, déconnexion": "Miembros, llaves de acceso, compartir con el hogar, cerrar sesión",
-  "Tes déclarations, la commune comprise, et les taxes foncières": "Tus declaraciones, incluida la conjunta, y los impuestos inmobiliarios",
   "Déclarations##impot": "Declaraciones",
   "Ton impôt par année de revenus": "Tu impuesto por año de ingresos",
   "Une déclaration est commune (l'imposition du foyer) ou personnelle (la tienne seule, avant la vie commune par exemple) : choisis-le sur sa ligne.": "Una declaración es conjunta (la tributación del hogar) o personal (solo la tuya, de antes de la vida en común por ejemplo): elígelo en su línea.",
@@ -3287,4 +3286,5 @@ export const es: Dict = {
   "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention. C'est le tableau de bord de départ.": "Lo mínimo que leer: cuatro cifras, una curva, un anillo y lo que requiere tu atención. Es el panel de partida.",
   "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention. C'est l'accueil de départ.": "Lo mínimo que leer: lo disponible, las cuentas en breve, lo gastado y lo que requiere tu atención. Es la pantalla de inicio de partida.",
   "Un peu de tout : dix blocs, l'un sous l'autre.": "Un poco de todo: diez bloques, uno debajo de otro.",
+  "Tes déclarations, la commune et les taxes foncières": "Tus declaraciones, la conjunta y los impuestos inmobiliarios",
 };

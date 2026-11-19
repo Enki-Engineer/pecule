@@ -3208,7 +3208,6 @@ export const en: Dict = {
   "Commune : l'imposition du foyer. Personnelle : la tienne seule (imposition séparée) ; les autres membres ne la voient que si tu partages tes revenus.": "Joint: the household's taxation. Personal: yours alone (separate taxation); the other members only see it if you share your income.",
   "Personnelle : {nom}": "Personal: {nom}",
   "Membres, clés d'accès, partage avec le foyer, déconnexion": "Members, passkeys, sharing with the household, sign out",
-  "Tes déclarations, la commune comprise, et les taxes foncières": "Your tax returns, the joint one included, and property taxes",
   "Déclarations##impot": "Tax returns",
   "Ton impôt par année de revenus": "Your tax by income year",
   "Une déclaration est commune (l'imposition du foyer) ou personnelle (la tienne seule, avant la vie commune par exemple) : choisis-le sur sa ligne.": "A tax return is joint (the household's taxation) or personal (yours alone, from before you lived together for instance): choose it on its row.",
@@ -3287,4 +3286,5 @@ export const en: Dict = {
   "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention. C'est le tableau de bord de départ.": "As little to read as possible: four figures, a curve, a ring, and what needs your attention. This is the dashboard you start with.",
   "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention. C'est l'accueil de départ.": "As little to read as possible: what's available, accounts at a glance, what's been spent and what needs your attention. This is the home screen you start with.",
   "Un peu de tout : dix blocs, l'un sous l'autre.": "A bit of everything: ten blocks, one under the other.",
+  "Tes déclarations, la commune et les taxes foncières": "Your tax returns, the joint one and property taxes",
 };

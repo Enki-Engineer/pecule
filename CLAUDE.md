@@ -98,7 +98,8 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 
 ## Interface
 
-- Un écran passe par `PageHeader` (il porte le titre, le retour et la zone sûre du téléphone). Ajouter un écran =
+- Un écran passe par `PageHeader` (il porte le titre, le retour et la zone sûre du téléphone ; `sticky` : ce qui
+  reste sous la barre au défilement sur téléphone, comme le choix du mois). Ajouter un écran =
   sa route (`src/client/app.tsx`), `ROUTES` (`components/MobileShell.tsx`), `NAV` (`src/client/nav.ts`) et sa page
   d'aide (`HELP_RULES`, `src/lib/manual-help.ts` : le « ? » de la barre du haut y mène ; un test le vérifie).
 - Mise en page différente sur ordinateur : un composant `…Desktop` choisi par `useMedia("(min-width: 768px)")`

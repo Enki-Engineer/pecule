@@ -117,13 +117,22 @@ export function useBack() {
 
 /* ---------- Barre du haut et grand titre ---------- */
 
-/** En-tête d'écran (iPhone) : barre collante (retour ou menu, titre réduit, recherche) puis grand titre. */
-export function MobileHeader({ title, subtitle, right }: { title: string; subtitle?: ReactNode; right?: ReactNode }) {
+/**
+ * En-tête d'écran (iPhone) : barre collante (retour ou menu, titre réduit, recherche) puis grand titre. Ce qui est
+ * à droite du titre reste sur sa ligne et la phrase passe dessous, sur toute la largeur : une phrase qui s'allonge
+ * ne déplace pas le bouton qu'on vient de toucher (Foyer / Moi). `sticky` : ce qui reste sous la barre au
+ * défilement (le choix du mois), pour changer de période sans remonter en haut de l'écran.
+ */
+export function MobileHeader({ title, subtitle, right, sticky }: { title: string; subtitle?: ReactNode; right?: ReactNode; sticky?: ReactNode }) {
   const { top, back, label } = useBack();
   const [scope] = useScope();
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const markRef = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(false);
+  const [stuck, setStuck] = useState(false);
   const [menu, setMenu] = useState(false);
+  const pinned = sticky != null && sticky !== false;
   useEffect(() => {
     const el = titleRef.current;
     if (!el) return;
@@ -133,12 +142,26 @@ export function MobileHeader({ title, subtitle, right }: { title: string; subtit
       io.disconnect();
     };
   }, []);
+  // La rangée collante est arrivée sous la barre quand son repère, posé juste avant elle, passe derrière la barre :
+  // elle prend alors le fond de la barre, qui lui laisse son filet.
+  useEffect(() => {
+    const mark = markRef.current;
+    const bar = barRef.current;
+    if (!pinned || !mark || !bar) return;
+    const h = bar.offsetHeight;
+    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting && e.boundingClientRect.top < h), { rootMargin: `-${h}px 0px 0px 0px`, threshold: 0 });
+    io.observe(mark);
+    return () => {
+      io.disconnect();
+    };
+  }, [pinned]);
   return (
     <>
       <div
+        ref={barRef}
         className={cn(
           "sticky top-0 z-30 -mx-4 border-b px-1.5 pt-[env(safe-area-inset-top)] backdrop-blur-xl transition-colors duration-200",
-          compact ? "border-line bg-bg/85" : "border-transparent bg-bg/0",
+          !compact ? "border-transparent bg-bg/0" : pinned && stuck ? "border-transparent bg-bg/85" : "border-line bg-bg/85",
         )}
       >
         <div className="relative flex h-11 items-center justify-between">
@@ -173,15 +196,29 @@ export function MobileHeader({ title, subtitle, right }: { title: string; subtit
           </div>
         </div>
       </div>
-      <header className="flex items-end justify-between gap-3 px-0.5 pb-4 pt-1">
-        <div className="min-w-0">
-          <h1 ref={titleRef} className="page-title text-[30px] font-bold leading-[1.1] tracking-tight">
+      <header className={cn("px-0.5 pt-1", pinned ? "pb-2.5" : "pb-4")}>
+        <div className="flex items-end justify-between gap-3">
+          <h1 ref={titleRef} className="page-title min-w-0 text-[30px] font-bold leading-[1.1] tracking-tight">
             {title}
           </h1>
-          {subtitle && <div className="mt-1 text-[14px] text-muted">{subtitle}</div>}
+          {right && <div className="flex shrink-0 items-center gap-2">{right}</div>}
         </div>
-        {right && <div className="flex shrink-0 items-center gap-2">{right}</div>}
+        {subtitle && <div className="mt-1 text-[14px] text-muted">{subtitle}</div>}
       </header>
+      {pinned && (
+        <>
+          <div ref={markRef} aria-hidden />
+          {/* Sous la barre : sa hauteur (zone sûre, 2,75 rem, un filet). */}
+          <div
+            className={cn(
+              "sticky top-[calc(env(safe-area-inset-top)+2.75rem+1px)] z-20 -mx-4 mb-2.5 border-b px-4 py-1.5 transition-colors duration-200",
+              stuck ? "border-line bg-bg/85 backdrop-blur-xl" : "border-transparent",
+            )}
+          >
+            {sticky}
+          </div>
+        </>
+      )}
       <MenuSheet open={menu} onClose={() => setMenu(false)} />
     </>
   );

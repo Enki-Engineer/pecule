@@ -3,6 +3,21 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.29.1
+
+Téléphone : le mois reste sous la main, la bascule Foyer / Moi ne bouge plus.
+
+- **Changer de mois sans remonter.** Sur l'écran Mois, la rangée qui porte le mois affiché et ses deux flèches reste
+  sous la barre du haut quand on fait défiler : on passe d'un mois à l'autre depuis le bas de l'écran, pour comparer
+  la frise ou les dépenses cumulées de deux mois sans perdre sa place.
+- **Foyer / Moi sans décalage.** Sur Revenus et Impôts, la phrase sous le titre partageait sa ligne avec la bascule :
+  plus longue dans une vue que dans l'autre, elle passait sur une ligne de plus et tout l'écran descendait, bascule
+  comprise. À droite d'un titre, un bouton reste désormais sur la ligne du titre et la phrase passe dessous, sur
+  toute la largeur — sur tous les écrans du téléphone. La phrase d'Impôts en vue « Moi » est raccourcie pour tenir
+  sur une ligne.
+
+Aucune migration, aucun réglage nouveau.
+
 ## 1.29.0
 
 - **« Essentiel » devient l'agencement de départ**, sur ordinateur comme sur téléphone : quatre chiffres clés, la

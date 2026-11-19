@@ -29,10 +29,11 @@ export function InfoTip({ text }: { text: string }) {
   );
 }
 
-export function PageHeader({ title, subtitle, right }: { title: string; subtitle?: ReactNode; right?: ReactNode }) {
+export function PageHeader({ title, subtitle, right, sticky }: { title: string; subtitle?: ReactNode; right?: ReactNode; sticky?: ReactNode }) {
   const desktop = useMedia("(min-width: 768px)");
-  // iPhone : barre du haut (retour ou menu, titre réduit au défilement) et grand titre.
-  if (!desktop) return <MobileHeader title={title} subtitle={subtitle} right={right} />;
+  // iPhone : barre du haut (retour ou menu, titre réduit au défilement) et grand titre ; `sticky` reste sous la barre
+  // au défilement (sur ordinateur, la période se choisit dans la barre du haut : rien à garder sous les yeux).
+  if (!desktop) return <MobileHeader title={title} subtitle={subtitle} right={right} sticky={sticky} />;
   return (
     <header className="flex items-end justify-between gap-3 pb-5">
       <div className="min-w-0">

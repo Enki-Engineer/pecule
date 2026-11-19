@@ -3208,7 +3208,6 @@ export const it: Dict = {
   "Commune : l'imposition du foyer. Personnelle : la tienne seule (imposition séparée) ; les autres membres ne la voient que si tu partages tes revenus.": "Congiunta: la tassazione della famiglia. Personale: solo la tua (tassazione separata); gli altri membri la vedono solo se condividi i tuoi redditi.",
   "Personnelle : {nom}": "Personale: {nom}",
   "Membres, clés d'accès, partage avec le foyer, déconnexion": "Membri, passkey, condivisione con la famiglia, disconnessione",
-  "Tes déclarations, la commune comprise, et les taxes foncières": "Le tue dichiarazioni, compresa quella congiunta, e le imposte fondiarie",
   "Déclarations##impot": "Dichiarazioni",
   "Ton impôt par année de revenus": "La tua imposta per anno di reddito",
   "Une déclaration est commune (l'imposition du foyer) ou personnelle (la tienne seule, avant la vie commune par exemple) : choisis-le sur sa ligne.": "Una dichiarazione è congiunta (la tassazione della famiglia) o personale (solo la tua, per esempio prima della vita in comune): sceglilo sulla sua riga.",
@@ -3287,4 +3286,5 @@ export const it: Dict = {
   "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention. C'est le tableau de bord de départ.": "Il meno possibile da leggere: quattro cifre, una curva, un anello e quello che richiede la tua attenzione. È la dashboard di partenza.",
   "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention. C'est l'accueil de départ.": "Il meno possibile da leggere: quello che è disponibile, i conti in breve, quello che è stato speso e quello che richiede la tua attenzione. È la home di partenza.",
   "Un peu de tout : dix blocs, l'un sous l'autre.": "Un po' di tutto: dieci blocchi, uno sotto l'altro.",
+  "Tes déclarations, la commune et les taxes foncières": "Le tue dichiarazioni, quella congiunta e le imposte fondiarie",
 };

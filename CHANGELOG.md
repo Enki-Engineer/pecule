@@ -3,6 +3,13 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.29.2
+
+- Sécurité : `express-rate-limit` passe en 8.7.5 (alerte de l'hébergeur, GHSA-cppf-2hm6-mrvm, gravité modérée). La
+  faille permettait de désactiver une limite de débit laissée à sa valeur par défaut, à condition d'avoir déjà
+  corrompu le prototype des objets du serveur. Pécule n'y était pas exposé — chacune de ses limites est écrite
+  explicitement —, la mise à jour retire l'alerte et la question.
+
 ## 1.29.1
 
 Téléphone : le mois reste sous la main, la bascule Foyer / Moi ne bouge plus.

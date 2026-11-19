@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DASH_CARDS, DASH_KPIS, DASH_TEMPLATES, cleanLayout, defaultLayout, fromLegacy, missingCards, missingKpis, moveItem, rowsOf, sameLayout, templateLayout, templateOf, widthsOf } from "./dashboard.ts";
+import { DASH_CARDS, DASH_KPIS, DASH_TEMPLATES, cleanLayout, defaultLayout, formOf, fromLegacy, hasForms, missingCards, missingKpis, moveItem, rowsOf, sameLayout, templateLayout, templateOf, widthsOf } from "./dashboard.ts";
 
 describe("modèles du tableau de bord", () => {
   it("chaque modèle ne pose que des cartes et des chiffres connus, une fois, à une largeur permise", () => {
@@ -15,8 +15,21 @@ describe("modèles du tableau de bord", () => {
     for (const m of DASH_TEMPLATES) for (const row of rowsOf(templateLayout(m.id).cards)) expect(row.reduce((s, c) => s + c.w, 0), `${m.id} · ${row.map((c) => c.id).join(" + ")}`).toBe(12);
   });
 
-  it("la vue d'ensemble pose toutes les cartes", () => {
-    expect(missingCards(defaultLayout())).toEqual([]);
+  it("un modèle tient en peu de cartes : dix au plus, cinq pour l'essentiel", () => {
+    for (const m of DASH_TEMPLATES) expect(m.cards.length, m.id).toBeLessThanOrEqual(10);
+    expect(templateLayout("essentiel").cards).toHaveLength(5);
+    expect(templateLayout("essentiel").kpis).toHaveLength(4);
+  });
+
+  it("un modèle ne donne une forme qu'aux cartes qui en ont deux", () => {
+    for (const m of DASH_TEMPLATES) for (const c of templateLayout(m.id).cards) if (c.f) expect(hasForms(c.id), `${m.id} · ${c.id}`).toBe(true);
+  });
+
+  it("seul le quotidien détaille les comptes ; ailleurs ils se résument", () => {
+    for (const m of DASH_TEMPLATES) {
+      const comptes = templateLayout(m.id).cards.find((c) => c.id === "comptes");
+      if (comptes) expect(formOf(comptes), m.id).toBe(m.id === "quotidien" ? "detail" : "essentiel");
+    }
   });
 
   it("la largeur d'origine d'une carte est une largeur permise", () => {
@@ -45,6 +58,13 @@ describe("cleanLayout", () => {
     expect(cleanLayout({ kpis: [], cards: [{ id: "semaine", w: 4 }, { id: "evolution", w: 5 }, { id: "postes" }] })).toEqual({
       kpis: [],
       cards: [{ id: "semaine", w: 8 }, { id: "evolution", w: 8 }, { id: "postes", w: 4 }],
+    });
+  });
+
+  it("garde la forme choisie d'une carte qui en a deux, et l'écarte ailleurs", () => {
+    expect(cleanLayout({ kpis: [], cards: [{ id: "comptes", w: 4, f: "essentiel" }, { id: "postes", w: 4, f: "detail" }, { id: "evolution", w: 8, f: "detail" }, { id: "echeances", w: 4, f: "zzz" }] })).toEqual({
+      kpis: [],
+      cards: [{ id: "comptes", w: 4, f: "essentiel" }, { id: "postes", w: 4, f: "detail" }, { id: "evolution", w: 8 }, { id: "echeances", w: 4 }],
     });
   });
 
@@ -96,6 +116,22 @@ describe("outils", () => {
   it("rowsOf passe à la rangée suivante quand la carte ne tient plus", () => {
     expect(rowsOf([{ id: "evolution", w: 8 }, { id: "operations", w: 8 }, { id: "postes", w: 4 }]).map((r) => r.map((c) => c.id))).toEqual([["evolution"], ["operations", "postes"]]);
     expect(rowsOf([])).toEqual([]);
+  });
+
+  it("une carte sans forme choisie prend sa forme d'origine ; une carte à une seule forme n'en a pas", () => {
+    expect(formOf({ id: "comptes", w: 4 })).toBe("detail");
+    expect(formOf({ id: "postes", w: 4 })).toBe("essentiel");
+    expect(formOf({ id: "postes", w: 4, f: "detail" })).toBe("detail");
+    expect(formOf({ id: "evolution", w: 8 })).toBeNull();
+  });
+
+  it("changer la forme d'une carte, c'est changer l'agencement", () => {
+    const a = templateLayout("essentiel");
+    const b = templateLayout("essentiel");
+    b.cards = b.cards.map((c) => (c.id === "comptes" ? { ...c, f: "detail" as const } : c));
+    expect(sameLayout(a, b)).toBe(false);
+    // La forme d'origine, écrite ou non, c'est la même chose.
+    expect(sameLayout({ kpis: [], cards: [{ id: "postes", w: 4 }] }, { kpis: [], cards: [{ id: "postes", w: 4, f: "essentiel" }] })).toBe(true);
   });
 
   it("sameLayout compare l'ordre et les largeurs", () => {

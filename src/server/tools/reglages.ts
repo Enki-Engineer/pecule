@@ -114,7 +114,7 @@ const getSettings = readTool({
           cards: layout.cards.map((c) => tr(DASH_CARDS.find((x) => x.id === c.id)!.label)),
           templates: DASH_TEMPLATES.map((m) => ({ id: m.id, name: tr(m.label), for: m.hint })),
           where: "/",
-          change_with: "update_settings (dashboard_template : repartir d'un modèle) ; déplacer, élargir, ajouter ou retirer une carte se fait à l'écran, bouton « Modifier le tableau de bord »",
+          change_with: "update_settings (dashboard_template : repartir d'un modèle) ; déplacer, élargir, ajouter ou retirer une carte, ou la réduire à l'essentiel, se fait à l'écran, bouton « Modifier le tableau de bord »",
         },
       },
       household: {
@@ -199,7 +199,7 @@ const screens = z.array(z.enum(MODULES)).max(MODULES.length);
 const updateSettings = writeTool({
   name: "update_settings",
   description:
-    "Change un réglage gardé par Pécule, à la demande de l'utilisateur. Pour lui : `language` (fr, en, de, it, es : la langue de l'appli sur tous ses appareils, réponses de l'assistant et voix comprises ; l'écran se recharge) `fun_equivalences` (équivalences amusantes) et `dashboard_template` (repartir d'un modèle pour son tableau de bord d'ordinateur : ensemble, quotidien, budget ou patrimoine — son agencement actuel est remplacé ; get_settings décrit chaque modèle). " +
+    "Change un réglage gardé par Pécule, à la demande de l'utilisateur. Pour lui : `language` (fr, en, de, it, es : la langue de l'appli sur tous ses appareils, réponses de l'assistant et voix comprises ; l'écran se recharge) `fun_equivalences` (équivalences amusantes) et `dashboard_template` (repartir d'un modèle pour son tableau de bord d'ordinateur : ensemble, essentiel — le plus léger, à proposer à qui trouve l'écran trop chargé —, quotidien, budget ou patrimoine ; son agencement actuel est remplacé ; get_settings décrit chaque modèle). " +
     "Pour tout le foyer, administrateur seulement : `card_purchase_day` (« achat » : un achat par carte compte au jour de l'achat ; « debit » : au jour où la banque le prélève — tous les chiffres datés du foyer changent de jour ; libre en mode démo), `show_screens` et `hide_screens` (écrans facultatifs : immobilier, crypto, projections, revenus, impots, retraite ; retirer un écran ne supprime aucune donnée). " +
     "Coût de l'IA, administrateur seulement, indisponible en mode démo : `ai_monthly_budget` (plafond de dépense du mois, en euros ; null pour le retirer — à 80 % puis au plafond, l'administrateur est prévenu par une notification) et `ai_pause_background` (une fois le plafond atteint, mettre en pause les lectures de fond : imports de dossier et traduction des noms ; l'assistant et les fichiers déposés un à un répondent toujours). " +
     "Ne donner que ce qui change. Lire d'abord get_settings pour connaître la valeur actuelle.",

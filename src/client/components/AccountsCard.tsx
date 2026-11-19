@@ -3,7 +3,8 @@ import { Link } from "react-router";
 import { Bitcoin, CreditCard, Landmark, LineChart, TrendingDown } from "lucide-react";
 import { useAccounts, useWealth } from "../api.ts";
 import { lowAccounts, useBalanceAlert, type AccountForecast } from "../api-balance.ts";
-import { useCardOutstanding } from "./CardOutstanding.tsx";
+import { useCardOutstanding, useOutstandingTotal } from "./CardOutstanding.tsx";
+import { lowBalanceText } from "./LowBalance.tsx";
 import { BankBadge, Card, Spinner } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import { isDiscreet } from "../discret.ts";
@@ -19,17 +20,24 @@ import { t, tn } from "../../lib/i18n.ts";
  * le signale, son alerte de solde bas ; puis l'épargne, les placements et les crédits, un sous-total par groupe.
  * La carte s'étale sur deux ou trois colonnes quand on lui donne de la largeur. Sur téléphone (`sections`), chaque
  * groupe a son titre, son total et sa carte, l'un sous l'autre.
+ *
+ * Forme « essentiel » (`summary`) : une ligne par groupe, une barre qui montre ce que pèse chacun, l'encours des
+ * cartes à débit différé et les comptes signalés — sans la liste des comptes.
  */
 
 type Low = AccountForecast & { low: LowPoint };
 
 const GROUP_LABELS = (): Record<GroupId, string> => ({ courants: t("Comptes courants"), epargne: t("Épargne"), placements: t("Placements"), credits: t("Crédits"), hors: t("Hors statistiques") });
 const ICONS = { carte: CreditCard, actif: LineChart, crypto: Bitcoin, credit: Landmark } as const;
+/** Couleur d'un groupe dans la barre : celles de la répartition du patrimoine (src/client/wealth.ts). */
+const GROUP_COLORS: Partial<Record<GroupId, string>> = { courants: "var(--series-5)", epargne: "var(--series-4)", placements: "var(--series-3)" };
+const GROUP_LINKS: Record<GroupId, string> = { courants: "/operations", epargne: "/patrimoine", placements: "/patrimoine", credits: "/patrimoine", hors: "/reglages" };
 
 const target = (l: AccountLine) => (l.accountId ? `/operations?compte=${encodeURIComponent(l.accountId)}` : l.kind === "crypto" ? "/patrimoine/crypto" : "/patrimoine");
 const lowText = (a: Low) => (a.balance < a.threshold ? t("Sous son seuil de {montant}", { montant: money(a.threshold, true) }) : t("Passerait à {montant} le {date}", { montant: money(a.low.balance, true), date: dateLong(a.low.date) }));
 
-export function AccountsCard({ className, sections = false }: { className?: string; /** Accueil du téléphone : un titre, un total et une carte par groupe. */ sections?: boolean }) {
+export function AccountsCard({ className, sections = false, summary = false }: { className?: string; /** Accueil du téléphone : un titre, un total et une carte par groupe. */ sections?: boolean; /** L'essentiel : les groupes et leurs totaux, sans la liste des comptes. */ summary?: boolean }) {
+  const outstanding = useOutstandingTotal();
   const accounts = useAccounts();
   const wealth = useWealth();
   const cards = useCardOutstanding();
@@ -43,6 +51,62 @@ export function AccountsCard({ className, sections = false }: { className?: stri
   // Le titulaire n'est écrit que s'il distingue quelque chose : un foyer d'une personne ne lit pas son prénom partout.
   const owners = new Set(groups.flatMap((g) => g.lines.map((l) => l.owner).filter(Boolean)));
   const labels = GROUP_LABELS();
+
+  if (summary) {
+    const own = groups.filter((g) => g.id !== "hors");
+    const bars = own.filter((g) => GROUP_COLORS[g.id] && g.total > 0);
+    const held = bars.reduce((s, g) => s + g.total, 0);
+    return (
+      <Card className={cn("p-5", className)}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="font-semibold">{t("Comptes")}</h2>
+          <Link to="/soldes" viewTransition className="text-sm text-accent">
+            {t("Soldes à venir")}
+          </Link>
+        </div>
+        {!accounts.data ? (
+          <Spinner />
+        ) : !own.length ? (
+          <div className="text-sm text-muted">{t("Aucun compte pour l'instant.")}</div>
+        ) : (
+          <>
+            {held > 0 && (
+              <div data-chart className="mb-3 flex h-2.5 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={bars.map((g) => `${labels[g.id]} ${Math.round((g.total / held) * 100)} %`).join(", ")}>
+                {bars.map((g) => (
+                  <span key={g.id} className="h-full min-w-1" style={{ width: `${(g.total / held) * 100}%`, background: GROUP_COLORS[g.id] }} title={`${labels[g.id]} : ${money(g.total, true)}`} />
+                ))}
+              </div>
+            )}
+            <div className="space-y-0.5">
+              {own.map((g) => (
+                <Link key={g.id} to={GROUP_LINKS[g.id]} className="-mx-2 flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-bg">
+                  <span className={cn("size-2.5 shrink-0 rounded-sm", !GROUP_COLORS[g.id] && "ring-1 ring-inset ring-muted/60")} style={{ background: GROUP_COLORS[g.id] }} />
+                  <span className="min-w-0 flex-1 truncate">{labels[g.id]}</span>
+                  <span className="tnum shrink-0 font-semibold">{money(g.total, true)}</span>
+                </Link>
+              ))}
+              {outstanding && (
+                <Link to="/mois?onglet=frise" className="-mx-2 flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted hover:bg-bg" title={outstanding.debitDate ? t("prélevé le {date}", { date: dateLong(outstanding.debitDate) }) : undefined}>
+                  <CreditCard size={13} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{t("Cartes à débit différé")}</span>
+                  <span className="tnum shrink-0 font-medium text-ink">{money(outstanding.total, true)}</span>
+                </Link>
+              )}
+            </div>
+            {low.size > 0 && (
+              <div className="mt-3 flex flex-col items-start gap-1.5">
+                {[...low.values()].map((a) => (
+                  <Link key={a.id} to={`/soldes?compte=${encodeURIComponent(a.id)}`} viewTransition className="chip chip-warn !whitespace-normal text-[12.5px]">
+                    <TrendingDown size={13} className="shrink-0" /> {lowBalanceText(a)}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+    );
+  }
 
   if (sections)
     return (

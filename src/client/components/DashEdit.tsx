@@ -1,9 +1,9 @@
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, GripVertical, LayoutTemplate, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, GripVertical, LayoutTemplate, Maximize2, Minimize2, Plus, X } from "lucide-react";
 import { Card, Sheet } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import type { DragSort } from "../dragSort.ts";
-import { WIDTH_LABELS, widthsOf, type DashCardId, type DashWidth } from "../../lib/dashboard.ts";
+import { WIDTH_LABELS, widthsOf, type DashCardId, type DashForm, type DashWidth } from "../../lib/dashboard.ts";
 import { t } from "../../lib/i18n.ts";
 
 /*
@@ -73,6 +73,18 @@ export function WidthPicker({ id, value, onChange }: { id: DashCardId; value: Da
         </button>
       ))}
     </div>
+  );
+}
+
+/** Forme d'une carte qui en a deux : l'essentiel (un graphique, quelques lignes) ou le détail (la liste complète). */
+export function FormToggle({ value, onChange }: { value: DashForm; onChange: (f: DashForm) => void }) {
+  const detail = value === "detail";
+  const label = detail ? t("Réduire à l'essentiel") : t("Montrer le détail");
+  const Icon = detail ? Minimize2 : Maximize2;
+  return (
+    <button type="button" onClick={() => onChange(detail ? "essentiel" : "detail")} aria-label={label} title={label} className={cn(tool, "size-7")}>
+      <Icon size={14} />
+    </button>
   );
 }
 

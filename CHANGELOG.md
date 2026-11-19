@@ -3,6 +3,28 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.28.0
+
+- **Tableau de bord allégé.** Il donnait beaucoup à lire et presque rien à voir : la vue d'ensemble de la démo
+  comptait 323 mots et 77 montants pour un seul graphique, sur trois écrans de haut. Elle en compte 174 et 52, sur
+  moins de deux.
+- **Des dessins à la place des phrases.** Les dépenses du mois et la répartition du patrimoine se lisent en anneau,
+  le total au centre. Sous un chiffre clé, une petite courbe de ses dernières semaines ou une jauge (ce que les
+  dépenses ont pris des revenus, la part du capital remboursée) ; d'où vient le chiffre se lit dans sa pastille
+  « i ».
+- **L'essentiel ou le détail, carte par carte.** En mode construction, « Comptes », « Dernières opérations »,
+  « Prochaines échéances », « Dépenses du mois par poste » et « Répartition du patrimoine » ont un bouton pour
+  passer de l'essentiel (un graphique, quelques lignes) au détail (la liste complète). « Comptes » réduit à
+  l'essentiel : un total par groupe, une barre, l'encours des cartes et les comptes signalés.
+- **Modèle « Essentiel »** : quatre chiffres, la courbe du patrimoine, l'anneau des dépenses, les comptes en bref et
+  ce qui demande ton attention — un seul écran. Les autres modèles tiennent en dix cartes au plus ; « Vue
+  d'ensemble » n'affiche plus d'emblée « Où part l'argent », « Le chiffre du moment » et « Résumé de la semaine »,
+  qui attendent dans « Ajouter ».
+- Un tableau de bord déjà arrangé garde ses cartes et leur ordre ; ses listes d'opérations et d'échéances passent à
+  l'essentiel et ses répartitions en anneau, « Comptes » reste détaillé. Chaque carte se remet en détail d'un
+  bouton.
+- Sur téléphone : modèle « Essentiel » et bloc « Comptes en bref » (dans « Ajouter »).
+
 ## 1.27.1
 
 Crypto : un portefeuille marqué « à vérifier » ne reste plus bloqué.

@@ -31,7 +31,8 @@ describe("modèles de l'accueil du téléphone", () => {
     const now = cleanCardLayout(HOME_IDS, HOME_QUIET)(before)!;
     expect(shownCards(now)).toEqual(["comptes", "disponible", "depense", "semaine", "aclasser", "resume", "enveloppes", "objectifs", "echeances"]);
     expect(now.hidden).toContain("patrimoine");
+    expect(now.hidden).toContain("apercu");
     // L'ancien accueil d'origine, enregistré tel quel, reste la vue d'ensemble.
-    expect(homeTemplateOf(cleanCardLayout(HOME_IDS, HOME_QUIET)({ order: HOME_IDS.filter((id) => id !== "patrimoine"), hidden: [] })!)).toBe("ensemble");
+    expect(homeTemplateOf(cleanCardLayout(HOME_IDS, HOME_QUIET)({ order: HOME_IDS.filter((id) => !HOME_QUIET.includes(id)), hidden: [] })!)).toBe("ensemble");
   });
 });

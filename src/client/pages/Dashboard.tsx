@@ -1,6 +1,7 @@
 import { isDiscreet } from "../discret.ts";
 import { AccountsCard } from "../components/AccountsCard.tsx";
-import { AddDrawer, EditBar, EditFrame, EmptySlot, TemplatesDrawer, WidthPicker } from "../components/DashEdit.tsx";
+import { AddDrawer, EditBar, EditFrame, EmptySlot, FormToggle, TemplatesDrawer, WidthPicker } from "../components/DashEdit.tsx";
+import { RingCard, type RingPart } from "../components/RingCard.tsx";
 import { useDashDraft, useDashLayout } from "../api-dashboard.ts";
 import { useDragSort } from "../dragSort.ts";
 import { lowAccounts, useBalanceAlert } from "../api-balance.ts";
@@ -12,18 +13,18 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Bitcoin, CalendarClock, ChevronRight, FileWarning, LayoutDashboard, RefreshCw, TrendingDown, ShieldCheck, Tags, Wallet } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
-import { api, useAccounts, useDemo, useMe, useMonth, useSummary, useSync, useWealth, type Transaction, type WealthCategory } from "../api.ts";
-import { Amount, Card, InfoTip, Spinner } from "../components/ui.tsx";
+import { api, useAccounts, useBalanceSeries, useDemo, useMe, useMonth, useSummary, useSync, useWealth, type Transaction, type WealthCategory } from "../api.ts";
+import { Amount, Card, InfoTip, Sparkline, Spinner } from "../components/ui.tsx";
 import { cn } from "../cn.ts";
 import { currentMonth, dateFr, money, timeAgo, kAxis } from "../format.ts";
-import { monthTotals } from "../../lib/month.ts";
+import { cumulative, monthTotals } from "../../lib/month.ts";
 import { netBefore } from "../../lib/wealth.ts";
 import { txTitle } from "../../lib/labels.ts";
 import { useOutstandingTotal } from "../components/CardOutstanding.tsx";
 import { Welcome } from "../components/Welcome.tsx";
 import { useFlows } from "../api-analysis.ts";
 import { NATURE_LABELS, SPEND_NATURES } from "../../lib/nature.ts";
-import { natureColor } from "../charts.ts";
+import { colorOf, natureColor } from "../charts.ts";
 import { openDrill } from "../components/DrillDrawer.tsx";
 import { CATEGORY } from "../wealth.ts";
 import { TxLogo } from "../components/Logo.tsx";
@@ -32,7 +33,7 @@ import { EnvelopesCard, GoalsCard } from "../components/Planning.tsx";
 import { WeeklySummaryCard } from "../components/WeeklySummary.tsx";
 import { useSeasonGreeting } from "../theme.ts";
 import { FunCard } from "../components/FunCard.tsx";
-import { DASH_CARDS, DASH_KPIS, DASH_TEMPLATES, cardOf, missingCards, missingKpis, moveItem, rowsOf, sameLayout, templateLayout, templateOf, type DashCardId, type DashKpiId, type DashLayout, type DashWidth } from "../../lib/dashboard.ts";
+import { DASH_CARDS, DASH_KPIS, DASH_TEMPLATES, cardOf, formOf, missingCards, missingKpis, moveItem, rowsOf, sameLayout, templateLayout, templateOf, type DashCardId, type DashForm, type DashKpiId, type DashLayout, type DashWidth } from "../../lib/dashboard.ts";
 import { locale, t, td, tk, tn } from "../../lib/i18n.ts";
 
 /*
@@ -81,6 +82,7 @@ export function Dashboard() {
   const recent = useQuery({ queryKey: ["transactions", "recent"], queryFn: () => api<{ transactions: Transaction[] }>("/transactions?limit=8&offset=0") });
   const navigate = useNavigate();
   const outstanding = useOutstandingTotal();
+  const series = useBalanceSeries(90);
 
   const balance = useBalanceAlert();
   // Mode construction : on arrange un brouillon ; « Terminé » l'enregistre, « Annuler » l'oublie.
@@ -124,11 +126,45 @@ export function Dashboard() {
   const history = useMemo(() => (w?.history ?? []).map((h) => ({ t: Date.parse(`${h.date.slice(0, 10)}T12:00:00Z`), net: Number(h.net) })), [w]);
   const net30 = useMemo(() => netBefore(w?.history ?? [], 30), [w]);
 
-  const postes = useMemo(() => {
+  const allPostes = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of month.data?.categories ?? []) if (r.kind === "depense") map.set(r.poste ?? tk("À classer"), (map.get(r.poste ?? tk("À classer")) ?? 0) - Number(r.total));
-    return [...map].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    return [...map].sort((a, b) => b[1] - a[1]);
   }, [month.data]);
+  const postes = allPostes.slice(0, 6);
+  // L'anneau des dépenses : les postes colorés de l'Analyse (mêmes couleurs), ce qui reste à classer, et « Autres ».
+  const posteParts = useMemo((): RingPart[] => {
+    const colored = month.data?.colored ?? [];
+    const drill = (label: string, filter: Parameters<typeof openDrill>[1]) => () => openDrill(label, filter, t("Ce mois-ci ·"));
+    const parts: RingPart[] = [];
+    let others = 0;
+    for (const [poste, total] of allPostes) {
+      if (total <= 0) continue;
+      const slot = colored.indexOf(poste) + 1;
+      if (poste === tk("À classer")) parts.push({ key: poste, label: td(poste), value: total, color: "var(--color-muted)", hatched: true, onPick: drill(td(poste), { month: currentMonth(), debits: true, uncategorized: true }) });
+      else if (slot && parts.filter((p) => !p.hatched).length < 5) parts.push({ key: poste, label: td(poste), value: total, color: colorOf(slot), onPick: drill(td(poste), { month: currentMonth(), poste, debits: true }) });
+      else others += total;
+    }
+    if (others > 0) parts.push({ key: "autres", label: t("Autres"), value: others, color: colorOf(null), onPick: () => navigate("/mois") });
+    return parts;
+  }, [allPostes, month.data, navigate]);
+  const wealthParts = useMemo(
+    (): RingPart[] =>
+      Object.entries(w?.byCategory ?? {})
+        .filter(([, v]) => v > 0)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => ({ key: k, label: CATEGORY_LABELS[k] ?? k, value: v, color: CATEGORY[k as WealthCategory]?.color ?? colorOf(null), onPick: () => navigate(k === "crypto" ? "/patrimoine/crypto" : k === "immobilier" ? "/immobilier" : "/patrimoine") })),
+    [w, navigate],
+  );
+  // Mini-courbes des chiffres clés : ce qu'un chiffre a fait ces dernières semaines se lit mieux qu'une ligne de texte.
+  const sparkNet = useMemo(() => history.slice(-90).map((h) => h.net), [history]);
+  const sparkCash = useMemo(() => (series.data?.series ?? []).map((p) => p.balance), [series.data]);
+  const sparkSpent = useMemo(() => (month.data ? cumulative(month.data.daily, new Date().getDate()) : []), [month.data]);
+  const repaid = useMemo(() => {
+    const done = (w?.loans ?? []).reduce((s, l) => s + l.summary.repaidPrincipal, 0);
+    const left = (w?.loans ?? []).reduce((s, l) => s + l.summary.remaining, 0);
+    return done + left > 0 ? done / (done + left) : null;
+  }, [w]);
 
   async function refresh() {
     try {
@@ -150,6 +186,13 @@ export function Dashboard() {
     dash.data?.cryptoRun &&
       (dash.data.cryptoRun.status === "error" || (daysSince(dash.data.cryptoRun.finished_at) ?? 99) > 1) && { icon: Bitcoin, label: t("Crypto : synchro CoinStats en retard ou en échec"), to: "/patrimoine/crypto" },
   ].filter(Boolean) as { icon: typeof Tags; label: string; to: string }[];
+
+  // La forme de chaque carte qui en a deux : l'essentiel (un graphique, quelques lignes) ou le détail.
+  const forms = Object.fromEntries(layout.cards.map((c) => [c.id, formOf(c)])) as Partial<Record<DashCardId, DashForm | null>>;
+  const brief = (id: DashCardId) => forms[id] !== "detail";
+  const shownTx = (recent.data?.transactions ?? []).slice(0, brief("operations") ? 5 : 8);
+  const upcoming = dash.data?.upcoming ?? [];
+  const shownDue = upcoming.slice(0, brief("echeances") ? 4 : 10);
 
   // Les blocs du tableau de bord, par identifiant : l'ordre et la visibilité viennent du réglage de l'appareil.
   const blocks: Record<DashCardId, ReactNode> = {
@@ -233,7 +276,7 @@ export function Dashboard() {
               </Link>
             </div>
             <div className="divide-y divide-line">
-              {(recent.data?.transactions ?? []).map((tx) => (
+              {shownTx.map((tx) => (
                 <button
                   key={tx.id}
                   type="button"
@@ -245,7 +288,7 @@ export function Dashboard() {
                   <HoverPreview target={{ kind: "operation", t: tx }} className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-medium">{txTitle(tx)}</span>
                   </HoverPreview>
-                  <span className={cn("hidden w-48 shrink-0 truncate text-sm @2xl:block", tx.category_name ? "text-muted" : "font-medium text-warn")}>{td(tx.category_name ?? tk("À classer"))}</span>
+                  <span className={cn("hidden w-48 shrink-0 truncate text-sm", !brief("operations") && "@2xl:block", tx.category_name ? "text-muted" : "font-medium text-warn")}>{td(tx.category_name ?? tk("À classer"))}</span>
                   <Amount value={tx.amount} className="w-28 shrink-0 text-right text-[15px] font-semibold" />
                 </button>
               ))}
@@ -258,9 +301,9 @@ export function Dashboard() {
             <h2 className="mb-3 flex items-center gap-2 font-semibold">
               <CalendarClock size={18} className="text-accent" /> {t("Prochaines échéances")}
             </h2>
-            {dash.data?.upcoming.length ? (
+            {upcoming.length ? (
               <div className="space-y-1">
-                {dash.data.upcoming.map((u, i) => (
+                {shownDue.map((u, i) => (
                   <Link key={i} to={u.link} className="press flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-bg">
                     <span className="tnum w-14 shrink-0 text-xs text-muted">{dateFr(u.date).slice(0, 5)}</span>
                     <span className="min-w-0 flex-1 truncate text-sm">{u.label}</span>
@@ -272,11 +315,24 @@ export function Dashboard() {
               <div className="text-sm text-muted">{t("Rien dans les 60 prochains jours.")}</div>
             )}
             <Link to="/echeancier" className="mt-3 block text-sm font-medium text-accent">
-              {t("Tout l'échéancier →")}
+              {upcoming.length > shownDue.length ? tn("Et {n} autre dans l'échéancier →", "Et {n} autres dans l'échéancier →", upcoming.length - shownDue.length) : t("Tout l'échéancier →")}
             </Link>
           </Card>
     ),
-    postes: (
+    postes: brief("postes") ? (
+      <RingCard
+        className="h-full"
+        title={t("Dépenses du mois par poste")}
+        action={
+          <Link to="/mois" className="text-sm text-accent">
+            {t("Analyse")}
+          </Link>
+        }
+        parts={posteParts}
+        noun={t("dépensé")}
+        empty={t("Pas encore de dépenses ce mois-ci.")}
+      />
+    ) : (
           <Card className="h-full p-5">
             <h2 className="mb-3 font-semibold">{t("Dépenses du mois par poste")}</h2>
             <div className="space-y-1">
@@ -299,7 +355,20 @@ export function Dashboard() {
             </div>
           </Card>
     ),
-    repartition: (
+    repartition: brief("repartition") ? (
+      <RingCard
+        className="h-full"
+        title={t("Répartition du patrimoine")}
+        action={
+          <Link to="/patrimoine" className="text-sm text-accent">
+            {t("Détail")}
+          </Link>
+        }
+        parts={wealthParts}
+        noun={t("possédé")}
+        empty={t("Rien à répartir pour l'instant.")}
+      />
+    ) : (
           <Card className="h-full p-5">
             <h2 className="mb-3 font-semibold">{t("Répartition du patrimoine")}</h2>
             <div className="space-y-1">
@@ -326,7 +395,7 @@ export function Dashboard() {
             </div>
           </Card>
     ),
-    comptes: <AccountsCard className="h-full" />,
+    comptes: <AccountsCard className="h-full" summary={brief("comptes")} />,
   };
 
   // Les chiffres clés, par identifiant. Sans encours de carte connu, « Cartes à débit différé » n'a rien à dire :
@@ -339,12 +408,14 @@ export function Dashboard() {
       delta: w && net30 != null ? w.net - net30 : null,
       deltaLabel: t("sur 30 jours"),
       source: w ? t("cours {quand}", { quand: timeAgo(w.crypto.pricesAt) }) : undefined,
+      spark: sparkNet,
       to: "/patrimoine",
     },
     disponible: {
       label: kpiLabel("disponible"),
       value: accounts.data ? money(cash, true) : "…",
       source: t("comptes courants, hors cartes"),
+      spark: sparkCash,
       to: "/operations",
       info: t("Ce qu'il y a sur tes comptes aujourd'hui. Les achats par carte à débit différé pas encore prélevés n'en sont pas déduits."),
     },
@@ -360,18 +431,20 @@ export function Dashboard() {
           ]
             .filter(Boolean)
             .join(" · "),
+          note: outstanding.debitDate ? t("prélevé le {date}", { date: dateFr(outstanding.debitDate) }) : undefined,
           to: "/mois?onglet=frise",
         }
       : editing
-        ? { label: kpiLabel("differe"), value: "—", source: t("Aucun encours connu pour l'instant"), to: "/mois?onglet=frise" }
+        ? { label: kpiLabel("differe"), value: "—", note: t("Aucun encours connu pour l'instant"), to: "/mois?onglet=frise" }
         : null,
     depense: {
       label: kpiLabel("depense"),
       info: t("Dépenses du mois en cours, remboursements déduits. L'étiquette compare au mois dernier, à la même date."),
       value: s ? money(s.spentThisMonth, true) : "…",
       delta: s ? s.spentThisMonth - s.spentPrevMonthSameDay : null,
-      deltaLabel: t("vs même date du mois dernier"),
+      deltaLabel: t("vs mois dernier"),
       invert: true,
+      spark: sparkSpent,
       to: "/mois",
     },
     solde: {
@@ -380,6 +453,8 @@ export function Dashboard() {
       info: t("Revenus du mois moins dépenses du mois. Les mouvements entre tes comptes et les versements d'épargne ne comptent pas."),
       value: totals ? money(totals.revenus - totals.depenses, true) : "…",
       source: totals ? t("revenus {montant}", { montant: money(totals.revenus, true) }) : undefined,
+      // La jauge : ce que les dépenses ont pris des revenus du mois.
+      gauge: totals && totals.revenus > 0 ? { part: totals.depenses / totals.revenus, label: t("{n} % des revenus dépensés", { n: Math.round((totals.depenses / totals.revenus) * 100) }) } : undefined,
       to: "/mois",
     },
     revenus: {
@@ -393,7 +468,7 @@ export function Dashboard() {
       label: kpiLabel("epargne"),
       info: t("Ce que tu as versé ce mois-ci vers ton épargne et tes placements : les opérations de tes catégories d'épargne."),
       value: totals ? money(totals.epargne, true) : "…",
-      source: totals && totals.revenus > 0 ? t("{n} % des revenus du mois", { n: Math.round((totals.epargne / totals.revenus) * 100) }) : undefined,
+      gauge: totals && totals.revenus > 0 ? { part: totals.epargne / totals.revenus, label: t("{n} % des revenus du mois", { n: Math.round((totals.epargne / totals.revenus) * 100) }) } : undefined,
       to: "/mois",
     },
     dettes: {
@@ -401,6 +476,7 @@ export function Dashboard() {
       info: t("Capital qu'il te reste à rembourser sur tes crédits, pour ta part."),
       value: w ? money(w.debts, true) : "…",
       source: w ? tn("{n} crédit, ta part", "{n} crédits, ta part", w.loans.length) : undefined,
+      gauge: repaid != null ? { part: repaid, label: t("{n} % du capital remboursé", { n: Math.round(repaid * 100) }) } : undefined,
       to: "/patrimoine",
     },
   };
@@ -489,6 +565,7 @@ export function Dashboard() {
                   onRemove={() => change((l) => ({ ...l, cards: l.cards.filter((x) => x.id !== c.id) }))}
                 >
                   <WidthPicker id={c.id} value={c.w} onChange={(wd) => change((l) => ({ ...l, cards: l.cards.map((x) => (x.id === c.id ? { ...x, w: wd } : x)) }))} />
+                  {forms[c.id] && <FormToggle value={forms[c.id]!} onChange={(f) => change((l) => ({ ...l, cards: l.cards.map((x) => (x.id === c.id ? { ...x, f } : x)) }))} />}
                 </EditFrame>
               </>
             )}
@@ -536,13 +613,19 @@ export function Dashboard() {
   );
 }
 
-function Kpi({ label, value, delta, deltaLabel, invert, source, to, info, tone }: { label: string; value: string; delta?: number | null; deltaLabel?: string; invert?: boolean; source?: string; to: string; info?: string; tone?: "pos" | "neg" }) {
+/**
+ * Tuile d'un chiffre clé : son nom, sa valeur, ce qu'elle a fait depuis la dernière fois, et un dessin plutôt
+ * qu'une phrase — une mini-courbe (`spark`) ou une jauge (`gauge`). D'où vient le chiffre (`source`) se lit dans
+ * la pastille « i », avec sa définition.
+ */
+function Kpi({ label, value, delta, deltaLabel, invert, source, note, spark, gauge, to, info, tone }: { label: string; value: string; delta?: number | null; deltaLabel?: string; invert?: boolean; source?: string; /** Ce qui ne se dessine pas et doit rester écrit (la date d'un prélèvement). */ note?: string; spark?: number[]; gauge?: { /** Part remplie, de 0 à 1 (au-delà : dépassement). */ part: number; label: string }; to: string; info?: string; tone?: "pos" | "neg" }) {
   const good = delta == null ? null : invert ? delta <= 0 : delta >= 0;
+  const about = [info, source].filter(Boolean).join(" — ");
   return (
-    <Link to={to} className="press card @container block h-full p-4 transition-shadow 2xl:p-5 hover:shadow-[0_1px_1px_rgb(20_20_19/0.04),0_16px_32px_-18px_rgb(20_20_19/0.28)]">
+    <Link to={to} className="press card @container flex h-full flex-col p-4 transition-shadow 2xl:p-5 hover:shadow-[0_1px_1px_rgb(20_20_19/0.04),0_16px_32px_-18px_rgb(20_20_19/0.28)]">
       <div className="flex items-center gap-1.5 text-[14px] text-muted @[150px]:text-[15px]">
         <span className="min-w-0 truncate">{label}</span>
-        {info && <InfoTip text={info} />}
+        {about && <InfoTip text={about} />}
       </div>
       <div className={cn("figure mt-1.5 text-[21px] @[140px]:text-[25px] @[180px]:text-[30px]", !isDiscreet() && tone === "pos" && "text-pos", !isDiscreet() && tone === "neg" && "text-neg")}>{value}</div>
       {delta != null && (
@@ -554,7 +637,20 @@ function Kpi({ label, value, delta, deltaLabel, invert, source, to, info, tone }
           <span className="ml-1.5 text-[12.5px] text-muted">{deltaLabel}</span>
         </div>
       )}
-      {source && <div className="mt-1.5 truncate text-[12.5px] text-muted">{source}</div>}
+      {note && <div className="mt-1.5 truncate text-[12.5px] text-muted">{note}</div>}
+      {!isDiscreet() && spark && spark.length >= 2 && (
+        <div data-chart className="mt-auto pt-2">
+          <Sparkline values={spark} className="!h-8" />
+        </div>
+      )}
+      {!isDiscreet() && gauge && (
+        <div data-chart className="mt-auto pt-3" title={gauge.label}>
+          <div className="h-1.5 overflow-hidden rounded-full bg-bg" role="img" aria-label={gauge.label}>
+            <div className={cn("h-full rounded-full", gauge.part > 1 ? "bg-neg" : "bg-ink")} style={{ width: `${Math.min(1, Math.max(0, gauge.part)) * 100}%` }} />
+          </div>
+          <div className="mt-1 truncate text-[12px] text-muted">{gauge.label}</div>
+        </div>
+      )}
     </Link>
   );
 }

@@ -192,6 +192,8 @@ function MobileHome() {
     // Les comptes comme sur l'appli d'une banque : chaque compte avec ses cartes à débit différé, puis l'épargne,
     // les placements et les crédits.
     comptes: <AccountsCard sections />,
+    // Les mêmes comptes en quelques lignes : un total par groupe et une barre, sans la liste.
+    apercu: <AccountsCard summary />,
     patrimoine: <WealthCard />,
   };
 

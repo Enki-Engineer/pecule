@@ -20,6 +20,7 @@ export const HOME_CARDS = [
   { id: "echeances", label: tk("Prochaines échéances") },
   { id: "comptes", label: tk("Comptes") },
   { id: "patrimoine", label: tk("Patrimoine net") },
+  { id: "apercu", label: tk("Comptes en bref") },
 ] as const satisfies readonly { id: string; label: string }[];
 export type HomeCardId = (typeof HOME_CARDS)[number]["id"];
 export const HOME_IDS = HOME_CARDS.map((c) => c.id);
@@ -32,8 +33,14 @@ export const HOME_TEMPLATES = [
   {
     id: "ensemble",
     label: tk("Vue d'ensemble"),
-    hint: tk("Un peu de tout : l'agencement d'origine."),
+    hint: tk("Un peu de tout : l'accueil d'origine."),
     cards: ["disponible", "depense", "semaine", "aclasser", "amusant", "resume", "enveloppes", "objectifs", "echeances", "comptes"],
+  },
+  {
+    id: "essentiel",
+    label: tk("Essentiel"),
+    hint: tk("Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention."),
+    cards: ["disponible", "apercu", "depense", "aclasser"],
   },
   {
     id: "quotidien",

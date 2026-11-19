@@ -3,6 +3,15 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.29.0
+
+- **« Essentiel » devient l'agencement de départ**, sur ordinateur comme sur téléphone : quatre chiffres clés, la
+  courbe du patrimoine, l'anneau des dépenses, les comptes en bref, « À traiter » et les prochaines échéances —
+  un seul écran. Il passe en tête des modèles. Sur téléphone : ce qui est disponible, les comptes en bref, ce qui
+  est dépensé et les opérations à classer.
+- Qui a déjà arrangé son tableau de bord ou son accueil garde le sien, tel quel. Qui ne l'a jamais touché passe à
+  l'essentiel ; « Vue d'ensemble », dans les modèles, rend l'écran d'avant.
+
 ## 1.28.0
 
 - **Tableau de bord allégé.** Il donnait beaucoup à lire et presque rien à voir : la vue d'ensemble de la démo

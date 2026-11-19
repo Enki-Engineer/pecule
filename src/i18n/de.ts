@@ -3282,9 +3282,9 @@ export const de: Dict = {
   "Où est parti l'argent du mois, poste par poste : en anneau, ou en liste.": "Wohin das Geld des Monats geflossen ist, Posten für Posten: als Ring oder als Liste.",
   "Un peu de tout : comptes, dépenses, patrimoine et ce qui arrive.": "Von allem etwas: Konten, Ausgaben, Vermögen und was ansteht.",
   "Essentiel": "Das Wesentliche",
-  "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention.": "So wenig wie möglich zu lesen: vier Zahlen, eine Kurve, ein Ring und was deine Aufmerksamkeit braucht.",
   "Comptes en bref": "Konten in Kürze",
-  "Un peu de tout : l'accueil d'origine.": "Von allem etwas: die ursprüngliche Startseite.",
-  "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention.": "So wenig wie möglich zu lesen: was verfügbar ist, die Konten in Kürze, was ausgegeben wurde und was deine Aufmerksamkeit braucht.",
   "Et {n} autre dans l'échéancier →": ["Und {n} weiterer im Terminplan →", "Und {n} weitere im Terminplan →"],
+  "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention. C'est le tableau de bord de départ.": "So wenig wie möglich zu lesen: vier Zahlen, eine Kurve, ein Ring und was deine Aufmerksamkeit braucht. Das ist das Dashboard, mit dem du startest.",
+  "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention. C'est l'accueil de départ.": "So wenig wie möglich zu lesen: was verfügbar ist, die Konten in Kürze, was ausgegeben wurde und was deine Aufmerksamkeit braucht. Das ist die Startseite, mit der du beginnst.",
+  "Un peu de tout : dix blocs, l'un sous l'autre.": "Von allem etwas: zehn Blöcke, einer unter dem anderen.",
 };

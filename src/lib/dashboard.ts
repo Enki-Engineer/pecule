@@ -72,18 +72,18 @@ export const formOf = (c: DashCard): DashForm | null => (CARD.get(c.id)!.form ? 
  */
 export const DASH_TEMPLATES = [
   {
+    id: "essentiel",
+    label: tk("Essentiel"),
+    hint: tk("Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention. C'est le tableau de bord de départ."),
+    kpis: ["disponible", "depense", "solde", "patrimoine"],
+    cards: [["evolution", 8], ["postes", 4, "essentiel"], ["comptes", 4, "essentiel"], ["atraiter", 4], ["echeances", 4, "essentiel"]],
+  },
+  {
     id: "ensemble",
     label: tk("Vue d'ensemble"),
     hint: tk("Un peu de tout : comptes, dépenses, patrimoine et ce qui arrive."),
     kpis: ["patrimoine", "disponible", "differe", "depense", "solde", "dettes"],
     cards: [["evolution", 8], ["atraiter", 4], ["semaine", 12], ["postes", 4, "essentiel"], ["repartition", 4, "essentiel"], ["comptes", 4, "essentiel"], ["operations", 8, "essentiel"], ["echeances", 4, "essentiel"], ["enveloppes", 6], ["objectifs", 6]],
-  },
-  {
-    id: "essentiel",
-    label: tk("Essentiel"),
-    hint: tk("Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention."),
-    kpis: ["disponible", "depense", "solde", "patrimoine"],
-    cards: [["evolution", 8], ["postes", 4, "essentiel"], ["comptes", 4, "essentiel"], ["atraiter", 4], ["echeances", 4, "essentiel"]],
   },
   {
     id: "quotidien",
@@ -115,8 +115,8 @@ export function templateLayout(id: DashTemplateId): DashLayout {
   return { kpis: [...m.kpis], cards: m.cards.map(([cid, w, f]) => (f ? { id: cid, w, f } : { id: cid, w })) };
 }
 
-/** Sans agencement enregistré : la vue d'ensemble. */
-export const defaultLayout = (): DashLayout => templateLayout("ensemble");
+/** Sans agencement enregistré : l'essentiel — peu à lire, un seul écran. Le reste se choisit dans « Modèles » ou « Ajouter ». */
+export const defaultLayout = (): DashLayout => templateLayout("essentiel");
 
 /**
  * Agencement lu d'un enregistrement (serveur, navigateur) : ne garde que ce que cette version connaît, une fois
@@ -162,7 +162,8 @@ export function fromLegacy(raw: unknown): DashLayout | null {
   const ids = order.filter((id): id is DashCardId => typeof id === "string" && CARD.has(id)).filter((id, i, all) => all.indexOf(id) === i);
   for (const id of origin) if (!ids.includes(id)) ids.splice(ids.indexOf(origin[origin.indexOf(id) - 1]) + 1, 0, id);
   const off = new Set(Array.isArray(hidden) ? hidden : []);
-  return { kpis: defaultLayout().kpis, cards: ids.filter((id) => !off.has(id)).map((id) => LEGACY.find((c) => c.id === id) ?? cardOf(id)) };
+  // L'écran d'alors montrait les six chiffres clés de la vue d'ensemble.
+  return { kpis: templateLayout("ensemble").kpis, cards: ids.filter((id) => !off.has(id)).map((id) => LEGACY.find((c) => c.id === id) ?? cardOf(id)) };
 }
 
 export const sameLayout = (a: DashLayout, b: DashLayout): boolean =>

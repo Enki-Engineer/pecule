@@ -11,7 +11,7 @@ export const analyseBudget: ManualTheme = {
       title: tk("L'accueil et le tableau de bord"),
       summary: tk("L'essentiel d'un coup d'œil : ce que tu as, ce que tu as dépensé, ce qui t'attend."),
       body: [
-        tk("Sur ordinateur, le tableau de bord commence par des chiffres clés : [[Patrimoine net]], [[Disponible]], [[Cartes à débit différé]] quand un encours est connu, [[Dépensé ce mois]], [[Solde du mois]] et [[Dettes restantes]] ; [[Revenus du mois]] et [[Mis de côté ce mois]] s'y ajoutent si tu le veux. Chacun mène à son écran. Sous le chiffre, un dessin plutôt qu'une phrase : une petite courbe de ses dernières semaines, ou une jauge — ce que les dépenses ont pris des revenus, la part du capital déjà remboursée. Sa pastille « i » dit comment il est calculé et d'où il vient."),
+        tk("Sur ordinateur, le tableau de bord commence par des chiffres clés — au départ [[Disponible]], [[Dépensé ce mois]], [[Solde du mois]] et [[Patrimoine net]] ; [[Cartes à débit différé]], [[Dettes restantes]], [[Revenus du mois]] et [[Mis de côté ce mois]] s'y ajoutent si tu le veux. Chacun mène à son écran. Sous le chiffre, un dessin plutôt qu'une phrase : une petite courbe de ses dernières semaines, ou une jauge — ce que les dépenses ont pris des revenus, la part du capital déjà remboursée. Sa pastille « i » dit comment il est calculé et d'où il vient."),
         {
           list: [
             tk("[[À traiter]] réunit ce qui demande ton attention : comptes bientôt sous leur seuil, opérations à classer, factures sans paiement retrouvé, tâches en retard, alertes techniques."),
@@ -21,7 +21,7 @@ export const analyseBudget: ManualTheme = {
             tk("Les autres cartes : évolution du patrimoine, où part l'argent, enveloppes, objectifs, dernières opérations, prochaines échéances, résumé de la semaine. Toutes ne sont pas à l'écran d'emblée : voir [[Ajouter]], en mode construction."),
           ],
         },
-        tk("Sur téléphone, l'accueil reprend l'essentiel en cartes : [[Disponible sur les comptes]], [[Dépensé ce mois-ci]], [[Les sept prochains jours]], les opérations à classer, les enveloppes, les objectifs, les échéances et les comptes. Le bloc des comptes est rangé comme sur l'ordinateur : comptes courants, épargne, placements et crédits, chaque groupe avec son total, et sous chaque compte ses cartes à débit différé, ce qu'il restera une fois prélevées et son alerte de solde bas."),
+        tk("Sur téléphone, l'accueil tient au départ en quatre blocs : [[Disponible sur les comptes]], [[Comptes en bref]], [[Dépensé ce mois-ci]] et les opérations à classer. Les autres — [[Les sept prochains jours]], les enveloppes, les objectifs, les échéances, la liste des comptes — s'ajoutent en personnalisant l'accueil. Le bloc des comptes est rangé comme sur l'ordinateur : comptes courants, épargne, placements et crédits, chaque groupe avec son total, et sous chaque compte ses cartes à débit différé, ce qu'il restera une fois prélevées et son alerte de solde bas."),
         { tip: tk("Le tableau de bord s'arrange à ta main — cartes à déplacer, à élargir, à retirer, modèles « Quotidien », « Budget » et « Patrimoine » : voir [Personnaliser l'accueil et le tableau de bord](/manuel/personnaliser-accueil).") },
       ],
       links: [{ to: "/", label: ["Tableau de bord"] }],

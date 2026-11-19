@@ -15,6 +15,11 @@ describe("modèles du tableau de bord", () => {
     for (const m of DASH_TEMPLATES) for (const row of rowsOf(templateLayout(m.id).cards)) expect(row.reduce((s, c) => s + c.w, 0), `${m.id} · ${row.map((c) => c.id).join(" + ")}`).toBe(12);
   });
 
+  it("sans agencement enregistré, le tableau de bord est l'essentiel, premier des modèles proposés", () => {
+    expect(templateOf(defaultLayout())).toBe("essentiel");
+    expect(DASH_TEMPLATES[0].id).toBe("essentiel");
+  });
+
   it("un modèle tient en peu de cartes : dix au plus, cinq pour l'essentiel", () => {
     for (const m of DASH_TEMPLATES) expect(m.cards.length, m.id).toBeLessThanOrEqual(10);
     expect(templateLayout("essentiel").cards).toHaveLength(5);
@@ -82,7 +87,7 @@ describe("fromLegacy", () => {
     const layout = fromLegacy({ order: ["comptes", "operations", "evolution", "atraiter", "semaine", "natures", "amusant", "resume", "enveloppes", "objectifs", "echeances", "postes", "repartition"], hidden: ["amusant", "resume"] })!;
     expect(layout.cards.map((c) => c.id)).toEqual(["comptes", "operations", "evolution", "atraiter", "semaine", "natures", "enveloppes", "objectifs", "echeances", "postes", "repartition"]);
     expect(layout.cards.find((c) => c.id === "operations")!.w).toBe(8);
-    expect(layout.kpis).toEqual(defaultLayout().kpis);
+    expect(layout.kpis).toEqual(templateLayout("ensemble").kpis);
   });
 
   it("un bloc absent de l'ancien réglage se range après celui qui le précédait à l'origine", () => {

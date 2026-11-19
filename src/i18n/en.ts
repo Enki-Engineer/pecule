@@ -3282,9 +3282,9 @@ export const en: Dict = {
   "Où est parti l'argent du mois, poste par poste : en anneau, ou en liste.": "Where this month's money went, heading by heading: as a ring, or as a list.",
   "Un peu de tout : comptes, dépenses, patrimoine et ce qui arrive.": "A bit of everything: accounts, spending, wealth and what's coming.",
   "Essentiel": "Essentials",
-  "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention.": "As little to read as possible: four figures, a curve, a ring, and what needs your attention.",
   "Comptes en bref": "Accounts at a glance",
-  "Un peu de tout : l'accueil d'origine.": "A bit of everything: the original home screen.",
-  "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention.": "As little to read as possible: what's available, accounts at a glance, what's been spent and what needs your attention.",
   "Et {n} autre dans l'échéancier →": ["And {n} more in the schedule →", "And {n} more in the schedule →"],
+  "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention. C'est le tableau de bord de départ.": "As little to read as possible: four figures, a curve, a ring, and what needs your attention. This is the dashboard you start with.",
+  "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention. C'est l'accueil de départ.": "As little to read as possible: what's available, accounts at a glance, what's been spent and what needs your attention. This is the home screen you start with.",
+  "Un peu de tout : dix blocs, l'un sous l'autre.": "A bit of everything: ten blocks, one under the other.",
 };

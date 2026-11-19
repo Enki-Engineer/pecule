@@ -111,8 +111,8 @@ export const personnaliser: ManualTheme = {
         tk("Les modèles : [[Modèles]], dans la barre du mode construction, propose cinq points de départ, chacun en peu de cartes. En choisir un remplace l'agencement en cours ; tu le modifies ensuite librement, et ce qu'il ne montre pas attend dans [[Ajouter]]."),
         {
           list: [
-            tk("[[Vue d'ensemble]] : un peu de tout — comptes, dépenses, patrimoine et ce qui arrive."),
-            tk("[[Essentiel]] : le moins possible à lire. Quatre chiffres, la courbe du patrimoine, l'anneau des dépenses, les comptes en bref et ce qui demande ton attention : tout tient sur un écran. À choisir si le tableau de bord te paraît trop chargé."),
+            tk("[[Essentiel]] : le moins possible à lire. Quatre chiffres, la courbe du patrimoine, l'anneau des dépenses, les comptes en bref et ce qui demande ton attention : tout tient sur un écran. C'est le tableau de bord de départ, celui qu'on a tant qu'on n'a rien arrangé."),
+            tk("[[Vue d'ensemble]] : un peu de tout — comptes, dépenses, patrimoine et ce qui arrive. Plus fourni, sur deux écrans."),
             tk("[[Quotidien]] : combien j'ai, là, maintenant ? La carte [[Comptes]] en tête, comme l'appli d'une banque, puis ce qui est à traiter, les sept prochains jours, les dernières opérations et les échéances."),
             tk("[[Budget##modèle]] : est-ce que je tiens mon mois ? Où part l'argent, les enveloppes, les dépenses par poste, le résumé de la semaine."),
             tk("[[Patrimoine##modèle]] : où je vais ? L'évolution du patrimoine net, sa répartition, les comptes et les crédits, les objectifs d'épargne."),
@@ -121,7 +121,7 @@ export const personnaliser: ManualTheme = {
         { tip: tk("Tu peux aussi le demander à l'assistant : « mets-moi le tableau de bord Quotidien ». Il applique le modèle après ta confirmation.") },
         tk("L'agencement du tableau de bord est gardé par Pécule, pour toi seul : tu le retrouves sur tous tes ordinateurs, et chaque membre du foyer a le sien."),
         tk("Sur téléphone, [[Personnaliser l'accueil]], tout en bas de l'accueil, ouvre le même mode : un appui long sur un bloc le saisit, et tu le glisses plus haut ou plus bas. Sa barrette porte une poignée, les flèches [[Monter]] et [[Descendre]] et une croix pour le retirer ; [[Ajouter]] remet un bloc retiré, dont [[Patrimoine net]], qui n'est pas sur l'accueil d'origine. [[Terminé]] enregistre."),
-        tk("[[Partir d'un modèle]] propose les mêmes modèles, en une colonne. [[Quotidien]] ouvre sur le bloc [[Comptes]] — les comptes comme sur l'appli d'une banque, chacun avec ses cartes à débit différé —, puis ce qui est disponible, dépensé et attendu ; [[Essentiel]] remplace cette liste par [[Comptes en bref]], un total par groupe et une barre ; [[Vue d'ensemble]] rend l'accueil d'origine."),
+        tk("[[Partir d'un modèle]] propose les mêmes modèles, en une colonne. [[Essentiel]], l'accueil de départ, tient en quatre blocs, dont [[Comptes en bref]] — un total par groupe et une barre ; [[Quotidien]] ouvre sur le bloc [[Comptes]] — les comptes comme sur l'appli d'une banque, chacun avec ses cartes à débit différé —, puis ce qui est disponible, dépensé et attendu ; [[Vue d'ensemble]] aligne dix blocs, comme l'accueil d'avant les modèles."),
         tk("L'agencement de l'accueil est mémorisé sur l'appareil : il ne suit pas celui du tableau de bord, et un modèle choisi sur l'ordinateur se choisit aussi sur le téléphone."),
       ],
       links: [{ to: "/", label: ["Tableau de bord"] }],

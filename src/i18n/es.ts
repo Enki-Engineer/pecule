@@ -3282,9 +3282,9 @@ export const es: Dict = {
   "Où est parti l'argent du mois, poste par poste : en anneau, ou en liste.": "Adónde ha ido el dinero del mes, partida por partida: en anillo o en lista.",
   "Un peu de tout : comptes, dépenses, patrimoine et ce qui arrive.": "Un poco de todo: cuentas, gastos, patrimonio y lo que viene.",
   "Essentiel": "Esencial",
-  "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention.": "Lo mínimo que leer: cuatro cifras, una curva, un anillo y lo que requiere tu atención.",
   "Comptes en bref": "Cuentas en breve",
-  "Un peu de tout : l'accueil d'origine.": "Un poco de todo: la pantalla de inicio original.",
-  "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention.": "Lo mínimo que leer: lo disponible, las cuentas en breve, lo gastado y lo que requiere tu atención.",
   "Et {n} autre dans l'échéancier →": ["Y {n} más en Vencimientos →", "Y {n} más en Vencimientos →"],
+  "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention. C'est le tableau de bord de départ.": "Lo mínimo que leer: cuatro cifras, una curva, un anillo y lo que requiere tu atención. Es el panel de partida.",
+  "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention. C'est l'accueil de départ.": "Lo mínimo que leer: lo disponible, las cuentas en breve, lo gastado y lo que requiere tu atención. Es la pantalla de inicio de partida.",
+  "Un peu de tout : dix blocs, l'un sous l'autre.": "Un poco de todo: diez bloques, uno debajo de otro.",
 };

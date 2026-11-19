@@ -3282,9 +3282,9 @@ export const it: Dict = {
   "Où est parti l'argent du mois, poste par poste : en anneau, ou en liste.": "Dove sono andati i soldi del mese, voce per voce: ad anello, o in elenco.",
   "Un peu de tout : comptes, dépenses, patrimoine et ce qui arrive.": "Un po' di tutto: conti, spese, patrimonio e quello che arriva.",
   "Essentiel": "Essenziale",
-  "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention.": "Il meno possibile da leggere: quattro cifre, una curva, un anello e quello che richiede la tua attenzione.",
   "Comptes en bref": "Conti in breve",
-  "Un peu de tout : l'accueil d'origine.": "Un po' di tutto: la home originale.",
-  "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention.": "Il meno possibile da leggere: quello che è disponibile, i conti in breve, quello che è stato speso e quello che richiede la tua attenzione.",
   "Et {n} autre dans l'échéancier →": ["E {n} altra nello scadenzario →", "E altre {n} nello scadenzario →"],
+  "Le moins possible à lire : quatre chiffres, une courbe, un anneau, et ce qui demande ton attention. C'est le tableau de bord de départ.": "Il meno possibile da leggere: quattro cifre, una curva, un anello e quello che richiede la tua attenzione. È la dashboard di partenza.",
+  "Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention. C'est l'accueil de départ.": "Il meno possibile da leggere: quello che è disponibile, i conti in breve, quello che è stato speso e quello che richiede la tua attenzione. È la home di partenza.",
+  "Un peu de tout : dix blocs, l'un sous l'autre.": "Un po' di tutto: dieci blocchi, uno sotto l'altro.",
 };

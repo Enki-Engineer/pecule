@@ -20,7 +20,8 @@ describe("modèles de l'accueil du téléphone", () => {
 
   it("reconnaît le modèle qu'un agencement reproduit", () => {
     expect(homeTemplateOf(homeTemplate("budget"))).toBe("budget");
-    expect(homeTemplateOf(homeDefault())).toBe("ensemble");
+    expect(homeTemplateOf(homeDefault())).toBe("essentiel");
+    expect(HOME_TEMPLATES[0].id).toBe("essentiel");
     const moved = homeTemplate("budget");
     moved.hidden = moved.hidden.filter((id) => id !== "comptes");
     expect(homeTemplateOf(moved)).toBeNull();

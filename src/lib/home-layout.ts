@@ -27,20 +27,20 @@ export const HOME_IDS = HOME_CARDS.map((c) => c.id);
 
 /**
  * Modèles de l'accueil : les blocs affichés, de haut en bas ; les autres attendent dans « Ajouter ».
- * « Vue d'ensemble » est l'accueil d'origine de Pécule.
+ * « Essentiel » est l'accueil de départ ; « Vue d'ensemble » est celui d'avant les modèles, avec tous ses blocs.
  */
 export const HOME_TEMPLATES = [
   {
-    id: "ensemble",
-    label: tk("Vue d'ensemble"),
-    hint: tk("Un peu de tout : l'accueil d'origine."),
-    cards: ["disponible", "depense", "semaine", "aclasser", "amusant", "resume", "enveloppes", "objectifs", "echeances", "comptes"],
-  },
-  {
     id: "essentiel",
     label: tk("Essentiel"),
-    hint: tk("Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention."),
+    hint: tk("Le moins possible à lire : ce qui est disponible, les comptes en bref, ce qui est dépensé et ce qui demande ton attention. C'est l'accueil de départ."),
     cards: ["disponible", "apercu", "depense", "aclasser"],
+  },
+  {
+    id: "ensemble",
+    label: tk("Vue d'ensemble"),
+    hint: tk("Un peu de tout : dix blocs, l'un sous l'autre."),
+    cards: ["disponible", "depense", "semaine", "aclasser", "amusant", "resume", "enveloppes", "objectifs", "echeances", "comptes"],
   },
   {
     id: "quotidien",
@@ -70,11 +70,14 @@ export function homeTemplate(id: HomeTemplateId): CardLayout<HomeCardId> {
   return { order: [...shown, ...hidden], hidden };
 }
 
-/** Sans réglage sur l'appareil : la vue d'ensemble. */
-export const homeDefault = (): CardLayout<HomeCardId> => homeTemplate("ensemble");
+/** Sans réglage sur l'appareil : l'essentiel — peu à lire. Le reste se choisit dans « Partir d'un modèle » ou « Ajouter ». */
+export const homeDefault = (): CardLayout<HomeCardId> => homeTemplate("essentiel");
 
-/** Blocs nés après l'accueil d'origine : un appareil qui a déjà son réglage les reçoit retirés, à ajouter si on veut. */
-export const HOME_QUIET: readonly HomeCardId[] = homeDefault().hidden;
+/**
+ * Blocs nés après l'accueil d'avant les modèles (la vue d'ensemble) : un appareil qui a gardé un réglage de ce
+ * temps-là les reçoit retirés, à ajouter si on veut.
+ */
+export const HOME_QUIET: readonly HomeCardId[] = homeTemplate("ensemble").hidden;
 
 /** Le modèle que l'agencement reproduit — mêmes blocs affichés, dans le même ordre —, s'il y en a un. */
 export function homeTemplateOf(layout: CardLayout<HomeCardId>): HomeTemplateId | null {

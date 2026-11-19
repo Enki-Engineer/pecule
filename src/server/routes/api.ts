@@ -16,6 +16,8 @@ import { labelKey } from "../../lib/labels.ts";
 import { t as tr } from "../../lib/i18n.ts";
 import { labelShape, merchantName, natureSql, shapeRegex } from "../../lib/nature.ts";
 import { summarizeLoan, type ScheduleRow } from "../../lib/loans.ts";
+import { summarizePayouts } from "../../lib/payouts.ts";
+import { payouts } from "../payouts.ts";
 import { computeWealth, cryptoPositions, ensureFreshPrices, refreshWealth, snapshotWealth, wealthHistory } from "../wealth.ts";
 import { assistantEnabled, confirmPending, deleteThread, getThread, listThreads, sendMessage, updateThread, type AssistantEvent, type PublicThread } from "../assistant.ts";
 import { listMemories } from "../tools/analyse.ts";
@@ -499,10 +501,25 @@ api.patch("/assets/:id", async (req, res) => {
       cash: z.number().nullable().optional(),
       name: z.string().min(1).max(160).optional(),
       closed: z.boolean().optional(),
+      // Versements reçus : texte cherché dans le libellé des entrées (null : plus de suivi) ; `followPayouts` : la valeur suit le dernier versement.
+      payoutMatch: z.string().trim().max(120).nullable().optional(),
+      followPayouts: z.boolean().optional(),
     })
     .parse(req.body);
   await updateAsset(req.user!.id, Number(req.params.id), body);
   res.json({ ok: true });
+});
+
+// Versements reçus d'un placement : les entrées qui portent son texte, lues dans les comptes du membre. Le choix
+// Foyer / Moi n'y change rien : un versement arrivé sur le compte commun reste celui du placement.
+api.get("/assets/:id/payouts", async (req, res) => {
+  const asset = await one<{ payout_match: string | null; valuation: string }>("SELECT payout_match, valuation FROM assets WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)", [
+    Number(req.params.id),
+    req.user!.id,
+  ]);
+  if (!asset) throw new ActionError(404, tr("Élément introuvable"));
+  const rows = asset.payout_match ? await payouts(userAccountsSql(req.user!.id), asset.payout_match) : [];
+  res.json({ match: asset.payout_match, follows: asset.valuation === "versements", payouts: rows.slice(0, 12), ...summarizePayouts(rows, today()) });
 });
 
 api.post("/assets", async (req, res) => {

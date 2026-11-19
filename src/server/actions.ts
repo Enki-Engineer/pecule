@@ -1,5 +1,6 @@
 import { exec, one } from "./db.ts";
 import { snapshotWealth } from "./wealth.ts";
+import { refreshPayoutValues } from "./payouts.ts";
 import { t } from "../lib/i18n.ts";
 
 /**
@@ -83,18 +84,30 @@ export async function setTransactionNote(id: string, note: string | null) {
 export async function updateAsset(
   userId: number,
   id: number,
-  body: { value?: number | null; quantity?: number | null; cash?: number | null; name?: string; closed?: boolean },
+  body: { value?: number | null; quantity?: number | null; cash?: number | null; name?: string; closed?: boolean; payoutMatch?: string | null; followPayouts?: boolean },
 ) {
-  const asset = await one("SELECT id FROM assets WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)", [id, userId]);
+  const asset = await one<{ id: number; valuation: string; payout_match: string | null }>(
+    "SELECT id, valuation, payout_match FROM assets WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)",
+    [id, userId],
+  );
   if (!asset) throw new ActionError(404, t("Élément introuvable"));
   const sets: string[] = [];
   const params: unknown[] = [];
+  // Versements reçus : le texte cherché dans les opérations, et si la valeur suit le dernier versement.
+  const match = body.payoutMatch === undefined ? asset.payout_match : body.payoutMatch?.trim() || null;
+  const follows = !!match && (body.followPayouts ?? asset.valuation === "versements");
+  if (body.followPayouts && !match) throw new ActionError(400, t("Indique d'abord le texte du libellé des versements"));
+  if (follows && asset.valuation === "cotation") throw new ActionError(400, t("Un placement coté suit déjà son cours : sa valeur ne peut pas suivre ses versements"));
+  if (follows && body.value !== undefined) throw new ActionError(400, t("La valeur de ce placement suit ses versements : elle ne se saisit pas"));
+  if (match !== asset.payout_match) sets.push("payout_match = ?"), params.push(match);
+  if (follows !== (asset.valuation === "versements")) sets.push("valuation = ?"), params.push(follows ? "versements" : "manuel");
   if (body.value !== undefined) sets.push("value = ?", "value_date = CURDATE()"), params.push(body.value);
   if (body.quantity !== undefined) sets.push("quantity = ?"), params.push(body.quantity);
   if (body.cash !== undefined) sets.push("cash = ?"), params.push(body.cash);
   if (body.name !== undefined) sets.push("name = ?"), params.push(body.name);
   if (body.closed !== undefined) sets.push("closed = ?"), params.push(body.closed ? 1 : 0);
   if (sets.length) await exec(`UPDATE assets SET ${sets.join(", ")} WHERE id = ?`, [...params, id]);
+  if (follows) await refreshPayoutValues(id);
   await snapshotWealth(userId);
 }
 

@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { BadgeEuro, Building2, CalendarClock, ChevronRight, FolderOpen, Landmark, Plus, Sunset, TrendingUp, Wallet } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { api, useWealth, type Asset, type Wealth as WealthData, type WealthCategory } from "../api.ts";
+import { api, useAssetPayouts, useWealth, type Asset, type Wealth as WealthData, type WealthCategory } from "../api.ts";
+import { AssetPayouts } from "../components/AssetPayouts.tsx";
 import { BankBadge, Card, ErrorBox, Field, PageHeader, ProgressBar, Segmented, Sheet, Spinner } from "../components/ui.tsx";
 import { dateFr, money, moneySymbol, pct } from "../format.ts";
 import { CATEGORY } from "../wealth.ts";
@@ -202,7 +203,11 @@ function AssetRow({ a, onClick }: { a: Asset; onClick: () => void }) {
       </div>
       <div className="text-right">
         <div className="tnum font-semibold">{money(a.value, a.value >= 1000)}</div>
-        {a.valueDate && <div className="text-[11px] text-muted">{a.valuation === "cotation" ? t("cours du {date}", { date: dateFr(a.valueDate) }) : t("au {date}", { date: dateFr(a.valueDate) })}</div>}
+        {a.valueDate && (
+          <div className="text-[11px] text-muted">
+            {a.valuation === "cotation" ? t("cours du {date}", { date: dateFr(a.valueDate) }) : a.valuation === "versements" ? t("versement du {date}", { date: dateFr(a.valueDate) }) : t("au {date}", { date: dateFr(a.valueDate) })}
+          </div>
+        )}
       </div>
     </button>
   );
@@ -218,7 +223,10 @@ function AssetSheet({ asset, onClose }: { asset: Asset | null; onClose: () => vo
     setQuantity(asset?.quantity != null ? String(asset.quantity) : "");
     setCash(asset?.cash != null ? String(asset.cash) : "");
   }, [asset]);
+  // Versements reçus du placement ; s'il les suit, sa valeur ne se saisit pas (la fiche a pu être ouverte avant le réglage : on lit le serveur).
+  const payouts = useAssetPayouts(asset?.id).data;
   if (!asset) return null;
+  const follows = payouts?.follows ?? asset.valuation === "versements";
   const num = (s: string) => Number(s.replace(/\s/g, "").replace(",", "."));
 
   async function save() {
@@ -260,12 +268,20 @@ function AssetSheet({ asset, onClose }: { asset: Asset | null; onClose: () => vo
           <Field label={t("Espèces sur le compte ({devise})", { devise: moneySymbol() })} value={cash} onChange={setCash} />
           <p className="px-1 text-xs text-muted">{t("La valeur suit le cours de {ticker} ; mettez à jour après chaque ordre ou versement.", { ticker: asset.ticker ?? "" })}</p>
         </div>
+      ) : follows ? (
+        <Card className="flex items-baseline justify-between gap-3 px-4 py-3">
+          <span className="text-sm text-muted">{t("Valeur : le dernier versement reçu")}</span>
+          <span className="tnum text-[17px] font-semibold">{money(payouts?.last?.amount ?? asset.value)}</span>
+        </Card>
       ) : (
         <Field label={t("Valeur actuelle ({devise})", { devise: moneySymbol() })} value={value} onChange={setValue} />
       )}
-      <button type="button" onClick={save} className="press mt-4 w-full rounded-xl bg-accent py-3.5 font-semibold text-white">
-        {t("Enregistrer")}
-      </button>
+      {!follows && (
+        <button type="button" onClick={save} className="press mt-4 w-full rounded-xl bg-accent py-3.5 font-semibold text-white">
+          {t("Enregistrer")}
+        </button>
+      )}
+      <AssetPayouts asset={asset} p={payouts} onNavigate={onClose} />
     </Sheet>
   );
 }

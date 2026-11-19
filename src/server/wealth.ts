@@ -7,6 +7,7 @@ import { accountShare, assetValue, r2, valueCrypto } from "../lib/wealth.ts";
 import { serviceKey } from "./service-keys.ts";
 import { fxRate } from "./fx.ts";
 import { isCurrency } from "../lib/currencies.ts";
+import { refreshPayoutValues } from "./payouts.ts";
 
 /* ---------- Cours (CoinGecko pour la crypto, Yahoo Finance pour les titres cotés) ---------- */
 
@@ -112,7 +113,7 @@ type AssetRow = {
   name: string;
   category: WealthCategory;
   institution: string | null;
-  valuation: "manuel" | "cotation";
+  valuation: "manuel" | "cotation" | "versements";
   ticker: string | null;
   quantity: number | null;
   cash: number | null;
@@ -123,6 +124,7 @@ type AssetRow = {
   liquidity: string | null;
   loan_ids: string | null;
   notes: string | null;
+  payout_match: string | null;
   price: number | null;
   price_change: number | null;
   price_at: string | null;
@@ -192,6 +194,7 @@ export async function computeWealth(userId: number) {
       valueDate: quoted ? (a.price_at ?? "").slice(0, 10) : a.value_date,
       shareValue: r2(value * Number(a.share)),
       loanIds: a.loan_ids ? a.loan_ids.split(",") : [],
+      payoutMatch: a.payout_match,
     };
   });
 
@@ -241,11 +244,13 @@ function recordPriceErrors(errors: string[]) {
   return Promise.all(errors.map((e) => recordAlert("cours", `Cours non mis à jour : ${e}`, undefined, "alerte")));
 }
 
-/** Tâche horaire : cours puis instantané de chaque membre. */
+/** Tâche horaire : cours, placements qui suivent leurs versements, puis instantané de chaque membre. */
 export async function refreshWealth() {
   if (isDemo()) return;
   const prices = await refreshPrices();
   if (prices.errors.length) await recordPriceErrors(prices.errors);
+  // Placements dont la valeur suit le dernier versement reçu : relus avant l'instantané.
+  await refreshPayoutValues().catch((e) => console.error("[patrimoine] versements non relus", e));
   for (const u of await q<{ id: number }>("SELECT id FROM users")) await snapshotWealth(u.id);
   return prices;
 }

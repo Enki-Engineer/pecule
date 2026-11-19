@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0032_import_releves.sql
+-- inclut-jusqu-a: drizzle/0033_actif_versements.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -143,6 +143,7 @@ CREATE TABLE `assets` (
   `notes` text DEFAULT NULL,
   `sort_order` int(11) NOT NULL DEFAULT 0,
   `closed` tinyint(1) NOT NULL DEFAULT 0,
+  `payout_match` varchar(120) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_assets_name` (`owner_user_id`,`name`),
   CONSTRAINT `fk_assets_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE

@@ -3,6 +3,26 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.30.0
+
+Patrimoine : un placement peut suivre les versements qu'il rapporte.
+
+- **Versements reçus d'un placement.** Les coupons d'une obligation, des intérêts, ce qu'une plateforme reverse :
+  dans la fiche d'un placement, « Suivre les versements reçus » demande un texte présent dans le libellé de ces
+  entrées d'argent, et Pécule les retrouve dans les opérations — rien n'est recopié. La fiche montre le dernier
+  versement, ce qui a été reçu sur douze mois, le total de chaque année et, quand les versements remontent à un an,
+  le rendement (ce qui a été reçu sur douze mois, rapporté à la valeur). « Voir ces opérations » en ouvre la liste.
+- **Une valeur qui se met à jour seule.** Pour un portefeuille vidé à chaque versement, « Valeur = dernier
+  versement » remplace la saisie : la valeur du placement devient le dernier versement reçu, relue après chaque
+  synchronisation. C'est une estimation de ce qu'il contient entre deux versements, et la fiche le dit. Un placement
+  suivi ainsi n'est plus rappelé dans « À traiter » pour sa valeur trop ancienne.
+- Même fiche sur ordinateur et sur téléphone. L'assistant lit le réglage (`get_wealth`) et peut le changer
+  (`update_asset` : `payout_match`, `value_follows_payouts`), après confirmation.
+- Manuel : nouvel article « Suivre les versements d'un placement ».
+
+Migration `0033_actif_versements` (une colonne, `assets.payout_match`). Aucun réglage nouveau ; rien ne change pour
+un placement sans texte de versements.
+
 ## 1.29.2
 
 - Sécurité : `express-rate-limit` passe en 8.7.5 (alerte de l'hébergeur, GHSA-cppf-2hm6-mrvm, gravité modérée). La

@@ -15,7 +15,7 @@ const getWealth = readTool({
   name: "get_wealth",
   progress: tk("Calcul du patrimoine…"),
   description:
-    "Patrimoine de l'utilisateur : net, brut, dettes, répartition, comptes, placements (avec leur asset_id), crypto regroupée par jeton, positions crypto saisies à la main (position_id), crédits.",
+    "Patrimoine de l'utilisateur : net, brut, dettes, répartition, comptes, placements (avec leur asset_id), crypto regroupée par jeton, positions crypto saisies à la main (position_id), crédits. Un placement peut porter payout_match : le texte du libellé des versements qu'il rapporte (coupons, intérêts, ce qu'une plateforme reverse) — search_transactions avec ce texte en donne la liste ; valuation « versements » : sa valeur est le dernier versement reçu, mise à jour seule.",
   input: z.object({}),
   async run({ userId }) {
     const w = await computeWealth(userId);
@@ -38,6 +38,8 @@ const getWealth = readTool({
         cash: a.cash,
         price: a.price,
         invested: a.invested,
+        // Texte des versements reçus (coupons, intérêts…) ; valuation « versements » : la valeur est le dernier versement.
+        payout_match: a.payoutMatch,
       })),
       crypto: {
         total: w.crypto.total,
@@ -89,11 +91,18 @@ const getLoan = readTool({
 const updateAssetTool = writeTool({
   name: "update_asset",
   description:
-    "Met à jour un placement : value pour une valeur saisie à la main (livret, assurance vie…), quantity/cash pour un placement coté (PEA : nombre de parts et espèces).",
-  input: z.object({ asset_id: z.number().int(), value: z.number().optional(), quantity: z.number().optional(), cash: z.number().optional() }),
+    "Met à jour un placement : value pour une valeur saisie à la main (livret, assurance vie…), quantity/cash pour un placement coté (PEA : nombre de parts et espèces). payout_match : texte du libellé des versements qu'il rapporte (coupons d'une obligation, intérêts, ce qu'une plateforme reverse) — sa fiche en montre alors l'historique, le total par année et le rendement ; chaîne vide pour ne plus les suivre. value_follows_payouts : true pour un portefeuille vidé à chaque versement (sa valeur devient le dernier versement reçu et se met à jour seule), false pour revenir à une valeur saisie.",
+  input: z.object({
+    asset_id: z.number().int(),
+    value: z.number().optional(),
+    quantity: z.number().optional(),
+    cash: z.number().optional(),
+    payout_match: z.string().max(120).optional().describe("Texte présent dans le libellé des versements reçus ; \"\" pour arrêter le suivi"),
+    value_follows_payouts: z.boolean().optional().describe("La valeur du placement est le dernier versement reçu"),
+  }),
   async describe({ userId }, i) {
-    const a = await one<{ name: string; value: number | null; quantity: number | null; cash: number | null }>(
-      "SELECT name, value, quantity, cash FROM assets WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)",
+    const a = await one<{ name: string; value: number | null; quantity: number | null; cash: number | null; payout_match: string | null; valuation: string }>(
+      "SELECT name, value, quantity, cash, payout_match, valuation FROM assets WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)",
       [i.asset_id, userId],
     );
     if (!a) throw new ToolError("Placement introuvable");
@@ -101,10 +110,13 @@ const updateAssetTool = writeTool({
     if (i.value !== undefined) details.push(change(tr("Valeur"), money(Number(a.value ?? 0)), money(i.value)));
     if (i.quantity !== undefined) details.push(change(tr("Parts##titres"), a.quantity ?? 0, i.quantity));
     if (i.cash !== undefined) details.push(change(tr("Espèces"), money(Number(a.cash ?? 0)), money(i.cash)));
+    if (i.payout_match !== undefined) details.push(change(tr("Versements reçus"), a.payout_match ?? "—", i.payout_match.trim() || "—"));
+    if (i.value_follows_payouts !== undefined)
+      details.push(change(tr("Valeur"), a.valuation === "versements" ? tr("le dernier versement reçu") : tr("saisie à la main"), i.value_follows_payouts ? tr("le dernier versement reçu") : tr("saisie à la main")));
     return { label: tr("Mettre à jour « {nom} »", { nom: a.name }), details };
   },
   async run({ userId }, i) {
-    await updateAsset(userId, i.asset_id, { value: i.value, quantity: i.quantity, cash: i.cash });
+    await updateAsset(userId, i.asset_id, { value: i.value, quantity: i.quantity, cash: i.cash, payoutMatch: i.payout_match, followPayouts: i.value_follows_payouts });
     return "Fait : placement mis à jour.";
   },
 });

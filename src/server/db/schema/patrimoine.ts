@@ -47,7 +47,11 @@ export const loanSchedule = mysqlTable(
   ],
 );
 
-/** Placements, épargne, immobilier : `valuation` manuel ou cotation (ticker Yahoo). */
+/**
+ * Placements, épargne, immobilier : `valuation` manuel, cotation (ticker Yahoo) ou versements (la valeur est le
+ * dernier versement reçu). `payout_match` : texte cherché dans le libellé des entrées d'argent — ce sont les
+ * versements reçus de ce placement (coupons, intérêts, ce qu'une plateforme reverse), src/server/payouts.ts.
+ */
 export const assets = mysqlTable(
   "assets",
   {
@@ -69,6 +73,7 @@ export const assets = mysqlTable(
     notes: text("notes"),
     sortOrder: int("sort_order").notNull().default(0),
     closed: tinyint("closed").notNull().default(0),
+    payoutMatch: varchar("payout_match", { length: 120 }),
   },
   (t) => [
     uniqueIndex("uq_assets_name").on(t.ownerUserId, t.name),

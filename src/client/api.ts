@@ -3,6 +3,7 @@ import { infiniteQueryOptions, keepPreviousData, QueryClient, queryOptions, useM
 import type { ModuleId } from "../lib/modules.ts";
 import type { MonthTotals } from "../lib/tx-groups.ts";
 import type { LoanSummary, ScheduleRow } from "../lib/loans.ts";
+import type { PayoutSummary } from "../lib/payouts.ts";
 import type { AccountKind, Owner } from "../lib/labels.ts";
 import { prepareFile } from "./upload.ts";
 import { appLang } from "./i18n.ts";
@@ -258,7 +259,8 @@ export type Asset = {
   name: string;
   category: WealthCategory;
   institution: string | null;
-  valuation: "manuel" | "cotation";
+  /** versements : la valeur est le dernier versement reçu (voir `payoutMatch`). */
+  valuation: "manuel" | "cotation" | "versements";
   ticker: string | null;
   quantity: number | null;
   cash: number | null;
@@ -270,9 +272,16 @@ export type Asset = {
   liquidity: string | null;
   loanIds: string[];
   notes: string | null;
+  /** Texte du libellé des versements reçus de ce placement (coupons, intérêts, ce qu'une plateforme reverse). */
+  payoutMatch: string | null;
   price: number | null;
   price_change: number | null;
 };
+
+/** Versements reçus d'un placement : les douze derniers, et leur résumé. `follows` : sa valeur est le dernier versement. */
+export type AssetPayouts = PayoutSummary & { match: string | null; follows: boolean; payouts: { id: string; date: string; amount: number; label: string; merchant: string | null }[] };
+export const useAssetPayouts = (id: number | undefined) =>
+  useQuery({ queryKey: ["asset-payouts", id], queryFn: () => api<AssetPayouts>(`/assets/${id}/payouts`), enabled: id != null });
 
 export type CryptoPosition = {
   id: number;

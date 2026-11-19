@@ -444,9 +444,13 @@ function AssetsTable({ w, filter, onFilter, onEdit }: { w: Wealth; filter: Wealt
             ? a.valueDate
               ? t("Cours du {date}", { date: dateFr(a.valueDate) })
               : t("Cours")
-            : a.valueDate
-              ? t("Saisie au {date}", { date: dateFr(a.valueDate) })
-              : t("Saisie"),
+            : a.valuation === "versements"
+              ? a.valueDate
+                ? t("Dernier versement du {date}", { date: dateFr(a.valueDate) })
+                : t("Dernier versement")
+              : a.valueDate
+                ? t("Saisie au {date}", { date: dateFr(a.valueDate) })
+                : t("Saisie"),
         invested: a.invested,
         value: a.value,
         share: a.share,

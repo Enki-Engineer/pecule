@@ -1,0 +1,1 @@
+ALTER TABLE `assets` ADD `payout_match` varchar(120);

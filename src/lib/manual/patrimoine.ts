@@ -52,6 +52,31 @@ export const patrimoine: ManualTheme = {
       words: tk("livret assurance vie pea compte titres actions épargne salariale valeur mettre à jour ajouter un actif"),
     },
     {
+      id: "versements-recus",
+      title: tk("Suivre les versements d'un placement"),
+      summary: tk("Coupons, intérêts, ce qu'une plateforme reverse : leur historique, le total par année et le rendement."),
+      body: [
+        tk("Un placement qui te verse de l'argent — les coupons d'une obligation, des intérêts, ce qu'une plateforme te reverse — peut suivre ces versements : Pécule les retrouve dans tes opérations, sans rien recopier."),
+        {
+          steps: [
+            tk("Sur [[Patrimoine]], touche la ligne du placement, puis [[Suivre les versements reçus]]."),
+            tk("Dans [[Texte du libellé]], écris un texte présent dans le libellé de ces entrées d'argent : le nom de l'émetteur ou de la plateforme, tel que la banque l'écrit."),
+            tk("Choisis ce que devient la valeur, puis touche [[Suivre ces versements]]."),
+          ],
+        },
+        {
+          list: [
+            tk("[[Valeur saisie]] : la valeur reste celle que tu saisis, les versements sont ce que le placement rapporte. C'est le cas d'une obligation ou de parts."),
+            tk("[[Valeur = dernier versement]] : la valeur devient le dernier versement reçu et se met à jour seule après chaque synchronisation. C'est fait pour un portefeuille vidé à chaque versement ; entre deux versements, c'est une estimation de ce qu'il contient."),
+          ],
+        },
+        tk("La fiche du placement montre alors le dernier versement, ce qui a été reçu sur douze mois, le total de chaque année et, quand les versements remontent à un an, le rendement : ce qui a été reçu sur douze mois, rapporté à la valeur. [[Voir ces opérations]] ouvre la liste des versements."),
+        { note: tk("Seules les entrées d'argent de tes comptes sont lues. [[Modifier]] change le texte, [[Ne plus suivre]] arrête le suivi : la valeur redevient une valeur saisie. L'assistant peut le régler : « suis les coupons de mes obligations ».") },
+      ],
+      links: [{ to: "/patrimoine", label: ["Patrimoine"] }],
+      words: tk("coupon obligation intérêts dividende versement rendement plateforme portefeuille reversé suivi automatique"),
+    },
+    {
       id: "immobilier",
       title: tk("Suivre un bien immobilier"),
       summary: tk("Valeur, crédits, équité, loyers et documents de chaque bien."),

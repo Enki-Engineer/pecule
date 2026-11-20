@@ -191,10 +191,15 @@ node scripts/lien.mjs                                 # archive ou sources
 La même commande dépanne si la page a été fermée avant la création de la clé d'accès : elle redonne alors le lien
 d'inscription du premier membre.
 
-L'accueil affiche ensuite « Bien démarrer » :
+Pécule vous accueille alors par une **présentation** de quelques étapes : le pays, la devise et les écrans du foyer
+(ce qu'indique votre navigateur est proposé, rien n'est enregistré sans votre geste), les repères pour s'y retrouver,
+puis vos comptes — avec un guide pas à pas pour relier votre banque. On peut la passer, la quitter et la reprendre ;
+elle se revoit ensuite depuis le manuel de l'appli.
 
-- **relier une banque** par Enable Banking (lecture seule, gratuit pour un usage personnel) : voir
-  [`docs/connecteurs/enable-banking.md`](../connecteurs/enable-banking.md) ;
+Tant que le foyer n'a aucun compte, l'accueil affiche aussi « Bien démarrer » :
+
+- **relier une banque** par Enable Banking (lecture seule, gratuit pour un usage personnel) : l'appli guide pas à
+  pas ; le détail est dans [`docs/connecteurs/enable-banking.md`](../connecteurs/enable-banking.md) ;
 - **importer un fichier de la banque** (OFX, QIF, CSV) ou tenir un compte à la main ;
 - **régler le foyer** (Réglages → Foyer) : son pays, sa devise et son fuseau horaire — la France et l'euro par défaut ;
   si votre navigateur en indique d'autres, « Bien démarrer » propose de les adopter — puis les écrans utiles. Un
@@ -203,8 +208,8 @@ L'accueil affiche ensuite « Bien démarrer » :
 - **brancher l'assistant** (Réglages → Comptes et connexions → Intelligence artificielle), facultatif ;
 - **importer vos documents** (Documents → Coffre, zone de dépôt) : voir [`importer-des-documents.md`](importer-des-documents.md).
 
-Les autres membres du foyer s'ajoutent dans Réglages → Compte et sécurité : chacun reçoit un lien d'inscription et
-crée sa propre clé d'accès.
+Les autres membres du foyer s'ajoutent dans Réglages → Compte et sécurité : chacun reçoit un lien d'inscription,
+crée sa propre clé d'accès, et voit la présentation à sa première connexion.
 
 ## Vérifier, arrêter, repartir de zéro
 

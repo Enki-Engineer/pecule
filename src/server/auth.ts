@@ -20,6 +20,7 @@ import { demoEnabled, exec, one, q } from "./db.ts";
 import { adminMember, listMembers } from "./members.ts";
 import { ensureDemoReady } from "./demo.ts";
 import { setMemberLang, storedLang } from "./lang.ts";
+import { awaitsWelcome, closeWelcome, expectWelcome } from "./welcome.ts";
 import { runDemo, runReal } from "./demo-context.ts";
 import { isRestoring } from "./maintenance.ts";
 import { dateBasis } from "./stat-dates.ts";
@@ -238,7 +239,9 @@ authRouter.get("/me", async (req, res) => {
   // chose que « Foyer » pour ce membre (sinon l'écran ne propose pas le choix) ; several : le foyer compte-t-il plusieurs
   // membres (le choix vaut alors pour les revenus et les impôts). Lus dans la base du membre (démo comprise).
   const view = req.user ? await (req.user.demo ? runDemo : runReal)(() => memberView(req.user!.id)).catch(() => null) : null;
-  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true, setupCommand: linkCommand(installKind()) } : {}) });
+  // welcome : la présentation de bienvenue attend ce membre (première connexion) ; jamais en démo, ni pour un jeton.
+  const welcome = req.user?.via === "session" && !req.user.demo ? await awaitsWelcome(req.user.id).catch(() => false) : false;
+  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, welcome, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true, setupCommand: linkCommand(installKind()) } : {}) });
 });
 
 /**
@@ -267,6 +270,15 @@ authRouter.put("/language", requireAuth, async (req, res) => {
   if (kept) return res.json({ ok: true, language: kept });
   await setMemberLang(req.user!.id, language);
   res.json({ ok: true, language });
+});
+
+/** Présentation de bienvenue finie ou passée : elle ne s'ouvrira plus d'elle-même pour ce membre, sur aucun appareil. */
+authRouter.put("/welcome", requireAuth, async (req, res) => {
+  // La présentation règle de vraies choses (foyer, banque) : une session de démo n'y passe pas.
+  if (req.user!.demo) return res.status(403).json({ error: tr("Indisponible en mode démo") });
+  z.object({ done: z.literal(true) }).parse(req.body);
+  await closeWelcome(req.user!.id);
+  res.json({ ok: true });
 });
 
 /**
@@ -325,10 +337,13 @@ authRouter.post("/register/verify", async (req, res) => {
   });
   if (!verification.verified) return res.status(400).json({ error: tr("Clé d'accès refusée") });
   const cred = verification.registrationInfo.credential;
+  // Première clé d'accès de ce membre : c'est sa première connexion, la présentation de bienvenue l'attend.
+  const first = !(await one("SELECT 1 AS x FROM passkeys WHERE user_id = ? LIMIT 1", [ch.user_id]));
   await exec(
     "INSERT INTO passkeys (id, id_hash, user_id, public_key, counter, transports, device_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
     [cred.id, sha256(cred.id), ch.user_id, Buffer.from(cred.publicKey), cred.counter, cred.transports?.join(",") ?? null, body.deviceName ?? null],
   );
+  if (first) await expectWelcome(ch.user_id).catch((e) => console.error("[bienvenue] présentation non annoncée", e));
   // Inscription par un lien : tous les liens en cours de ce membre sont consommés (le serveur ne s'en remet pas à l'écran).
   if (body.jeton || !req.user) await exec("UPDATE enrollment_tokens SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND used_at IS NULL", [ch.user_id]);
   if (!req.user) await createSession(res, ch.user_id, req.get("user-agent"));

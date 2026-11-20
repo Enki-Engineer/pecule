@@ -107,9 +107,10 @@ bankApi.get("/bank/enable-banking/banks", member, async (req, res) => {
 
 bankApi.post("/bank/enable-banking/connect", member, async (req, res) => {
   // `userId` : l'administrateur prépare l'accord d'un autre membre, qui le validera lui-même auprès de sa banque.
-  const body = z.object({ aspsp: z.string().min(1).max(120), country: z.string().regex(/^[A-Za-z]{2}$/), userId: z.number().int().optional() }).parse(req.body);
+  // `from` : la demande part de la présentation de bienvenue, où le retour de la banque ramène.
+  const body = z.object({ aspsp: z.string().min(1).max(120), country: z.string().regex(/^[A-Za-z]{2}$/), userId: z.number().int().optional(), from: z.enum(["bienvenue"]).optional() }).parse(req.body);
   const who = body.userId !== undefined && body.userId !== req.user!.id ? await keyTarget(req, "moi", body.userId) : req.user!.id;
-  res.json({ url: await ebStartAuth(who!, body.aspsp, body.country.toUpperCase()) });
+  res.json({ url: await ebStartAuth(who!, body.aspsp, body.country.toUpperCase(), body.from) });
 });
 
 bankApi.delete("/bank/enable-banking/sessions/:id", member, async (req, res) => {

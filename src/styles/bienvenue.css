@@ -1,0 +1,633 @@
+/*
+ * Présentation de bienvenue (pages/Onboarding.tsx) : mise en page, passage d'une étape à l'autre, illustrations
+ * (components/WelcomeArt.tsx). Les couleurs sont celles du thème ; tout mouvement s'efface avec « réduire les
+ * animations ». Téléphone : barre du haut, illustration, contenu, bouton collé en bas. Grand écran (≥ 1024 px) :
+ * une carte en deux volets, l'illustration à gauche.
+ */
+
+/* ---------- Cadre ---------- */
+.bv {
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+.bv-card {
+  display: grid;
+  flex: 1;
+  grid-template-areas: "top" "art" "body";
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+.bv-top {
+  display: flex;
+  /* Même hauteur avec ou sans ses boutons : le titre ne bouge pas d'une étape à l'autre. */
+  min-height: calc(max(env(safe-area-inset-top), 0.875rem) + 3.125rem);
+  grid-area: top;
+  align-items: center;
+  gap: 0.5rem;
+  padding: max(env(safe-area-inset-top), 0.875rem) 1.25rem 0.875rem;
+}
+.bv-art {
+  position: relative;
+  display: grid;
+  grid-area: art;
+  height: clamp(9.5rem, 28dvh, 15rem);
+  margin: 0 1rem;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--color-card) 75%, transparent), transparent 62%),
+    color-mix(in srgb, var(--color-accent) 7%, var(--color-bg));
+  container-type: size;
+}
+/* Sur téléphone, une étape peut donner plus ou moins de place à son illustration, ou s'en passer (formulaires). */
+.bv-art[data-phone="grand"] {
+  height: clamp(13rem, 32dvh, 17.5rem);
+}
+.bv-art[data-phone="petit"] {
+  height: clamp(8.5rem, 18dvh, 10rem);
+}
+.bv-art[data-phone="aucun"] {
+  display: none;
+}
+.bv-body {
+  display: flex;
+  min-height: 0;
+  grid-area: body;
+  flex-direction: column;
+  padding: 1.25rem 1.25rem 0;
+}
+.bv-step {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+/* Boutons de l'étape : collés en bas sur téléphone, le contenu défile dessous. */
+.bv-actions {
+  position: sticky;
+  z-index: 5;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding: 1.5rem 0 max(env(safe-area-inset-bottom), 1rem);
+  background: linear-gradient(to bottom, transparent, var(--color-bg) 1.25rem);
+}
+/* Tablette, fenêtre étroite : une colonne, centrée. Sur un écran haut, elle ne s'étire pas jusqu'en bas, et part
+   toujours de la même hauteur : le titre ne bouge pas d'une étape à l'autre. */
+@media (min-width: 640px) {
+  .bv {
+    --bv-marge: clamp(0rem, calc((100dvh - 46rem) / 3), 7rem);
+    padding-top: var(--bv-marge);
+  }
+  .bv-card {
+    min-height: min(46rem, 100dvh);
+    flex: none;
+  }
+  .bv-top,
+  .bv-body {
+    width: min(38rem, 100%);
+    margin-inline: auto;
+  }
+  .bv-art {
+    width: min(36rem, calc(100% - 2rem));
+    margin-inline: auto;
+  }
+}
+@media (min-width: 1024px) {
+  .bv {
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  /* Hauteur fixe : la carte ne bouge pas d'une étape à l'autre ; une étape longue défile dans son volet. */
+  .bv-card {
+    width: min(68rem, 100%);
+    height: min(47rem, calc(100dvh - 4rem));
+    min-height: 0;
+    flex: none;
+    overflow: hidden;
+    grid-template-areas: "art top" "art body";
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    border-radius: 2rem;
+    background: var(--color-card);
+    box-shadow:
+      0 1px 1px rgb(20 20 19 / 0.03),
+      0 40px 80px -40px rgb(20 20 19 / 0.3);
+  }
+  :root[data-theme="dark"] .bv-card {
+    box-shadow: 0 0 0 1px var(--color-line);
+  }
+  .bv-top {
+    width: auto;
+    min-height: 4rem;
+    margin: 0;
+    padding: 1.75rem 2.5rem 0;
+  }
+  .bv-art,
+  .bv-art[data-phone] {
+    display: grid;
+    width: auto;
+    height: auto;
+    margin: 0.75rem;
+  }
+  .bv-body {
+    width: auto;
+    margin: 0;
+    padding: 1.75rem 2.5rem 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .bv-body::-webkit-scrollbar-thumb {
+    border-color: var(--color-card);
+  }
+  .bv-actions {
+    padding: 1.75rem 0 2rem;
+    background: linear-gradient(to bottom, transparent, var(--color-card) 1.5rem);
+  }
+}
+
+/* ---------- Titre, avancement ---------- */
+.bv-title {
+  font-family: var(--font-display, inherit);
+}
+/* Le titre reçoit le focus à chaque étape (lecteurs d'écran, clavier) : pas de liseré, ce n'est pas un bouton. */
+.bv-title:focus,
+.bv-title:focus-visible {
+  outline: none;
+}
+.bv-progress {
+  display: flex;
+  max-width: 13rem;
+  flex: 1;
+  gap: 0.375rem;
+}
+.bv-progress > span {
+  position: relative;
+  height: 0.25rem;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-line);
+}
+.bv-progress > span::after {
+  position: absolute;
+  border-radius: inherit;
+  background: var(--color-accent);
+  content: "";
+  inset: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.bv-progress > span[data-on="true"]::after {
+  transform: scaleX(1);
+}
+
+/* ---------- Passage d'une étape à l'autre ---------- */
+@keyframes bv-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--bv-dx, 1.25rem), 0, 0);
+  }
+}
+@keyframes bv-out {
+  to {
+    opacity: 0;
+    transform: translate3d(calc(var(--bv-dx, 1.25rem) * -0.5), 0, 0);
+  }
+}
+@keyframes bv-art-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@keyframes bv-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+.bv[data-dir="back"] {
+  --bv-dx: -1.25rem;
+}
+/* Les blocs de l'étape arrivent l'un après l'autre. */
+.bv-step > * {
+  animation: bv-in 440ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+.bv-step > :nth-child(2) {
+  --i: 1;
+}
+.bv-step > :nth-child(3) {
+  --i: 2;
+}
+.bv-step > :nth-child(4) {
+  --i: 3;
+}
+.bv-step > :nth-child(n + 5) {
+  --i: 4;
+}
+.bv-step[data-phase="out"] {
+  animation: bv-out 170ms ease-in both;
+}
+.bv-step[data-phase="out"] > * {
+  animation: none;
+}
+.bv-art-inner {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  animation: bv-art-in 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.bv-art-inner[data-phase="out"] {
+  animation: bv-fade-out 170ms ease-in both;
+}
+/* Sortie de la présentation : tout s'efface avant que l'appli n'arrive. */
+.bv[data-leaving="true"] .bv-step,
+.bv[data-leaving="true"] .bv-top {
+  animation: bv-fade-out 220ms ease-in both;
+}
+
+/* Le coffre passe de l'écran de connexion à la présentation, puis au menu de l'appli (là où le navigateur sait le faire). */
+::view-transition-group(pecule-coffre) {
+  animation-duration: 520ms;
+  animation-timing-function: cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+/* ---------- Bienvenue : tout Pécule tourne autour du coffre ---------- */
+@keyframes bv-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes bv-breathe {
+  50% {
+    opacity: 0.55;
+    scale: 1.08;
+  }
+}
+@keyframes bv-sat-in {
+  from {
+    opacity: 0;
+    scale: 0.3;
+  }
+}
+@keyframes bv-float {
+  50% {
+    translate: 0 -8%;
+  }
+}
+.bv-orbit {
+  position: relative;
+  width: min(86cqw, 86cqh, 25rem);
+  aspect-ratio: 1;
+}
+.bv-orbit-ring {
+  position: absolute;
+  border: 1.5px dashed color-mix(in srgb, var(--color-accent) 28%, transparent);
+  border-radius: 50%;
+  animation: bv-spin 90s linear infinite;
+  inset: 9%;
+}
+.bv-orbit-glow {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--series-4) 34%, transparent), transparent);
+  animation: bv-breathe 5.5s ease-in-out infinite;
+  inset: 18%;
+}
+.bv-orbit-core {
+  position: absolute;
+  inset: 31%;
+}
+.bv-orbit-core > * {
+  width: 100%;
+  height: 100%;
+  border-radius: 24%;
+  box-shadow: 0 1.25rem 2.5rem -1.25rem rgb(20 20 19 / 0.5);
+}
+.bv-sat {
+  position: absolute;
+  top: calc(50% - sin(var(--a)) * 41%);
+  left: calc(50% + cos(var(--a)) * 41%);
+  display: grid;
+  width: 15%;
+  aspect-ratio: 1;
+  margin: -7.5% 0 0 -7.5%;
+  place-items: center;
+  border-radius: 30%;
+  background: var(--color-card);
+  box-shadow:
+    0 1px 1px rgb(20 20 19 / 0.04),
+    0 0.75rem 1.5rem -0.75rem rgb(20 20 19 / 0.32);
+  color: var(--color-accent);
+  animation:
+    bv-sat-in 620ms cubic-bezier(0.2, 0.8, 0.2, 1) both,
+    bv-float 5.2s ease-in-out infinite;
+  animation-delay: calc(260ms + var(--n) * 90ms), calc(var(--n) * -0.85s);
+}
+:root[data-theme="dark"] .bv-sat {
+  box-shadow: 0 0 0 1px var(--color-line);
+}
+.bv-sat svg {
+  width: 46%;
+  height: 46%;
+}
+
+/* ---------- Ton foyer : le menu se compose sous les yeux ---------- */
+.bv-menu-row {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 340ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 240ms ease;
+}
+.bv-menu-row > * {
+  min-height: 0;
+  overflow: hidden;
+}
+.bv-menu-row[data-off="true"] {
+  opacity: 0;
+  grid-template-rows: 0fr;
+}
+@keyframes bv-pop {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem) scale(0.96);
+  }
+}
+.bv-pop {
+  animation: bv-pop 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* ---------- Repères : la maquette de l'appli, et le halo qui passe d'une zone à l'autre ---------- */
+.bv-mock {
+  position: relative;
+  color: var(--color-ink);
+  font-size: min(calc(100cqw / 48), calc(100cqh / 41), 11px);
+  line-height: 1.2;
+}
+.bv-mock-phone {
+  font-size: min(calc(100cqw / 24), calc(100cqh / 35), 11px);
+}
+.bv-mock-frame {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-card);
+  box-shadow:
+    0 0 0 1px var(--color-line),
+    0 2.6em 4.5em -2.6em rgb(20 20 19 / 0.45);
+}
+.bv-mock-desk .bv-mock-frame {
+  display: grid;
+  width: 45em;
+  height: 37em;
+  grid-template-columns: 12.4em minmax(0, 1fr);
+  border-radius: 1.4em;
+}
+.bv-mock-phone .bv-mock-frame {
+  display: flex;
+  width: 18em;
+  height: 32em;
+  flex-direction: column;
+  border: 0.4em solid color-mix(in srgb, var(--color-ink) 88%, var(--color-card));
+  border-radius: 2.6em;
+  background: var(--color-bg);
+}
+.bv-mock [data-zone] {
+  transition: opacity 380ms ease;
+}
+.bv-mock[data-spot] [data-zone] {
+  opacity: 0.3;
+}
+.bv-mock[data-spot="menu"] [data-zone="menu"],
+.bv-mock[data-spot="recherche"] [data-zone="recherche"],
+.bv-mock[data-spot="aide"] [data-zone="aide"],
+.bv-mock[data-spot="assistant"] [data-zone="assistant"],
+.bv-mock[data-spot="onglets"] [data-zone="onglets"],
+.bv-mock[data-spot="tout"] [data-zone="tout"],
+.bv-mock[data-spot="outils"] [data-zone="outils"] {
+  opacity: 1;
+}
+@keyframes bv-halo {
+  50% {
+    box-shadow:
+      0 0 0 2px var(--color-accent),
+      0 0 0 1em color-mix(in srgb, var(--color-accent) 5%, transparent);
+  }
+}
+.bv-halo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--w, 0);
+  height: var(--h, 0);
+  border-radius: 1em;
+  box-shadow:
+    0 0 0 2px var(--color-accent),
+    0 0 0 0.55em color-mix(in srgb, var(--color-accent) 18%, transparent);
+  pointer-events: none;
+  transform: translate(var(--x, 0), var(--y, 0));
+  transition:
+    transform 560ms cubic-bezier(0.3, 0.7, 0.2, 1),
+    width 560ms cubic-bezier(0.3, 0.7, 0.2, 1),
+    height 560ms cubic-bezier(0.3, 0.7, 0.2, 1),
+    opacity 300ms ease;
+  animation: bv-halo 1.9s ease-in-out infinite;
+}
+.bv-halo[data-ready="false"] {
+  opacity: 0;
+  transition: none;
+}
+/* Traits qui tiennent lieu de texte dans la maquette. */
+.bv-bar {
+  display: block;
+  height: 0.7em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-ink) 13%, transparent);
+}
+.bv-bar-strong {
+  background: color-mix(in srgb, var(--color-ink) 38%, transparent);
+}
+
+/* ---------- Tes comptes : la banque, Enable Banking, Pécule ---------- */
+@keyframes bv-flow-y {
+  to {
+    background-position-y: 0.75rem;
+  }
+}
+@keyframes bv-flow-x {
+  to {
+    background-position-x: 0.75rem;
+  }
+}
+.bv-chain {
+  display: flex;
+  align-items: flex-start;
+  font-size: min(1rem, calc(100cqw / 24.6));
+}
+/* Sur une ligne (téléphone), les traits sont à la hauteur des pastilles. */
+.bv-chain > .bv-link {
+  margin-top: 1.25rem;
+}
+.bv-link {
+  width: 2em;
+  height: 2px;
+  flex: none;
+  background-image: linear-gradient(to right, var(--color-accent) 50%, transparent 0);
+  background-size: 0.75rem 2px;
+  opacity: 0.45;
+  animation: bv-flow-x 700ms linear infinite;
+}
+.bv-link[data-on="true"] {
+  background: var(--color-accent);
+  opacity: 1;
+  animation: none;
+}
+@media (min-width: 1024px) {
+  .bv-chain {
+    flex-direction: column;
+    font-size: 1rem;
+  }
+  .bv-chain-zoom {
+    zoom: 1.3;
+  }
+  .bv-chain {
+    align-items: center;
+  }
+  .bv-chain > .bv-link {
+    margin-top: 0;
+  }
+  .bv-link {
+    width: 2px;
+    height: 3.6em;
+    background-image: linear-gradient(to bottom, var(--color-accent) 50%, transparent 0);
+    background-size: 2px 0.75rem;
+    animation-name: bv-flow-y;
+  }
+}
+
+/* ---------- C'est parti : le coffre s'ouvre, les pièces s'envolent ---------- */
+@keyframes bv-coin {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.4);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx), -620%, 0) scale(1) rotate(var(--rot));
+  }
+}
+@keyframes bv-twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+    scale: 0.7;
+  }
+  50% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+.bv-ready {
+  position: relative;
+  width: min(80cqw, 80cqh, 22rem);
+  aspect-ratio: 1;
+}
+.bv-ready-rays {
+  position: absolute;
+  border-radius: 50%;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--series-4) 26%, transparent) 0 9deg, transparent 9deg 30deg);
+  animation: bv-spin 70s linear infinite;
+  inset: 0;
+  -webkit-mask-image: radial-gradient(closest-side, transparent 34%, #000 46%, transparent 100%);
+  mask-image: radial-gradient(closest-side, transparent 34%, #000 46%, transparent 100%);
+}
+.bv-ready-chest {
+  position: absolute;
+  inset: 27%;
+}
+.bv-ready-chest > * {
+  width: 100%;
+  height: 100%;
+  border-radius: 24%;
+  box-shadow: 0 1.25rem 2.5rem -1.25rem rgb(20 20 19 / 0.5);
+}
+.bv-coin {
+  position: absolute;
+  top: 44%;
+  left: calc(50% + var(--x));
+  width: 7%;
+  aspect-ratio: 1;
+  margin-left: -3.5%;
+  border-radius: 50%;
+  background: var(--series-4);
+  box-shadow:
+    inset 0 0 0 0.12em color-mix(in srgb, var(--color-ink) 22%, transparent),
+    inset 0 -0.18em 0 color-mix(in srgb, var(--color-ink) 14%, transparent);
+  opacity: 0;
+  animation: bv-coin 1.7s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(850ms + var(--n) * 130ms);
+}
+.bv-star {
+  position: absolute;
+  color: var(--series-4);
+  animation: bv-twinkle 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--n) * -0.7s);
+}
+
+/* ---------- Choix d'une source (cartes à cocher) ---------- */
+.bv-choice {
+  transition:
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+.bv-choice[aria-checked="true"] {
+  box-shadow:
+    0 0 0 2px var(--color-accent),
+    0 10px 28px -18px rgb(20 20 19 / 0.14);
+}
+/* En sombre, une carte porte déjà un filet : le choix retenu le remplace par le sien. */
+:root[data-theme="dark"] .bv-choice[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bv-step,
+  .bv-step > *,
+  .bv-art-inner,
+  .bv[data-leaving="true"] .bv-step,
+  .bv[data-leaving="true"] .bv-top,
+  .bv-orbit-ring,
+  .bv-orbit-glow,
+  .bv-sat,
+  .bv-pop,
+  .bv-halo,
+  .bv-link,
+  .bv-ready-rays,
+  .bv-star {
+    animation: none !important;
+  }
+  .bv-coin {
+    display: none;
+  }
+  .bv-progress > span::after,
+  .bv-menu-row,
+  .bv-halo,
+  .bv-mock [data-zone] {
+    transition: none;
+  }
+  ::view-transition-group(pecule-coffre),
+  ::view-transition-old(pecule-coffre),
+  ::view-transition-new(pecule-coffre) {
+    animation: none !important;
+  }
+}

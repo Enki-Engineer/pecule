@@ -195,3 +195,15 @@ export function ebHolding(a: Pick<EbAccount, "psu_status">): "seul" | "joint" | 
   if (s.includes("holder")) return "seul";
   return null;
 }
+
+/**
+ * Fichier de la clé d'une application. La console d'Enable Banking le fait télécharger sous le nom de l'identifiant
+ * de l'application (« <identifiant>.pem ») : on lit l'identifiant dans le nom du fichier, s'il y est, et la clé privée
+ * dans son texte. `kind` dit ce qu'est le fichier quand ce n'est pas une clé privée : le certificat public (celui
+ * qu'on donne à Enable Banking), ou autre chose.
+ */
+export function ebKeyFile(name: string, text: string): { appId: string | null; key: string | null; kind: "cle" | "certificat" | "inconnu" } {
+  const appId = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.exec(name)?.[0].toLowerCase() ?? null;
+  const key = /-----BEGIN ([A-Z ]*)PRIVATE KEY-----[\s\S]+?-----END \1PRIVATE KEY-----/.exec(text)?.[0] ?? null;
+  return { appId, key, kind: key ? "cle" : /-----BEGIN CERTIFICATE-----/.test(text) ? "certificat" : "inconnu" };
+}

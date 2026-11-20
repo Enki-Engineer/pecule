@@ -197,12 +197,56 @@ export type Me = {
     scopeChoice?: boolean;
     /** Le foyer compte plusieurs membres : Foyer / Moi vaut aussi pour les revenus et les impôts. */
     several?: boolean;
+    /** La présentation de bienvenue attend ce membre (première connexion) : l'appli l'ouvre avant tout autre écran. */
+    welcome?: boolean;
   } | null;
   demoAvailable?: boolean;
   setup?: boolean;
   setupCommand?: string;
 };
-export const useMe = () => useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/auth/me"), staleTime: Infinity });
+/** L'identité a été lue sur le serveur depuis l'ouverture de cette page (sinon, c'est la copie gardée par l'appareil). */
+let identityRead = false;
+/** Membre qui a fini ou passé la présentation de bienvenue sur cette page. */
+let welcomeClosedFor: number | null = null;
+const meQuery = queryOptions({
+  queryKey: ["me"],
+  queryFn: async () => {
+    const me = await api<Me>("/auth/me");
+    identityRead = true;
+    // Présentation fermée sur cette page : le serveur le note de son côté ; une lecture partie avant sa réponse ne
+    // doit pas y renvoyer le membre.
+    return me.user && me.user.id === welcomeClosedFor ? { ...me, user: { ...me.user, welcome: false } } : me;
+  },
+  staleTime: Infinity,
+});
+export const useMe = () => useQuery(meQuery);
+/**
+ * L'identité affichée vient-elle du serveur, ou de la copie gardée par l'appareil (ouverture instantanée) ? Ce qui
+ * engage — adopter la langue du membre, s'approprier les données gardées, ouvrir la présentation de bienvenue — ne
+ * se décide que sur une identité lue depuis l'ouverture de la page. (Pas une comparaison de dates : l'horloge de
+ * l'appareil peut reculer.)
+ */
+export const identityFromServer = () => identityRead;
+/**
+ * Présentation de bienvenue finie ou passée : l'appli s'ouvre tout de suite, le serveur le note en arrière-plan
+ * (`keepalive` : même si l'onglet se ferme ; deux nouveaux essais si le réseau flanche). S'il n'y arrive pas, elle
+ * se rouvrira à la prochaine ouverture de l'appli.
+ */
+export function closeWelcome(qc: QueryClient, userId: number) {
+  welcomeClosedFor = userId;
+  qc.setQueryData<Me>(["me"], (me) => (me?.user?.id === userId ? { ...me, user: { ...me.user, welcome: false } } : me));
+  const note = (retries: number): void =>
+    void api("/auth/welcome", { method: "PUT", json: { done: true }, keepalive: true }).catch(() => {
+      // Nouvel essai seulement si c'est toujours ce membre qui est connecté ici.
+      if (retries > 0) setTimeout(() => qc.getQueryData<Me>(["me"])?.user?.id === userId && note(retries - 1), 5000);
+    });
+  note(2);
+}
+/**
+ * Identité de la session qui vient de s'ouvrir, lue avant de quitter l'écran de connexion : elle dit où aller (la
+ * présentation de bienvenue pour un nouveau membre), et l'écran suivant l'a sous la main sans attendre.
+ */
+export const freshMe = (qc: QueryClient): Promise<Me | null> => qc.fetchQuery({ ...meQuery, staleTime: 0 }).catch(() => null);
 /** Session en mode démo (données fictives). */
 export const useDemo = () => useMe().data?.user?.demo === true;
 export const useAccounts = () => useQuery({ queryKey: ["accounts"], queryFn: () => api<{ accounts: Account[] }>("/accounts") });

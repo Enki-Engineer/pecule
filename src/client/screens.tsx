@@ -64,6 +64,9 @@ export const Projections = screen(() => import("./pages/Situation.tsx").then((m)
 export const Compare = screen(() => import("./pages/Compare.tsx").then((m) => m.ComparePage));
 export const Goals = screen(() => import("./pages/Goals.tsx").then((m) => m.Goals));
 export const Triage = screen(() => import("./pages/Triage.tsx").then((m) => m.Triage));
+// Présentation de bienvenue : hors de la liste de préchargement (un membre ne la voit qu'une fois) ; l'écran
+// d'inscription la précharge, pour qu'elle s'ouvre sans attente après la création de la clé d'accès.
+export const Onboarding = screen(() => import("./pages/Onboarding.tsx").then((m) => m.Onboarding));
 
 /** Ordre de préchargement : onglets de l'iPhone d'abord, puis le reste, un écran à la fois. */
 const ORDER: Screen<never>[] = [

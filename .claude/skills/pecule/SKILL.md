@@ -46,7 +46,8 @@ Réponds à la personne dans sa langue. Ce qui suit est l'essentiel, si le fichi
 4. Remets à la personne le `link` rendu par `lien` : elle l'ouvre, donne son prénom et crée sa clé d'accès (Face ID,
    Touch ID) — le seul geste que tu ne peux pas faire à sa place. Ne lui demande aucun secret, et n'affiche pas le
    contenu des réglages : les secrets sont tirés par l'installation.
-5. Propose la suite, qui se règle dans l'appli : relier une banque, brancher l'IA, importer ses documents.
+5. Dis-lui ce qui suit : Pécule l'accueille par une présentation (son foyer, les repères de l'appli, puis un guide
+   pas à pas pour relier sa banque). Le reste se règle aussi dans l'appli : brancher l'IA, importer ses documents.
 
 ## Diagnostiquer
 

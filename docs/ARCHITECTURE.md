@@ -122,6 +122,15 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   professionnel ou à une personne sans connexion ; chaque membre règle ce qu'il masque.
 - **Mode démo** : une seconde base, remplie d'une famille fictive, vers laquelle sont aiguillées toutes les requêtes
   d'une session de démo. Les services extérieurs et les accès y sont fermés.
+- **Présentation de bienvenue** (`/bienvenue`, `src/client/pages/Onboarding.tsx`) : un membre qui crée sa première
+  clé d'accès est « à accueillir » (`src/server/welcome.ts`, un état par membre dans `app_kv`) ; l'appli ouvre alors
+  la présentation avant tout autre écran, jusqu'à ce qu'il l'ait finie ou passée — sur n'importe lequel de ses
+  appareils. Quelques étapes, dont l'ordre et les réglages proposés sont des règles pures (`src/lib/onboarding.ts`) :
+  l'accueil, le pays, la devise et les écrans du foyer (administrateur), les repères de l'appli, puis les comptes,
+  dont l'étape mène au guide « Relier ta banque » (`src/client/components/BankGuide.tsx`), le même que dans
+  Réglages → Comptes et connexions : il suit ce que le serveur sait lire d'Enable Banking (clé reconnue, application
+  active, accord donné), et la banque ramène le membre là d'où il est parti. Un membre inscrit avant cette
+  présentation n'est pas « à accueillir » ; elle se rejoue par son adresse. Jamais en démo.
 - **Sauvegarde complète** : une archive de toute la base et de tous les fichiers (`src/server/backup.ts`), restaurable
   dans une base vide (`pnpm restaurer`) ou, depuis l'écran de premier démarrage, dans une installation neuve
   (`src/server/restore.ts` : archive envoyée par morceaux, relue avant d'écrire, témoin `_restauration_en_cours` qui

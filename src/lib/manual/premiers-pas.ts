@@ -31,6 +31,25 @@ export const premiersPas: ManualTheme = {
       words: tk("présentation fonctionnalités à quoi sert démarrer débuter commencer introduction"),
     },
     {
+      id: "presentation",
+      title: tk("La présentation de bienvenue"),
+      summary: tk("Le tour de Pécule proposé à ta première connexion, à revoir quand tu veux."),
+      body: [
+        tk("À ta première connexion, Pécule t'accueille par une présentation de quelques étapes : les réglages du foyer (pays, devise, écrans à garder ; l'administrateur seulement), les repères pour t'y retrouver, puis tes comptes, avec un guide pas à pas pour relier ta banque."),
+        {
+          list: [
+            tk("[[Passer]] la referme tout de suite : rien n'est perdu, tout ce qu'elle propose se règle ensuite dans [[Réglages]]."),
+            tk("Quittée en cours de route, elle se rouvre à ta prochaine visite, à l'étape où tu l'as laissée, jusqu'à ce que tu l'aies finie ou passée."),
+            tk("Une fois vue, elle ne revient plus d'elle-même, sur aucun de tes appareils. Pour la revoir : cherche [[Présentation de Pécule]] dans la recherche, ou ouvre le lien ci-dessous."),
+          ],
+        },
+        tk("Son étape [[Tes comptes]] mène au guide [Relier une banque](/manuel/relier-une-banque) ; tu peux aussi choisir d'importer un fichier de ta banque, ou d'y revenir plus tard."),
+        { note: tk("Chaque membre a la sienne, à sa première connexion. Indisponible en mode démo.") },
+      ],
+      links: [{ to: "/bienvenue", label: ["Présentation de Pécule"] }],
+      words: tk("onboarding accueil premier lancement première fois visite guidée tutoriel découvrir tour démarrage guide de démarrage"),
+    },
+    {
       id: "naviguer-ordinateur",
       title: tk("Se repérer sur ordinateur"),
       summary: tk("Le menu, la barre du haut, les fiches et le clic droit."),

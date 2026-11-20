@@ -11,10 +11,11 @@ export const chestOpeningMs = () => (window.matchMedia("(prefers-reduced-motion:
 
 /**
  * Le logo dessiné en ligne pour pouvoir l'animer : coffre fermé, qui s'ouvre quand `open` passe à vrai
- * (écrans de connexion et d'inscription). Le dessin est le fichier du logo lui-même (nos propres fichiers
+ * (écrans de connexion et d'inscription, présentation de bienvenue). `still` : déjà ouvert, sans rejouer l'ouverture
+ * (il vient de s'ouvrir sur l'écran d'avant). Le dessin est le fichier du logo lui-même (nos propres fichiers
  * de /icons/coffre) ; tant qu'il n'est pas là, la place reste vide, et s'il est introuvable on montre l'image.
  */
-export function ChestLogo({ open, className }: { open: boolean; className?: string }) {
+export function ChestLogo({ open, still = false, className }: { open: boolean; still?: boolean; className?: string }) {
   const id = useLogoId();
   const [svg, setSvg] = useState<string | null>(() => drawings.get(id) ?? null);
   const [failed, setFailed] = useState(false);
@@ -41,5 +42,6 @@ export function ChestLogo({ open, className }: { open: boolean; className?: stri
   }, [id]);
   if (failed) return <img src={logoSrc(id)} alt="" className={className} />;
   if (!svg) return <div aria-hidden className={className} />;
-  return <div aria-hidden className={cn("chest overflow-hidden", open ? "chest--opening" : "chest--closed", className)} dangerouslySetInnerHTML={{ __html: svg }} />;
+  // Sans classe d'état, le dessin est celui du fichier : le coffre ouvert.
+  return <div aria-hidden className={cn("chest overflow-hidden", !open ? "chest--closed" : still ? null : "chest--opening", className)} dangerouslySetInnerHTML={{ __html: svg }} />;
 }

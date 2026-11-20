@@ -124,7 +124,9 @@ Un modèle de service systemd est dans `docs/guide/installation.md`.
 Donne-lui le **lien** rendu par `lien` (pas une variante de l'adresse) et dis-lui ce qui l'attend :
 
 1. elle ouvre le lien : l'écran « Bienvenue dans Pécule » ne demande que son prénom ;
-2. elle crée sa clé d'accès — c'est le seul geste que tu ne peux pas faire à sa place.
+2. elle crée sa clé d'accès — c'est le seul geste que tu ne peux pas faire à sa place ;
+3. Pécule l'accueille par une présentation : le pays, la devise et les écrans du foyer, les repères de l'appli, puis
+   un guide pas à pas pour relier sa banque. Elle peut la suivre, la passer, ou la reprendre plus tard.
 
 Le lien a déjà servi, ou la page a été fermée avant la clé d'accès ? Relance `lien` : il donne ce qu'il faut ouvrir.
 
@@ -135,8 +137,9 @@ Tout le reste se règle à l'écran, par la personne ou avec elle. Rien n'est ob
 - **Découvrir sans rien saisir** : Réglages → Mode démo ouvre Pécule sur une famille fictive ; on en sort en se
   reconnectant.
 - **Banques** : Réglages → Comptes et connexions. Enable Banking (lecture seule, gratuit pour un usage personnel)
-  demande un compte à son nom et son accord auprès de sa banque : `docs/connecteurs/enable-banking.md`. Sinon : un
-  fichier de la banque (OFX, QIF, CSV), ou un compte tenu à la main.
+  demande un compte à son nom et son accord auprès de sa banque : le bloc « Enable Banking » la guide pas à pas,
+  comme la présentation de bienvenue (détail : `docs/connecteurs/enable-banking.md`). Sinon : un fichier de la banque
+  (OFX, QIF, CSV), ou un compte tenu à la main.
 - **IA** (assistant, lecture des documents) : même écran, bloc « Intelligence artificielle », avec sa propre clé.
 - **Ton accès à Pécule** : son serveur MCP est à `<adresse>/api/mcp` (Réglages → Comptes et connexions →
   Applications connectées donne l'adresse). Ajoute-le comme serveur MCP distant (`claude mcp add --transport http

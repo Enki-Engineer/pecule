@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BadgeEuro, Bitcoin, BookOpen, Building2, CalendarClock, Landmark, Sunset, TrendingUp, CreditCard, FileText, FolderOpen, LayoutDashboard, ListOrdered, PieChart, PiggyBank, Receipt, Search, Settings, Sparkles, Wallet } from "lucide-react";
-import { api } from "../api.ts";
+import { ArrowRight, BadgeEuro, Bitcoin, BookOpen, Building2, CalendarClock, Landmark, Sunset, TrendingUp, CreditCard, FileText, FolderOpen, LayoutDashboard, ListOrdered, PieChart, PiggyBank, Receipt, Route, Search, Settings, Sparkles, Wallet } from "lucide-react";
+import { api, useDemo } from "../api.ts";
 import { cn } from "../cn.ts";
 import { dateFr, money, moneyIn } from "../format.ts";
 import { txTitle } from "../../lib/labels.ts";
@@ -43,6 +43,7 @@ const PAGES: { label: string; to: string; icon: typeof Search; words: string }[]
   { label: t("Importer des documents"), to: "/documents", icon: FolderOpen, words: t("importer dossier documents lot bulletins avis releves depot massif") },
   { label: t("Échéancier"), to: "/echeancier", icon: CalendarClock, words: t("echeancier echeances taches a faire rappels jalons calendrier") },
   { label: t("Manuel"), to: "/manuel", icon: BookOpen, words: t("manuel aide mode d'emploi guide documentation comment faire") },
+  { label: t("Présentation de Pécule"), to: "/bienvenue", icon: Route, words: t("presentation bienvenue visite guidee decouvrir premiers pas demarrer tour de l'appli") },
   { label: t("Réglages"), to: "/reglages", icon: Settings, words: t("reglages parametres preferences") },
   { label: `${t("Réglages")} · ${t("Compte et sécurité")}`, to: "/reglages/compte", icon: Settings, words: t("membres cles d'acces passkey face id inscription deconnexion securite") },
   { label: t("Mode démo"), to: "/reglages/demo", icon: Settings, words: t("demo demonstration montrer presenter donnees fictives discretion") },
@@ -59,7 +60,10 @@ const PAGES: { label: string; to: string; icon: typeof Search; words: string }[]
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 export function CommandPalette() {
-  const pages = useEnabled(PAGES);
+  const demo = useDemo();
+  const enabled = useEnabled(PAGES);
+  // La présentation de bienvenue règle de vraies choses : elle n'existe pas en démo.
+  const pages = useMemo(() => (demo ? enabled.filter((p) => p.to !== "/bienvenue") : enabled), [enabled, demo]);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [debounced, setDebounced] = useState("");

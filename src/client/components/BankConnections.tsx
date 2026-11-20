@@ -1,31 +1,19 @@
-import { region } from "../region.ts";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { api, type Account } from "../api.ts";
-import { BankBadge, ErrorBox, Field, Spinner } from "./ui.tsx";
+import { api, useMe, type Account } from "../api.ts";
+import { BANK_STATE_KEY, guideFacts, takeBankOutcome, useBankState, type BankScope, type BankState } from "../api-bank.ts";
+import { BankBadge, ErrorBox, Spinner } from "./ui.tsx";
 import { AccountList, type CardNote } from "./AccountList.tsx";
-import { dangerButton, mainButton, Part, quietButton } from "./Connector.tsx";
+import { BankGuide, BankLinkForm } from "./BankGuide.tsx";
+import { dangerButton, Part, quietButton } from "./Connector.tsx";
 import { cn } from "../cn.ts";
 import { dateFr } from "../format.ts";
+import { bankGuide } from "../../lib/onboarding.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
 
-type Outstanding = { amount: number; realtime: number | null; debitDate: string | null; count: number; sum: number; consistent: boolean; at: string };
-type State = {
-  configured: boolean;
-  keyUnreadable: boolean;
-  appId: string | null;
-  redirectUrl: string;
-  application: { name: string; active: boolean; environment: string; redirectOk: boolean } | null;
-  error: string | null;
-  sessions: { id: string; aspsp: string; country: string; userId: number; validUntil: string; daysLeft: number; accounts: { id: string; name: string; kind: string; deferred: boolean; tail: string | null }[] }[];
-  lastSyncAt: string | null;
-  own: { appId: string; keyUnreadable: boolean; application: State["application"]; error: string | null } | null;
-  observation: boolean;
-  cards: { accountId: string; name: string; tail: string | null; outstanding: Outstanding }[];
-  admin: boolean;
-};
+type State = BankState;
 type Comparison = {
   accountId: string;
   name: string;
@@ -40,53 +28,9 @@ type Comparison = {
   onlyPeculeCount: number;
   onlyBank: { date: string; amount: number; label: string; pending: boolean }[];
 };
-type Bank = { name: string; country: string; personal: boolean; consentDays: number };
 
-/** Pays proposés pour relier une banque (codes ISO ; le nom affiché vient du navigateur, dans la langue de Pécule). */
-const COUNTRIES = ["FR", "BE", "LU", "DE", "ES", "IT", "PT", "NL", "IE", "AT", "FI", "SE", "DK", "NO", "PL", "EE", "LV", "LT", "GR", "CY", "MT", "SI", "SK", "HR", "HU", "RO", "BG", "IS", "LI"];
-
-const button = mainButton;
-
-/** Témoin laissé par le serveur au retour de la banque (« reliee » ou « erreur »), lu une fois puis effacé. */
-function takeOutcome(): string | null {
-  const m = /(?:^|; )pecule_banque=([^;]+)/.exec(document.cookie);
-  if (!m) return null;
-  document.cookie = "pecule_banque=; Max-Age=0; path=/";
-  return m[1];
-}
-
-/** Saisie de l'identifiant et de la clé privée d'une application : celle du foyer, ou la clé personnelle du membre. */
-function KeyForm({ scope, onSaved }: { scope: "foyer" | "moi"; onSaved: (next: State) => void }) {
-  const [appId, setAppId] = useState("");
-  const [key, setKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function send() {
-    setBusy(true);
-    try {
-      onSaved(await api<State>("/bank/enable-banking/key", { method: "PUT", json: { appId, privateKey: key, scope } }));
-      setKey("");
-      toast.success(t("Clé enregistrée"));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("Action impossible"));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <>
-      <div className="space-y-2">
-        <Field label={t("Identifiant de l'application")} value={appId} onChange={setAppId} placeholder="00000000-0000-0000-0000-000000000000" />
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-muted">{t("Clé privée (contenu du fichier .key ou .pem)")}</span>
-          <textarea value={key} onChange={(e) => setKey(e.target.value)} rows={4} spellCheck={false} placeholder="-----BEGIN PRIVATE KEY-----" className="card w-full px-3 py-2 font-mono text-xs" />
-        </label>
-      </div>
-      <button type="button" className={cn(button, "mt-3", (busy || !appId.trim() || !key.trim()) && "pointer-events-none opacity-60")} onClick={send}>
-        {t("Enregistrer la clé")}
-      </button>
-    </>
-  );
-}
+const INTRO = () => t("Enable Banking lit tes comptes auprès de ta banque, avec ton accord : comptes, soldes, opérations, et l'encours des cartes à débit différé. Lecture seule, gratuit pour un usage personnel.");
+const OWN_HINT = () => t("L'usage gratuit d'Enable Banking ne couvre que les comptes de la personne inscrite. Si tu as des comptes à ton seul nom, crée ta propre application sur enablebanking.com et donne ici sa clé : elle servira à tes accords.");
 
 /**
  * Enable Banking, déplié dans son connecteur : les comptes qu'il lit, les accords donnés à la banque (un par membre,
@@ -95,22 +39,38 @@ function KeyForm({ scope, onSaved }: { scope: "foyer" | "moi"; onSaved: (next: S
  */
 export function BankConnections({ accounts, members }: { accounts: Account[]; members: { id: number; name: string }[] }) {
   const qc = useQueryClient();
-  const state = useQuery({ queryKey: ["bank", "enable-banking"], queryFn: () => api<State>("/bank/enable-banking") });
+  const userId = useMe().data?.user?.id;
+  const state = useBankState();
   const [ownForm, setOwnForm] = useState(false);
   const [linking, setLinking] = useState(false);
   const [advanced, setAdvanced] = useState(false);
-  // Par défaut, le pays du foyer (s'il fait partie de ceux qu'Enable Banking couvre).
-  const [country, setCountry] = useState(() => (COUNTRIES.includes(region().country) ? region().country : "FR"));
-  const [bank, setBank] = useState("");
   const [busy, setBusy] = useState(false);
   const [comparing, setComparing] = useState(false);
   const s = state.data;
   const compare = useQuery({ queryKey: ["bank", "enable-banking", "compare"], queryFn: () => api<{ accounts: Comparison[] }>("/bank/enable-banking/compare"), enabled: comparing });
   const usable = !!(s?.own ? s.own.application?.active : s?.configured && s.application?.active);
-  const banks = useQuery({ queryKey: ["bank", "enable-banking", "banks", country], queryFn: () => api<{ banks: Bank[] }>(`/bank/enable-banking/banks?pays=${country}`), enabled: usable && (linking || !s?.sessions.length), staleTime: 3600_000 });
+
+  // Application dont le membre fait lui-même tous les temps du guide : celle du foyer pour l'administrateur, la sienne
+  // pour qui a des comptes à son seul nom. Un autre membre se sert de l'application du foyer telle qu'elle est.
+  const scope: BankScope | null = !s ? null : s.own ? "moi" : s.admin ? "foyer" : null;
+  // Le guide tient lieu de formulaires tant que l'application qu'il suit n'a rien relié — celle du foyer : aucun accord
+  // dans le foyer ; celle d'un membre : aucun accord de ce membre — ou quand sa clé est à redonner : il dit où on en
+  // est et ce qui reste à faire. (Ce que le membre a déclaré ne compte pas ici : seul parle ce que le serveur sait.)
+  const guide = s && scope ? bankGuide({ ...guideFacts(s, scope, userId), declared: { application: true, activation: true } }) : null;
+  const guiding = !!s && !!guide && !guide.done && (scope === "moi" || s.sessions.length === 0 || guide.current === "cle");
+  // Le guide vient d'apparaître plus haut (clé personnelle enregistrée dans « Application et clé », dernier accord
+  // retiré) : on l'amène sous les yeux.
+  const guideBox = useRef<HTMLDivElement>(null);
+  const guided = useRef<boolean | null>(null);
+  const loaded = !!s;
+  useEffect(() => {
+    if (!loaded) return;
+    if (guided.current === false && guiding) guideBox.current?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    guided.current = guiding;
+  }, [guiding, loaded]);
 
   useEffect(() => {
-    const outcome = takeOutcome();
+    const outcome = takeBankOutcome();
     if (outcome === "reliee") toast.success(t("Banque reliée. La première lecture est en cours."));
     else if (outcome) toast.error(t("La liaison avec la banque n'a pas abouti. Relance-la et valide sans attendre."));
   }, []);
@@ -119,7 +79,7 @@ export function BankConnections({ accounts, members }: { accounts: Account[]; me
     setBusy(true);
     try {
       const next = await fn();
-      if (next) qc.setQueryData(["bank", "enable-banking"], next);
+      if (next) qc.setQueryData(BANK_STATE_KEY, next);
       if (done) toast.success(done);
       await qc.invalidateQueries({ queryKey: ["accounts"] });
       await qc.invalidateQueries({ queryKey: ["connections"] });
@@ -135,72 +95,46 @@ export function BankConnections({ accounts, members }: { accounts: Account[]; me
   if (state.isLoading) return <div className="p-6"><Spinner /></div>;
   if (state.error || !s) return <div className="p-4"><ErrorBox error={state.error} /></div>;
 
-  const countryName = (code: string) => new Intl.DisplayNames([locale()], { type: "region" }).of(code) ?? code;
   const memberName = (id: number) => members.find((m) => m.id === id)?.name ?? t("un membre");
   const cards = new Map<string, CardNote>(s.cards.map((c) => [c.accountId, { count: c.outstanding.count, debitDate: c.outstanding.debitDate }]));
   const connect = (aspsp: string, where: string) => run(async () => void (window.location.href = (await api<{ url: string }>("/bank/enable-banking/connect", { method: "POST", json: { aspsp, country: where } })).url));
 
-  // Pas encore configuré : l'administrateur donne la clé de l'application.
-  if (!s.configured && !s.own)
+  // Pas encore configuré : l'administrateur crée l'application du foyer, pas à pas. (Une clé du foyer devenue
+  // illisible : l'administrateur garde l'écran complet, où le guide lui fait redonner la clé ; un autre membre ne
+  // peut rien y faire, il est renvoyé à l'administrateur comme avant.)
+  if (!s.configured && !s.own && !(s.keyUnreadable && s.admin))
     return (
       <Part>
-        <p className="text-sm">{t("Enable Banking lit tes comptes auprès de ta banque, avec ton accord : comptes, soldes, opérations, et l'encours des cartes à débit différé. Lecture seule, gratuit pour un usage personnel.")}</p>
-        {s.keyUnreadable && <p className="mt-2 text-sm text-warn">{t("La clé enregistrée n'est plus lisible (le secret du serveur a changé) : saisis-la de nouveau.")}</p>}
+        <p className="text-sm">{INTRO()}</p>
         {s.admin ? (
-          <>
-            <p className="mb-3 mt-2 text-[13px] text-muted">
-              {t("Crée ton application sur enablebanking.com (environnement Production), puis donne ici son identifiant et sa clé privée. Adresse de retour à y déclarer :")} <span className="select-all font-mono">{s.redirectUrl}</span>
-            </p>
-            <KeyForm scope="foyer" onSaved={(next) => qc.setQueryData(["bank", "enable-banking"], next)} />
-          </>
+          <div className="mt-4">
+            <BankGuide scope="foyer" />
+          </div>
         ) : (
-          <p className="mt-2 text-sm text-muted">{t("Pas encore configuré : l'administrateur du foyer doit d'abord enregistrer la clé de l'application.")}</p>
+          <>
+            <p className="mt-2 text-sm text-muted">{t("Pas encore configuré : l'administrateur du foyer doit d'abord enregistrer la clé de l'application.")}</p>
+            <button type="button" className={cn(quietButton, "-mx-2.5 mt-2 inline-flex items-center gap-1")} aria-expanded={ownForm} onClick={() => setOwnForm((v) => !v)}>
+              <ChevronRight size={15} className={cn("transition-transform", ownForm && "rotate-90")} /> {t("J'ai des comptes à mon seul nom")}
+            </button>
+            {ownForm && (
+              <>
+                <p className="mb-4 mt-1 text-xs text-muted">{OWN_HINT()}</p>
+                <BankGuide scope="moi" />
+              </>
+            )}
+          </>
         )}
       </Part>
     );
 
+  // Quand le guide est affiché, c'est lui qui dit ce qui manque à l'application qu'il suit.
   const warnings = [
-    s.error,
-    s.application && !s.application.active ? t("L'application n'est pas encore active : relie d'abord tes comptes dans la console d'Enable Banking (« Activate by linking accounts »).") : null,
-    s.application && !s.application.redirectOk ? `${t("L'adresse de retour n'est pas déclarée chez Enable Banking :")} ${s.redirectUrl}` : null,
-    s.own && (s.own.error || s.own.keyUnreadable) ? (s.own.error ?? t("La clé enregistrée n'est plus lisible (le secret du serveur a changé) : saisis-la de nouveau.")) : null,
+    guiding && scope === "foyer" ? null : s.error,
+    s.application && !s.application.active && !(guiding && scope === "foyer") ? t("L'application n'est pas encore active : relie d'abord tes comptes dans la console d'Enable Banking (« Activate by linking accounts »).") : null,
+    s.application && !s.application.redirectOk && !(guiding && scope === "foyer") ? `${t("L'adresse de retour n'est pas déclarée chez Enable Banking :")} ${s.redirectUrl}` : null,
+    s.keyUnreadable && s.admin && !(guiding && scope === "foyer") ? t("La clé enregistrée n'est plus lisible (le secret du serveur a changé) : saisis-la de nouveau.") : null,
+    s.own && (s.own.error || s.own.keyUnreadable) && !(guiding && scope === "moi") ? (s.own.error ?? t("La clé enregistrée n'est plus lisible (le secret du serveur a changé) : saisis-la de nouveau.")) : null,
   ].filter((w): w is string => !!w);
-
-  const linkForm = (
-    <>
-      <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={country}
-          onChange={(e) => {
-            setCountry(e.target.value);
-            setBank("");
-          }}
-          className="rounded-lg border border-line bg-card px-3 py-2 text-sm"
-          aria-label={t("Pays")}
-        >
-          {COUNTRIES.map((c) => (
-            <option key={c} value={c}>
-              {countryName(c)}
-            </option>
-          ))}
-        </select>
-        <select value={bank} onChange={(e) => setBank(e.target.value)} className="min-w-0 max-w-full rounded-lg border border-line bg-card px-3 py-2 text-sm" aria-label={t("Banque")}>
-          <option value="">{banks.isLoading ? t("Chargement…") : t("Choisir une banque")}</option>
-          {(banks.data?.banks ?? [])
-            .filter((b) => b.personal)
-            .map((b) => (
-              <option key={b.name} value={b.name}>
-                {b.name}
-              </option>
-            ))}
-        </select>
-        <button type="button" className={button} disabled={busy || !bank} onClick={() => connect(bank, country)}>
-          {t("Relier")}
-        </button>
-      </div>
-      <p className="mt-2 text-xs text-muted">{t("Tu passeras par une page d'accord puis par ta banque. Valide sans attendre : la page d'accord expire au bout d'un quart d'heure. La banque doit d'abord avoir été reliée dans la console d'Enable Banking.")}</p>
-    </>
-  );
 
   return (
     <>
@@ -256,17 +190,31 @@ export function BankConnections({ accounts, members }: { accounts: Account[]; me
         </Part>
       )}
 
-      {usable &&
+      {guiding && scope ? (
+        <Part title={t("Relier une banque")}>
+          <div ref={guideBox} className="scroll-mt-24 pt-2">
+            <BankGuide scope={scope} />
+          </div>
+        </Part>
+      ) : (
+        usable &&
         (s.sessions.length === 0 ? (
-          <Part title={t("Relier une banque")}>{linkForm}</Part>
+          <Part title={t("Relier une banque")}>
+            <BankLinkForm />
+          </Part>
         ) : (
           <Part>
             <button type="button" className={cn(quietButton, "-mx-2.5 inline-flex items-center gap-1")} aria-expanded={linking} onClick={() => setLinking((v) => !v)}>
               <ChevronRight size={15} className={cn("transition-transform", linking && "rotate-90")} /> {t("Relier une autre banque")}
             </button>
-            {linking && <div className="mt-3">{linkForm}</div>}
+            {linking && (
+              <div className="mt-3">
+                <BankLinkForm />
+              </div>
+            )}
           </Part>
-        ))}
+        ))
+      )}
 
       <Part>
         <button type="button" className={cn(quietButton, "-mx-2.5 inline-flex items-center gap-1 text-muted")} aria-expanded={advanced} onClick={() => setAdvanced((v) => !v)}>
@@ -305,8 +253,8 @@ export function BankConnections({ accounts, members }: { accounts: Account[]; me
                   </button>
                   {ownForm && (
                     <>
-                      <p className="mb-3 mt-1 text-xs text-muted">{t("L'usage gratuit d'Enable Banking ne couvre que les comptes de la personne inscrite. Si tu as des comptes à ton seul nom, crée ta propre application sur enablebanking.com et donne ici sa clé : elle servira à tes accords.")}</p>
-                      <KeyForm scope="moi" onSaved={(next) => (qc.setQueryData(["bank", "enable-banking"], next), setOwnForm(false))} />
+                      <p className="mb-4 mt-1 text-xs text-muted">{OWN_HINT()}</p>
+                      <BankGuide scope="moi" />
                     </>
                   )}
                 </>

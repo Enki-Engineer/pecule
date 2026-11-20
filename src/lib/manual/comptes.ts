@@ -28,14 +28,15 @@ export const comptes: ManualTheme = {
     {
       id: "relier-une-banque",
       title: tk("Relier une banque"),
-      summary: tk("Donner à Pécule l'accord de lire tes comptes, par Enable Banking."),
+      summary: tk("Créer ton application Enable Banking et donner à Pécule l'accord de lire tes comptes, pas à pas."),
       body: [
-        tk("Enable Banking est un prestataire agréé qui lit tes comptes auprès de ta banque, en lecture seule. Il faut d'abord que l'administrateur du foyer ait créé une application sur enablebanking.com et enregistré son identifiant et sa clé dans Pécule : le bloc « Enable Banking » de [[Réglages]] → [[Comptes et connexions]] l'y guide."),
+        tk("Enable Banking est un prestataire agréé qui lit tes comptes auprès de ta banque, en lecture seule. Chaque foyer y crée sa propre application, gratuite pour un usage personnel. Le bloc « Enable Banking » de [[Réglages]] → [[Comptes et connexions]] te guide en quatre temps, comme la présentation de bienvenue à son étape [[Tes comptes]] ; il retient où tu en es, tu peux le quitter et y revenir."),
         {
           steps: [
-            tk("Ouvre [[Réglages]] → [[Comptes et connexions]], bloc « Enable Banking »."),
-            tk("Sous [[Relier une banque]], choisis le pays puis la banque, et touche [[Relier]]."),
-            tk("Valide la page d'accord, puis identifie-toi auprès de ta banque. Fais-le sans attendre : la page d'accord expire au bout d'un quart d'heure."),
+            tk("[[Crée ton application]] : sur enablebanking.com, crée ton compte, puis une application en environnement « Production », avec l'adresse de retour que Pécule t'affiche. Ton navigateur télécharge sa clé (un fichier .pem)."),
+            tk("[[Relie tes comptes à l'application]] : toujours chez Enable Banking, « Activate by linking accounts », pour chaque banque à suivre. Pécule ne pourra lire que les comptes reliés là."),
+            tk("[[Donne sa clé à Pécule]] : touche [[Choisir le fichier de la clé]] et choisis le fichier téléchargé. Pécule y lit l'identifiant de l'application et la clé, qu'il garde chiffrée."),
+            tk("[[Autorise Pécule à lire tes comptes]] : choisis le pays puis la banque, et touche [[Relier]]. Valide la page d'accord, puis identifie-toi auprès de ta banque. Fais-le sans attendre : la page d'accord expire au bout d'un quart d'heure."),
             tk("De retour dans Pécule, la première lecture commence ; les comptes apparaissent quelques minutes plus tard."),
           ],
         },
@@ -43,13 +44,14 @@ export const comptes: ManualTheme = {
           list: [
             tk("La banque demande de redonner ton accord tous les 180 jours. Pécule l'inscrit à l'échéancier et le signale avant la date."),
             tk("[[Lire maintenant]] relit les comptes sans attendre ; la banque limite le nombre de lectures par jour."),
-            tk("Chaque adulte relie ses propres comptes. Pour des comptes à ton seul nom, l'usage gratuit demande ta propre application : « J'ai des comptes à mon seul nom », dans le même bloc."),
+            tk("Chaque adulte relie ses propres comptes. Pour des comptes à ton seul nom, l'usage gratuit demande ta propre application : « J'ai des comptes à mon seul nom », dans le même bloc, ouvre le même guide."),
+            tk("Enable Banking demande que ton Pécule soit servi en https, à une adresse stable."),
           ],
         },
         { note: tk("Réglages réservés à l'écran : l'assistant ne peut ni relier une banque ni saisir une clé. Indisponible en mode démo.") },
       ],
       links: [{ to: "/reglages/connexions?c=banque", label: ["Réglages", "Comptes et connexions"] }],
-      words: tk("connecter banque enable banking accord consentement dsp2 synchronisation automatique ajouter ma banque boursobank"),
+      words: tk("connecter banque enable banking accord consentement dsp2 synchronisation automatique ajouter ma banque boursobank application clé privée fichier pem activer"),
     },
     {
       id: "accord-bancaire",

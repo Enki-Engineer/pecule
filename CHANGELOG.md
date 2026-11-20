@@ -3,6 +3,46 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.36.0
+
+Une présentation de bienvenue accueille chaque nouveau membre à sa première connexion, et le mène jusqu'à sa banque
+reliée. Rien ne change pour les membres déjà inscrits ; aucune migration, aucun réglage nouveau.
+
+- **Une présentation à la première connexion.** Sa clé d'accès à peine créée, le nouveau membre voit Pécule s'ouvrir
+  sur quelques étapes courtes, en plein écran : l'accueil, les repères pour ne pas se perdre — le menu, la recherche,
+  le « ? » de chaque écran, l'assistant, montrés sur une maquette de l'appli telle qu'il l'a sous les yeux, ordinateur
+  ou téléphone —, ses comptes, puis ce qu'il peut faire ensuite. Elle se passe d'un geste, se reprend à l'étape où on
+  l'a laissée, d'un appareil à l'autre, et ne revient plus une fois finie. La langue se choisit dès le premier écran.
+- **Le foyer se règle en chemin.** Celui qui installe Pécule y choisit le pays, la devise et les écrans à suivre. Sur
+  une installation neuve, pays, devise et fuseau horaire sont proposés d'après son appareil (le fuseau s'affiche
+  quand il n'est pas celui, habituel, du pays) ; hors de France, les écrans Impôts et Retraite, qui lisent des
+  documents français, sont décochés d'avance. Le menu se dessine à mesure qu'il coche. Rien n'est enregistré avant
+  « Continuer ». Un membre invité ne voit pas cette étape, et un foyer qui a déjà des comptes garde son pays et sa
+  devise.
+- **Relier sa banque, pas à pas.** À l'étape « Tes comptes », on choisit : relier sa banque, importer un fichier, ou
+  plus tard. Relier ouvre un guide d'Enable Banking en quatre temps — créer son application, y relier ses comptes,
+  donner sa clé à Pécule, autoriser la lecture — qui suit ce que Pécule constate : chaque temps franchi se coche,
+  l'adresse de retour se copie d'un geste, et le fichier de clé téléchargé chez Enable Banking se dépose tel quel
+  (Pécule y lit l'identifiant de l'application et la clé). Au retour de la banque, la présentation reprend où elle en
+  était et guette l'arrivée des comptes.
+- **Le même guide dans les Réglages.** Réglages → Comptes et connexions, bloc « Enable Banking », montre ce guide tant
+  qu'aucune banque n'est reliée — aussi pour un membre qui relie des comptes à son seul nom, tant que sa propre
+  application n'a rien relié. Ce qu'Enable Banking répond de travers s'affiche en tête du guide. Rien ne change pour
+  un foyer déjà relié.
+- **À revoir quand on veut** : par la recherche (« Présentation de Pécule »), par la carte « Bien démarrer » de
+  l'accueil ou par l'article « La présentation de bienvenue » du manuel. Elle n'existe pas en mode démo.
+- Des mouvements sobres : le coffre de l'écran de connexion glisse jusqu'à la présentation, puis va se ranger dans le
+  menu ; rien ne bouge pour qui a demandé moins d'animations à son appareil. Au clavier, Entrée continue, les flèches
+  changent de choix et le focus suit l'étape du guide qui s'ouvre. La sortie n'attend pas le serveur : un réseau lent
+  ne laisse personne devant un écran vide.
+- Les membres déjà inscrits ne la voient pas s'ouvrir : elle n'attend que ceux qui créent leur première clé d'accès
+  à partir de cette version.
+- Pour qui développe : les règles (étapes, réglages proposés, avancement du guide) sont pures et testées dans
+  `src/lib/onboarding.ts` ; l'état « à accueillir » est gardé par membre dans `app_kv` (`src/server/welcome.ts`),
+  toujours dans la vraie base ; l'écran est `src/client/pages/Onboarding.tsx`, le guide
+  `src/client/components/BankGuide.tsx`. L'état d'Enable Banking dit désormais avec quelle application chaque accord
+  a été donné (`own` : celle du membre, sinon celle du foyer).
+
 ## 1.35.0
 
 D'autres assistants que Claude se connectent à Pécule, chacun pour la vue d'un membre. Rien ne change pour les accès

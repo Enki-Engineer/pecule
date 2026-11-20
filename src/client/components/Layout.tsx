@@ -1,5 +1,5 @@
 import { toggleDiscreet, useDiscreet } from "../discret.ts";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AssistantChat } from "../screens.tsx";
 import { HelpLink } from "./HelpLink.tsx";
 import { DemoBadge } from "./DemoBadge.tsx";
@@ -31,6 +31,7 @@ import { applyAppearance } from "../theme.ts";
 import { AppLogo } from "./AppLogo.tsx";
 import { useBirthdays } from "../birthdays.ts";
 import { periodLabel } from "../format.ts";
+import { arrived } from "../passage.ts";
 import { t, tn } from "../../lib/i18n.ts";
 
 /*
@@ -268,6 +269,19 @@ const navItem = (active: boolean, rail: boolean) =>
 function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; onRail: () => void; xl: boolean; panelOpen: boolean; onAssistant: () => void }) {
   const me = useMe();
   const nav = useNav();
+  // Sortie de la présentation de bienvenue : son coffre vient se ranger ici (même nom de transition, le temps du passage).
+  const arrival = useLocation().state as { depuisBienvenue?: boolean } | null;
+  const [landing, setLanding] = useState(arrival?.depuisBienvenue === true);
+  useLayoutEffect(() => {
+    arrived();
+  }, []);
+  useEffect(() => {
+    if (!landing) return;
+    const timer = setTimeout(() => setLanding(false), 1500);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [landing]);
   const counts = useQuery({ queryKey: ["nav-counts"], queryFn: () => api<Counts>("/nav-counts"), refetchInterval: 120_000, staleTime: 60_000 });
   // Compteur d'une entrée : en menu replié, un point ; sinon un lien à part, qui ouvre l'écran déjà filtré sur ce qu'il compte.
   const dot = (key?: keyof Counts) => (rail && key && counts.data?.[key] ? <span className="absolute right-1.5 top-1 size-2 rounded-full bg-accent" /> : null);
@@ -294,7 +308,7 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
   return (
     <aside className="sticky top-0 hidden h-screen flex-col overflow-y-auto bg-bg px-3 pb-3 pt-4 md:flex">
       <Link to="/" viewTransition className={cn("mb-3 flex h-8 items-center gap-2", rail ? "justify-center" : "px-1.5")}>
-        <AppLogo className="size-7 rounded-md" />
+        <AppLogo className={cn("size-7 rounded-md", landing && "[view-transition-name:pecule-coffre]")} />
         {!rail && <span className="text-[18px] font-semibold tracking-tight">Pécule</span>}
       </Link>
       {nav.map((g, i) => (

@@ -1,5 +1,5 @@
 import { useDiscreet } from "./discret.ts";
-import { Fragment, StrictMode, useEffect, useState } from "react";
+import { Fragment, StrictMode, Suspense, useEffect, useState } from "react";
 import { TooltipLayer } from "./components/Tooltip.tsx";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
@@ -7,7 +7,7 @@ import { Toaster } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { adoptRegion, region } from "./region.ts";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
-import { api, useMe } from "./api.ts";
+import { api, identityFromServer, useMe } from "./api.ts";
 import { adoptBrands, useBrands } from "./api-brands.ts";
 import { adoptData, appLang, applyLang, hasData } from "./i18n.ts";
 import { claimOfflineCache, clearOfflineCache, OfflineBanner, OfflineProvider } from "./offline.tsx";
@@ -31,6 +31,7 @@ import {
   LoanDetail,
   Manual,
   Month,
+  Onboarding,
   preloadScreens,
   Projections,
   Properties,
@@ -41,16 +42,20 @@ import {
   Triage,
   Wealth, Balances } from "./screens.tsx";
 
-function RequireAuth({ children }: { children: React.ReactNode }) {
+/** `bare` : écran hors de la coquille de l'appli (la présentation de bienvenue) — rien ne s'affiche en attendant. */
+function RequireAuth({ children, bare = false }: { children: React.ReactNode; bare?: boolean }) {
   const me = useMe();
   const location = useLocation();
   // isPending (et non isLoading) : pendant la restauration des données gardées sur l'appareil, la requête
   // attend sans charger ; conclure « pas connecté » à ce moment renvoyait à tort vers la connexion.
+  // L'identité vient-elle du serveur (lue depuis l'ouverture de cette page), ou d'une copie gardée sur l'appareil ?
+  // (`dataUpdatedAt` est lu pour que l'écran soit rendu de nouveau quand une lecture arrive, même identique à la copie.)
+  const fresh = me.dataUpdatedAt > 0 && identityFromServer();
   // Langue choisie par le membre (sur cet appareil ou un autre) : adoptée ici dès qu'elle vient du serveur, pas d'une copie gardée sur l'appareil.
-  const language = me.isFetchedAfterMount ? me.data?.user?.language : null;
+  const language = fresh ? me.data?.user?.language : null;
   // Données gardées sur l'appareil : elles appartiennent au membre connecté ; un autre membre les fait effacer.
   const qc = useQueryClient();
-  const memberId = me.isFetchedAfterMount ? (me.data?.user?.id ?? null) : null;
+  const memberId = fresh ? (me.data?.user?.id ?? null) : null;
   useEffect(() => {
     if (
       claimOfflineCache(memberId, () => {
@@ -78,9 +83,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (brands.data) adoptBrands(brands.data.brands);
   }, [brands.data]);
-  if (me.isPending) return <Spinner />;
+  if (me.isPending) return bare ? null : <Spinner />;
   if (!me.data?.user) return <Navigate to="/connexion" replace state={{ from: location.pathname }} />;
-  if (appLang() !== "fr" && !hasData() && names.isPending) return <Spinner />;
+  // Première connexion d'un membre : la présentation de bienvenue d'abord. Décidé sur une identité qui vient du
+  // serveur, jamais sur la copie gardée par l'appareil (il a pu finir la présentation sur un autre).
+  if (!bare && fresh && me.data.user.welcome) return <Navigate to="/bienvenue" replace />;
+  if (appLang() !== "fr" && !hasData() && names.isPending) return bare ? null : <Spinner />;
   // Pays, devise et fuseau du foyer : adoptés avant d'afficher un montant ; les écrans sont remontés s'ils changent (clé).
   adoptRegion(me.data.user.region);
   const { currency, timeZone, country } = region();
@@ -98,6 +106,17 @@ function App() {
       {/* Pages publiques : lisibles sans connexion. */}
       <Route path="/confidentialite" element={<Privacy />} />
       <Route path="/conditions" element={<Terms />} />
+      {/* Présentation de bienvenue : plein écran, hors de la coquille de l'appli. */}
+      <Route
+        path="/bienvenue"
+        element={
+          <RequireAuth bare>
+            <Suspense fallback={null}>
+              <Onboarding />
+            </Suspense>
+          </RequireAuth>
+        }
+      />
       <Route
         element={
           <RequireAuth>

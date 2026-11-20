@@ -33,7 +33,7 @@ import { refreshWealth } from "./wealth.ts";
 import { maybeSyncCrypto } from "./crypto.ts";
 import { ActionError } from "./actions.ts";
 import { UnknownMemberError } from "./members.ts";
-import { EbError, ebFinishAuth } from "./enable-banking.ts";
+import { EbError, ebAuthOrigin, ebFinishAuth } from "./enable-banking.ts";
 import { auditWrites, recordAlert, requestContext } from "./journal.ts";
 import { icalRouter } from "./ical.ts";
 import { runNotifications } from "./notify.ts";
@@ -168,6 +168,8 @@ export async function createApp() {
     const { code, state, error } = req.query;
     if (typeof state !== "string" || (typeof code !== "string" && typeof error !== "string")) return next();
     let outcome = "erreur";
+    // Écran d'où la demande est partie : lu avant l'échange, qui l'oublie.
+    const from = await ebAuthOrigin(state).catch(() => null);
     try {
       // Le membre est celui de la demande (retrouvée par son `state`) : le navigateur qui revient de la banque
       // n'a pas forcément de session Pécule. Jamais depuis une session de démo.
@@ -181,8 +183,9 @@ export async function createApp() {
       console.error("[Enable Banking] retour de la banque", e);
     }
     res.cookie("pecule_banque", outcome, { maxAge: 120_000, sameSite: "lax", secure: isProd && secureOrigin, path: "/" });
-    // Retour sur le bloc « banque » des connexions (l'adresse de retour déclarée chez Enable Banking, elle, ne change pas).
-    res.redirect(303, "/reglages/connexions?c=banque");
+    // Retour sur le bloc « banque » des connexions, ou sur le guide de la présentation de bienvenue si la demande en
+    // venait (l'adresse de retour déclarée chez Enable Banking, elle, ne change pas).
+    res.redirect(303, from === "bienvenue" ? "/bienvenue?etape=banque" : "/reglages/connexions?c=banque");
   });
 
   if (isProd) {

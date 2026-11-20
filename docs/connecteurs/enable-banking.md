@@ -38,70 +38,83 @@ Mesuré sur une banque en ligne française ; d'une banque à l'autre, les détai
 ## Avant de commencer
 
 - Ton Pécule doit être servi en **https**, à une adresse stable.
-- Enable Banking demande, pour une application de production, l'adresse d'une page de confidentialité et
-  d'une page de conditions d'utilisation. Pécule les fournit : `https://<ton-pecule>/confidentialite` et
-  `https://<ton-pecule>/conditions` (lisibles sans connexion, elles ne contiennent aucune donnée du foyer).
-- Il te faut `openssl` (présent sur macOS et Linux).
+- La console d'Enable Banking propose de renseigner l'adresse d'une page de confidentialité et d'une page de
+  conditions d'utilisation (facultatives tant que l'application n'accède qu'à tes propres comptes). Pécule les
+  fournit : `https://<ton-pecule>/confidentialite` et `https://<ton-pecule>/conditions` (lisibles sans connexion,
+  elles ne contiennent aucune donnée du foyer).
+
+**L'appli guide ces étapes.** La présentation de bienvenue (à la première connexion) et le bloc « Enable Banking »
+de Réglages → Comptes et connexions les déroulent en quatre temps — créer l'application, y relier ses comptes,
+donner la clé à Pécule, autoriser la lecture — en disant où tu en es : clé reconnue, application active, adresse de
+retour déclarée, banque reliée. On peut quitter le guide et y revenir. Cette page en est la version détaillée.
 
 ## 1. Créer ton compte
 
 Sur <https://enablebanking.com/sign-in/>, saisis ton adresse mail. Tu reçois un lien à usage unique : le
 compte est créé quand tu le suis (pas de mot de passe). Ouvre le lien **dans le même navigateur**.
 
-## 2. Créer la clé de ton application
-
-La clé privée signe les demandes de Pécule ; elle ne doit jamais quitter ton serveur ni être publiée.
-Génère-la toi-même plutôt que dans le navigateur :
-
-```sh
-openssl genrsa -out private.key 4096
-openssl req -new -x509 -days 1825 -key private.key -out public.crt -subj "/C=FR/O=Pecule/CN=pecule"
-```
-
-`private.key` reste chez toi ; `public.crt` (le certificat public, valable cinq ans) va chez Enable Banking.
-
-## 3. Enregistrer l'application
+## 2. Enregistrer l'application
 
 Dans la console, **API applications** → *Add a new application* :
 
 1. Environnement : **Production** (le bac à sable ne connaît pas les vraies banques).
-2. Clé : **Generate outside the browser and import public certificate**.
+2. Clé. La clé privée signe les demandes de Pécule ; elle ne doit jamais être publiée. Deux façons de la créer :
+   - **Generate in the browser (using SubtleCrypto) and export private key** — le plus simple. Ton navigateur
+     fabrique la clé et la télécharge à l'enregistrement, dans un fichier qui porte l'identifiant de l'application
+     (`<identifiant>.pem`). Elle n'est pas envoyée à Enable Banking, qui ne garde que son certificat public.
+   - **Generate outside the browser and import public certificate** — tu la fabriques toi-même, avec `openssl`
+     (présent sur macOS et Linux) :
+
+     ```sh
+     openssl genrsa -out private.key 4096
+     openssl req -new -x509 -days 1825 -key private.key -out public.crt -subj "/C=FR/O=Pecule/CN=pecule"
+     ```
+
+     `private.key` reste chez toi ; tu colles dans la console le contenu de `public.crt` (le certificat public,
+     valable cinq ans).
 3. Informations :
    - *Application name* : le nom que ta banque t'affichera au moment de l'accord, par exemple « Pécule » ;
-   - *Allowed redirect URLs* : `https://<ton-pecule>/reglages/comptes` ;
+   - *Allowed redirect URLs* : `https://<ton-pecule>/reglages/comptes` (Pécule l'affiche, avec un bouton pour la
+     copier) ;
    - *Application description* : une phrase honnête, par exemple « Personal finance tracker, self-hosted by
      a single household for its own private, non-commercial use. It only reads account information of my own
      bank accounts. No payment initiation. » ;
    - *Email for data protection matters* : ton adresse ;
    - *Privacy URL* et *Terms URL* : les deux pages de ton Pécule (voir plus haut).
-4. Colle le contenu de `public.crt`, puis **Register**.
+4. **Register**.
 
-L'application apparaît avec son identifiant (un UUID) et l'état *Inactive*. Note l'identifiant : avec la clé
-privée, c'est ce que Pécule demandera.
+L'application apparaît avec son identifiant (un UUID) et l'état *Inactive*.
 
-## 4. Relier tes comptes
+## 3. Relier tes comptes
 
 Toujours dans la console : **Activate by linking accounts** → pays, banque, *personal* → **Link**.
 
 - Tu passes par une page d'accord d'Enable Banking (« Continuer l'authentification »), puis par la connexion
   habituelle à ta banque.
 - Au retour, l'application est *Active* et la liste des comptes reliés s'affiche (comptes courants, cartes).
-- Recommence pour chaque banque.
+- Recommence pour chaque banque : Pécule ne pourra lire que les comptes reliés là.
 
 Tant que cette étape n'est pas faite, l'API répond `403 Application is not active`.
 
-## 5. Donner la clé à Pécule
+## 4. Donner la clé à Pécule
 
-Dans Pécule, connecté comme administrateur du foyer : **Réglages → Comptes et connexions → Enable Banking**.
-Saisis l'identifiant de l'application et le contenu de `private.key`, puis « Enregistrer la clé ». Pécule essaie
-la clé avant de l'enregistrer ; elle est ensuite gardée chiffrée dans la base de ton instance et n'est plus
-jamais affichée. L'écran indique si l'application est active et si l'adresse de retour est bien déclarée.
+Dans Pécule, connecté comme administrateur du foyer : **Réglages → Comptes et connexions → Enable Banking**, temps
+« Donne sa clé à Pécule » (ou la dernière étape de la présentation de bienvenue).
 
-## 6. Autoriser l'accès
+- « Choisir le fichier de la clé » : avec le fichier `<identifiant>.pem` téléchargé à l'étape 2, Pécule lit
+  l'identifiant de l'application dans son nom et la clé dans son contenu. Avec `private.key`, donne aussi
+  l'identifiant. Le certificat public (`public.crt`) est refusé : ce n'est pas la clé.
+- « Saisir la clé à la main » : pour coller l'identifiant et le contenu du fichier.
 
-Au même endroit : « Relier une banque » → pays, banque, **Relier**. Pécule t'envoie vers la page d'accord, puis
-vers ta banque, une seconde fois. C'est normal : la première validation (étape 4) dit à Enable Banking quels
-comptes sont les tiens, la seconde autorise ton application à les lire pendant 180 jours.
+Pécule essaie la clé avant de l'enregistrer ; elle est ensuite gardée chiffrée dans la base de ton instance et
+n'est plus jamais affichée. Tu peux alors supprimer le fichier téléchargé, ou le ranger en lieu sûr. Le guide dit
+si l'application est active (« Vérifier » relit son état) et si l'adresse de retour est bien déclarée.
+
+## 5. Autoriser l'accès
+
+Au même endroit, temps « Autorise Pécule à lire tes comptes » : pays, banque, **Relier**. Pécule t'envoie vers la
+page d'accord, puis vers ta banque, une seconde fois. C'est normal : la première validation (étape 3) dit à Enable
+Banking quels comptes sont les tiens, la seconde autorise ton application à les lire pendant 180 jours.
 
 **Fais cette validation sans attendre** : la page d'accord expire au bout d'un quart d'heure environ.
 
@@ -114,10 +127,11 @@ pas encore prélevés figurent dans les opérations, « en attente », à la dat
 
 L'usage gratuit ne couvre que les comptes de la personne inscrite. Dans un foyer de deux adultes :
 
-- l'administrateur crée l'application du foyer (étapes 1 à 6) : elle lit ses comptes et les comptes joints ;
-- l'autre adulte, s'il a des comptes à son seul nom, refait les étapes 1 à 4 avec sa propre adresse mail, puis
-  donne sa clé dans **Réglages → Comptes et connexions → Enable Banking → Application et clé → « J'ai des comptes à mon seul nom »**
-  et relie sa banque. Sa clé personnelle sert alors à ses accords.
+- l'administrateur crée l'application du foyer (étapes 1 à 5) : elle lit ses comptes et les comptes joints ;
+- l'autre adulte, s'il a des comptes à son seul nom, refait les étapes 1 à 3 avec sa propre adresse mail, puis
+  ouvre **Réglages → Comptes et connexions → Enable Banking → Application et clé → « J'ai des comptes à mon seul nom »** :
+  le même guide s'y déroule pour sa clé personnelle, qui sert alors à ses accords. Sa présentation de bienvenue le
+  lui propose aussi.
 
 Un compte joint relié par les deux n'existe qu'une fois dans Pécule et n'est lu qu'une fois.
 
@@ -161,9 +175,9 @@ cliquer « Renouveler » avant l'échéance. Rien n'est perdu entre-temps : les 
 
 | Message | Cause | Que faire |
 |---|---|---|
-| `Application is not active` | Aucun compte relié | Étape 4 |
+| `Application is not active` | Aucun compte relié | Étape 3 |
 | « Erreur lors de la mise à jour du statut d'authentification » au retour de la banque (`Missing session id`) | La page d'accord a expiré avant ta validation | Relancer l'autorisation et valider tout de suite ; l'accord donné à la banque entre-temps est sans effet |
-| Un compte manque | Il n'a pas été relié à l'étape 4, ou la banque ne l'expose pas (livrets, placements) | Relier le compte ; sinon, import de fichier ou saisie à la main |
+| Un compte manque | Il n'a pas été relié à l'étape 3, ou la banque ne l'expose pas (livrets, placements) | Relier le compte ; sinon, import de fichier ou saisie à la main |
 | Le lien de connexion du mail ne marche pas | Ouvert dans un autre navigateur | Le rouvrir dans le navigateur d'où la demande est partie |
 
 ## Pour qui touche au code
@@ -213,7 +227,12 @@ Référence : <https://enablebanking.com/docs/api/reference/>. Ce qui suit a ét
   - `transaction_date` (jour de l'achat ou de l'ordre) est gardé dans `purchase_date` quand il précède
     `booking_date` : c'est le jour retenu si le foyer compte ses achats au jour de l'achat.
 - **Règles pures** : `src/lib/enable-banking.ts` (nature d'un compte, solde à garder, opération dans les
-  termes de Pécule, encours d'une carte recoupé avec ses achats en attente), testées.
+  termes de Pécule, encours d'une carte recoupé avec ses achats en attente, lecture du fichier de la clé), testées.
+- **Guide à l'écran** : `src/client/components/BankGuide.tsx`, le même dans Réglages et dans la présentation de
+  bienvenue. L'état de ses quatre temps vient de `bankGuide` (`src/lib/onboarding.ts`) : tant que Pécule n'a pas la
+  clé, il croit ce que le membre déclare avoir fait dans la console ; ensuite c'est `GET /application` qui parle.
+  Une demande d'accord porte l'écran d'où elle part (`from`, gardé avec la demande en attente) : le retour de la
+  banque y ramène.
 - **Limites** : accord de 180 jours pour la plupart des banques ; lectures sans le titulaire souvent limitées
   à 4 par jour et par compte ; après la première connexion, certaines banques ne donnent plus que 90 jours
   d'historique.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ebAccountKind, ebAccountTail, ebBalance, ebBankLabel, ebCardOutstanding, ebDeferredCard, ebHeadline, ebHolding, ebLabel, ebTransaction, type EbBalance, type EbTransaction } from "./enable-banking.ts";
+import { ebAccountKind, ebAccountTail, ebBalance, ebBankLabel, ebCardOutstanding, ebDeferredCard, ebHeadline, ebHolding, ebKeyFile, ebLabel, ebTransaction, type EbBalance, type EbTransaction } from "./enable-banking.ts";
 
 const bal = (type: string, amount: string, date = "2026-11-12"): EbBalance => ({ balance_type: type, balance_amount: { amount, currency: "EUR" }, reference_date: date });
 const tx = (status: string, amount: string, booking: string | null, purchase: string, label: string, ref = "1234567890"): EbTransaction => ({
@@ -113,3 +113,24 @@ describe("libellé en plusieurs lignes", () => {
   });
 });
 
+describe("fichier de la clé d'une application", () => {
+  // De fausses clés, pour la forme du fichier seulement. (L'armure est assemblée ici : écrite d'un bloc, elle
+  // serait prise pour un secret par les outils qui en cherchent.)
+  const armor = (label: string, body: string) => `-----BEGIN ${label}-----\n${body}\n-----END ${label}-----`;
+  const pem = armor("PRIVATE KEY", `${"AAAA".repeat(8)}\n${"BBBB".repeat(5)}`);
+  it("lit l'identifiant dans le nom du fichier et la clé dans son texte", () => {
+    expect(ebKeyFile("0A1B2C3D-1111-2222-3333-444455556666.pem", `${pem}\n`)).toEqual({ appId: "0a1b2c3d-1111-2222-3333-444455556666", key: pem, kind: "cle" });
+    // Téléchargé deux fois : le navigateur ajoute « (1) » au nom.
+    expect(ebKeyFile("0a1b2c3d-1111-2222-3333-444455556666 (1).pem", pem).appId).toBe("0a1b2c3d-1111-2222-3333-444455556666");
+  });
+  it("accepte une clé générée à la main, sans identifiant dans le nom", () => {
+    const rsa = armor("RSA PRIVATE KEY", "CCCC".repeat(4));
+    expect(ebKeyFile("private.key", `Bag Attributes\n${rsa}\n`)).toEqual({ appId: null, key: rsa, kind: "cle" });
+  });
+  it("reconnaît le certificat public donné à la place de la clé", () => {
+    expect(ebKeyFile("public.crt", "-----BEGIN CERTIFICATE-----\nMIIF\n-----END CERTIFICATE-----")).toEqual({ appId: null, key: null, kind: "certificat" });
+    expect(ebKeyFile("notes.txt", "rien à voir")).toEqual({ appId: null, key: null, kind: "inconnu" });
+    // Une clé coupée (fichier abîmé) n'en est pas une.
+    expect(ebKeyFile("cle.pem", "-----BEGIN PRIVATE KEY-----\nMIIE").kind).toBe("inconnu");
+  });
+});

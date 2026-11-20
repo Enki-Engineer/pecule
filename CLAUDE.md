@@ -171,6 +171,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Une couleur proposée dans Réglages | `ACCENTS` (`src/lib/seasons.ts`) et son bloc `[data-accent="…"]`, clair et sombre (`src/styles/index.css`) |
 | Une devise (cotée par la BCE) ou un pays | `CURRENCIES` (`src/lib/currencies.ts`), `COUNTRIES` (`src/lib/countries.ts`) |
 | Un article du manuel | `src/lib/manual/<thème>.ts` : identifiant, titre, résumé, blocs, écrans à ouvrir, mots de recherche ; l'assistant et la recherche le trouvent seuls |
+| Une étape de la présentation de bienvenue | `WELCOME_STEPS` et ses règles (`src/lib/onboarding.ts`), son contenu et son illustration dans `body` et `art` (`pages/Onboarding.tsx`, `components/WelcomeArt.tsx`), sa place sur téléphone dans `ART_PHONE` ; un temps du guide « Relier ta banque » : `BANK_GUIDE_STEPS` et `components/BankGuide.tsx` (le guide ne se fie qu'à ce que le serveur sait lire, et à ce que le membre dit avoir fait chez Enable Banking) |
 | Une option de la mise à jour | `scripts/maj.mjs` (Node seul, sans dépendance) et `docs/guide/mise-a-jour.md` |
 | Une commande de l'installation | `scripts/<nom>.mjs` (Node seul, `--help`, `--json`) ; pour qu'elle existe avec Docker et dans l'archive : la ligne `COPY` du `Dockerfile` et `SCRIPTS` de `scripts/paquet.mjs` |
 | Une commande que l'appli affiche à celui qui l'héberge | `src/lib/install.ts` (une par façon d'installer), jamais écrite en dur dans un écran |

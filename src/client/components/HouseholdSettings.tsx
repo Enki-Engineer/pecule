@@ -22,7 +22,7 @@ export function countryName(code: string): string {
 }
 
 /** Fuseaux horaires connus du navigateur (à défaut, ceux des pays proposés). */
-const timeZones = (): string[] => {
+export const timeZones = (): string[] => {
   try {
     return Intl.supportedValuesOf("timeZone");
   } catch {

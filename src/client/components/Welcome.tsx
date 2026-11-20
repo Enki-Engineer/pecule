@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileUp, Landmark, LayoutGrid, Presentation, Sparkles, X, type LucideIcon } from "lucide-react";
+import { FileUp, Landmark, LayoutGrid, Presentation, Route, Sparkles, X, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { api, useAccounts, useMe } from "../api.ts";
 import { enterDemo } from "../demo.ts";
@@ -17,8 +17,9 @@ const KEY = "pecule.bienvenue.vu";
 
 /**
  * « Bien démarrer » : tant que le foyer n'a aucun compte, l'accueil propose les premiers pas — une source
- * (banque ou fichier), les écrans utiles, l'assistant — et la démo pour voir l'appli remplie. La carte
- * disparaît d'elle-même au premier compte, ou quand on la ferme (sur cet appareil).
+ * (banque ou fichier), les écrans utiles, l'assistant —, la démo pour voir l'appli remplie, et la présentation de
+ * bienvenue pour qui l'a passée (pages/Onboarding.tsx). La carte disparaît d'elle-même au premier compte, ou quand
+ * on la ferme (sur cet appareil).
  */
 export function Welcome() {
   const qc = useQueryClient();
@@ -105,11 +106,16 @@ export function Welcome() {
           </Link>
         ))}
       </div>
-      {me.data?.demoAvailable && (
-        <button type="button" onClick={demo} disabled={busy} className="press mt-3 flex items-center gap-2 text-sm font-medium text-accent disabled:opacity-60">
-          <Presentation size={16} /> {t("Voir Pécule rempli, avec une famille fictive")}
-        </button>
-      )}
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <Link to="/bienvenue" className="press flex items-center gap-2 text-sm font-medium text-accent">
+          <Route size={16} /> {t("Revoir la présentation")}
+        </Link>
+        {me.data?.demoAvailable && (
+          <button type="button" onClick={demo} disabled={busy} className="press flex items-center gap-2 text-sm font-medium text-accent disabled:opacity-60">
+            <Presentation size={16} /> {t("Voir Pécule rempli, avec une famille fictive")}
+          </button>
+        )}
+      </div>
     </Card>
   );
 }

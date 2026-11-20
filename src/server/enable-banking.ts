@@ -111,8 +111,8 @@ type Stored = {
    */
   members?: Record<string, { appId: string; key: string }>;
   sessions?: StoredSession[];
-  /** Demandes d'accord en cours (state → qui, quelle banque, quelle clé), valables 20 minutes. */
-  pending?: Record<string, { userId: number; aspsp: string; country: string; at: number; app?: number }>;
+  /** Demandes d'accord en cours (state → qui, quelle banque, quelle clé), valables 20 minutes. `from` : l'écran d'où elle est partie, quand ce n'est pas celui des réglages. */
+  pending?: Record<string, { userId: number; aspsp: string; country: string; at: number; app?: number; from?: EbAuthOrigin }>;
   lastSyncAt?: string;
   /** Comptes lus → comptes de Pécule qu'ils alimentent (après la bascule). */
   adopted?: Record<string, string>;
@@ -184,7 +184,8 @@ export type EbStatus = {
   redirectUrl: string;
   application: { name: string; active: boolean; environment: string; redirectOk: boolean } | null;
   error: string | null;
-  sessions: { id: string; aspsp: string; country: string; userId: number; validUntil: string; daysLeft: number; accounts: { id: string; name: string; kind: AccountKind; deferred: boolean; tail: string | null }[] }[];
+  /** `own` : l'accord a été donné avec la clé personnelle du membre (sinon, avec celle du foyer). */
+  sessions: { id: string; aspsp: string; country: string; userId: number; own: boolean; validUntil: string; daysLeft: number; accounts: { id: string; name: string; kind: AccountKind; deferred: boolean; tail: string | null }[] }[];
   lastSyncAt: string | null;
   /** Clé personnelle du membre qui regarde (null s'il n'en a pas) : elle sert alors à ses propres accords. */
   own: { appId: string; keyUnreadable: boolean; application: EbStatus["application"]; error: string | null } | null;
@@ -223,6 +224,7 @@ export async function ebStatus(userId?: number): Promise<EbStatus> {
       aspsp: x.aspsp,
       country: x.country,
       userId: x.userId,
+      own: x.app !== undefined,
       validUntil: x.validUntil,
       daysLeft: daysLeft(x.validUntil),
       accounts: x.accounts.map((a) => ({ id: s.adopted?.[a.key] ?? accountIdOf(a.key), name: a.name, kind: a.kind, deferred: a.deferred, tail: a.tail })),
@@ -292,8 +294,11 @@ export async function ebBanks(country: string) {
   return list;
 }
 
+/** Écran, autre que les réglages, d'où part une demande d'accord : le retour de la banque y ramène (la présentation de bienvenue). */
+export type EbAuthOrigin = "bienvenue";
+
 /** Demande d'accord : l'adresse où envoyer le titulaire (page d'accord, puis sa banque). */
-export async function ebStartAuth(userId: number, aspsp: string, country: string): Promise<string> {
+export async function ebStartAuth(userId: number, aspsp: string, country: string, from?: EbAuthOrigin): Promise<string> {
   const s = await load();
   const app = ownApp(s, userId);
   const client = clientOf(s, app);
@@ -311,9 +316,14 @@ export async function ebStartAuth(userId: number, aspsp: string, country: string
   });
   await mutate((f) => {
     const pending = Object.fromEntries(Object.entries(f.pending ?? {}).filter(([, p]) => Date.now() - p.at < 20 * 60_000));
-    return { ...f, pending: { ...pending, [state]: { userId, aspsp: bank.name, country: bank.country, at: Date.now(), ...(app !== undefined ? { app } : {}) } } };
+    return { ...f, pending: { ...pending, [state]: { userId, aspsp: bank.name, country: bank.country, at: Date.now(), ...(app !== undefined ? { app } : {}), ...(from ? { from } : {}) } } };
   });
   return r.url;
+}
+
+/** Écran d'où est partie une demande d'accord (à lire avant `ebFinishAuth`, qui l'oublie) ; null : les réglages. */
+export async function ebAuthOrigin(state: string): Promise<EbAuthOrigin | null> {
+  return (await load()).pending?.[state]?.from ?? null;
 }
 
 /**

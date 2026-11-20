@@ -1,22 +1,25 @@
-import { useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate, useSearchParams, type NavigateFunction } from "react-router";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import { ScanFace, KeyRound } from "lucide-react";
-import { api, useMe } from "../api.ts";
+import { api, freshMe, useMe } from "../api.ts";
+import { Onboarding } from "../screens.tsx";
 import { ChestLogo, chestOpeningMs } from "../components/ChestLogo.tsx";
 import { RestoreSetup } from "../components/RestoreSetup.tsx";
 import { SetupCodeHelp } from "../components/SetupCodeHelp.tsx";
 import { forgetSetupCode, linkedSetupCode } from "../setup-code.ts";
 import { appLang, applyLang } from "../i18n.ts";
 import { clearOfflineCache } from "../offline.tsx";
+import { passage } from "../passage.ts";
 import { LANGS, t } from "../../lib/i18n.ts";
 
 /** Le coffre est fermé ; il s'ouvre (`open`) quand la clé d'accès vient d'être reconnue. */
 function Shell({ children, open }: { children: React.ReactNode; open: boolean }) {
   return (
     <div className="safe-top flex min-h-screen flex-col items-center justify-center px-6 text-center">
-      <ChestLogo open={open} className="mb-5 size-20 rounded-[22px] shadow-lg" />
+      {/* Même nom de transition que le coffre de la présentation de bienvenue : il y glisse, là où le navigateur sait le faire. */}
+      <ChestLogo open={open} className="mb-5 size-20 rounded-[22px] shadow-lg [view-transition-name:pecule-coffre]" />
       <h1 className="mb-10 text-3xl font-bold tracking-tight">Pécule</h1>
       {children}
     </div>
@@ -25,6 +28,22 @@ function Shell({ children, open }: { children: React.ReactNode; open: boolean })
 
 /** Laisse le coffre s'ouvrir avant de quitter l'écran. */
 const chestOpens = () => new Promise<void>((resolve) => setTimeout(resolve, chestOpeningMs()));
+
+/**
+ * La session vient de s'ouvrir : pendant que le coffre s'ouvre, on lit qui est là, puis on entre. Un membre que la
+ * présentation de bienvenue attend (première connexion) y va tout droit, le coffre déjà ouvert ; les autres vont à
+ * `next` — comme celui qui se connectait pour un écran précis (le consentement d'une application : sa demande
+ * expire, elle passe avant la présentation, qui s'ouvrira à sa prochaine visite de l'appli).
+ */
+async function enter(qc: QueryClient, navigate: NavigateFunction, next: string) {
+  // Nouvelle connexion : rien de ce qu'un autre membre a pu laisser sur cet appareil ne doit s'afficher.
+  qc.clear();
+  clearOfflineCache();
+  const [me] = await Promise.all([freshMe(qc), chestOpens()]);
+  if (!me?.user?.welcome || next !== "/") return navigate(next, { replace: true });
+  await Onboarding.preload().catch(() => undefined);
+  passage(() => navigate("/bienvenue", { replace: true, state: { arrivee: true } }));
+}
 
 const errorText = (e: unknown) =>
   e instanceof Error && e.name === "NotAllowedError" ? t("Opération annulée.") : e instanceof Error ? e.message : t("Erreur inattendue");
@@ -126,12 +145,7 @@ export function Login() {
       const response = await startAuthentication({ optionsJSON: options });
       await api("/auth/login/verify", { method: "POST", json: { response } });
       setOpen(true);
-      await chestOpens();
-      // Nouvelle connexion : rien de ce qu'un autre membre a pu laisser sur cet appareil ne doit s'afficher.
-      qc.clear();
-      clearOfflineCache();
-      await qc.invalidateQueries({ queryKey: ["me"] });
-      navigate(next, { replace: true });
+      await enter(qc, navigate, next);
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -165,6 +179,10 @@ export function Enroll() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  // Un nouveau membre va droit à la présentation de bienvenue : son code est prêt quand la clé d'accès est créée.
+  useEffect(() => {
+    void Onboarding.preload().catch(() => undefined);
+  }, []);
 
   async function enroll() {
     setBusy(true);
@@ -180,12 +198,7 @@ export function Enroll() {
       // Langue choisie sur cet appareil avant l'inscription (premier démarrage) : le membre l'adopte, s'il n'en a pas.
       if (appLang() !== "fr") await api("/auth/language", { method: "PUT", json: { language: appLang(), onlyIfUnset: true } }).catch(() => undefined);
       setOpen(true);
-      await chestOpens();
-      // Nouvelle connexion : rien de ce qu'un autre membre a pu laisser sur cet appareil ne doit s'afficher.
-      qc.clear();
-      clearOfflineCache();
-      await qc.invalidateQueries({ queryKey: ["me"] });
-      navigate("/", { replace: true });
+      await enter(qc, navigate, "/");
     } catch (e) {
       setError(errorText(e));
     } finally {

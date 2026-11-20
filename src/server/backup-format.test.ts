@@ -97,6 +97,13 @@ describe("structure", () => {
     expect(statements.slice(-2)).toEqual([table, view]);
   });
 
+  it("écrit le NOT de la norme là où MariaDB écrit « ! »", () => {
+    const shown = "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`%` SQL SECURITY DEFINER VIEW `tx_lines` AS select `t`.`id` AS `id` from `base`.`transactions` `t` where !exists(select 1 from `base`.`transaction_splits` `s` where `s`.`transaction_id` = `t`.`id` limit 1)";
+    expect(portableView(shown, "base")).toBe(
+      "CREATE OR REPLACE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `tx_lines` AS select `t`.`id` AS `id` from `transactions` `t` where not exists(select 1 from `transaction_splits` `s` where `s`.`transaction_id` = `t`.`id` limit 1)",
+    );
+  });
+
   it("rend une vue rejouable ailleurs", () => {
     const shown = "CREATE ALGORITHM=UNDEFINED DEFINER=`u123456789_pecule`@`127.0.0.1` SQL SECURITY DEFINER VIEW `tx_lines` AS select `t`.`id` AS `id` from `u123456789_pecule`.`transactions` `t`";
     expect(portableView(shown, "u123456789_pecule")).toBe("CREATE OR REPLACE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `tx_lines` AS select `t`.`id` AS `id` from `transactions` `t`");

@@ -23,6 +23,17 @@ describe("schéma de départ", () => {
       : [];
     expect(upTo, "relancer pnpm db:initial après une nouvelle migration").toBe(last ? `drizzle/${last}` : folded.at(-1));
   });
+  it("ne dépend d'aucun moteur : une installation neuve démarre sur MariaDB 10.6 comme sur MySQL 8", () => {
+    const text = readFileSync("drizzle/initial/schema.sql", "utf8");
+    // Une collation prise au serveur de celui qui a écrit le fichier (« utf8mb4_uca1400_ai_ci » de MariaDB 11) est
+    // inconnue ailleurs : chaque table dit la sienne, celle de Pécule ou la comparaison binaire.
+    const tables = text.match(/^\) ENGINE=.*$/gm) ?? [];
+    expect(tables.length).toBeGreaterThan(50);
+    for (const options of tables) expect(options).toMatch(/ DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_(unicode_ci|bin);$/);
+    expect([...new Set(text.match(/COLLATE[= ]\w+/g))].sort()).toEqual(["COLLATE=utf8mb4_bin", "COLLATE=utf8mb4_unicode_ci"]);
+    // Le « ! » de MariaDB à la place de NOT : MySQL annonce le retirer.
+    expect(text).not.toMatch(/!exists\(/i);
+  });
   it("ne crée aucune ligne : seulement des tables et des vues", () => {
     const text = readFileSync("drizzle/initial/schema.sql", "utf8");
     expect(text).not.toMatch(/^\s*INSERT\s/im);

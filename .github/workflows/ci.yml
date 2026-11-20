@@ -27,6 +27,27 @@ jobs:
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=5s --health-timeout=5s --health-retries=30
+      # Les deux autres bases annoncées par le guide : la plus ancienne MariaDB admise, et MySQL.
+      base-mariadb-10-6:
+        image: mariadb:10.6
+        env:
+          MARIADB_ROOT_PASSWORD: pecule-ci
+          MARIADB_DATABASE: pecule
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+      base-mysql-8-4:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: pecule-ci
+          MYSQL_DATABASE: pecule
+        ports:
+          - 3308:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppecule-ci"
+          --health-interval=5s --health-timeout=5s --health-retries=30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -58,6 +79,26 @@ jobs:
           curl -sf http://127.0.0.1:3000/api/health | grep '"phase":"pret"'
           curl -sf http://127.0.0.1:3000/api/auth/me | grep '"setup":true'
           node scripts/doctor.mjs --url http://127.0.0.1:3000 --fichier /dev/null || true
+
+      # Une installation neuve doit démarrer sur toutes les bases que le guide annonce, pas seulement sur celle du
+      # développement : le schéma de départ a déjà porté une collation que seule MariaDB 10.10 et plus connaît.
+      - name: Démarrage sur MariaDB 10.6 et sur MySQL 8.4
+        env:
+          NODE_ENV: production
+          API_TOKEN: jeton-des-controles-automatiques-0123456789
+          SYNC_TOKEN: jeton-de-synchro-des-controles-0123456789
+          SYNC_INTERVAL_MINUTES: 0
+        run: |
+          for base in 3307 3308; do
+            port=$((base - 200))
+            PORT=$port APP_URL=http://localhost:$port DATABASE_URL=mysql://root:pecule-ci@127.0.0.1:$base/pecule node dist/server.mjs > "$RUNNER_TEMP/base-$base.log" 2>&1 &
+            for i in $(seq 1 30); do
+              curl -sf http://127.0.0.1:$port/api/health | grep -q '"phase":"pret"' && break
+              sleep 2
+            done
+            curl -sf http://127.0.0.1:$port/api/health | grep '"phase":"pret"' || { cat "$RUNNER_TEMP/base-$base.log"; exit 1; }
+            curl -sf http://127.0.0.1:$port/api/auth/me | grep '"setup":true'
+          done
 
       # L'archive prête à l'emploi, telle qu'une version la publie : dépliée hors du dépôt, elle doit démarrer sur une
       # base vide avec Node seul — ni pnpm, ni build, ni dépendance prise ailleurs que dans l'archive.

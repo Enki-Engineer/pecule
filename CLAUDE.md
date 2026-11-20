@@ -73,6 +73,10 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 - Après une modification du schéma : `pnpm db:generate --name <nom>`, relire la migration, puis
   `pnpm local base && pnpm db:initial` (le schéma de départ d'une installation neuve ; un test vérifie qu'il est à
   jour). Les migrations s'appliquent au démarrage, sous verrou. Une migration ne se modifie plus une fois publiée.
+- Rien de propre à un moteur dans la structure : une installation neuve démarre sur MariaDB 10.6 comme sur MySQL 8
+  (les contrôles automatiques l'essaient). Une table créée par une migration reçoit le jeu de caractères et la
+  collation de Pécule (`withTableOptions`, `src/server/migrate-rules.ts`), jamais ceux du serveur ; un test refuse un
+  schéma de départ qui en porterait d'autres.
 - Toute colonne `LONGBLOB` se déclare dans `FILE_TABLES` (`src/server/backup-format.ts`) : la sauvegarde complète en
   dépend (un test compare au schéma).
 - Le dossier des sauvegardes du serveur se demande à `backupDir()` (`src/server/archives.ts`), jamais à un chemin

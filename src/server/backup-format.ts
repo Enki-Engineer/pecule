@@ -234,13 +234,15 @@ export function filePath(t: Pick<FileTable, "dir">, row: { id: string | number; 
 
 /**
  * Vue telle que la base la décrit → instruction rejouable ailleurs : sans le compte qui l'a créée
- * (DEFINER, propre à l'hébergeur) ni le nom de la base d'origine devant les tables.
+ * (DEFINER, propre à l'hébergeur) ni le nom de la base d'origine devant les tables, et avec le NOT de la norme là
+ * où MariaDB écrit « !exists( » (un « ! » que MySQL annonce retirer).
  */
 export function portableView(createSql: string, database: string): string {
   return createSql
     .replace(/\sDEFINER=(`[^`]*`|[^\s@]+)@(`[^`]*`|\S+)/i, "")
     .replace(/^CREATE\s+/i, "CREATE OR REPLACE ")
-    .replaceAll(`${sqlIdent(database)}.`, "");
+    .replaceAll(`${sqlIdent(database)}.`, "")
+    .replace(/!exists\(/gi, "not exists(");
 }
 
 /** Nom du fichier téléchargé : `pecule-sauvegarde-AAAA-MM-JJ-HHMM.zip`, à l'heure du foyer. */

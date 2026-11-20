@@ -367,7 +367,7 @@ CREATE TABLE `custom_brands` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_custom_brands_pattern` (`pattern`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table data_translations
 CREATE TABLE `data_translations` (
   `source` varchar(191) NOT NULL,
@@ -462,7 +462,7 @@ CREATE TABLE `fx_rates` (
   `currency` char(3) NOT NULL,
   `rate` decimal(18,8) NOT NULL,
   PRIMARY KEY (`currency`,`date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table goals
 CREATE TABLE `goals` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -492,7 +492,7 @@ CREATE TABLE `import_batches` (
   PRIMARY KEY (`id`),
   KEY `idx_import_batches_user` (`user_id`,`created_at`),
   CONSTRAINT `fk_import_batches_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table import_items
 CREATE TABLE `import_items` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -522,7 +522,7 @@ CREATE TABLE `import_items` (
   KEY `idx_import_items_batch` (`batch_id`,`status`),
   KEY `idx_import_items_status` (`status`),
   CONSTRAINT `fk_import_items_batch` FOREIGN KEY (`batch_id`) REFERENCES `import_batches` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table income_sources
 CREATE TABLE `income_sources` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -649,7 +649,7 @@ CREATE TABLE `logos` (
   `status` varchar(8) NOT NULL DEFAULT 'ok',
   `fetched_at` datetime NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table notifications_sent
 CREATE TABLE `notifications_sent` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -672,7 +672,7 @@ CREATE TABLE `oauth_clients` (
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `fetched_at` datetime DEFAULT NULL,
   PRIMARY KEY (`client_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table oauth_codes
 CREATE TABLE `oauth_codes` (
   `code_hash` char(64) NOT NULL,
@@ -687,7 +687,7 @@ CREATE TABLE `oauth_codes` (
   PRIMARY KEY (`code_hash`),
   KEY `fk_oauth_codes_user` (`user_id`),
   CONSTRAINT `fk_oauth_codes_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table oauth_grants
 CREATE TABLE `oauth_grants` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -709,7 +709,7 @@ CREATE TABLE `oauth_grants` (
   KEY `fk_oauth_grants_user` (`user_id`),
   KEY `idx_oauth_grants_prev` (`prev_refresh_hash`),
   CONSTRAINT `fk_oauth_grants_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table oauth_requests
 CREATE TABLE `oauth_requests` (
   `id_hash` char(64) NOT NULL,
@@ -720,7 +720,7 @@ CREATE TABLE `oauth_requests` (
   `scope` varchar(255) DEFAULT NULL,
   `expires_at` datetime NOT NULL,
   PRIMARY KEY (`id_hash`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table passkeys
 CREATE TABLE `passkeys` (
   `id` varchar(512) NOT NULL,
@@ -928,7 +928,7 @@ CREATE TABLE `tax_return_salaries` (
   PRIMARY KEY (`income_year`,`user_id`),
   KEY `fk_tax_salaries_user` (`user_id`),
   CONSTRAINT `fk_tax_salaries_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table transactions
 CREATE TABLE `transactions` (
   `id` varchar(160) NOT NULL,
@@ -997,4 +997,4 @@ CREATE TABLE `wealth_snapshots` (
   CONSTRAINT `fk_snap_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § vue tx_lines
-CREATE OR REPLACE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `tx_lines` AS select `t`.`id` AS `id`,`t`.`account_id` AS `account_id`,if(`k`.`value` = 'achat',coalesce(`t`.`purchase_date`,`t`.`date`),`t`.`date`) AS `date`,`t`.`amount` AS `amount`,`t`.`category_id` AS `category_id`,`t`.`status` AS `status`,0 AS `split_id` from (`transactions` `t` left join `app_kv` `k` on(`k`.`key` = 'stats:date_basis')) where !exists(select 1 from `transaction_splits` `s` where `s`.`transaction_id` = `t`.`id` limit 1) union all select `t`.`id` AS `id`,`t`.`account_id` AS `account_id`,if(`k`.`value` = 'achat',coalesce(`t`.`purchase_date`,`t`.`date`),`t`.`date`) AS `date`,`s`.`amount` AS `amount`,`s`.`category_id` AS `category_id`,`t`.`status` AS `status`,`s`.`id` AS `split_id` from ((`transaction_splits` `s` join `transactions` `t` on(`t`.`id` = `s`.`transaction_id`)) left join `app_kv` `k` on(`k`.`key` = 'stats:date_basis'));
+CREATE OR REPLACE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `tx_lines` AS select `t`.`id` AS `id`,`t`.`account_id` AS `account_id`,if(`k`.`value` = 'achat',coalesce(`t`.`purchase_date`,`t`.`date`),`t`.`date`) AS `date`,`t`.`amount` AS `amount`,`t`.`category_id` AS `category_id`,`t`.`status` AS `status`,0 AS `split_id` from (`transactions` `t` left join `app_kv` `k` on(`k`.`key` = 'stats:date_basis')) where not exists(select 1 from `transaction_splits` `s` where `s`.`transaction_id` = `t`.`id` limit 1) union all select `t`.`id` AS `id`,`t`.`account_id` AS `account_id`,if(`k`.`value` = 'achat',coalesce(`t`.`purchase_date`,`t`.`date`),`t`.`date`) AS `date`,`s`.`amount` AS `amount`,`s`.`category_id` AS `category_id`,`t`.`status` AS `status`,`s`.`id` AS `split_id` from ((`transaction_splits` `s` join `transactions` `t` on(`t`.`id` = `s`.`transaction_id`)) left join `app_kv` `k` on(`k`.`key` = 'stats:date_basis'));

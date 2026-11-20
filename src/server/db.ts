@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { alreadyDone } from "./migrate-rules.ts";
+import { alreadyDone, INITIAL_MARKER, withTableOptions } from "./migrate-rules.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import mysql, { type Pool, type PoolOptions } from "mysql2/promise";
@@ -169,10 +169,12 @@ export async function migrate(lockName = "pecule:migrate", opts: { beforeApply?:
       applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     const done = new Set((await q<{ name: string }>("SELECT name FROM _migrations")).map((r) => r.name));
+    // Schéma de départ commencé à un démarrage précédent et pas fini : il se reprend (`src/server/migrate-rules.ts`).
+    const resuming = done.delete(INITIAL_MARKER);
     const files = migrationFiles();
     const folded = foldedMigrations();
     const initial = process.env.PECULE_SANS_SCHEMA_DE_DEPART ? null : initialSchema();
-    if (done.size) {
+    if (done.size && !resuming) {
       const missing = folded.filter((name) => !done.has(name));
       if (missing.length)
         throw new Error(
@@ -181,14 +183,22 @@ export async function migrate(lockName = "pecule:migrate", opts: { beforeApply?:
     }
     // Base déjà en service dont la structure va changer : le moment d'en garder une copie (`src/server/pre-migration.ts`).
     const pending = files.filter((m) => !done.has(m.name) && !m.skip).map((m) => m.name);
-    if (done.size && pending.length) await opts.beforeApply?.({ applied: done.size, pending });
-    if (!done.size && initial && (files.some((m) => m.name === initial.upTo) || folded.includes(initial.upTo))) {
+    if (done.size && !resuming && pending.length) await opts.beforeApply?.({ applied: done.size, pending });
+    if ((resuming || !done.size) && initial && (files.some((m) => m.name === initial.upTo) || folded.includes(initial.upTo))) {
       const [empty] = await q<{ n: number }>("SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name <> '_migrations'");
-      if (Number(empty.n) === 0) {
+      if (Number(empty.n) === 0 || resuming) {
+        if (!resuming) await exec("INSERT INTO _migrations (name) VALUES (?)", [INITIAL_MARKER]);
         // Une seule connexion : les réglages du fichier (clés étrangères suspendues) valent pour toutes ses instructions.
         const conn = await pool.getConnection();
         try {
-          for (const sql of initial.statements) await conn.query(sql);
+          for (const sql of initial.statements) {
+            try {
+              await conn.query(sql);
+            } catch (e) {
+              // Reprise : les tables créées avant l'arrêt sont déjà là.
+              if (!resuming || !alreadyDone(e)) throw e;
+            }
+          }
         } finally {
           // Cette connexion porte les réglages du fichier (clés suspendues, mode SQL) : elle ne retourne pas dans la réserve.
           conn.destroy();
@@ -204,7 +214,9 @@ export async function migrate(lockName = "pecule:migrate", opts: { beforeApply?:
           await exec("INSERT IGNORE INTO _migrations (name) VALUES (?)", [name]);
           done.add(name);
         }
-        applied.push(`schéma de départ (jusqu'à ${initial.upTo})`);
+        // Le schéma de départ est allé au bout : la marque s'en va, la base n'est plus « en cours de création ».
+        await exec("DELETE FROM _migrations WHERE name = ?", [INITIAL_MARKER]);
+        applied.push(`schéma de départ (jusqu'à ${initial.upTo})${resuming ? ", repris" : ""}`);
       }
     }
     for (const m of files) {
@@ -212,7 +224,7 @@ export async function migrate(lockName = "pecule:migrate", opts: { beforeApply?:
       if (!m.skip)
         for (const sql of m.statements) {
           try {
-            await exec(sql);
+            await exec(withTableOptions(sql));
           } catch (e) {
             // Migration interrompue à un démarrage précédent : cette instruction avait déjà produit son effet.
             if (!alreadyDone(e)) throw e;

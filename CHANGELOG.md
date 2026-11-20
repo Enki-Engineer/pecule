@@ -3,6 +3,22 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.34.1
+
+Une installation neuve démarre sur toutes les bases annoncées. Rien ne change pour une installation en service ;
+aucune migration.
+
+- **MariaDB 10.6 à 10.9 et MySQL 8 : le premier démarrage échouait.** Le schéma de départ donnait à dix tables une
+  collation que seule MariaDB 10.10 et plus connaît (`utf8mb4_uca1400_ai_ci`, celle du serveur sur lequel le fichier
+  avait été écrit) : la base s'arrêtait sur « Unknown collation » et restait à moitié créée. Toutes les tables portent
+  désormais la collation de Pécule (`utf8mb4_unicode_ci`), une table créée par une migration la reçoit quel que soit
+  le serveur, et la vue des opérations s'écrit avec le `NOT` de la norme. Essayé sur une base vide avec MariaDB 10.6,
+  10.11 et 11.8 et avec MySQL 8.4 : mêmes réponses, écran par écran, sur les quatre.
+- **Un premier démarrage interrompu se reprend.** Si la création de la base s'arrête en route (serveur coupé,
+  instruction refusée), le démarrage suivant la reprend là où elle s'était arrêtée, au lieu de prendre la base à
+  moitié créée pour une ancienne installation.
+- Les contrôles automatiques démarrent désormais Pécule sur MariaDB 10.6 et sur MySQL 8.4, en plus de MariaDB 11.8.
+
 ## 1.34.0
 
 Installer Pécule devient l'affaire d'un fichier et de trois commandes — ou d'une phrase dite à son assistant IA.

@@ -3,6 +3,18 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.33.0
+
+- **L'assistant tient à jour les faits clés d'un bien.** Ce que la fiche d'un bien affiche sous « Faits clés »
+  (diagnostic, assurance, copropriété, travaux…) se corrige, s'ajoute ou se retire en le demandant à l'assistant —
+  « note que le diagnostic de l'appartement d'Angers est passé en C » —, avec la même confirmation que le reste. Un
+  fait corrigé garde sa place dans la fiche et prend la date du jour ; un fait nouveau s'ajoute à la fin.
+- **Corrigé : noter quelque chose sur un bien échouait.** L'outil `update_property` acceptait des « notes », alors
+  qu'un bien n'a jamais eu de notes en base : la demande était annoncée, puis l'écriture échouait. Le paramètre
+  disparaît au profit des faits clés (`facts`), que la fiche montre. Les colonnes qu'un outil d'édition écrit sont
+  désormais comparées au schéma par un test (`src/server/tools/edition-columns.ts`).
+- Aucune migration, aucun réglage nouveau.
+
 ## 1.32.1
 
 - **Dossier des sauvegardes du serveur : une seule règle.** Le serveur range ses sauvegardes dans

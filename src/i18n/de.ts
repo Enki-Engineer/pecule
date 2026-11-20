@@ -3348,4 +3348,5 @@ export const de: Dict = {
   "{n} libellé": ["{n} Bezeichnung", "{n} Bezeichnungen"],
   "Classer {n} opération": ["{n} Buchung kategorisieren", "{n} Buchungen kategorisieren"],
   "Un contrôle ne passe pas : ce qui sera écrit dans tes écrans est peut-être faux. Valider quand même ?": ["Eine Prüfung schlägt fehl: Was in deine Bildschirme geschrieben wird, ist vielleicht falsch. Trotzdem bestätigen?", "{n} Prüfungen schlagen fehl: Was in deine Bildschirme geschrieben wird, ist vielleicht falsch. Trotzdem bestätigen?"],
+  "Fait clé retiré : {nom}": "Eckdatum entfernt: {nom}",
 };

@@ -3348,4 +3348,5 @@ export const es: Dict = {
   "{n} libellé": ["{n} concepto", "{n} conceptos"],
   "Classer {n} opération": ["Clasificar {n} movimiento", "Clasificar {n} movimientos"],
   "Un contrôle ne passe pas : ce qui sera écrit dans tes écrans est peut-être faux. Valider quand même ?": ["Una comprobación no pasa: lo que se escribirá en tus pantallas puede ser erróneo. ¿Validar de todos modos?", "{n} comprobaciones no pasan: lo que se escribirá en tus pantallas puede ser erróneo. ¿Validar de todos modos?"],
+  "Fait clé retiré : {nom}": "Dato clave eliminado: {nom}",
 };

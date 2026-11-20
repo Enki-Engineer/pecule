@@ -89,6 +89,7 @@ export const patrimoine: ManualTheme = {
             tk("Créer un bien : dépose son acte, son compromis ou son bail dans le coffre ; Pécule en lit les données et te les propose."),
             tk("Mettre à jour sa valeur : sur [[Patrimoine]], touche sa ligne dans la poche immobilier."),
             tk("Loyer, charges, bail, valeur : l'assistant peut les corriger — « passe le loyer de l'appartement d'Angers à 720 »."),
+            tk("Faits clés : l'assistant les tient à jour — « note que le diagnostic de l'appartement d'Angers est passé en C », « retire l'ancienne assurance de sa fiche »."),
           ],
         },
         { note: tk("Un bien commun est compté pour ta part dans ton patrimoine.") },

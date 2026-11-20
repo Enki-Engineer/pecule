@@ -1068,4 +1068,5 @@ export const es: Dict = {
   "Les libellés partent chez ton fournisseur d'IA ; une demande coûte quelques centimes, comptés dans [Le coût de l'IA](/manuel/assistant-cout).": "Los conceptos se envían a tu proveedor de IA; una petición cuesta unos céntimos, contados en [El coste de la IA](/manuel/assistant-cout).",
   "Indisponible en mode démo, et sans fournisseur d'IA réglé.": "No disponible en modo demo ni sin un proveedor de IA configurado.",
   "classer automatiquement intelligence artificielle catégoriser en masse historique repris proposition lot libellés": "clasificar automáticamente inteligencia artificial en masa historial recuperado propuesta lote conceptos",
+  "Faits clés : l'assistant les tient à jour — « note que le diagnostic de l'appartement d'Angers est passé en C », « retire l'ancienne assurance de sa fiche ».": "Datos clave: el asistente los mantiene al día («apunta que el certificado energético del piso de Angers ha pasado a C», «quita el seguro antiguo de su ficha»).",
 };

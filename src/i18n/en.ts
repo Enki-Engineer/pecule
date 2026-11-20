@@ -3348,4 +3348,5 @@ export const en: Dict = {
   "{n} libellé": ["{n} label", "{n} labels"],
   "Classer {n} opération": ["Categorise {n} transaction", "Categorise {n} transactions"],
   "Un contrôle ne passe pas : ce qui sera écrit dans tes écrans est peut-être faux. Valider quand même ?": ["One check fails: what will be written to your screens may be wrong. Approve anyway?", "{n} checks fail: what will be written to your screens may be wrong. Approve anyway?"],
+  "Fait clé retiré : {nom}": "Key fact removed: {nom}",
 };

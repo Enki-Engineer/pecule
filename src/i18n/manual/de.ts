@@ -1068,4 +1068,5 @@ export const de: Dict = {
   "Les libellés partent chez ton fournisseur d'IA ; une demande coûte quelques centimes, comptés dans [Le coût de l'IA](/manuel/assistant-cout).": "Die Bezeichnungen gehen an deinen KI-Anbieter; eine Anfrage kostet ein paar Cent, die unter [Die Kosten der KI](/manuel/assistant-cout) gezählt werden.",
   "Indisponible en mode démo, et sans fournisseur d'IA réglé.": "Im Demomodus und ohne eingerichteten KI-Anbieter nicht verfügbar.",
   "classer automatiquement intelligence artificielle catégoriser en masse historique repris proposition lot libellés": "automatisch kategorisieren künstliche intelligenz masse übernommene historie vorschlag stapel bezeichnungen",
+  "Faits clés : l'assistant les tient à jour — « note que le diagnostic de l'appartement d'Angers est passé en C », « retire l'ancienne assurance de sa fiche ».": "Eckdaten: Der Assistent hält sie aktuell – „Notier, dass der Energieausweis der Wohnung in Angers jetzt bei C liegt“, „Nimm die alte Versicherung aus ihrem Datenblatt“.",
 };

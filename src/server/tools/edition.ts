@@ -1,12 +1,15 @@
 import { z } from "zod";
 import { exec, one, q } from "../db.ts";
 import { updateAsset } from "../actions.ts";
-import { saveCommitment } from "../situation.ts";
+import { applyFactPlan, entityFacts, saveCommitment } from "../situation.ts";
+import { today } from "../region.ts";
+import { factText, planFacts } from "../../lib/facts.ts";
+import { EDITED_COLUMNS } from "./edition-columns.ts";
 import { ToolError, change as changeLine, day, money, field, writeTool, type Tool } from "./registry.ts";
 import { t as tr, td, tk, tn } from "../../lib/i18n.ts";
 
 /*
- * Modifications courantes demandées à l'assistant : valeur et bail d'un bien, revenus du foyer
+ * Modifications courantes demandées à l'assistant : valeur, bail et faits clés d'un bien, revenus du foyer
  * (salaire, bonus, loyers), nouvel engagement du budget, référentiel des catégories (renommer,
  * déplacer, créer, renommer un poste). Toutes soumises à confirmation et tracées dans le journal.
  */
@@ -17,12 +20,21 @@ const change = (label: string, before: unknown, after: unknown) => changeLine(la
 
 /* ---------- Biens immobiliers ---------- */
 
-type PropertyRow = { id: string; name: string; asset_id: number | null; rent_monthly: number | null; charges_monthly: number | null; deposit: number | null; lease_kind: string | null; lease_start: string | null; next_rent_revision: string | null; tax_regime: string | null; notes: string | null };
+type PropertyRow = { id: string; owner_user_id: number | null; name: string; asset_id: number | null; rent_monthly: number | null; charges_monthly: number | null; deposit: number | null; lease_kind: string | null; lease_start: string | null; next_rent_revision: string | null; tax_regime: string | null };
+
+/** Un bien n'a pas de notes : ce qu'on veut retenir de lui s'écrit dans ses faits clés, que sa fiche affiche. */
+const factInput = z.object({
+  key: z.string().trim().min(1).max(60).describe("Identifiant du fait : le fact_key donné par get_property pour un fait existant, un identifiant court sans espace pour un nouveau (« dpe », « assurancePno »)"),
+  label: z.string().trim().min(1).max(160).optional().describe("Libellé affiché sur la fiche ; obligatoire pour un nouveau fait, facultatif pour renommer un fait existant"),
+  value: z.union([z.string().max(500), z.number()]).nullable().describe("Nouvelle valeur ; null retire le fait de la fiche"),
+  unit: z.string().max(24).nullable().optional().describe("Unité (« m² », « par an ») ; sans elle, celle du fait existant est gardée"),
+  as_of: day.optional().describe("Date à laquelle la valeur a été relevée (défaut : aujourd'hui)"),
+});
 
 const updateProperty = writeTool({
   name: "update_property",
   description:
-    "Met à jour un bien immobilier (property_id = id donné par get_property) : valeur estimée (après une estimation ou une simulation ; met à jour le placement lié et le patrimoine), loyer et charges mensuels, dépôt de garantie, type et début du bail, prochaine révision du loyer, régime fiscal, notes.",
+    "Met à jour un bien immobilier (property_id = id donné par get_property) : valeur estimée (après une estimation ou une simulation ; met à jour le placement lié et le patrimoine), loyer et charges mensuels, dépôt de garantie, type et début du bail, prochaine révision du loyer, régime fiscal, et ses faits clés (facts : ce que la fiche retient du bien — diagnostic, assurance, copropriété, travaux… ; un fait se corrige, s'ajoute ou se retire).",
   input: z.object({
     property_id: z.string().max(40),
     value: z.number().positive().optional().describe("Nouvelle valeur estimée du bien entier (pas la part)"),
@@ -33,7 +45,7 @@ const updateProperty = writeTool({
     lease_start: day.nullable().optional(),
     next_rent_revision: day.nullable().optional(),
     tax_regime: z.string().max(40).nullable().optional(),
-    notes: z.string().max(4000).nullable().optional(),
+    facts: z.array(factInput).min(1).max(30).optional(),
   }),
   async describe({ userId }, i) {
     const p = await one<PropertyRow>(`SELECT * FROM properties WHERE id = ? AND ${own()}`, [i.property_id, userId]);
@@ -52,7 +64,12 @@ const updateProperty = writeTool({
     if (i.lease_start !== undefined) d.push(change(tr("Début du bail"), p.lease_start, i.lease_start));
     if (i.next_rent_revision !== undefined) d.push(change(tr("Révision du loyer"), p.next_rent_revision, i.next_rent_revision));
     if (i.tax_regime !== undefined) d.push(change(tr("Régime fiscal"), p.tax_regime, i.tax_regime));
-    if (i.notes !== undefined) d.push(tr("Notes réécrites"));
+    if (i.facts) {
+      const plan = planFacts(await entityFacts(userId, "property", p.id), i.facts, today());
+      if (plan.unknown.length) throw new ToolError(`Fait clé inconnu : ${plan.unknown.join(", ")} — pour l'ajouter, donne son libellé (label) ; les faits existants et leur fact_key sont dans get_property`);
+      for (const f of plan.set) d.push(changeLine(f.label, f.before ?? "—", factText(f.value, f.unit)));
+      for (const f of plan.remove) d.push(tr("Fait clé retiré : {nom}", { nom: f.label }));
+    }
     if (!d.length) throw new ToolError("Aucune modification demandée");
     return { label: tr("Modifier le bien « {nom} »", { nom: p.name.replace(/^\p{Extended_Pictographic}\s*/u, "") }), details: d };
   },
@@ -60,19 +77,14 @@ const updateProperty = writeTool({
     const p = await one<PropertyRow>(`SELECT * FROM properties WHERE id = ? AND ${own()}`, [i.property_id, userId]);
     if (!p) throw new ToolError("Bien introuvable");
     if (i.value !== undefined && p.asset_id) await updateAsset(userId, p.asset_id, { value: i.value });
-    const cols: [string, unknown][] = (
-      [
-        ["rent_monthly", i.rent_monthly],
-        ["charges_monthly", i.charges_monthly],
-        ["deposit", i.deposit],
-        ["lease_kind", i.lease_kind],
-        ["lease_start", i.lease_start],
-        ["next_rent_revision", i.next_rent_revision],
-        ["tax_regime", i.tax_regime],
-        ["notes", i.notes],
-      ] as [string, unknown][]
-    ).filter(([, v]) => v !== undefined);
-    if (cols.length) await exec(`UPDATE properties SET ${cols.map(([c]) => `${c} = ?`).join(", ")} WHERE id = ?`, [...cols.map(([, v]) => v), p.id]);
+    const cols = EDITED_COLUMNS.properties.filter((c) => i[c] !== undefined);
+    if (cols.length) await exec(`UPDATE properties SET ${cols.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`, [...cols.map((c) => i[c]), p.id]);
+    if (i.facts) {
+      const plan = planFacts(await entityFacts(userId, "property", p.id), i.facts, today());
+      if (plan.unknown.length) throw new ToolError(`Fait clé inconnu : ${plan.unknown.join(", ")}`);
+      // Un fait suit le bien : commun si le bien l'est, privé sinon.
+      await applyFactPlan(p.owner_user_id, "property", p.id, plan);
+    }
     return "Fait : bien mis à jour (valeur, patrimoine et indicateurs recalculés).";
   },
 });
@@ -111,7 +123,7 @@ const updateIncome = writeTool({
   async run({ userId }, i) {
     const r = await one<IncomeRow>(`SELECT * FROM income_sources WHERE id = ? AND ${own()}`, [i.income_id, userId]);
     if (!r) throw new ToolError("Revenu introuvable");
-    const cols = (["label", "monthly", "annual_gross", "valid_from", "valid_to", "notes"] as const).filter((k) => i[k] !== undefined);
+    const cols = EDITED_COLUMNS.income_sources.filter((k) => i[k] !== undefined);
     if (cols.length) await exec(`UPDATE income_sources SET ${cols.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`, [...cols.map((c) => i[c]), r.id]);
     return "Fait : revenu mis à jour.";
   },
@@ -251,7 +263,7 @@ const updateCategory = writeTool({
     return { label: tr("Modifier la catégorie {code} « {nom} »", { code: c.id, nom: td(c.name) }), details: d };
   },
   async run(_ctx, i) {
-    const cols = (["name", "poste", "kind", "description"] as const).filter((k) => i[k] !== undefined);
+    const cols = EDITED_COLUMNS.categories.filter((k) => i[k] !== undefined);
     if (cols.length) await exec(`UPDATE categories SET ${cols.map((c) => `${c} = ?`).join(", ")} WHERE id = ?`, [...cols.map((c) => i[c]), i.category_id]);
     return "Fait : catégorie modifiée.";
   },

@@ -3,6 +3,7 @@ import { exec, one, q } from "./db.ts";
 import { ActionError, userAccountsSql } from "./actions.ts";
 import { IS_EXPENSE, STAT_SCOPE } from "./stats.ts";
 import { summarizeLoan, type ScheduleRow } from "../lib/loans.ts";
+import type { FactPlan } from "../lib/facts.ts";
 import { documentVisible } from "./documents.ts";
 import { nameDebits } from "./debits.ts";
 import { tk, t as tr } from "../lib/i18n.ts";
@@ -35,6 +36,23 @@ export async function upsertFacts(ownerUserId: number | null, entityType: string
       `INSERT INTO facts (owner_user_id, entity_type, entity_id, fact_key, label, value, unit, as_of, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE label = VALUES(label), value = VALUES(value), unit = VALUES(unit), as_of = VALUES(as_of), sort_order = VALUES(sort_order), owner_user_id = VALUES(owner_user_id)`,
       [ownerUserId, entityType, entityId, f.key.slice(0, 60), f.label.slice(0, 160), String(f.value).slice(0, 500), f.unit ?? null, f.asOf ?? null, i++],
+    );
+}
+
+/**
+ * Écrit les faits clés d'une entité un à un (voir `planFacts`, src/lib/facts.ts) : un fait connu garde sa place dans
+ * la fiche, un fait nouveau va à la fin. À la différence de `upsertFacts`, qui réécrit une fiche entière dans l'ordre donné.
+ */
+export async function applyFactPlan(ownerUserId: number | null, entityType: string, entityId: string, plan: FactPlan) {
+  for (const f of plan.remove) await exec("DELETE FROM facts WHERE entity_type = ? AND entity_id = ? AND fact_key = ?", [entityType, entityId, f.key]);
+  if (!plan.set.length) return;
+  const last = await one<{ n: number | null }>("SELECT MAX(sort_order) AS n FROM facts WHERE entity_type = ? AND entity_id = ?", [entityType, entityId]);
+  let next = (last?.n ?? -1) + 1;
+  for (const f of plan.set)
+    await exec(
+      `INSERT INTO facts (owner_user_id, entity_type, entity_id, fact_key, label, value, unit, as_of, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE label = VALUES(label), value = VALUES(value), unit = VALUES(unit), as_of = VALUES(as_of)`,
+      [ownerUserId, entityType, entityId, f.key.slice(0, 60), f.label.slice(0, 160), f.value.slice(0, 500), f.unit, f.as_of, f.before === null ? next++ : 0],
     );
 }
 

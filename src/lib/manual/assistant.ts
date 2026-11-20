@@ -248,23 +248,24 @@ export const assistant: ManualTheme = {
     },
     {
       id: "claude-mcp",
-      title: tk("Interroger Pécule depuis l'appli Claude"),
+      title: tk("Interroger Pécule depuis Claude ou un autre assistant"),
       summary: tk("Pécule expose un serveur MCP : ton propre assistant peut le lire et le tenir à jour."),
       body: [
         {
           steps: [
             tk("Ouvre [[Réglages]] → [[Comptes et connexions]], bloc [[Applications connectées]], et copie l'adresse affichée."),
-            tk("Dans l'appli Claude : Personnaliser → Connecteurs → ajoute un connecteur personnalisé avec cette adresse."),
+            tk("Dans ton assistant, ajoute un serveur MCP (un « connecteur ») avec cette adresse. Dans l'appli Claude : Personnaliser → Connecteurs → ajoute un connecteur personnalisé."),
             tk("Pécule te demande de te connecter, puis de choisir entre [[Lecture seule]] et [[Lecture et actions]]. Touche [[Autoriser]]."),
           ],
         },
         tk("L'accès ne montre que ta vue. Il se retire à tout moment dans le même bloc, avec la corbeille."),
         tk("Depuis Claude Code, la commande affichée dans le même bloc ajoute Pécule ; « /mcp » ouvre ensuite la même connexion, dans une session."),
-        tk("Pour la ligne de commande, des scripts ou un assistant en accès complet, l'administrateur crée un jeton dans le bloc [[Jetons d'administration]] : il donne tous les droits, en son nom. Un autre assistant que Claude (Cursor, VS Code, Gemini CLI, Codex…) se branche ainsi, en envoyant l'en-tête « Authorization: Bearer » suivi de ce jeton."),
+        tk("Les autres assistants se connectent de la même façon. Pécule affiche tel quel le nom de ceux qu'il reconnaît (le bloc [[Applications connectées]] les nomme) ; un programme de ton ordinateur — Codex, un terminal, un éditeur de code — est annoncé comme tel, car Pécule ne peut pas vérifier le nom qu'il se donne. N'accepte jamais une connexion que tu n'as pas lancée toi-même."),
+        tk("Pour des scripts, ou un outil qui ne sait pas faire cette connexion, l'administrateur crée un jeton dans le bloc [[Jetons d'administration]] : il donne tous les droits, en son nom, et s'envoie dans l'en-tête « Authorization: Bearer »."),
         { warning: tk("Avec [[Lecture et actions]], l'application peut modifier tes données sans passer par l'écran de confirmation de Pécule : c'est elle qui te demande ton accord.") },
       ],
       links: [{ to: "/reglages/connexions?c=applications", label: ["Réglages", "Comptes et connexions"] }],
-      words: tk("mcp connecteur claude desktop claude code api accès externe oauth jeton"),
+      words: tk("mcp connecteur claude desktop claude code chatgpt codex vs code assistant api accès externe oauth jeton"),
     },
   ],
 };

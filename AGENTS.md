@@ -138,9 +138,11 @@ Tout le reste se règle à l'écran, par la personne ou avec elle. Rien n'est ob
   demande un compte à son nom et son accord auprès de sa banque : `docs/connecteurs/enable-banking.md`. Sinon : un
   fichier de la banque (OFX, QIF, CSV), ou un compte tenu à la main.
 - **IA** (assistant, lecture des documents) : même écran, bloc « Intelligence artificielle », avec sa propre clé.
-- **Ton accès à Pécule** : son serveur MCP est à `<adresse>/api/mcp`. Claude s'y connecte par la clé d'accès de la
-  personne (Réglages → Comptes et connexions → Applications connectées donne l'adresse) ; tout autre client envoie
-  l'en-tête `Authorization: Bearer <jeton>` avec un jeton d'administration qu'elle crée au même écran.
+- **Ton accès à Pécule** : son serveur MCP est à `<adresse>/api/mcp` (Réglages → Comptes et connexions →
+  Applications connectées donne l'adresse). Ajoute-le comme serveur MCP distant (`claude mcp add --transport http
+  pecule <adresse>/api/mcp`, `codex mcp add pecule --url <adresse>/api/mcp`…) : la personne s'identifie par sa clé
+  d'accès et choisit lecture seule ou lecture et actions. Un client qui ne sait pas faire cette connexion (OAuth)
+  envoie l'en-tête `Authorization: Bearer <jeton>` avec un jeton d'administration qu'elle crée au même écran.
 - **Ses documents** (bulletins, avis d'impôt, relevés, actes) : `node scripts/importer.mjs <dossier> --a-blanc --json`
   montre ce qui serait envoyé ; sans `--a-blanc`, le lot est lu, puis **rien n'est écrit sans validation**. Avec
   Docker, la commande se lance dans le conteneur : `docker compose cp <dossier> pecule:/tmp/documents`, puis

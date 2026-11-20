@@ -142,6 +142,16 @@ attendent une confirmation), et les traductions des noms de catégories. Les out
 (`src/server/tools/`) et servent à l'assistant comme au **serveur MCP** (`POST /api/mcp`, jeton d'administration ou
 OAuth 2.1 pour un assistant extérieur).
 
+Un assistant extérieur se connecte au nom d'un membre, pour sa vue seulement (`src/server/oauth.ts`, règles pures dans
+`src/server/oauth-rules.ts`). Il fait revenir le membre soit à l'adresse d'un assistant reconnu
+(`src/lib/mcp-clients.ts` : une ligne par assistant, adresse exacte, jamais une adresse relais), soit par une boucle
+locale — un programme de l'ordinateur du membre, quels que soient son port et son chemin (RFC 8252) ; toute autre
+adresse est refusée. Le client se présente par enregistrement dynamique ou par un document d'identité
+(`client_id` = URL, sous sa forme canonique), lu par `publicDocument` (`src/server/net.ts`) : hôte public seulement,
+connexion à l'adresse contrôlée, aucune redirection, taille et durée bornées. Ce qui protège le membre, ce sont les
+adresses de retour, pas le nom qu'un client se donne : l'écran de consentement ne nomme dans son titre qu'un
+assistant reconnu, et cite entre guillemets le nom que se donne un programme de l'ordinateur.
+
 Le coût de chaque appel est enregistré (`ai_usage`, une ligne par appel : `recordUsage` pour un appel compté en
 jetons, `recordCost` pour le mode vocal, compté au caractère lu et à l'audio transcrit), en dollars et en euros au
 cours du jour. Les tarifs, le rangement d'un appel dans son usage et les calculs (projection du mois, économie du
@@ -211,7 +221,9 @@ Trois formats, fabriqués à chaque version (`docs/guide/installation.md`) :
   serveur chacun de ses réglages par son seul nom : lu dans `.env` s'il y est, absent sinon (un test compare la liste
   au schéma des réglages).
 - **Archive prête à l'emploi** — `scripts/paquet.mjs` range dans `pecule.tar.gz` et `pecule.zip` le serveur construit,
-  ses scripts, ses guides et ses dépendances d'exécution, à plat et sans lien symbolique.
+  ses scripts, ses guides et ses dépendances d'exécution, à plat et sans lien symbolique. Le paquet npm « pecule »
+  (`scripts/pecule.mjs`, `node scripts/paquet.mjs --npm`) n'en est que l'installateur : il télécharge l'archive de la
+  dernière version, contrôle son empreinte et la déplie (`scripts/lib/archive.mjs`, partagé avec `maj.mjs`).
 - **Sources** — le dépôt, branche `stable`.
 
 Ce que le serveur charge en service est dans `dependencies` ; ce qui ne sert qu'à construire l'écran (React, icônes,

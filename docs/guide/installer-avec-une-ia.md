@@ -57,8 +57,10 @@ trouve la même compétence (`.claude/skills/pecule`).
 
 - **Brancher votre assistant sur Pécule** : Pécule expose un serveur MCP (`https://votre-adresse/api/mcp`), par
   lequel un assistant lit vos finances et, si vous le permettez, agit. Réglages → Comptes et connexions →
-  « Applications connectées » donne l'adresse : Claude s'y connecte par votre clé d'accès, en lecture seule ou en
-  lecture et actions ; un autre client envoie un jeton d'administration, créé au même écran.
+  « Applications connectées » donne l'adresse. Pécule reconnaît Claude, ChatGPT, Mistral Le Chat et Perplexity, ainsi
+  que tout assistant de votre ordinateur (Claude Code, Codex, Cursor, Visual Studio Code, Gemini CLI…) : ils s'y
+  connectent par votre clé d'accès, en lecture seule ou en lecture et actions. Un outil qui ne sait pas faire cette
+  connexion envoie un jeton d'administration, créé au même écran.
 - **Charger vos papiers** : « Importe le dossier `~/Documents/Papiers` dans Pécule » — voir
   [`importer-des-documents.md`](importer-des-documents.md).
 - **Mettre à jour** : « Mets à jour Pécule » — l'assistant lance la commande de votre installation ; la base est

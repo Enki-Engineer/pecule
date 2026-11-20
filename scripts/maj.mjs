@@ -12,14 +12,14 @@
 // Hors Docker, le serveur est ensuite à redémarrer (`--redemarrer "<commande>"` le fait).
 // Code de sortie 0 si l'installation est à jour et répond, 1 sinon. Aucun secret n'est affiché.
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { accessSync, closeSync, constants, createReadStream, createWriteStream, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, statSync } from "node:fs";
+import { accessSync, closeSync, constants, createWriteStream, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
+import { ARCHIVE, SUMS, download, expectedSum, releaseBase, sha256, untar } from "./lib/archive.mjs";
 import { loadSettings, localPort } from "./lib/reglages.mjs";
 import { cleanVersion, compareVersions, DEFAULT_REPO, DOCKER_IMAGE, updateState } from "../src/lib/version.ts";
 
@@ -240,21 +240,6 @@ async function backup(serverDir) {
 }
 
 // ---------- Archive prête à l'emploi ----------
-const sha256 = (file) =>
-  new Promise((resolve, reject) => {
-    const hash = createHash("sha256");
-    createReadStream(file).on("data", (chunk) => hash.update(chunk)).on("error", reject).on("end", () => resolve(hash.digest("hex")));
-  });
-
-/** L'empreinte d'un fichier dans un `SHA256SUMS` (« empreinte  nom » par ligne) ; `null` s'il n'y figure pas. */
-const expectedSum = (sums, name) => sums.split(/\r?\n/).map((l) => /^([0-9a-f]{64})\s+\*?(.+)$/.exec(l.trim())).find((m) => m && m[2] === name)?.[1] ?? null;
-
-async function download(url, dest) {
-  const res = await fetch(url, { headers: { "User-Agent": "Pecule" }, redirect: "follow" }).catch(() => null);
-  if (!res?.ok || !res.body) throw new Error(`${url} → ${res ? `HTTP ${res.status}` : "pas de réponse"}`);
-  await pipeline(Readable.fromWeb(res.body), createWriteStream(dest));
-}
-
 /**
  * Remplace le serveur par celui de l'archive d'une version : `pecule.tar.gz`, jointe à la version publiée (ou
  * donnée par `--archive`), dont l'empreinte est contrôlée. Ce que l'archive apporte remplace ce qui porte le même
@@ -273,16 +258,15 @@ async function installArchive() {
   let sums = null;
   try {
     if (archive) {
-      const beside = path.join(path.dirname(archive), "SHA256SUMS");
+      const beside = path.join(path.dirname(archive), SUMS);
       if (existsSync(beside)) sums = readFileSync(beside, "utf8");
     } else {
-      const base = `https://github.com/${repo}/releases/download/${encodeURIComponent(latest.tag)}`;
-      const name = "pecule.tar.gz";
-      archive = path.join(work, name);
-      say(`  ${base}/${name}`);
-      await download(`${base}/${name}`, archive);
-      await download(`${base}/SHA256SUMS`, path.join(work, "SHA256SUMS"));
-      sums = readFileSync(path.join(work, "SHA256SUMS"), "utf8");
+      const base = releaseBase(repo, latest.tag);
+      archive = path.join(work, ARCHIVE);
+      say(`  ${base}/${ARCHIVE}`);
+      await download(`${base}/${ARCHIVE}`, archive);
+      await download(`${base}/${SUMS}`, path.join(work, SUMS));
+      sums = readFileSync(path.join(work, SUMS), "utf8");
     }
   } catch (e) {
     giveUp(`L'archive de la version n'a pas pu être téléchargée : ${e.message}\n    Rien n'a été remplacé. Télécharge-la depuis la page de la version, puis relance avec --archive <fichier>.`);
@@ -294,8 +278,7 @@ async function installArchive() {
     say("✓ Empreinte de l'archive contrôlée");
   } else say("! Pas de fichier SHA256SUMS à côté de l'archive : son empreinte n'est pas contrôlée.");
 
-  // Lancée par l'administrateur de la machine, l'extraction ne reprend pas le compte de celui qui a fabriqué l'archive.
-  if (!run("tar", ["-xzf", archive, "--no-same-owner", "-C", work])) giveUp("L'archive n'a pas pu être dépliée : rien n'a été remplacé.");
+  if (!untar(archive, work)) giveUp("L'archive n'a pas pu être dépliée : rien n'a été remplacé.");
   const fresh = path.join(work, "pecule");
   let incoming;
   try {

@@ -35,6 +35,7 @@ import { dateFr, timeAgo } from "../format.ts";
 import { useMedia } from "../useMedia.ts";
 import { useCrumb } from "../shell.ts";
 import { locale, t, td, tn } from "../../lib/i18n.ts";
+import { MCP_CLIENTS } from "../../lib/mcp-clients.ts";
 
 type Users = { users: { id: number; name: string; passkeys: { id_hash: string; device_name: string | null; created_at: string; last_used_at: string | null }[] }[] };
 type Run = { id: number; started_at: string; finished_at: string | null; status: string; source: string; tx_seen: number; tx_new: number; tx_auto: number; error: string | null };
@@ -446,15 +447,22 @@ function AlertsSection() {
 type AuditRow = { id: number; at: string; via: string; action: string; target: string | null; details: string | null; user: string | null };
 type DepotToken = { id: number; name: string; created_at: string; last_used_at: string | null };
 
-type Grant = { id: number; client: string; actions: boolean; createdAt: string; lastUsedAt: string | null };
+/** `local` : un programme de l'ordinateur, dont `client` n'est que le nom qu'il s'est donné (ou rien). */
+type Grant = { id: number; client: string | null; local?: boolean; actions: boolean; createdAt: string; lastUsedAt: string | null };
+/** Nom d'un accès : celui d'un assistant reconnu tel quel, celui d'un programme de l'ordinateur entre guillemets, comme une citation. */
+const grantName = (g: Grant) => (!g.local && g.client ? g.client : g.client ? t("« {nom} », programme de cet ordinateur", { nom: g.client }) : t("Programme de cet ordinateur"));
+/** Les assistants reconnus autres que Claude, dont la marche à suivre est donnée à part. */
+const OTHER_ASSISTANTS = MCP_CLIENTS.filter((c) => c.name !== "Claude")
+  .map((c) => c.name)
+  .join(", ");
 
-/** Applications connectées : accès accordés à l'appli Claude (serveur MCP), à retirer ici. */
+/** Applications connectées : accès accordés à un assistant (serveur MCP), à retirer ici. */
 function ConnectedAppsSection() {
   const qc = useQueryClient();
   const grants = useQuery({ queryKey: ["oauth-grants"], queryFn: () => api<{ grants: Grant[] }>("/oauth/grants") });
   const url = `${window.location.origin}/api/mcp`;
   async function revoke(g: Grant) {
-    if (!confirm(t("Retirer l'accès de « {nom} » ? Il faudra le reconnecter depuis Claude.", { nom: g.client }))) return;
+    if (!confirm(t("Retirer l'accès de « {nom} » ? Il faudra refaire la connexion depuis cette application.", { nom: g.client ?? t("Programme de cet ordinateur") }))) return;
     try {
       await api(`/oauth/grants/${g.id}`, { method: "DELETE" });
       await qc.invalidateQueries({ queryKey: ["oauth-grants"] });
@@ -473,17 +481,20 @@ function ConnectedAppsSection() {
           </button>
           <p className="mt-3">{t("Depuis Claude Code, lance cette commande, puis « /mcp » dans une session pour te connecter :")}</p>
           <ServerCommand text={`claude mcp add --transport http pecule ${url}`} className="card" />
-          <p className="mt-3">{t("Un autre assistant (Cursor, VS Code, Gemini CLI, Codex…) se branche sur la même adresse en envoyant l'en-tête « Authorization: Bearer » suivi d'un jeton d'administration : il agit alors avec tous les droits de l'administrateur, qui crée ce jeton dans le bloc « Jetons d'administration ».")}</p>
+          <p className="mt-3">
+            {t("Un autre assistant se branche sur la même adresse et ouvre le même écran d'accord, pour ta vue seulement : {assistants}, ou un assistant installé sur ton ordinateur (Codex, un éditeur de code, un terminal).", { assistants: OTHER_ASSISTANTS })}
+          </p>
+          <p className="mt-3">{t("Un outil qui ne sait pas faire cette connexion envoie l'en-tête « Authorization: Bearer » suivi d'un jeton d'administration : il agit alors avec tous les droits de l'administrateur, qui crée ce jeton dans le bloc « Jetons d'administration ».")}</p>
         </div>
         {grants.data?.grants.map((g) => (
           <div key={g.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
             <span>
-              {g.client} · {g.actions ? t("lecture et actions") : t("lecture seule")}
+              {grantName(g)} · {g.actions ? t("lecture et actions") : t("lecture seule")}
               <span className="block text-xs text-muted">
                 {t("connecté le {date}", { date: dateFr(g.createdAt) })} · {g.lastUsedAt ? t("utilisé {quand}", { quand: timeAgo(g.lastUsedAt) }) : t("jamais utilisé")}
               </span>
             </span>
-            <button type="button" onClick={() => revoke(g)} className="text-neg" aria-label={t("Retirer l'accès de {nom}", { nom: g.client })}>
+            <button type="button" onClick={() => revoke(g)} className="text-neg" aria-label={t("Retirer l'accès de {nom}", { nom: grantName(g) })}>
               <Trash2 size={15} />
             </button>
           </div>

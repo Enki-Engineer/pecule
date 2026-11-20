@@ -106,7 +106,10 @@ jobs:
         run: |
           node scripts/paquet.mjs
           ( cd dist/paquet && sha256sum --check SHA256SUMS )
-          mkdir -p "$RUNNER_TEMP/archive" && tar -xzf dist/paquet/pecule.tar.gz -C "$RUNNER_TEMP/archive"
+          # Le paquet npm tel qu'il se publie — empaqueté, installé hors du dépôt — : c'est lui qui déplie l'archive.
+          npm pack ./dist/paquet/npm --pack-destination "$RUNNER_TEMP" > /dev/null
+          npm install --global --prefix "$RUNNER_TEMP/npm" "$RUNNER_TEMP/pecule-$(node -p "require('./package.json').version").tgz" > /dev/null
+          mkdir -p "$RUNNER_TEMP/archive" && ( cd "$RUNNER_TEMP/archive" && "$RUNNER_TEMP/npm/bin/pecule" installer --archive "$GITHUB_WORKSPACE/dist/paquet/pecule.tar.gz" )
           unzip -q dist/paquet/pecule.zip -d "$RUNNER_TEMP/archive-zip" && diff -rq "$RUNNER_TEMP/archive/pecule" "$RUNNER_TEMP/archive-zip/pecule"
           mysql -h127.0.0.1 -uroot -ppecule-ci -e "CREATE DATABASE pecule_archive" 2>/dev/null \
             || docker exec "$(docker ps -q --filter ancestor=mariadb:11.8 | head -1)" mariadb -uroot -ppecule-ci -e "CREATE DATABASE pecule_archive"

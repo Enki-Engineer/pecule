@@ -3,6 +3,34 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.35.0
+
+D'autres assistants que Claude se connectent à Pécule, chacun pour la vue d'un membre. Rien ne change pour les accès
+déjà accordés ; aucune migration.
+
+- **ChatGPT, Mistral Le Chat et Perplexity** ouvrent le même écran d'accord que Claude — lecture seule, ou lecture
+  et actions — au lieu de demander un jeton d'administration, qui donnait tous les droits. Il suffit d'ajouter
+  l'adresse du serveur MCP dans l'assistant (Réglages → Comptes et connexions → Applications connectées la donne).
+- **Tout assistant installé sur l'ordinateur** se connecte aussi : Codex, Cursor, Visual Studio Code, Gemini CLI,
+  Zed, Goose, ou n'importe quel client relié par `mcp-remote`. Pécule l'annonce comme « un programme de cet
+  ordinateur » et cite le nom qu'il se donne, sans pouvoir le vérifier. Essayé pour de vrai avec Codex et avec
+  `mcp-remote`.
+- **Le nom affiché vient de l'adresse où tu retournes**, plus de ce que le client dit de lui-même : un client qui se
+  dirait « Claude » mais reviendrait ailleurs ne peut pas s'afficher comme Claude. L'écran rappelle de n'accepter
+  qu'une connexion que tu viens de lancer toi-même.
+- Toute autre adresse de retour reste refusée, y compris les adresses relais que certains éditeurs publient (elles
+  renvoient le code vers une cible nommée dans le lien). Un assistant auto-hébergé (LibreChat, Open WebUI, n8n) passe
+  encore par un jeton d'administration.
+- Sécurité des requêtes sortantes : une adresse IPv4 écrite sous forme IPv6 (« ::ffff:7f00:1 ») est reconnue comme
+  privée, où qu'elle serve (logos, notifications, fournisseur d'IA réglé à la main).
+- Pour qui développe : un assistant s'ajoute d'une ligne dans `src/lib/mcp-clients.ts`, avec l'adresse de retour
+  qu'il publie. Le document d'identité d'un client (`client_id` = URL) se lit sur tout hôte public, à l'adresse
+  contrôlée, sans suivre de redirection, dans une taille et un délai bornés ; un enregistrement dynamique ne garde
+  que les adresses admises.
+- Paquet npm « pecule » : l'installateur est écrit (`scripts/pecule.mjs`, fabriqué par
+  `node scripts/paquet.mjs --npm`). Il télécharge l'archive de la dernière version, contrôle son empreinte et la
+  déplie ; il sera annoncé dans les guides quand le nom sera publié sur npm.
+
 ## 1.34.1
 
 Une installation neuve démarre sur toutes les bases annoncées. Rien ne change pour une installation en service ;

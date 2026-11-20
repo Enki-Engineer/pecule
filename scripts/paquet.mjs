@@ -3,9 +3,13 @@
 // et ses dépendances d'exécution : ni build, ni pnpm sur le serveur), le fichier compose.yaml et leurs empreintes.
 //
 //   pnpm build && node scripts/paquet.mjs [--sortie dist/paquet]
+//   node scripts/paquet.mjs --npm                 le paquet npm seul (aucun build demandé)
 //
 // Écrit dans le dossier de sortie :
-//   pecule.tar.gz   pecule.zip   compose.yaml   SHA256SUMS
+//   pecule.tar.gz   pecule.zip   compose.yaml   SHA256SUMS   npm/
+// `npm/` est le paquet « pecule » de npm : l'installateur seul (`scripts/pecule.mjs`), qui télécharge l'archive de la
+// dernière version publiée. Il se publie par « npm publish dist/paquet/npm » — quand l'installateur change, pas à
+// chaque version.
 // Des noms sans numéro de version : la dernière version publiée se télécharge toujours à la même adresse
 // (…/releases/latest/download/pecule.tar.gz), et une version précise à celle de son étiquette.
 // Demande pnpm, tar et zip sur la machine qui construit (pas sur celle qui installe).
@@ -15,20 +19,25 @@ import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rm
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_REPO } from "../src/lib/version.ts";
 
 const HELP = `Fabrique les pièces jointes d'une version de Pécule (après « pnpm build »).
 
-  node scripts/paquet.mjs [--sortie dist/paquet]
+  node scripts/paquet.mjs [--sortie dist/paquet] [--npm]
 
   pecule.tar.gz, pecule.zip   l'archive prête à l'emploi : serveur construit, dépendances d'exécution, scripts
   compose.yaml                le fichier Docker Compose de la version
-  SHA256SUMS                  l'empreinte de chacun`;
+  SHA256SUMS                  l'empreinte de chacun
+  npm/                        le paquet npm « pecule » : l'installateur, qui télécharge l'archive de la dernière version
+
+  --npm    ne fabrique que le paquet npm (pas besoin de « pnpm build »)`;
 const argv = process.argv.slice(2);
 if (argv.includes("--help") || argv.includes("-h")) {
   console.log(HELP);
   process.exit(0);
 }
 for (let i = 0; i < argv.length; i++) {
+  if (argv[i] === "--npm") continue;
   if (argv[i] !== "--sortie") fail(`Option inconnue : ${argv[i]}\n\n${HELP}`);
   if (argv[++i] === undefined) fail("--sortie attend un dossier.");
 }
@@ -53,6 +62,44 @@ const run = (cmd, args, cwd) => {
   return r.stdout;
 };
 
+if ([root, path.dirname(root)].includes(out) || root.startsWith(`${out}${path.sep}`)) fail(`--sortie ${out} : le dossier de sortie ne peut pas être le dépôt ni l'un de ses parents.`);
+
+// ---------- Le paquet npm : l'installateur seul ----------
+/**
+ * Le paquet « pecule » de npm ne porte pas l'appli : seulement `scripts/pecule.mjs`, qui télécharge l'archive de la
+ * dernière version publiée sur GitHub et contrôle son empreinte. Une seule source pour l'appli, rien d'elle sur npm,
+ * et un paquet qui n'a pas à être republié à chaque version.
+ */
+function npmPackage() {
+  const dir = path.join(out, "npm");
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(path.join(dir, "scripts", "lib"), { recursive: true });
+  cpSync("scripts/pecule.mjs", path.join(dir, "scripts", "pecule.mjs"));
+  cpSync("scripts/lib/archive.mjs", path.join(dir, "scripts", "lib", "archive.mjs"));
+  cpSync("npm/README.md", path.join(dir, "README.md"));
+  cpSync("LICENSE", path.join(dir, "LICENSE"));
+  const manifest = {
+    name: pkg.name,
+    version: pkg.version,
+    description: `Self-hosted household finance tracker (installer). ${pkg.description}`,
+    license: pkg.license,
+    type: "module",
+    bin: { pecule: "scripts/pecule.mjs" },
+    files: ["scripts"],
+    engines: pkg.engines,
+    repository: { type: "git", url: `git+https://github.com/${DEFAULT_REPO}.git` },
+    homepage: `https://github.com/${DEFAULT_REPO}#readme`,
+    bugs: { url: `https://github.com/${DEFAULT_REPO}/issues` },
+    keywords: ["finance", "budget", "personal-finance", "household", "self-hosted", "banking", "foyer", "auto-heberge"],
+  };
+  writeFileSync(path.join(dir, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  return dir;
+}
+if (argv.includes("--npm")) {
+  console.log(`✓ Pécule ${pkg.version} — paquet npm dans ${path.relative(root, npmPackage())}`);
+  process.exit(0);
+}
+
 // ---------- Le serveur construit ----------
 if (!existsSync("dist/server.mjs") || !existsSync("dist/client/index.html")) fail("dist/ n'est pas construit : lance d'abord « pnpm build ».");
 // La version inscrite dans le serveur est celle du paquet (un build resté d'une version précédente serait livré sous un faux nom).
@@ -60,7 +107,6 @@ if (!readFileSync("dist/server.mjs", "utf8").includes(JSON.stringify(pkg.version
 
 // Seulement ce que cette commande écrit : jamais le dossier de sortie tout entier, qui peut porter autre chose.
 const OUTPUTS = [`${name}.tar.gz`, `${name}.zip`, "compose.yaml", "SHA256SUMS"];
-if ([root, path.dirname(root)].includes(out) || root.startsWith(`${out}${path.sep}`)) fail(`--sortie ${out} : le dossier de sortie ne peut pas être le dépôt ni l'un de ses parents.`);
 rmSync(stage, { recursive: true, force: true });
 for (const file of OUTPUTS) rmSync(path.join(out, file), { force: true });
 mkdirSync(path.join(stage, "dist"), { recursive: true });
@@ -182,6 +228,7 @@ const mo = (octets) => `${(octets / 1_048_576).toFixed(1).replace(".", ",")} Mo`
 let unpacked = 0;
 walk(stage, (file) => (unpacked += lstatSync(file).size));
 rmSync(stage, { recursive: true, force: true });
+npmPackage();
 console.log(`✓ Pécule ${pkg.version} — pièces jointes dans ${path.relative(root, out) || out}`);
 for (const file of files) console.log(`  ${file.padEnd(name.length + 8)} ${mo(statSync(path.join(out, file)).size)}`);
-console.log(`  SHA256SUMS\n  (archive dépliée : ${mo(unpacked)} ; ${mo(pruned)} de types et de cartes des sources retirés des dépendances)`);
+console.log(`  SHA256SUMS\n  npm/           le paquet npm (l'installateur seul)\n  (archive dépliée : ${mo(unpacked)} ; ${mo(pruned)} de types et de cartes des sources retirés des dépendances)`);

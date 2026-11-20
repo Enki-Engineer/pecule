@@ -7,14 +7,16 @@ import { origin } from "./env.ts";
 import { ActionError } from "./actions.ts";
 import { logAudit } from "./journal.ts";
 import { loadUser } from "./auth.ts";
+import { publicDocument } from "./net.ts";
 import { memberLang } from "./lang.ts";
 import { DEFAULT_LANG, t, tk, translate } from "../lib/i18n.ts";
+import { MCP_CLIENTS, hostedRedirect } from "../lib/mcp-clients.ts";
 import {
-  CLAUDE_CALLBACK,
   SCOPES,
   SCOPE_WRITE,
-  TRUSTED_CLIENT_HOSTS,
   canWrite,
+  clientDocumentUrl,
+  clientIdentity,
   grantedScope,
   isLoopback,
   pkceMatches,
@@ -26,14 +28,16 @@ import {
 } from "./oauth-rules.ts";
 
 /*
- * Serveur d'autorisation OAuth 2.1 minimal, pour brancher l'appli Claude (web, Desktop, iPhone) et
- * Claude Code sur le serveur MCP de Pécule au nom d'un membre (spécification MCP 2025-11-25).
+ * Serveur d'autorisation OAuth 2.1 minimal, pour brancher un assistant sur le serveur MCP de Pécule au nom d'un
+ * membre (spécification MCP 2025-11-25) : l'appli Claude et les autres assistants reconnus, et tout programme de
+ * l'ordinateur du membre (Claude Code, un terminal, un éditeur de code).
  *
  *  - Découverte : /.well-known/oauth-protected-resource (ressource = /api/mcp) et
  *    /.well-known/oauth-authorization-server.
- *  - Client : document d'identité hébergé par Claude (client_id = URL, hôtes de confiance) ou
- *    enregistrement dynamique (POST /oauth/register). Clients publics, PKCE S256 obligatoire.
- *    Seules l'adresse de retour de Claude et les boucles locales « /callback » sont admises.
+ *  - Client : document d'identité hébergé par son éditeur (client_id = URL, lu sur un hôte public quel qu'il soit)
+ *    ou enregistrement dynamique (POST /oauth/register). Clients publics, PKCE S256 obligatoire.
+ *    Adresses de retour admises : celles des assistants reconnus (`src/lib/mcp-clients.ts`) et les boucles locales.
+ *    Le nom montré au membre vient de l'adresse de retour, pas de ce que le client dit de lui-même.
  *  - Consentement : /oauth/authorize range la demande et renvoie vers l'écran /autoriser, où un membre
  *    connecté par clé d'accès choisit « lecture seule » ou « lecture et actions ».
  *  - Jetons : accès d'une heure (pmca_…), renouvellement tournant de 90 jours (pmcr_…) ; seules les
@@ -51,6 +55,15 @@ const REQUEST_TTL_MIN = 10;
 const CODE_TTL_S = 60;
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
+/** Où mène une adresse de retour, pour un humain : son hôte, ou son schéma quand elle ouvre une appli de bureau. */
+const redirectTarget = (uri: string) => {
+  try {
+    const u = new URL(uri);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.host : `${u.protocol}//${u.host}`;
+  } catch {
+    return "adresse illisible";
+  }
+};
 const secret = (prefix = "") => prefix + randomBytes(32).toString("base64url");
 
 /* ---------- Découverte ---------- */
@@ -86,27 +99,53 @@ async function storedClient(clientId: string): Promise<(Client & { source: strin
     "SELECT client_id, name, redirect_uris, source, fetched_at FROM oauth_clients WHERE client_id = ?",
     [clientId],
   );
-  return row ? { clientId: row.client_id, name: row.name, redirectUris: JSON.parse(row.redirect_uris) as string[], source: row.source, fetchedAt: row.fetched_at } : null;
+  // À la lettre : la clé de la table ignore la casse et les accents, deux identifiants voisins ne sont pas le même client.
+  return row && row.client_id === clientId ? { clientId: row.client_id, name: row.name, redirectUris: JSON.parse(row.redirect_uris) as string[], source: row.source, fetchedAt: row.fetched_at } : null;
 }
 
-/** Client connu : enregistré dynamiquement, ou décrit par un document hébergé chez Claude (relu au plus une fois par jour). */
+/** Taille maximale d'un document d'identité de client, et temps laissé à son hôte pour le donner. */
+const DOCUMENT_MAX = 16_384;
+const DOCUMENT_TIMEOUT_MS = 5000;
+/**
+ * Documents qui n'ont pas été admis : pas redemandés tout de suite (n'importe qui peut donner une adresse). Un
+ * document lu mais refusé attend dix minutes ; un hôte qui n'a pas répondu, quinze secondes seulement — un incident
+ * passager ne doit pas fermer la porte à un client honnête.
+ */
+const refusedDocuments = new Map<string, number>();
+const REFUSED_TTL_MS = 600_000;
+const UNREACHABLE_TTL_MS = 15_000;
+/** Lectures de documents en cours : au-delà, la demande suivante attend son tour au lieu d'en lancer une de plus. */
+let reading = 0;
+const MAX_READING = 3;
+
+/**
+ * Client connu : enregistré dynamiquement, ou décrit par un document d'identité hébergé chez son éditeur
+ * (client_id = URL, relu au plus une fois par jour). L'adresse est donnée par n'importe qui : le document se lit sur
+ * un hôte public seulement, à l'adresse contrôlée, sans suivre de redirection, dans une taille et un délai bornés
+ * (`publicDocument`).
+ */
 async function findClient(clientId: string): Promise<Client | null> {
   const known = await storedClient(clientId);
-  if (!/^https:\/\//.test(clientId)) return known;
+  if (!clientDocumentUrl(clientId)) return known;
   if (known?.fetchedAt && Date.parse(`${known.fetchedAt}Z`) > Date.now() - 86400_000) return known;
-  let host: string;
+  if ((refusedDocuments.get(clientId) ?? 0) > Date.now() || reading >= MAX_READING) return known;
+  const refuse = (ttl: number) => {
+    if (refusedDocuments.size > 500) refusedDocuments.clear();
+    refusedDocuments.set(clientId, Date.now() + ttl);
+    return known;
+  };
+  reading++;
   try {
-    host = new URL(clientId).hostname;
-  } catch {
-    return null;
-  }
-  // Aucun appel sortant vers un hôte qui n'est pas de confiance (pas de requête forgée côté serveur).
-  if (!TRUSTED_CLIENT_HOSTS.includes(host)) return null;
-  try {
-    const res = await fetch(clientId, { redirect: "error", signal: AbortSignal.timeout(5000), headers: { Accept: "application/json" } });
-    const text = res.ok ? await res.text() : "";
-    const doc = validateClientDocument(clientId, text.length && text.length < 65_536 ? JSON.parse(text) : null);
-    if (typeof doc === "string") return known;
+    const text = await publicDocument(clientId, { maxBytes: DOCUMENT_MAX, timeoutMs: DOCUMENT_TIMEOUT_MS });
+    if (text === null) return refuse(UNREACHABLE_TTL_MS);
+    let json: unknown = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      // Pas du JSON : refusé comme un document illisible.
+    }
+    const doc = validateClientDocument(clientId, json);
+    if (typeof doc === "string") return refuse(REFUSED_TTL_MS);
     await exec(
       `INSERT INTO oauth_clients (client_id, name, redirect_uris, source, fetched_at) VALUES (?, ?, ?, 'cimd', UTC_TIMESTAMP())
        ON DUPLICATE KEY UPDATE name = VALUES(name), redirect_uris = VALUES(redirect_uris), fetched_at = VALUES(fetched_at)`,
@@ -114,8 +153,10 @@ async function findClient(clientId: string): Promise<Client | null> {
     );
     return { clientId, name: doc.name, redirectUris: doc.redirectUris };
   } catch {
-    // Document injoignable : on garde la dernière version connue.
+    // La base n'a pas pu garder le document : on reste sur la dernière version connue.
     return known;
+  } finally {
+    reading--;
   }
 }
 
@@ -133,25 +174,34 @@ oauthRouter.get("/.well-known/oauth-authorization-server", (_req, res) => {
   res.set("Cache-Control", "public, max-age=300").json(authorizationServer);
 });
 
-/** Enregistrement dynamique (RFC 7591) : client public, adresses de retour de Claude ou boucle locale seulement. */
+/**
+ * Enregistrement dynamique (RFC 7591) : client public. Seules ses adresses de retour admises sont gardées — celles
+ * d'un assistant reconnu et les boucles locales ; s'il n'en a aucune, la demande est refusée.
+ */
 oauthRouter.post("/oauth/register", limiter, express.json({ limit: "20kb" }), async (req, res) => {
   const b = z.object({ redirect_uris: z.array(z.string().max(512)).min(1).max(10), client_name: z.string().max(120).optional() }).safeParse(req.body);
-  if (!b.success || !b.data.redirect_uris.every(redirectAllowed))
-    return res.status(400).json({ error: "invalid_redirect_uri", error_description: `Adresses de retour admises : ${CLAUDE_CALLBACK} ou une boucle locale http://localhost/callback` });
-  // Ménage : clients enregistrés depuis plus de 30 jours et jamais autorisés.
-  await exec(
-    "DELETE FROM oauth_clients WHERE source = 'dcr' AND created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) AND client_id NOT IN (SELECT client_id FROM oauth_grants WHERE revoked_at IS NULL)",
-  );
+  const redirectUris = b.success ? b.data.redirect_uris.filter(redirectAllowed) : [];
+  const refused = b.success ? b.data.redirect_uris.filter((uri) => !redirectAllowed(uri)).map(redirectTarget) : [];
+  // Trace pour celui qui héberge : un assistant qui n'est pas dans la liste a tenté de s'enregistrer.
+  if (refused.length) console.warn(`[oauth] enregistrement : adresse de retour non admise (${refused.join(", ")})`);
+  if (!b.success || !redirectUris.length)
+    return res.status(400).json({
+      error: "invalid_redirect_uri",
+      error_description: `Adresses de retour admises : celle d'un assistant reconnu (${MCP_CLIENTS.map((c) => c.name).join(", ")}) ou une boucle locale (http://127.0.0.1:<port>/…, http://localhost:<port>/…). Refusé : ${refused.join(", ") || "demande illisible"}`,
+    });
+  // Ménage : clients connus depuis plus de 30 jours et sans accès en cours (un document d'identité se relira au besoin).
+  await exec("DELETE FROM oauth_clients WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) AND client_id NOT IN (SELECT client_id FROM oauth_grants WHERE revoked_at IS NULL)");
   const clientId = secret("pcl_");
-  const name = b.data.client_name?.trim() || "Claude";
-  await exec("INSERT INTO oauth_clients (client_id, name, redirect_uris, source) VALUES (?, ?, ?, 'dcr')", [clientId, name, JSON.stringify(b.data.redirect_uris)]);
+  // Le nom que le client se donne n'est gardé que pour un programme de l'ordinateur : un assistant reconnu porte le sien.
+  const name = clientIdentity(redirectUris[0], b.data.client_name).name ?? "";
+  await exec("INSERT INTO oauth_clients (client_id, name, redirect_uris, source) VALUES (?, ?, ?, 'dcr')", [clientId, name, JSON.stringify(redirectUris)]);
   noStore(res)
     .status(201)
     .json({
       client_id: clientId,
       client_id_issued_at: Math.floor(Date.now() / 1000),
       client_name: name,
-      redirect_uris: b.data.redirect_uris,
+      redirect_uris: redirectUris,
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
@@ -233,7 +283,8 @@ async function issue(grantId: number, scope: string, renewal: boolean) {
 
 /** Échange d'un code contre un accès, ou renouvellement (jeton de renouvellement tournant). */
 oauthRouter.post("/oauth/token", limiter, express.urlencoded({ extended: false, limit: "20kb" }), async (req, res) => {
-  const b = (req.body ?? {}) as Record<string, string | undefined>;
+  // Un paramètre répété arrive en tableau : il est ignoré, la demande est alors incomplète (jamais une erreur du serveur).
+  const b: Record<string, string | undefined> = Object.fromEntries(Object.entries((req.body ?? {}) as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === "string"));
   if (b.grant_type === "authorization_code") {
     if (!b.code || !b.code_verifier || !b.client_id || !b.redirect_uri) return tokenError(res, "invalid_request", "code, code_verifier, client_id et redirect_uri attendus");
     const hash = sha256(b.code);
@@ -258,7 +309,8 @@ oauthRouter.post("/oauth/token", limiter, express.urlencoded({ extended: false, 
     const grant = await exec(
       // Empreintes provisoires (jetons jamais émis), remplacées aussitôt par issue().
       "INSERT INTO oauth_grants (user_id, client_id, client_name, scope, access_hash, access_expires_at, refresh_hash, refresh_expires_at) VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP(), ?, UTC_TIMESTAMP())",
-      [code.user_id, code.client_id, client?.name ?? "Claude", code.scope, sha256(secret()), sha256(secret())],
+      // Nom vide : un programme de l'ordinateur qui ne s'est pas nommé (dit à l'affichage, dans la langue du membre).
+      [code.user_id, code.client_id, clientIdentity(code.redirect_uri, client?.name).name ?? "", code.scope, sha256(secret()), sha256(secret())],
     );
     await exec("UPDATE oauth_codes SET grant_id = ? WHERE code_hash = ?", [grant.insertId, hash]);
     return noStore(res).json(await issue(grant.insertId, code.scope, false));
@@ -300,6 +352,16 @@ export async function verifyAccessToken(token: string): Promise<OAuthIdentity | 
 
 /* ---------- Écran de consentement et accès accordés (sous /api, session d'un membre) ---------- */
 
+/** Aucune des adresses de retour du client ne mène chez un éditeur reconnu : c'est un programme de l'ordinateur. */
+function localOnly(redirectUris: string | null): boolean {
+  if (!redirectUris) return false; // Client d'avant ce contrôle, ou retiré : on garde son nom tel quel.
+  try {
+    return !(JSON.parse(redirectUris) as string[]).some(hostedRedirect);
+  } catch {
+    return false;
+  }
+}
+
 export const oauthApi = Router();
 
 function member(req: Request) {
@@ -312,7 +374,7 @@ async function pendingRequest(id: string) {
     "SELECT client_id, redirect_uri, state, code_challenge, scope FROM oauth_requests WHERE id_hash = ? AND expires_at > UTC_TIMESTAMP()",
     [sha256(id)],
   );
-  if (!r) throw new ActionError(404, t("Demande expirée : relance la connexion depuis Claude"));
+  if (!r) throw new ActionError(404, t("Demande expirée : relance la connexion depuis ton assistant"));
   return r;
 }
 
@@ -320,9 +382,12 @@ oauthApi.get("/oauth/requests/:id", async (req, res) => {
   const user = member(req);
   const r = await pendingRequest(z.string().max(128).parse(req.params.id));
   const client = await storedClient(r.client_id);
+  const identity = clientIdentity(r.redirect_uri, client?.name);
   res.json({
-    client: client?.name ?? "Claude",
-    redirectHost: new URL(r.redirect_uri).host,
+    // Assistant reconnu : son nom, tiré de la liste. Sinon le nom que se donne un programme de l'ordinateur (ou rien).
+    client: identity.name,
+    known: identity.known,
+    redirectHost: redirectTarget(r.redirect_uri),
     loopback: isLoopback(r.redirect_uri),
     member: user.name,
     actionsRequested: !r.scope || r.scope.split(" ").includes(SCOPE_WRITE),
@@ -355,7 +420,7 @@ oauthApi.post("/oauth/requests/:id/decision", async (req, res) => {
     CODE_TTL_S,
   ]);
   const client = await storedClient(r.client_id);
-  await logAudit("Accès au serveur MCP accordé", client?.name ?? r.client_id, { portee: scope, retour: u.host });
+  await logAudit("Accès au serveur MCP accordé", clientIdentity(r.redirect_uri, client?.name).name ?? "programme de cet ordinateur", { portee: scope, retour: redirectTarget(r.redirect_uri) });
   u.searchParams.set("code", code);
   res.json({ redirect: u.toString() });
 });
@@ -363,11 +428,22 @@ oauthApi.post("/oauth/requests/:id/decision", async (req, res) => {
 /** Accès accordés par le membre connecté (applications connectées). */
 oauthApi.get("/oauth/grants", async (req, res) => {
   const user = member(req);
-  const rows = await q<{ id: number; client_name: string; scope: string; created_at: string; last_used_at: string | null }>(
-    "SELECT id, client_name, scope, created_at, last_used_at FROM oauth_grants WHERE user_id = ? AND revoked_at IS NULL AND refresh_expires_at > UTC_TIMESTAMP() ORDER BY created_at DESC",
+  const rows = await q<{ id: number; client_name: string; scope: string; created_at: string; last_used_at: string | null; redirect_uris: string | null }>(
+    `SELECT g.id, g.client_name, g.scope, g.created_at, g.last_used_at, c.redirect_uris FROM oauth_grants g LEFT JOIN oauth_clients c ON c.client_id = g.client_id
+     WHERE g.user_id = ? AND g.revoked_at IS NULL AND g.refresh_expires_at > UTC_TIMESTAMP() ORDER BY g.created_at DESC`,
     [user.id],
   );
-  res.json({ grants: rows.map((g) => ({ id: g.id, client: g.client_name, actions: canWrite(g.scope), createdAt: g.created_at, lastUsedAt: g.last_used_at })) });
+  res.json({
+    grants: rows.map((g) => ({
+      id: g.id,
+      // `local` : un programme de l'ordinateur, dont le nom n'est que celui qu'il s'est donné (aucune de ses adresses ne mène chez un éditeur reconnu).
+      client: g.client_name || null,
+      local: localOnly(g.redirect_uris),
+      actions: canWrite(g.scope),
+      createdAt: g.created_at,
+      lastUsedAt: g.last_used_at,
+    })),
+  });
 });
 
 oauthApi.delete("/oauth/grants/:id", async (req, res) => {

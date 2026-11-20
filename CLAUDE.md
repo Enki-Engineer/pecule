@@ -112,6 +112,10 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   (`scripts/paquet.mjs`), les sources. Une étape ajoutée à l'installation se reporte dans `AGENTS.md` (la marche à
   suivre des agents IA, lisible par son adresse sans cloner le dépôt), `docs/guide/installation.md` et la compétence
   `skills/pecule/SKILL.md`, recopiée dans `.claude/skills/pecule/` (un test compare).
+- **Le paquet npm « pecule » n'est que l'installateur** (`scripts/pecule.mjs`, fabriqué par
+  `node scripts/paquet.mjs --npm`) : il télécharge l'archive de la dernière version et contrôle son empreinte, par
+  les mêmes fonctions que `maj.mjs` (`scripts/lib/archive.mjs`). Rien de l'appli n'est sur npm, et il ne se republie
+  que lorsqu'il change. Aucun guide n'annonce « npx pecule » tant que le nom n'est pas publié par le projet.
 - **Avec Docker, rien à écrire** : les secrets sont tirés par le service « reglages » et gardés dans un volume
   (`src/lib/settings-file.ts`). Ce que donne l'environnement l'emporte toujours ; on ne tire jamais un secret à la
   place d'un secret que l'installation a déjà.
@@ -157,6 +161,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Un outil de l'assistant et du serveur MCP | `src/server/tools/` : nom, description, schéma zod, `run` (et `describe` pour une action) |
 | Un type de document lu par l'import massif | `src/server/imports/extractors/` + une ligne dans `EXTRACTORS` ; au besoin `rows` (longue liste lue en plusieurs réponses, corrigeable ligne à ligne), `parts` (plusieurs objets dans un fichier), `shared` (choix reporté aux fichiers du même objet), `overview` (ce que le lot dit d'ensemble) — voir `releve.ts` |
 | Une marque (logo, reconnaissance d'un libellé) | une ligne dans `src/lib/brands.ts` |
+| Un assistant qui se connecte au serveur MCP par OAuth | une ligne dans `src/lib/mcp-clients.ts` : son nom et ses adresses de retour exactes, prises dans le document qu'il publie ou dans sa documentation (un programme de l'ordinateur n'en a pas besoin : il revient par une boucle locale) |
 | Un fournisseur d'IA qui parle l'API Messages | `src/lib/ai-providers.ts` et `buildClient` (`src/server/ai.ts`) |
 | Un appel à l'IA d'un nouveau genre, ou le tarif d'un modèle | `recordUsage(nom, …)` après l'appel ; son usage dans `usageKind` et `KIND_GROUP`, le tarif dans `MODEL_PRICES` (`src/lib/ai-usage.ts`) ; son libellé dans `components/AiCost.tsx` |
 | Un écran facultatif | `MODULE_INFO` dans `src/lib/modules.ts` |

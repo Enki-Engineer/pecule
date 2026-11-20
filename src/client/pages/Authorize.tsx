@@ -8,16 +8,19 @@ import { Spinner } from "../components/ui.tsx";
 import { cn } from "../cn.ts";
 import { t } from "../../lib/i18n.ts";
 
-type Pending = { client: string; redirectHost: string; loopback: boolean; member: string; actionsRequested: boolean };
+/** `known` : le retour se fait chez l'éditeur d'un assistant reconnu, nommé par `client` ; sinon c'est un programme de l'ordinateur, et `client` n'est que le nom qu'il se donne — ou rien. */
+type Pending = { client: string | null; known: boolean; redirectHost: string; loopback: boolean; member: string; actionsRequested: boolean };
 
 const OPTIONS = [
   { actions: false, icon: Eye, title: t("Lecture seule"), text: t("Consulter tes opérations, ton budget, ton patrimoine, tes factures et tes documents.") },
-  { actions: true, icon: PencilLine, title: t("Lecture et actions"), text: t("En plus : classer des opérations, relier des factures, modifier un placement… Claude te demande ton accord avant chaque action.") },
+  { actions: true, icon: PencilLine, title: t("Lecture et actions"), text: t("En plus : classer des opérations, relier des factures, modifier un placement… C'est l'assistant qui te demande ton accord avant chaque action, pas Pécule.") },
 ];
 
 /**
- * Consentement OAuth : l'appli Claude demande l'accès au serveur MCP de Pécule. Le membre connecté choisit
- * lecture seule ou lecture et actions ; l'accès vaut pour sa vue, et se retire dans Réglages → Comptes et connexions.
+ * Consentement OAuth : un assistant demande l'accès au serveur MCP de Pécule. Le membre connecté choisit lecture
+ * seule ou lecture et actions ; l'accès vaut pour sa vue, et se retire dans Réglages → Comptes et connexions.
+ * Le nom affiché vient de l'adresse où le membre retournera (un assistant reconnu), jamais du seul dire du client :
+ * un programme de l'ordinateur est annoncé comme tel, avec le nom qu'il se donne.
  */
 export function Authorize() {
   const me = useMe();
@@ -47,12 +50,13 @@ export function Authorize() {
   }
 
   const d = pending.data;
-  const problem = user.demo ? t("Quitte le mode démo pour connecter une application.") : !id ? t("Demande incomplète : relance la connexion depuis Claude.") : pending.error ? (pending.error instanceof Error ? pending.error.message : t("Demande introuvable")) : null;
+  const problem = user.demo ? t("Quitte le mode démo pour connecter une application.") : !id ? t("Demande incomplète : relance la connexion depuis ton assistant.") : pending.error ? (pending.error instanceof Error ? pending.error.message : t("Demande introuvable")) : null;
   return (
     <div className="safe-top mx-auto flex min-h-screen max-w-md flex-col justify-center px-5 py-8">
       <div className="mb-6 flex flex-col items-center text-center">
         <AppLogo className="mb-4 size-16 rounded-[18px] shadow-lg" />
-        <h1 className="text-2xl font-bold tracking-tight">{t("Connecter {client} à Pécule", { client: d?.client ?? "Claude" })}</h1>
+        {/* Le titre ne nomme qu'un assistant reconnu : un programme de l'ordinateur peut se donner n'importe quel nom. */}
+        <h1 className="text-2xl font-bold tracking-tight">{!d ? t("Connecter un assistant à Pécule") : d.known && d.client ? t("Connecter {client} à Pécule", { client: d.client }) : t("Connecter un programme de cet ordinateur à Pécule")}</h1>
       </div>
       {problem ? (
         <p className="card px-4 py-4 text-center text-sm text-neg">{problem}</p>
@@ -64,17 +68,23 @@ export function Authorize() {
             <p className="flex items-start gap-3 px-4 py-3.5 text-sm">
               <ShieldCheck size={18} className="mt-0.5 shrink-0 text-accent" />
               <span>
-                <strong>{d.client}</strong> {t("pourra interroger Pécule dans")} <strong>{t("ta vue, {membre}", { membre: d.member })}</strong>
+                <strong>{d.known && d.client ? d.client : t("Ce programme")}</strong> {t("pourra interroger Pécule dans")} <strong>{t("ta vue, {membre}", { membre: d.member })}</strong>
                 {t(" : tes données privées comprises, pas celles des autres membres.")}
               </span>
             </p>
             <p className="px-4 py-3 text-sm text-muted">
               {t("Après ton accord, tu retournes vers")} <strong className="text-ink">{d.redirectHost}</strong>.
             </p>
-            {d.loopback && (
+            {d.known ? (
+              <p className="px-4 py-3 text-sm text-muted">{t("N'accepte que si tu viens de lancer cette connexion toi-même, depuis {client}.", { client: d.client ?? "" })}</p>
+            ) : (
               <p className="flex items-start gap-3 px-4 py-3 text-sm text-warn">
                 <TriangleAlert size={18} className="mt-0.5 shrink-0" />
-                <span>{t("Le retour se fait vers un programme de cet ordinateur (Claude Code). N'accepte que si tu viens de lancer cette connexion toi-même.")}</span>
+                <span>
+                  {d.client
+                    ? t("Le retour se fait vers un programme de cet ordinateur, qui se présente comme « {client} ». Pécule ne peut pas vérifier ce nom : n'accepte que si tu viens de lancer cette connexion toi-même.", { client: d.client })
+                    : t("Le retour se fait vers un programme de cet ordinateur, qui ne dit pas son nom : n'accepte que si tu viens de lancer cette connexion toi-même.")}
+                </span>
               </p>
             )}
           </div>

@@ -142,13 +142,17 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
 
 Le serveur écrit lui-même des sauvegardes complètes : avant chaque mise à jour qui change la base, et chaque nuit si
 l'administrateur le demande. **Vous n'avez aucun dossier à créer ni à régler** : Pécule en choisit un qui survit à
-une mise à jour, selon la façon dont il est installé.
+une mise à jour.
 
 | Installation | Dossier | Pourquoi |
 | --- | --- | --- |
-| Docker | le volume `pecule-sauvegardes` (`/app/data/sauvegardes` dans le conteneur) | Le conteneur est remplacé à chaque mise à jour, le volume reste. |
 | Hébergement Node.js | `~/pecule-sauvegardes/<adresse de l'appli>`, dans le dossier personnel du compte qui fait tourner Pécule — par exemple `/home/alex/pecule-sauvegardes/pecule.exemple.fr` | Hors de l'installation : beaucoup d'hébergeurs installent chaque nouvelle version dans un dossier neuf, et des archives rangées dedans disparaîtraient à la mise en ligne suivante. |
-| Hébergement Node.js dont le compte n'a pas de dossier personnel inscriptible | `data/sauvegardes`, dans l'installation | Repli. `doctor` le signale : donnez alors un dossier fixe par `BACKUP_DIR`. |
+| Docker | le volume `pecule-sauvegardes` (`/app/data/sauvegardes` dans le conteneur) | Le conteneur est remplacé à chaque mise à jour, le volume reste. `compose.yaml` le règle lui-même. |
+
+La règle tient en une ligne : **le dossier du compte, sauf si `BACKUP_DIR` en donne un autre** — et c'est par
+`BACKUP_DIR` que `compose.yaml` désigne le volume. Seul repli : si le compte du serveur n'a pas de dossier personnel
+où écrire, les archives vont dans `data/sauvegardes`, dans l'installation ; `doctor` le signale, donnez alors un
+dossier fixe par `BACKUP_DIR`.
 
 Ce qu'il faut savoir :
 
@@ -157,11 +161,9 @@ Ce qu'il faut savoir :
 - **Le sous-dossier porte l'adresse de l'appli** (`APP_URL`, avec son port s'il y en a un : `localhost-3000`). Deux
   installations hébergées sur le même compte ne mélangent pas leurs archives. Si l'adresse change, le dossier change
   aussi : déplacez-y les anciennes archives si vous voulez les voir dans l'appli.
-- **Une installation qui a déjà des archives dans `data/sauvegardes` garde ce dossier** : rien n'est déplacé lors
-  d'une mise à jour de Pécule.
-- **`BACKUP_DIR=/chemin/absolu` dans `.env` l'emporte sur tout** — pour ranger les archives sur un autre disque, par
-  exemple. Le compte du serveur doit pouvoir y écrire. Avec Docker, laissez ce réglage à l'image : il désigne le
-  volume.
+- **`BACKUP_DIR=/chemin/absolu` dans `.env` l'emporte** — pour ranger les archives sur un autre disque, par exemple.
+  Le compte du serveur doit pouvoir y écrire. Avec Docker, ce réglage de `.env` est sans effet : pour ranger les
+  archives ailleurs, changez dans `compose.yaml` ce qui est monté sur `/app/data/sauvegardes`.
 - **Pécule crée ce dossier fermé aux autres comptes de la machine**, et chaque archive n'est lisible que par le
   compte du serveur : elles contiennent les données privées de tous les membres, en clair. Le dossier n'est pas
   servi par le web.

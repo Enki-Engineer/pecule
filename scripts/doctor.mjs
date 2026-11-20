@@ -92,15 +92,16 @@ if (health) {
       const b = rb?.ok ? await rb.json().catch(() => null) : null;
       // Où le serveur garde ses sauvegardes, et si ce dossier survit à une mise à jour (un Pécule plus ancien ne le dit pas).
       if (b && typeof b.dir === "string" && typeof b.dirReason === "string") {
-        const why = { reglage: "réglé par BACKUP_DIR", conteneur: "volume du conteneur", existant: "dans l'installation, déjà utilisé", compte: "dans le compte du serveur, hors de l'installation", installation: "dans l'installation" }[b.dirReason] ?? b.dirReason;
-        const fragile = b.dirReason === "installation" || b.dirReason === "existant";
+        // Avec Docker, c'est compose.yaml qui règle BACKUP_DIR, sur le volume « pecule-sauvegardes ».
+        const why = { reglage: docker ? "volume pecule-sauvegardes" : "réglé par BACKUP_DIR", compte: "dans le compte du serveur, hors de l'installation", installation: "dans l'installation, faute de dossier personnel inscriptible" }[b.dirReason] ?? b.dirReason;
+        const fragile = b.dirReason === "installation";
         checks.push({
           id: "dossier_sauvegardes",
           ok: true,
           dir: b.dir,
           reason: b.dirReason,
           message: `Sauvegardes du serveur : ${b.dir} (${why})${fragile ? " — si l'hébergeur installe chaque version dans un dossier neuf, elles n'y survivent pas : donner un dossier fixe par BACKUP_DIR" : ""}`,
-          todo: b.dirReason === "installation",
+          todo: fragile,
         });
       }
       if (b && "latest" in b) {

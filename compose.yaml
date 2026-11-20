@@ -19,13 +19,16 @@ services:
     environment:
       DATABASE_URL: mysql://pecule:${DB_PASSWORD}@base:3306/pecule
       DEMO_DATABASE_URL: mysql://pecule_demo:${DEMO_DB_PASSWORD}@base:3306/pecule_demo
+      # Les sauvegardes du serveur vont dans le volume monté plus bas, quoi que dise `.env` : dans le conteneur
+      # lui-même, elles disparaîtraient à chaque mise à jour. Pour les ranger ailleurs, changer ce qui est monté là.
+      BACKUP_DIR: /app/data/sauvegardes
     depends_on:
       base:
         condition: service_healthy
     ports:
       - "127.0.0.1:${PECULE_PORT:-3000}:3000"
     volumes:
-      # Sauvegardes complètes écrites par le serveur avant une migration (les trois dernières).
+      # Sauvegardes complètes écrites par le serveur : avant une migration, et les automatiques si on les demande.
       - pecule-sauvegardes:/app/data/sauvegardes
 
   base:

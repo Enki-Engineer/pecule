@@ -5,7 +5,7 @@ import { chooseBackupDir, installFolderName, type BackupDirContext } from "./bac
 const root = path.resolve("/srv/versions/42/pecule");
 const home = path.resolve("/home/alex");
 const inside = path.join(root, "data", "sauvegardes");
-const base: BackupDirContext = { root, home, appUrl: "https://pecule.exemple.fr", production: true, container: false, writable: () => true, hasServerArchives: () => false };
+const base: BackupDirContext = { root, home, appUrl: "https://pecule.exemple.fr", production: true, writable: () => true };
 
 describe("dossier d'une installation", () => {
   it("porte l'adresse de l'appli, avec son port s'il y en a un", () => {
@@ -31,15 +31,8 @@ describe("dossier des sauvegardes du serveur", () => {
 
   it("BACKUP_DIR l'emporte sur tout", () => {
     const explicit = path.resolve("/mnt/disque/pecule");
-    expect(chooseBackupDir({ ...base, explicit, container: true, hasServerArchives: () => true })).toEqual({ dir: explicit, reason: "reglage" });
-  });
-
-  it("dans un conteneur : le dossier de l'installation, qui est le volume", () => {
-    expect(chooseBackupDir({ ...base, container: true })).toEqual({ dir: inside, reason: "conteneur" });
-  });
-
-  it("une installation qui a déjà ses archives garde son dossier", () => {
-    expect(chooseBackupDir({ ...base, hasServerArchives: (dir) => dir === inside })).toEqual({ dir: inside, reason: "existant" });
+    expect(chooseBackupDir({ ...base, explicit })).toEqual({ dir: explicit, reason: "reglage" });
+    expect(chooseBackupDir({ ...base, explicit, production: false, home: null })).toEqual({ dir: explicit, reason: "reglage" });
   });
 
   it("sans dossier personnel utilisable, ou non inscriptible : repli dans l'installation", () => {

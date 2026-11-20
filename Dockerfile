@@ -22,8 +22,8 @@ ENV NODE_ENV=production PORT=3000
 COPY --from=build /app/package.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-# Sauvegardes écrites par le serveur (avant une migration, automatiques) : toujours dans ce dossier, qui est le volume
-# « pecule-sauvegardes » de compose.yaml — jamais dans le conteneur lui-même, qui disparaît à chaque mise à jour.
+# Sauvegardes écrites par le serveur (avant une migration, automatiques) : dans ce dossier, sur lequel compose.yaml
+# monte le volume « pecule-sauvegardes » — jamais ailleurs dans le conteneur, qui disparaît à chaque mise à jour.
 ENV BACKUP_DIR=/app/data/sauvegardes
 RUN mkdir -p data/sauvegardes && chown -R node:node data
 USER node

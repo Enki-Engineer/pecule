@@ -15,7 +15,7 @@ import { isArchiveName } from "../lib/restore.ts";
 
 /*
  * Les sauvegardes que le serveur garde chez lui : un dossier choisi pour survivre à une mise à jour (`backup-dir.ts` :
- * BACKUP_DIR, sinon un dossier du compte du serveur, hors de l'installation ; le volume avec Docker) où
+ * un dossier du compte du serveur, hors de l'installation, ou BACKUP_DIR — le volume, avec Docker) où
  * s'écrivent celles d'avant migration (`pre-migration.ts`) et les automatiques (`auto-backup.ts`), et où la commande
  * de mise à jour dépose la sienne. Elles sont sur le même serveur que la base : elles protègent d'une erreur ou d'une
  * mise à jour qui tourne mal, pas de la perte du serveur.
@@ -32,15 +32,6 @@ function writable(dir: string): boolean {
   try {
     accessSync(at, constants.W_OK | constants.X_OK);
     return statSync(at).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-/** Le serveur a-t-il déjà écrit des archives dans ce dossier (automatiques ou d'avant migration) ? */
-function hasServerArchives(dir: string): boolean {
-  try {
-    return readdirSync(dir).some((name) => parseAutoName(name) !== null || parsePreMigrationName(name) !== null);
   } catch {
     return false;
   }
@@ -68,9 +59,7 @@ export function backupDirChoice(): BackupDirChoice {
     home: homeDir(),
     appUrl: env.APP_URL,
     production: isProd,
-    container: existsSync("/.dockerenv") || existsSync("/run/.containerenv"),
     writable,
-    hasServerArchives,
   });
   console.log(`[sauvegardes] dossier du serveur : ${chosen.dir}`);
   return chosen;

@@ -3,6 +3,18 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.32.1
+
+- **Dossier des sauvegardes du serveur : une seule règle.** Le serveur range ses sauvegardes dans
+  `~/pecule-sauvegardes/<adresse de l'appli>`, sauf si `BACKUP_DIR` en donne un autre — et c'est par `BACKUP_DIR` que
+  `compose.yaml` désigne le volume `pecule-sauvegardes` de Docker. Deux cas particuliers de la 1.31.0 disparaissent :
+  une installation Node.js qui avait déjà des archives dans `data/sauvegardes` ne garde plus ce dossier (elle passe
+  au dossier du compte ; déplacez-y les anciennes archives pour les revoir dans l'appli), et le serveur ne cherche
+  plus à deviner s'il tourne dans un conteneur. `data/sauvegardes` ne reste qu'en repli, quand le compte du serveur
+  n'a pas de dossier personnel où écrire.
+- Avec Docker, un `BACKUP_DIR` écrit dans `.env` est sans effet : pour ranger les archives ailleurs, on change dans
+  `compose.yaml` ce qui est monté sur `/app/data/sauvegardes`.
+
 ## 1.32.0
 
 Suite de la reprise d'un historique par les relevés : cartes à débit différé, longs relevés, classement par l'IA.

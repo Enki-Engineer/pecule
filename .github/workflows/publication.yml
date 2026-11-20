@@ -25,7 +25,11 @@ jobs:
   publication:
     runs-on: ubuntu-latest
     steps:
+      # Tout l'historique, et toutes les branches : l'étape « Branche stable » doit savoir si cette version descend de
+      # la pointe actuelle de « stable ». Avec un seul commit, git refuse de l'avancer (« fetch first »).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 12
@@ -89,8 +93,22 @@ jobs:
           fi
 
       - name: Branche stable
-        # Les installations qui suivent une branche ne reçoivent que des versions publiées. Jamais de retour en
-        # arrière : une version plus ancienne que « stable » (correctif d'une série passée) la laisse où elle est.
+        # Les installations qui suivent une branche, et les consignes que lit un agent IA (AGENTS.md à l'adresse de
+        # « stable »), ne reçoivent que des versions publiées. Jamais de retour en arrière : une version plus ancienne
+        # que « stable » (correctif d'une série passée) la laisse où elle est. Un envoi refusé arrête le flux : il
+        # n'est jamais pris pour une branche déjà à jour.
         run: |
           case "$GITHUB_REF_NAME" in *-*) echo "Préversion : la branche stable ne bouge pas."; exit 0 ;; esac
-          git push origin "$GITHUB_SHA:refs/heads/stable" || echo "La branche stable est déjà plus avancée : elle ne bouge pas."
+          stable=refs/remotes/origin/stable
+          if ! git rev-parse --verify --quiet "$stable" > /dev/null; then
+            echo "Première version publiée : la branche stable est créée."
+          elif [ "$(git rev-parse "$stable")" = "$GITHUB_SHA" ]; then
+            echo "La branche stable est déjà sur cette version."; exit 0
+          elif git merge-base --is-ancestor "$stable" "$GITHUB_SHA"; then
+            echo "La branche stable avance jusqu'à cette version."
+          elif git merge-base --is-ancestor "$GITHUB_SHA" "$stable"; then
+            echo "La branche stable est déjà plus avancée : elle ne bouge pas."; exit 0
+          else
+            echo "::error::La branche stable et cette version ont divergé : elle n'a pas été avancée."; exit 1
+          fi
+          git push origin "$GITHUB_SHA:refs/heads/stable"

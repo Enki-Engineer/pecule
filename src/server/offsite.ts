@@ -1,10 +1,10 @@
-import { createReadStream, createWriteStream, mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, createWriteStream, rmSync, statSync, writeFileSync } from "node:fs";
 import { statfs } from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { encryptStream, generateIdentity, isRecipient } from "./age.ts";
-import { backupDir } from "./archives.ts";
+import { backupDir, ensurePrivateDir } from "./archives.ts";
 import { exec, one } from "./db.ts";
 import { runReal } from "./demo-context.ts";
 import { sealingSecret } from "./env.ts";
@@ -95,7 +95,7 @@ const workDir = () => path.join(backupDir(), "envoi");
 
 /** Écrit un petit fichier d'essai dans le dossier de travail et rend son chemin. */
 async function writeProbe(content: Buffer): Promise<string> {
-  mkdirSync(workDir(), { recursive: true });
+  ensurePrivateDir(workDir());
   const file = path.join(workDir(), `essai-${randomBytes(4).toString("hex")}.txt`);
   writeFileSync(file, content, { mode: 0o600 });
   return file;
@@ -178,7 +178,7 @@ export async function copyOffsite(file: string, name: string, keep: Retention): 
   const remote = await openRemote();
   if (!key || !remote) throw new RemoteError("identifiants");
   const dir = workDir();
-  mkdirSync(dir, { recursive: true });
+  ensurePrivateDir(dir);
   const disk = await statfs(dir);
   const needed = statSync(file).size + MARGIN;
   if (Number(disk.bavail) * Number(disk.bsize) < needed) throw new Error(`pas assez de place dans ${dir} pour chiffrer l'archive avant de l'envoyer`);

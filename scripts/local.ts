@@ -90,7 +90,8 @@ function serveur() {
   if (!existsSync("dist/server.mjs")) throw new Error("`pnpm build` d'abord.");
   const token = /^API_TOKEN=(.+)$/m.exec(readFileSync(ENV_FILE, "utf8"))?.[1];
   console.log(`Pécule local : http://localhost:${PORT}  (jeton d'administration : ${token?.slice(0, 6)}… dans ${ENV_FILE})`);
-  const child = spawn("node", ["dist/server.mjs"], { stdio: "inherit", env: { ...process.env, DOTENV_CONFIG_PATH: ENV_FILE } });
+  // Les sauvegardes du serveur local restent dans le dépôt (data/, hors git) : rien ne s'écrit dans le dossier personnel.
+  const child = spawn("node", ["dist/server.mjs"], { stdio: "inherit", env: { BACKUP_DIR: "data/sauvegardes", ...process.env, DOTENV_CONFIG_PATH: ENV_FILE } });
   child.on("exit", (code) => process.exit(code ?? 0));
 }
 

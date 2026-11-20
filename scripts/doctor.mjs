@@ -90,6 +90,19 @@ if (health) {
       // Dernière sauvegarde de toute sorte (un Pécule d'avant la 1.24.0 ne la donne pas : la ligne est alors absente).
       const rb = await fetch(`${target}/api/backup/info`, { headers: { Authorization: `Bearer ${env.API_TOKEN}` }, signal: AbortSignal.timeout(8000) }).catch(() => null);
       const b = rb?.ok ? await rb.json().catch(() => null) : null;
+      // Où le serveur garde ses sauvegardes, et si ce dossier survit à une mise à jour (un Pécule plus ancien ne le dit pas).
+      if (b && typeof b.dir === "string" && typeof b.dirReason === "string") {
+        const why = { reglage: "réglé par BACKUP_DIR", conteneur: "volume du conteneur", existant: "dans l'installation, déjà utilisé", compte: "dans le compte du serveur, hors de l'installation", installation: "dans l'installation" }[b.dirReason] ?? b.dirReason;
+        const fragile = b.dirReason === "installation" || b.dirReason === "existant";
+        checks.push({
+          id: "dossier_sauvegardes",
+          ok: true,
+          dir: b.dir,
+          reason: b.dirReason,
+          message: `Sauvegardes du serveur : ${b.dir} (${why})${fragile ? " — si l'hébergeur installe chaque version dans un dossier neuf, elles n'y survivent pas : donner un dossier fixe par BACKUP_DIR" : ""}`,
+          todo: b.dirReason === "installation",
+        });
+      }
       if (b && "latest" in b) {
         const days = b.latest ? Math.floor((Date.now() - b.latest) / 86_400_000) : null;
         const auto = b.auto?.auto ? (b.state?.echec ? "sauvegardes automatiques en échec" : "sauvegardes automatiques actives") : "sauvegardes automatiques éteintes";

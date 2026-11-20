@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { createReadStream, createWriteStream, mkdirSync, rmSync, statSync } from "node:fs";
+import { createReadStream, createWriteStream, rmSync, statSync } from "node:fs";
 import { appendFile, open, statfs } from "node:fs/promises";
 import { pipeline } from "node:stream/promises";
 import { AgeError, decryptStream, looksEncrypted } from "./age.ts";
@@ -17,7 +17,7 @@ import type { BackupManifest } from "./backup-format.ts";
 import { logAudit } from "./journal.ts";
 import { setRestoring } from "./maintenance.ts";
 import { forgetVapidKeys } from "./notify.ts";
-import { archivePath, backupDir, listArchives } from "./archives.ts";
+import { archivePath, backupDir, ensurePrivateDir, listArchives } from "./archives.ts";
 import { createSealer } from "./secret.ts";
 import { DEPUIS } from "./version.ts";
 import { fileSource, ZipError, type ZipSource } from "./zip.ts";
@@ -226,7 +226,7 @@ async function decrypted(file: string, cle: string | undefined): Promise<string 
   if (!looksEncrypted(await head(file, 64))) return null;
   if (!cle?.trim()) throw new Refused({ code: "cle-requise" });
   const dir = uploadDir();
-  mkdirSync(dir, { recursive: true });
+  ensurePrivateDir(dir);
   const disk = await statfs(dir);
   if (Number(disk.bavail) * Number(disk.bsize) < statSync(file).size + MARGIN) throw new Refused({ code: "place" });
   const clear = path.join(dir, `clair-${randomBytes(6).toString("hex")}.zip`);
@@ -442,7 +442,7 @@ export function restoreApi(hooks: RestoreHooks) {
       // Nouvel envoi : il remplace le précédent.
       const dir = uploadDir();
       rmSync(dir, { recursive: true, force: true });
-      mkdirSync(dir, { recursive: true });
+      ensurePrivateDir(dir);
       const disk = await statfs(dir);
       if (Number(disk.bavail) * Number(disk.bsize) < total + MARGIN) return res.status(507).json({ error: t("Pas assez de place sur le serveur pour recevoir cette archive.") });
       s.upload = { file: path.join(dir, `envoi-${randomBytes(6).toString("hex")}.zip.partiel`), size: 0, total, busy: false };

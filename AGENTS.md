@@ -83,10 +83,12 @@ Suis `docs/guide/mise-a-jour.md`. Mettre à jour redémarre Pécule : c'est avec
 | Étape | Commande | Réussite |
 | --- | --- | --- |
 | Où en est-on | `node scripts/maj.mjs --verifier --json` | `state` : `a-jour`, `disponible`, `palier` (alors `palier` nomme la version à installer d'abord) ou `inconnu` (GitHub injoignable, ou serveur arrêté) |
-| Mise à jour | `node scripts/maj.mjs --oui` (Node : ajoute `--redemarrer "<commande>"`, ou redémarre le serveur quand la commande le demande) | code de sortie 0 : sauvegarde écrite dans `data/sauvegardes/`, nouvelle version en service, `doctor` sans blocage |
+| Mise à jour | `node scripts/maj.mjs --oui` (Node : ajoute `--redemarrer "<commande>"`, ou redémarre le serveur quand la commande le demande) | code de sortie 0 : sauvegarde écrite (la commande dit où), nouvelle version en service, `doctor` sans blocage |
 | Version palier | `node scripts/maj.mjs --version <palier> --oui`, puis `node scripts/maj.mjs --oui` | idem |
 
-La commande s'arrête sans rien modifier si la sauvegarde échoue ; ne passe `--sans-sauvegarde` que si une sauvegarde
+Le dossier où le serveur garde ses sauvegardes ne se règle pas : `doctor` le donne (ligne `dossier_sauvegardes`,
+avec `todo: true` s'il est resté dans l'installation faute de dossier personnel inscriptible — proposer alors
+`BACKUP_DIR`). La commande s'arrête sans rien modifier si la sauvegarde échoue ; ne passe `--sans-sauvegarde` que si une sauvegarde
 vient d'être prise. Les migrations de la base s'appliquent au démarrage, et le serveur écrit lui-même une sauvegarde
 juste avant (`pecule-avant-migration-….zip`). En cas d'échec, lis le journal avant toute autre tentative, et ne
 restaure une sauvegarde (dans une base vide, ou par l'écran de premier démarrage d'une installation neuve) qu'avec

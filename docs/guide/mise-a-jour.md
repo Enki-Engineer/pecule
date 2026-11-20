@@ -27,7 +27,8 @@ projet.
 
 1. Lit la version en service et la dernière publiée ; s'arrête là si l'installation est à jour.
 2. Demande confirmation (`--oui` pour s'en passer).
-3. Télécharge une **sauvegarde complète** dans `data/sauvegardes/` et la contrôle. Sans sauvegarde, rien n'est modifié.
+3. Télécharge une **sauvegarde complète** et la contrôle (elle va dans le dossier des sauvegardes du serveur, ou dans
+   `data/sauvegardes/` du dépôt avec Docker : la commande dit où). Sans sauvegarde, rien n'est modifié.
 4. Récupère la version :
    - **Docker** : `git pull` (pour `compose.yaml` et les scripts), puis l'image publiée
      (`ghcr.io/enki-engineer/pecule`) et un nouveau conteneur. Si l'image ne peut pas être récupérée, elle est
@@ -80,13 +81,16 @@ avant, depuis l'appli.
 Deux sauvegardes complètes (toute la base, les factures, les documents du coffre, les logos) protègent une mise à
 jour :
 
-- celle que **`maj.mjs` télécharge** avant de commencer, dans `data/sauvegardes/` du dépôt ;
+- celle que **`maj.mjs` télécharge** avant de commencer : dans le dossier des sauvegardes du serveur quand il tourne
+  sur la même machine sans Docker, sinon dans `data/sauvegardes/` du dépôt ;
 - celle que **le serveur écrit lui-même** juste avant d'appliquer une migration à une base déjà en service
   (`pecule-avant-migration-….zip`). Elle protège aussi une mise à jour faite sans la commande. Les trois dernières
   sont gardées ; Réglages → Suivi technique dit où est la dernière.
   - Docker : dans le volume `pecule-sauvegardes` — pour en sortir une,
     `docker compose cp pecule:/app/data/sauvegardes ./sauvegardes-du-serveur`.
-  - Node : dans `data/sauvegardes/` de l'installation (`BACKUP_DIR` pour un autre dossier).
+  - Node : dans `~/pecule-sauvegardes/<adresse de l'appli>`, hors de l'installation, pour survivre à la mise en
+    ligne d'une nouvelle version (rien à régler : voir « Où le serveur garde ses sauvegardes » dans
+    [`installation.md`](installation.md) ; `BACKUP_DIR` pour un autre dossier).
   - `BACKUP_BEFORE_MIGRATION=0` la coupe. Si elle ne peut pas être écrite (disque plein, dossier protégé), une
     alerte le dit dans le Suivi technique et la migration se poursuit : ce n'est qu'un filet de sécurité.
 
@@ -104,7 +108,7 @@ Une migration ne se défait pas. Deux cas :
 - **Une migration a été appliquée** : l'ancienne version ne sait pas lire la nouvelle base. Restaurez la sauvegarde
   d'avant dans une base **vide**, puis relancez l'ancienne version sur cette base :
   ```sh
-  pnpm restaurer data/sauvegardes/<archive>.zip --base "mysql://utilisateur:motdepasse@hote:3306/base_vide"
+  pnpm restaurer <dossier des sauvegardes>/<archive>.zip --base "mysql://utilisateur:motdepasse@hote:3306/base_vide"
   ```
   Ce qui a été saisi entre la sauvegarde et la restauration est perdu : d'où la sauvegarde prise juste avant.
 

@@ -63,7 +63,10 @@ const schema = z.object({
     .transform((v) => (v && /^[\w.-]+\/[\w.-]+$/.test(v.trim()) ? v.trim() : DEFAULT_REPO)),
   /** Avant d'appliquer une migration à une base déjà remplie, écrire une sauvegarde complète sur le serveur (0 : ne pas le faire). */
   BACKUP_BEFORE_MIGRATION: onOff,
-  /** Dossier des sauvegardes écrites par le serveur (par défaut `data/sauvegardes`, à la racine de l'installation). */
+  /**
+   * Dossier des sauvegardes écrites par le serveur. Facultatif : sans lui, le serveur en choisit un qui survit à une
+   * mise à jour (`src/server/backup-dir.ts` : un dossier du compte du serveur, hors de l'installation ; le volume avec Docker).
+   */
   BACKUP_DIR: z
     .string()
     .optional()

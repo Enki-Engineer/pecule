@@ -3,6 +3,29 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.31.0
+
+Les sauvegardes du serveur survivent à une mise à jour chez tous les hébergeurs, sans aucun réglage.
+
+- **Le dossier des sauvegardes se choisit tout seul.** Les sauvegardes que le serveur écrit lui-même — avant une
+  mise à jour qui change la base, et chaque nuit si l'administrateur le demande — allaient dans `data/sauvegardes`,
+  à l'intérieur de l'installation. Or beaucoup d'hébergeurs Node.js installent chaque nouvelle version dans un
+  dossier neuf : les archives disparaissaient à la mise en ligne suivante, à moins de régler `BACKUP_DIR`. Elles vont
+  désormais dans `~/pecule-sauvegardes/<adresse de l'appli>`, dans le dossier personnel du compte qui fait tourner
+  Pécule, hors de l'installation. Il n'y a rien à créer ni à régler.
+- **Rien ne change pour une installation en service** : avec Docker, le dossier reste le volume
+  `pecule-sauvegardes` ; une installation Node.js qui a déjà des archives dans `data/sauvegardes` garde ce dossier ;
+  `BACKUP_DIR`, quand il est donné, l'emporte toujours. Sans dossier personnel inscriptible, le serveur se replie sur
+  `data/sauvegardes`, et `doctor` le signale.
+- **Réinstaller au même endroit retrouve ses archives** : sur le même compte et à la même adresse, l'écran
+  « J'ai une sauvegarde : la restaurer » propose celles de l'installation précédente.
+- Le dossier utilisé est affiché par Réglages → Compte et sécurité, par `node scripts/doctor.mjs` (avec sa raison)
+  et dans le journal du serveur au démarrage. Pécule le crée fermé aux autres comptes de la machine.
+- `node scripts/maj.mjs` dépose sa sauvegarde dans ce même dossier quand le serveur tourne sur la même machine sans
+  Docker : elle figure alors avec les autres dans l'appli.
+- Guide : « Où le serveur garde ses sauvegardes », dans `docs/guide/installation.md`. Aucune migration, aucun réglage
+  nouveau.
+
 ## 1.30.1
 
 Logo : l'icône choisie est celle que reçoit le Dock du Mac, et le coffre d'origine passe au fond « Sable ».

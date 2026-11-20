@@ -10,7 +10,7 @@
 // Node : `pnpm install` et `pnpm build`, puis le serveur est à redémarrer (`--redemarrer "<commande>"` le fait).
 // Code de sortie 0 si l'installation est à jour et répond, 1 sinon. Aucun secret n'est affiché.
 import { spawnSync } from "node:child_process";
-import { createWriteStream, existsSync, mkdirSync, openSync, readSync, closeSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { accessSync, closeSync, constants, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Readable } from "node:stream";
@@ -32,7 +32,7 @@ const HELP = `Met à jour une installation de Pécule.
   --url <adresse>       adresse du serveur (par défaut http://127.0.0.1:<port>)
   --json                résultat de --verifier en JSON
 
-Étapes : sauvegarde complète dans data/sauvegardes, récupération de la version, redémarrage, attente de
+Étapes : sauvegarde complète (dans le dossier des sauvegardes du serveur, ou data/sauvegardes), récupération de la version, redémarrage, attente de
 « pret » sur /api/health, puis diagnostic. Les migrations de la base s'appliquent au démarrage.`;
 
 const argv = process.argv.slice(2);
@@ -105,7 +105,7 @@ async function running() {
   // Tant qu'aucun membre n'existe, le jeton d'administration n'agit au nom de personne : la question est posée à part.
   if ((await getJson(`${target}/api/auth/me`)).body?.setup === true) return { up: true, route: true, member: false };
   const { status, body } = await getJson(`${target}/api/updates`, auth);
-  if (status === 200 && body && typeof body.version === "string") return { up: true, route: true, member: true, version: body.version };
+  if (status === 200 && body && typeof body.version === "string") return { up: true, route: true, member: true, version: body.version, backupDir: typeof body.backupDir === "string" ? body.backupDir : null };
   if (status === 401 || status === 403) return { up: true, route: true, member: true, refused: true };
   return { up: true, route: false, member: true };
 }
@@ -156,8 +156,27 @@ function zipComplete(file) {
   return buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06])) >= 0;
 }
 
-async function backup() {
-  const dir = path.resolve("data/sauvegardes");
+/**
+ * Où ranger la sauvegarde. Quand le serveur tourne sur cette machine, hors Docker : dans son propre dossier de
+ * sauvegardes, pour qu'elle figure avec les autres dans Réglages → Compte et sécurité. Sinon (Docker, serveur
+ * distant, dossier non inscriptible) : `data/sauvegardes` de ce dépôt.
+ */
+function backupFolder(serverDir) {
+  const local = ["127.0.0.1", "localhost", "::1", "[::1]"].includes(new URL(target).hostname);
+  if (!docker && local && serverDir && path.isAbsolute(serverDir)) {
+    try {
+      mkdirSync(serverDir, { recursive: true, mode: 0o700 });
+      accessSync(serverDir, constants.W_OK);
+      return serverDir;
+    } catch {
+      // Dossier d'un autre compte : la sauvegarde va dans le dépôt.
+    }
+  }
+  return path.resolve("data/sauvegardes");
+}
+
+async function backup(serverDir) {
+  const dir = backupFolder(serverDir);
   mkdirSync(dir, { recursive: true });
   const started = Date.now();
   const res = await fetch(`${target}/api/backup`, { headers: auth }).catch(() => null);
@@ -232,7 +251,7 @@ else if (!now.up) fail("Le serveur ne répond pas : la sauvegarde est impossible
 else {
   say("\nSauvegarde complète…");
   try {
-    await backup();
+    await backup(now.backupDir);
   } catch (e) {
     fail(`Sauvegarde impossible : ${e.message}\n    Rien n'a été modifié. Vérifie API_TOKEN dans ${file}, ou télécharge la sauvegarde depuis Réglages → Compte et sécurité puis relance avec --sans-sauvegarde.`);
   }

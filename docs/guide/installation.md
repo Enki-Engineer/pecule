@@ -110,12 +110,11 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
   d'environnement n'y figurent pas : gardez `.env` à part — sans `SECRET_KEY` (ou, sur une installation qui n'en a pas,
   `API_TOKEN`), les clés enregistrées dans l'appli (banque, IA) sont illisibles.
 - **Sauvegardes automatiques** : éteintes au départ. Dans Réglages → Compte et sécurité, l'administrateur peut demander
-  au serveur d'écrire une sauvegarde complète chaque nuit (ou chaque semaine) dans `data/sauvegardes` — `BACKUP_DIR`
-  pour un autre dossier —, relue en entier, les plus récentes seules étant gardées. Elles sont sur le même serveur que
-  la base : elles protègent d'une erreur, pas de la perte du serveur. Avec Docker, le dossier est le volume
-  `pecule-sauvegardes`. Chez un hébergeur qui installe chaque nouvelle version dans un dossier neuf, donnez à
-  `BACKUP_DIR` un dossier hors de l'installation, sinon les archives ne survivent pas à une mise en ligne. `doctor`
-  dit de quand date la dernière sauvegarde, et l'administrateur est prévenu après un mois sans aucune.
+  au serveur d'écrire une sauvegarde complète chaque nuit (ou chaque semaine) dans son dossier de sauvegardes (voir
+  « Où le serveur garde ses sauvegardes », plus bas : il n'y a rien à régler), relue en entier, les plus récentes
+  seules étant gardées. Elles sont sur le même serveur que la base : elles protègent d'une erreur, pas de la perte du
+  serveur. `doctor` dit de quand date la dernière sauvegarde, et l'administrateur est prévenu après un mois sans
+  aucune.
 - **Copie hors du serveur** : dans la même page, l'administrateur crée une clé de chiffrement (Pécule n'en garde que
   la clé publique et lui montre une fois la clé de récupération, à ranger), puis règle un stockage extérieur —
   compatible S3 (Amazon S3, Backblaze B2, Scaleway, OVH, Cloudflare R2, MinIO…) ou WebDAV (Nextcloud, kDrive, un
@@ -126,7 +125,8 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
   perdue.** Le secret du stockage est gardé chiffré en base, avec `SECRET_KEY`.
 - **Restauration** : dans une installation neuve (nouveau serveur, base perdue), l'écran « Bienvenue dans Pécule »
   propose « J'ai une sauvegarde : la restaurer ». Avec le code d'installation, on envoie l'archive — ou on en choisit
-  une du dossier des sauvegardes du serveur (`data/sauvegardes`, ou `BACKUP_DIR`) — et Pécule la recharge, applique
+  une du dossier des sauvegardes du serveur : réinstallé sur le même compte et à la même adresse, Pécule y retrouve
+  seul ses anciennes archives — et Pécule la recharge, applique
   les migrations plus récentes, puis dit ce qu'il reste à faire : une clé d'accès à recréer si l'adresse a changé, des
   clés à ressaisir si `SECRET_KEY` n'est pas celui de l'ancien serveur. Une copie chiffrée (`.zip.age`) demande la
   clé de récupération. Les sauvegardes automatiques de l'installation restaurée sont mises en pause, pour qu'une
@@ -137,6 +137,38 @@ node scripts/doctor.mjs            # réglages, serveur, démarrage, premier mem
   redémarrage et contrôle le résultat. L'appli prévient l'administrateur quand une version est publiée (Réglages →
   Suivi technique). Tout le détail — branche `stable` pour un hébergeur relié à GitHub, retour à la version
   précédente, versions palier — est dans [`mise-a-jour.md`](mise-a-jour.md).
+
+## Où le serveur garde ses sauvegardes
+
+Le serveur écrit lui-même des sauvegardes complètes : avant chaque mise à jour qui change la base, et chaque nuit si
+l'administrateur le demande. **Vous n'avez aucun dossier à créer ni à régler** : Pécule en choisit un qui survit à
+une mise à jour, selon la façon dont il est installé.
+
+| Installation | Dossier | Pourquoi |
+| --- | --- | --- |
+| Docker | le volume `pecule-sauvegardes` (`/app/data/sauvegardes` dans le conteneur) | Le conteneur est remplacé à chaque mise à jour, le volume reste. |
+| Hébergement Node.js | `~/pecule-sauvegardes/<adresse de l'appli>`, dans le dossier personnel du compte qui fait tourner Pécule — par exemple `/home/alex/pecule-sauvegardes/pecule.exemple.fr` | Hors de l'installation : beaucoup d'hébergeurs installent chaque nouvelle version dans un dossier neuf, et des archives rangées dedans disparaîtraient à la mise en ligne suivante. |
+| Hébergement Node.js dont le compte n'a pas de dossier personnel inscriptible | `data/sauvegardes`, dans l'installation | Repli. `doctor` le signale : donnez alors un dossier fixe par `BACKUP_DIR`. |
+
+Ce qu'il faut savoir :
+
+- **Le dossier utilisé est toujours affiché** : Réglages → Compte et sécurité → Sauvegardes automatiques
+  (« Dossier du serveur »), `node scripts/doctor.mjs`, et la première ligne `[sauvegardes]` du journal du serveur.
+- **Le sous-dossier porte l'adresse de l'appli** (`APP_URL`, avec son port s'il y en a un : `localhost-3000`). Deux
+  installations hébergées sur le même compte ne mélangent pas leurs archives. Si l'adresse change, le dossier change
+  aussi : déplacez-y les anciennes archives si vous voulez les voir dans l'appli.
+- **Une installation qui a déjà des archives dans `data/sauvegardes` garde ce dossier** : rien n'est déplacé lors
+  d'une mise à jour de Pécule.
+- **`BACKUP_DIR=/chemin/absolu` dans `.env` l'emporte sur tout** — pour ranger les archives sur un autre disque, par
+  exemple. Le compte du serveur doit pouvoir y écrire. Avec Docker, laissez ce réglage à l'image : il désigne le
+  volume.
+- **Pécule crée ce dossier fermé aux autres comptes de la machine**, et chaque archive n'est lisible que par le
+  compte du serveur : elles contiennent les données privées de tous les membres, en clair. Le dossier n'est pas
+  servi par le web.
+- **Ce dossier est sur le même serveur que la base.** Pour survivre à la perte du serveur, réglez la copie hors du
+  serveur (plus haut), ou téléchargez une archive de temps en temps.
+- La commande de mise à jour (`node scripts/maj.mjs`) dépose sa propre sauvegarde dans ce même dossier quand le
+  serveur tourne sur la même machine sans Docker ; sinon dans `data/sauvegardes` du dépôt.
 
 ## En cas de souci
 

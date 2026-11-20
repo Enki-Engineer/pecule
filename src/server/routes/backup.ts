@@ -9,7 +9,7 @@ import { isDemo, runReal } from "../demo-context.ts";
 import { logAudit, recordAlert } from "../journal.ts";
 import { BackupAborted, writeBackup } from "../backup.ts";
 import { backupFileName } from "../backup-format.ts";
-import { archivePath, backupDir, listArchives } from "../archives.ts";
+import { archivePath, backupDir, backupDirChoice, listArchives } from "../archives.ts";
 import { autoBackupRunning, backupSettings, backupState, DOWNLOAD_AUDIT, forgetOffsiteFailure, lastBackupAt, runAutoBackup, saveBackupSettings } from "../auto-backup.ts";
 import { rmSync } from "node:fs";
 import { z } from "zod";
@@ -109,6 +109,8 @@ backupApi.get("/backup/info", requireAdmin, async (_req, res) => {
     destination: await destination(),
     autoRunning: autoBackupRunning(),
     dir: backupDir(),
+    // Pourquoi ce dossier (réglé, volume, déjà utilisé, compte du serveur, repli dans l'installation) : `doctor` le dit.
+    dirReason: backupDirChoice().reason,
     archives: listArchives().slice(0, 100),
     // Dernière sauvegarde de toute sorte (téléchargée, automatique, d'avant migration).
     latest: await lastBackupAt(),

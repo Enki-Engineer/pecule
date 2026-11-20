@@ -209,6 +209,13 @@ planifiée tourne dans le processus quand une source est reliée.
 - **Installation** : `scripts/maj.mjs`, sur le serveur — sauvegarde complète téléchargée, image publiée ou
   `git pull` et build, attente de la nouvelle version, `doctor`. Le serveur ne remplace jamais son propre code.
 - **Garde-fous** : avant d'appliquer une migration à une base déjà en service, le serveur écrit une sauvegarde
-  complète dans `data/sauvegardes` (`src/server/pre-migration.ts`, trois gardées, sous le verrou des migrations) ;
+  complète dans son dossier de sauvegardes (`src/server/pre-migration.ts`, trois gardées, sous le verrou des
+  migrations) ;
   une migration interrompue reprend (`src/server/migrate-rules.ts`) ; une base trop ancienne pour les migrations
   repliées est refusée sans être modifiée, et le message nomme la version palier.
+- **Le dossier des sauvegardes du serveur** ne se règle pas : `src/server/backup-dir.ts` (règle pure, testée) le
+  choisit pour qu'il survive à une mise à jour — `BACKUP_DIR` s'il est donné, le volume dans un conteneur,
+  `data/sauvegardes` de l'installation si le serveur y a déjà des archives, sinon
+  `~/pecule-sauvegardes/<adresse de l'appli>` dans le compte du serveur (un hébergeur peut installer chaque version
+  dans un dossier neuf), et `data/sauvegardes` en dernier repli ou hors production. `backupDir()`
+  (`src/server/archives.ts`) est le seul endroit qui le donne ; `doctor` et l'écran des sauvegardes l'affichent.

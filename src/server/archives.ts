@@ -1,8 +1,10 @@
-import { createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
+import { accessSync, constants, createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { statfs } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { finished } from "node:stream/promises";
-import { env, rpID } from "./env.ts";
+import { env, isProd, rpID } from "./env.ts";
+import { chooseBackupDir, type BackupDirChoice } from "./backup-dir.ts";
 import { one, pool } from "./db.ts";
 import { verifyBackup, writeBackup } from "./backup.ts";
 import { parsePreMigrationName } from "./backup-format.ts";
@@ -12,7 +14,8 @@ import { parseAutoName } from "../lib/backup-plan.ts";
 import { isArchiveName } from "../lib/restore.ts";
 
 /*
- * Les sauvegardes que le serveur garde chez lui : un dossier (`data/sauvegardes` de l'installation, ou BACKUP_DIR) où
+ * Les sauvegardes que le serveur garde chez lui : un dossier choisi pour survivre à une mise à jour (`backup-dir.ts` :
+ * BACKUP_DIR, sinon un dossier du compte du serveur, hors de l'installation ; le volume avec Docker) où
  * s'écrivent celles d'avant migration (`pre-migration.ts`) et les automatiques (`auto-backup.ts`), et où la commande
  * de mise à jour dépose la sienne. Elles sont sur le même serveur que la base : elles protègent d'une erreur ou d'une
  * mise à jour qui tourne mal, pas de la perte du serveur.
@@ -22,8 +25,65 @@ import { isArchiveName } from "../lib/restore.ts";
 const MARGIN = 64 * 1_048_576;
 const PARTIAL = ".partiel";
 
+/** Le dossier, ou son premier parent qui existe, est-il inscriptible par le compte du serveur ? */
+function writable(dir: string): boolean {
+  let at = path.resolve(dir);
+  while (!existsSync(at) && path.dirname(at) !== at) at = path.dirname(at);
+  try {
+    accessSync(at, constants.W_OK | constants.X_OK);
+    return statSync(at).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** Le serveur a-t-il déjà écrit des archives dans ce dossier (automatiques ou d'avant migration) ? */
+function hasServerArchives(dir: string): boolean {
+  try {
+    return readdirSync(dir).some((name) => parseAutoName(name) !== null || parsePreMigrationName(name) !== null);
+  } catch {
+    return false;
+  }
+}
+
+const homeDir = () => {
+  try {
+    return os.homedir();
+  } catch {
+    return null;
+  }
+};
+
+let chosen: BackupDirChoice | null = null;
+
+/**
+ * Dossier des sauvegardes du serveur et raison de ce choix (`backup-dir.ts`). Décidé une fois par démarrage : le
+ * dossier ne change pas sous les pieds d'une écriture en cours.
+ */
+export function backupDirChoice(): BackupDirChoice {
+  if (chosen) return chosen;
+  chosen = chooseBackupDir({
+    explicit: env.BACKUP_DIR,
+    root: appRoot(),
+    home: homeDir(),
+    appUrl: env.APP_URL,
+    production: isProd,
+    container: existsSync("/.dockerenv") || existsSync("/run/.containerenv"),
+    writable,
+    hasServerArchives,
+  });
+  console.log(`[sauvegardes] dossier du serveur : ${chosen.dir}`);
+  return chosen;
+}
+
 /** Dossier des sauvegardes écrites par le serveur. */
-export const backupDir = () => path.resolve(env.BACKUP_DIR ?? path.join(appRoot(), "data", "sauvegardes"));
+export const backupDir = () => backupDirChoice().dir;
+
+/**
+ * Crée un dossier de sauvegardes s'il manque, fermé aux autres comptes de la machine : les archives portent toutes
+ * les données du foyer, et leurs noms n'ont pas à être lus non plus.
+ */
+export const ensurePrivateDir = (dir: string) => mkdirSync(dir, { recursive: true, mode: 0o700 });
 
 export type ServerBackup = { name: string; octets: number; at: number };
 /** D'où vient une archive du dossier : écrite chaque nuit, avant une migration, ou déposée là (mise à jour, copie à la main). */
@@ -65,7 +125,7 @@ const mo = (octets: number) => `${(octets / 1_048_576).toFixed(1).replace(".", "
  * d'abord (jamais ceux d'une autre : la commande de mise à jour télécharge peut-être la sienne au même moment).
  */
 export async function writeArchiveFile(dir: string, name: string, opts: { prefix: string; now?: Date; verify?: boolean }): Promise<ServerBackup> {
-  mkdirSync(dir, { recursive: true });
+  ensurePrivateDir(dir);
   for (const f of readdirSync(dir)) if (f.startsWith(opts.prefix) && f.endsWith(PARTIAL)) rmSync(path.join(dir, f), { force: true });
 
   const size = await one<{ octets: number }>("SELECT COALESCE(SUM(DATA_LENGTH), 0) AS octets FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'");

@@ -75,6 +75,9 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   jour). Les migrations s'appliquent au démarrage, sous verrou. Une migration ne se modifie plus une fois publiée.
 - Toute colonne `LONGBLOB` se déclare dans `FILE_TABLES` (`src/server/backup-format.ts`) : la sauvegarde complète en
   dépend (un test compare au schéma).
+- Le dossier des sauvegardes du serveur se demande à `backupDir()` (`src/server/archives.ts`), jamais à un chemin
+  écrit en dur : il est choisi pour survivre à une mise à jour chez tout hébergeur (`src/server/backup-dir.ts`), sans
+  que celui qui installe ait un réglage à faire. Un dossier créé pour des archives l'est par `ensurePrivateDir`.
 - Une migration se rejoue sans dégât : un démarrage coupé la reprend (`src/server/migrate-rules.ts`), et une base
   déjà en service est sauvegardée sur le serveur juste avant (`src/server/pre-migration.ts`). Replier d'anciennes
   migrations dans le schéma de départ ne se fait qu'à une version majeure, en portant `pecule.depuis`

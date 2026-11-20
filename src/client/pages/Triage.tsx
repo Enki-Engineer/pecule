@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Keyboard, MessageSquare, Search, SkipForward } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { api, useCategories, useSuggestions, type Transaction } from "../api.ts";
+import { api, useCategories, useDemo, useSuggestions, type Transaction } from "../api.ts";
+import { ClassifyAiButton } from "../components/ClassifyAi.tsx";
 import { Amount, Card, PageHeader, Sheet, Spinner } from "../components/ui.tsx";
 import { TxLogo } from "../components/Logo.tsx";
 import { dateFr, plainMoney } from "../format.ts";
@@ -25,6 +26,7 @@ import { t as tr, td, tn } from "../../lib/i18n.ts";
 export function Triage() {
   const qc = useQueryClient();
   const desktop = useMedia("(min-width: 768px)");
+  const demo = useDemo();
   const categories = useCategories();
   const list = useQuery({
     queryKey: ["transactions", "triage"],
@@ -94,7 +96,12 @@ export function Triage() {
   const twinsText = tn("Classer aussi les {n} autre opération de même libellé et retenir la règle", "Classer aussi les {n} autres opérations de même libellé et retenir la règle", twins.length, { n: "\u0000" }).split("\u0000");
   return (
     <>
-      <PageHeader title={tr("À classer")} subtitle={total ? `${tr("{fait} sur {total}", { fait: total - queue.length, total })}${skipped.size ? ` · ${tn("{n} passée", "{n} passées", skipped.size)}` : ""}` : undefined} />
+      <PageHeader
+        title={tr("À classer")}
+        subtitle={total ? `${tr("{fait} sur {total}", { fait: total - queue.length, total })}${skipped.size ? ` · ${tn("{n} passée", "{n} passées", skipped.size)}` : ""}` : undefined}
+        // Classement en lot par l'IA : dès qu'il reste de quoi faire (fermé en démo, où rien ne part au fournisseur d'IA).
+        right={!demo && queue.length >= 5 ? <ClassifyAiButton /> : undefined}
+      />
       <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-line">
         <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${progress * 100}%` }} />
       </div>

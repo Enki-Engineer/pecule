@@ -32,7 +32,7 @@ Chaque ligne du lot porte son état :
 Ouvrez une ligne « À relire » pour voir les valeurs lues, les corriger (un champ corrigé est marqué, la lecture
 d'origine est gardée), consulter les contrôles et, s'il y a déjà une donnée pour la même clé (même mois de paie, même
 année de revenus, même crédit), ce qui changerait. **Valider les fichiers sûrs** écrit d'un coup tout ce qui ne demande
-pas de regard ; le reste se valide un par un.
+pas de regard ; le reste se valide un par un, avec une confirmation quand un contrôle ne passe pas.
 
 ## Ce que Pécule sait lire
 
@@ -68,9 +68,20 @@ Déposez le dossier des relevés comme n'importe quel autre :
 - **Rien n'est ajouté deux fois** : une opération déjà connue du compte, par un relevé précédent ou par la banque
   elle-même, n'est pas recréée. Redéposer un relevé ne change rien.
 
-Un relevé de plusieurs centaines d'opérations est lu en plusieurs fois. Jusqu'à 40 pages, l'IA lit les pages telles
-qu'elles sont imprimées ; au-delà, seulement leur texte, où débits et crédits se distinguent moins bien. Si la banque
-propose un export (OFX, QIF, CSV), préférez-le : il est lu sans IA.
+- **Cartes à débit différé.** Quand les achats sont listés un à un dans le compte, chacun garde son jour d'achat
+  (le réglage « jour d'achat ou jour du débit » du foyer s'y applique). Quand le compte ne porte que le total du mois
+  et que le détail est imprimé à part, ce détail devient un compte de carte — sans soldes, ses achats doivent faire le
+  total prélevé — et le total écrit sur le compte est rangé en mouvement interne, pour que les achats ne comptent
+  qu'une fois.
+- **Un compte relié à une banque** reçoit aussi le solde de fin de chaque relevé dans l'historique de ses soldes, là
+  où la banque n'a rien donné ; un solde venu d'elle n'est jamais remplacé.
+
+Un relevé de plusieurs centaines d'opérations est lu en plusieurs fois, et un relevé de plus de 40 pages par tranches
+de 25 pages, toujours telles qu'elles sont imprimées. Si la banque propose un export (OFX, QIF, CSV), préférez-le : il
+est lu sans IA.
+
+Une fois les relevés validés, les opérations sans catégorie se classent en lot : écran « À classer », bouton
+« Proposer un classement » — l'IA propose une catégorie par libellé, vous relisez et appliquez.
 
 ## Coût et confidentialité
 

@@ -126,6 +126,24 @@ describe("contrôles arithmétiques", () => {
     expect(holed[0].warnings[0]).toContain("2026");
   });
 
+  it("relevé : le détail d'une carte à débit différé n'a pas de soldes, ses achats font le total prélevé", () => {
+    const x = byId("releve");
+    const card = { is_bank_statement: true, account_kind: "carte", account_id: "m:carte", owner: null, bank: "Banque", account_label: "Carte Visa", account_tail: "1305", period_start: "2026-03-01", period_end: "2026-03-31", opening_balance: null, closing_balance: null, total_debit: 62.5, card_debit_date: "2026-03-05", operations: [{ date: "2026-02-10", label: "LIBRAIRIE", amount: -42.5 }, { date: "2026-02-21", label: "MARCHE", amount: -20 }] };
+    expect(failed(x, card)).toBe(0);
+    expect(x.rejected!(card)).toBe(false);
+    // Pas de solde après chaque ligne pour une carte.
+    expect(x.rows!.opening!(card)).toBeNull();
+    // Un achat lu en crédit : le total ne tombe plus, la ligne est désignée.
+    const flipped = { ...card, operations: [card.operations[0], { ...card.operations[1], amount: 20 }] };
+    expect(failed(x, flipped)).toBe(1);
+    expect(x.rows!.marks!(flipped).map((m) => m.index)).toEqual([1]);
+    // Total non lu, ou achat postérieur au prélèvement.
+    expect(failed(x, { ...card, total_debit: null })).toBe(1);
+    expect(failed(x, { ...card, operations: [...card.operations, { date: "2026-03-09", label: "APRÈS", amount: 0 }] })).toBe(1);
+    // Le même document lu comme un compte : sans soldes, il ne passe pas.
+    expect(failed(x, { ...card, account_kind: "courant" })).toBeGreaterThan(0);
+  });
+
   it("contrat : 12 mensualités = montant annuel", () => {
     const ok = { is_recurring_contract: true, type: "assurance", label: "Assurance habitation", provider: "Assureur", monthly: 21.5, annual: 258, start_date: "2025-01-01", end_date: null, renewal_date: "2027-01-01", notice_days: 60 };
     expect(failed(byId("contrat"), ok)).toBe(0);

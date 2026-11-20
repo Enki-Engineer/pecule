@@ -100,10 +100,38 @@ export const operations: ManualTheme = {
           ],
         },
         tk("Quand d'autres opérations de la file ont le même libellé, une case cochée d'office les classe toutes d'un coup et retient la règle."),
+        tk("Beaucoup d'opérations d'un coup ? [[Proposer un classement]] fait proposer une catégorie par libellé à l'IA : voir [Faire proposer un classement par l'IA](/manuel/classer-avec-ia)."),
         { note: tk("Une opération passée revient à ta prochaine visite.") },
       ],
       links: [{ to: "/tri", label: ["À classer"] }],
       words: tk("triage trier en masse rapidement file d'attente non classées sans catégorie"),
+    },
+    {
+      id: "classer-avec-ia",
+      title: tk("Faire proposer un classement par l'IA"),
+      summary: tk("Des centaines d'opérations sans catégorie : l'IA propose, tu relis, tu appliques."),
+      body: [
+        tk("Après la reprise d'un historique, des centaines d'opérations arrivent sans catégorie. Sur l'écran du tri, [[Proposer un classement]] demande à ton fournisseur d'IA une catégorie pour chaque libellé encore sans catégorie — un libellé, pas une opération : quelques centaines de libellés couvrent des milliers d'opérations."),
+        {
+          steps: [
+            tk("Ouvre le tri ([[À traiter]] sur le tableau de bord, [[Opérations à classer]] sur l'accueil du téléphone) et touche [[Proposer un classement]]."),
+            tk("Relis la liste : chaque ligne donne le libellé, le nombre d'opérations, leur total et la catégorie proposée. Change la catégorie dans sa liste, ou choisis [[Ne pas classer]]."),
+            tk("Décoche ce que tu préfères classer toi-même. Une supposition de l'IA n'est jamais cochée d'office."),
+            tk("Touche le bouton de classement en bas de la liste. S'il reste des libellés, les suivants sont proposés aussitôt."),
+          ],
+        },
+        {
+          list: [
+            tk("L'IA s'appuie sur tes catégories et sur ce que tu as déjà classé toi-même : plus tu as classé, plus elle te suit."),
+            tk("Rien n'est classé avant que tu l'appliques, et seules des opérations encore sans catégorie sont touchées. Juste après, un bandeau propose [[Annuler##retour en arrière]]."),
+            tk("La case « Retenir ces choix » crée une règle par libellé : les prochaines opérations de même libellé seront classées seules. Un libellé trop court pour en faire une règle (un chèque) n'en crée pas."),
+            tk("Les libellés partent chez ton fournisseur d'IA ; une demande coûte quelques centimes, comptés dans [Le coût de l'IA](/manuel/assistant-cout)."),
+          ],
+        },
+        { note: tk("Indisponible en mode démo, et sans fournisseur d'IA réglé.") },
+      ],
+      links: [{ to: "/tri", label: ["À classer"] }],
+      words: tk("classer automatiquement intelligence artificielle catégoriser en masse historique repris proposition lot libellés"),
     },
     {
       id: "classer-en-lot",

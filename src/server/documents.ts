@@ -119,6 +119,67 @@ function pdfTextIsolated(content: Buffer): Promise<{ totalPages: number; text: s
   return next;
 }
 
+/*
+ * Découpe d'un long PDF en tranches de pages, pour le montrer à l'IA en plusieurs fois (un relevé de plus de 40
+ * pages). Même précaution que pour le texte : un fil à part, un délai, une mémoire bornée. Un PDF chiffré ou abîmé
+ * ne se découpe pas : l'appelant se rabat sur son texte.
+ */
+const SPLIT_WORKER = `
+const { parentPort, workerData } = require("node:worker_threads");
+(async () => {
+  const { PDFDocument } = await import(workerData.pdflib);
+  const source = await PDFDocument.load(new Uint8Array(workerData.content));
+  const total = source.getPageCount();
+  const parts = [];
+  for (let from = 0; from < total; from += workerData.size) {
+    const to = Math.min(total, from + workerData.size);
+    const out = await PDFDocument.create();
+    const pages = await out.copyPages(source, Array.from({ length: to - from }, (_, i) => from + i));
+    for (const p of pages) out.addPage(p);
+    parts.push({ from: from + 1, to, content: await out.save() });
+  }
+  parentPort.postMessage({ total, parts });
+})().catch((e) => parentPort.postMessage({ error: String(e && e.message || e) }));
+`;
+const PDFLIB = (() => {
+  try {
+    return import.meta.resolve("pdf-lib");
+  } catch {
+    return "pdf-lib";
+  }
+})();
+
+export type PdfPart = { from: number; to: number; content: Buffer };
+
+/** Tranches de `size` pages d'un PDF (pages comptées à partir de 1). Rejette si le PDF ne peut pas être découpé. */
+export function splitPdf(content: Buffer, size: number): Promise<PdfPart[]> {
+  const run = () =>
+    new Promise<PdfPart[]>((resolve, reject) => {
+      const worker = new Worker(SPLIT_WORKER, { eval: true, workerData: { content, pdflib: PDFLIB, size }, resourceLimits: { maxOldGenerationSizeMb: 512 } });
+      const timer = setTimeout(() => {
+        void worker.terminate();
+        reject(new Error("découpe trop longue, abandonnée"));
+      }, PDF_TIMEOUT_MS * 2);
+      worker.once("message", (m: { parts?: { from: number; to: number; content: Uint8Array }[]; error?: string }) => {
+        clearTimeout(timer);
+        void worker.terminate();
+        if (m.error || !m.parts?.length) reject(new Error(m.error ?? "réponse vide"));
+        else resolve(m.parts.map((p) => ({ from: p.from, to: p.to, content: Buffer.from(p.content) })));
+      });
+      worker.once("error", (e) => {
+        clearTimeout(timer);
+        reject(e);
+      });
+      worker.once("exit", (code) => {
+        clearTimeout(timer);
+        if (code !== 0) reject(new Error("découpe interrompue (mémoire ou erreur)"));
+      });
+    });
+  const next = pdfQueue.then(run, run);
+  pdfQueue = next.catch(() => undefined);
+  return next;
+}
+
 /** Texte d'un fichier : PDF lu localement (couche texte), fichiers texte tels quels ; rien pour une photo. */
 export async function extractText(content: Buffer, mime: string): Promise<{ text: string; pages: number | null }> {
   if (mime.startsWith("text/")) return { text: content.toString("utf8").slice(0, MAX_TEXT), pages: null };

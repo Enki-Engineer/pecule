@@ -104,6 +104,14 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   solde de départ du suivant) ou s'il manque un relevé. Les règles sont pures (`src/lib/statements.ts` : même
   compte, écart de solde, ligne qui l'expliquerait, série). Une opération déjà connue n'est pas recréée : même jour
   et même montant, puis à trois jours près contre les seules opérations fournies par une banque.
+  Carte à débit différé : un achat listé dans le compte garde son jour d'achat (`purchase_date`) ; un détail imprimé
+  à part est un compte de carte (achats écrits le jour du prélèvement, total du compte prélevé rangé en mouvement
+  interne, dans un ordre de validation comme dans l'autre). Un PDF trop long pour être montré d'une pièce est découpé
+  en tranches de pages (`splitPdf`, `src/server/documents.ts`, dans un fil à part ; `mergeSegment`, `read.ts`).
+- **Classement en lot par l'IA** — `src/server/classify-ai.ts` : les opérations sans catégorie du membre sont
+  réunies par libellé (`src/lib/classify.ts`), l'IA propose une catégorie par libellé d'après le référentiel et ce
+  que le foyer a classé lui-même, et rien n'est écrit avant que le membre applique ce qu'il a retenu (annulable,
+  règle créée par libellé s'il le demande). Routes `POST /api/transactions/ai-classify` et `…/apply`, fermées en démo.
 
 ## Membres, accès, vie privée
 

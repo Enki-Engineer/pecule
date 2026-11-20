@@ -157,6 +157,14 @@ export function Batch({ id, onBack }: { id: number; onBack: () => void }) {
         )}
         {b.safe > 0 && <p className="px-1 text-xs text-muted">{t("« Sûr » : tous les contrôles passent, la lecture est sans doute, et rien de ce que Pécule contient déjà ne changerait.")}</p>}
         {b.overview.length > 0 && <Series list={b.overview} />}
+        {b.items.some((i) => i.status === "valide" && (i.extractor === "releve" || i.extractor === "fichier_banque")) && (
+          <Card className="flex flex-wrap items-center gap-3 p-4 text-sm">
+            <span className="min-w-0 flex-1">{t("Les opérations ajoutées sont classées par tes règles et par les libellés déjà classés. Celles qui restent sans catégorie t'attendent dans « À classer », où l'IA peut proposer un classement en lot.")}</span>
+            <Link to="/tri" className={ghost}>
+              {t("À classer")}
+            </Link>
+          </Card>
+        )}
 
         <Card className="divide-y divide-line">
           {shown.length === 0 && <Empty>{t("Aucun fichier dans cette vue.")}</Empty>}
@@ -373,7 +381,16 @@ function Review({ id, onClose, onChange }: { id: number; onClose: () => void; on
 
           <div className="flex flex-wrap gap-2 pt-1">
             {d.status === "a_relire" && (
-              <button type="button" disabled={busy} className={button} onClick={() => act("validate", t("Fichier validé"))}>
+              <button
+                type="button"
+                disabled={busy}
+                className={button}
+                onClick={() => {
+                  // Un contrôle en échec : ce qui serait écrit est peut-être faux, on le dit avant d'écrire.
+                  const failed = d.checks.filter((c) => !c.ok).length;
+                  if (!failed || confirm(tn("Un contrôle ne passe pas : ce qui sera écrit dans tes écrans est peut-être faux. Valider quand même ?", "{n} contrôles ne passent pas : ce qui sera écrit dans tes écrans est peut-être faux. Valider quand même ?", failed, { n: failed }))) void act("validate", t("Fichier validé"));
+                }}
+              >
                 <Check size={16} /> {t("Valider")}
               </button>
             )}

@@ -97,7 +97,7 @@ export function transcriptionCost(usage: TranscriptionUsage | null | undefined, 
 /* ---------- Usages ---------- */
 
 /** À quoi a servi un appel : ce que l'écran et l'assistant détaillent. */
-export const USAGE_KINDS = ["assistant", "import", "facture", "classement", "document", "bulletin", "voix", "traduction", "test", "demo", "autre"] as const;
+export const USAGE_KINDS = ["assistant", "import", "facture", "classement", "operations", "document", "bulletin", "voix", "traduction", "test", "demo", "autre"] as const;
 export type UsageKind = (typeof USAGE_KINDS)[number];
 
 /** Suffixe d'un usage compté pendant une session de démo (le coût, lui, est réel). */
@@ -110,6 +110,7 @@ export function usageKind(feature: string): UsageKind {
   if (feature.startsWith("import")) return "import";
   if (feature === "facture") return "facture";
   if (feature === "classement") return "classement";
+  if (feature === "classement des opérations") return "operations";
   if (feature === "document") return "document";
   if (feature === "fiche de paie") return "bulletin";
   if (feature.startsWith("voix")) return "voix";
@@ -126,6 +127,7 @@ export const KIND_GROUP: Record<UsageKind, UsageGroup> = {
   import: "import",
   facture: "factures",
   classement: "factures",
+  operations: "autres",
   document: "documents",
   bulletin: "documents",
   voix: "voix",

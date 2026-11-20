@@ -12,7 +12,8 @@ beforeAll(async () => {
   Object.assign(process.env, { DATABASE_URL: "mysql://essai:essai@127.0.0.1:1/essai", APP_URL: "http://localhost:3000", API_TOKEN: "x".repeat(40), SYNC_TOKEN: "y".repeat(40) });
   const { CLASSIFY_SCHEMA } = await import("./documents.ts");
   const { EXTRACTORS } = await import("./imports/extractors/index.ts");
-  schemas = [["reconnaissance", CLASSIFY_SCHEMA as Node], ...EXTRACTORS.map((x): [string, Node] => [x.id, x.schema as Node])];
+  const { CLASSIFY_OPS_SCHEMA } = await import("./classify-ai.ts");
+  schemas = [["reconnaissance", CLASSIFY_SCHEMA as Node], ["classement des opérations", CLASSIFY_OPS_SCHEMA as Node], ...EXTRACTORS.map((x): [string, Node] => [x.id, x.schema as Node])];
 });
 
 /** Tous les nœuds d'un schéma, avec leur chemin. */

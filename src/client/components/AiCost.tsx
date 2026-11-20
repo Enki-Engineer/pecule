@@ -29,6 +29,7 @@ const KIND_LABELS: Record<UsageKind, string> = {
   import: t("Import de dossier"),
   facture: t("Lecture de factures"),
   classement: t("Classement d'articles"),
+  operations: t("Classement d'opérations"),
   document: t("Rangement de documents"),
   bulletin: t("Lecture de bulletins"),
   voix: t("Mode vocal"),
@@ -54,6 +55,7 @@ function unitText(kind: UsageKind, cost: number): string | null {
   if (kind === "assistant") return t("{montant} par conversation", { montant });
   if (kind === "facture") return t("{montant} par facture lue", { montant });
   if (kind === "classement") return t("{montant} par facture classée", { montant });
+  if (kind === "operations") return t("{montant} par lot de libellés", { montant });
   if (kind === "document") return t("{montant} par document", { montant });
   if (kind === "bulletin") return t("{montant} par bulletin", { montant });
   if (kind === "import") return t("{montant} par lecture", { montant });

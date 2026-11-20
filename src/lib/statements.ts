@@ -69,6 +69,28 @@ export function suspects(ops: { amount: number }[], gap: number | null): Suspect
   return out.length > 6 ? [] : out;
 }
 
+/**
+ * Jour d'achat à garder pour une opération écrite par la banque le `booked` : celui que le relevé imprime, s'il est
+ * plausible (jamais après l'écriture, jamais plus de 70 jours avant : une carte à débit différé prélève le mois
+ * suivant). Le même jour que l'écriture n'apprend rien : null.
+ */
+export function purchaseDayFor(purchase: string | null | undefined, booked: string): string | null {
+  if (!purchase || !/^\d{4}-\d{2}-\d{2}$/.test(purchase) || purchase >= booked) return null;
+  return dayNumber(booked) - dayNumber(purchase) <= 70 ? purchase : null;
+}
+
+/** Ce qu'une carte fait prélever un jour donné : la somme, en centimes (négative), de ses achats écrits ce jour-là. */
+export type CardTotal = { day: string; cents: number };
+
+/**
+ * Cette opération d'un compte est-elle le prélèvement des achats d'une carte déjà comptés un à un ? Le même montant
+ * au centime, à quatre jours près (week-end, jour férié) : une coïncidence est très improbable.
+ */
+export function isCardTotal(op: { date: string; amount: number }, totals: CardTotal[]): boolean {
+  if (op.amount >= 0) return false;
+  return totals.some((x) => Number(x.cents) === cents(op.amount) && Math.abs(dayNumber(x.day) - dayNumber(op.date)) <= 4);
+}
+
 export type StatementPeriod = { id: number; start: string | null; end: string | null; opening: number | null; closing: number | null; operations: number };
 export type Coverage = {
   statements: number;

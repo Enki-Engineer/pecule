@@ -31,6 +31,8 @@ const BLOCKED: [method: string, path: RegExp][] = [
   ["DELETE", /^\/tokens/],
   ["*", /^\/calendar-link/],
   ["POST", /^\/bank-labels\//],
+  // Le classement en lot envoie les libellés au fournisseur d'IA du foyer.
+  ["POST", /^\/transactions\/ai-classify/],
   ["*", /^\/auth\/register\//],
   ["*", /^\/auth\/users\/\d+\/enrollment/],
   ["*", /^\/auth\/passkeys\//],

@@ -3,6 +3,34 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.32.0
+
+Suite de la reprise d'un historique par les relevés : cartes à débit différé, longs relevés, classement par l'IA.
+
+- **Classement en lot proposé par l'IA.** Sur l'écran « À classer », « Proposer un classement » demande à ton
+  fournisseur d'IA une catégorie pour chaque libellé encore sans catégorie, les plus fréquents d'abord (120 libellés
+  par demande), d'après tes catégories et ce que tu as déjà classé toi-même. Tu relis, tu changes une catégorie, tu
+  décoches — une supposition n'est jamais cochée d'office —, puis tu appliques : rien n'est classé avant, seules des
+  opérations sans catégorie sont touchées, et l'application s'annule. « Retenir ces choix » crée une règle par
+  libellé. Fermé en mode démo ; coût compté à part dans Réglages → Coût de l'IA (« Classement d'opérations »).
+- **Cartes à débit différé dans les relevés.** Un achat par carte garde son jour d'achat quand le relevé l'imprime
+  (« FACT 120117 », « CARTE 12/01 ») : le réglage « jour d'achat ou jour du débit » s'applique à l'historique repris.
+  Quand le compte ne porte que le total du mois et que le détail des achats est imprimé à part, ce détail devient un
+  compte de carte — ses achats doivent faire le total prélevé, ils sont écrits le jour du prélèvement avec leur jour
+  d'achat, comme pour une carte lue à la banque — et le total écrit sur le compte est rangé en mouvement interne, que
+  le compte ou la carte soit validé en premier : les achats ne comptent qu'une fois.
+- **Relevés de plus de 40 pages.** Ils sont découpés en tranches de 25 pages lues l'une après l'autre telles
+  qu'elles sont imprimées, puis réunies, au lieu d'être lus par leur texte où débits et crédits se mêlent.
+- **Confirmation avant de valider un fichier dont un contrôle ne passe pas** (un relevé qui ne tombe pas juste, un
+  compte non choisi) : ce qui serait écrit est peut-être faux, Pécule le dit avant d'écrire.
+- **Historique des soldes.** Le solde de fin d'un relevé s'inscrit aussi pour un compte relié à une banque, là où
+  elle n'a rien donné ; un solde venu d'elle n'est jamais remplacé, et annuler la validation le retire.
+- Après la validation de relevés ou d'un export de la banque, l'import renvoie vers « À classer ».
+- Manuel : article « Faire proposer un classement par l'IA » ; articles des relevés, du tri et des cartes à débit
+  différé complétés.
+
+Une dépendance nouvelle : `pdf-lib` (découpe des PDF). Aucune migration, aucun réglage nouveau.
+
 ## 1.31.0
 
 Les sauvegardes du serveur survivent à une mise à jour chez tous les hébergeurs, sans aucun réglage.

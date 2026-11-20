@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balanceGap, coverage, sameAccount, suspects, tailKey } from "./statements.ts";
+import { balanceGap, coverage, isCardTotal, purchaseDayFor, sameAccount, suspects, tailKey } from "./statements.ts";
 
 describe("même compte", () => {
   it("ramène un numéro lu à ses quatre derniers caractères", () => {
@@ -80,5 +80,27 @@ describe("série de relevés", () => {
   it("ignore le même relevé déposé deux fois, et met de côté celui dont la période n'est pas lue", () => {
     const c = coverage([month(1, 1, 100, 150), month(9, 1, 100, 150), month(2, 2, 150, 90), { id: 5, start: null, end: null, opening: 1, closing: 2, operations: 3 }]);
     expect(c).toMatchObject({ statements: 4, gaps: [], breaks: [], undated: 1, to: "2025-02-28" });
+  });
+});
+
+describe("cartes à débit différé", () => {
+  it("garde un jour d'achat plausible : avant l'écriture, de soixante-dix jours au plus", () => {
+    expect(purchaseDayFor("2025-02-12", "2025-03-05")).toBe("2025-02-12");
+    expect(purchaseDayFor("2025-03-05", "2025-03-05")).toBeNull();
+    expect(purchaseDayFor("2025-03-09", "2025-03-05")).toBeNull();
+    expect(purchaseDayFor("2024-11-30", "2025-03-05")).toBeNull();
+    expect(purchaseDayFor("12/02/2025", "2025-03-05")).toBeNull();
+    expect(purchaseDayFor(null, "2025-03-05")).toBeNull();
+  });
+
+  it("reconnaît sur le compte le prélèvement des achats d'une carte : même montant au centime, à quatre jours près", () => {
+    const totals = [{ day: "2025-03-05", cents: -36283 }];
+    expect(isCardTotal({ date: "2025-03-05", amount: -362.83 }, totals)).toBe(true);
+    expect(isCardTotal({ date: "2025-03-07", amount: -362.83 }, totals)).toBe(true);
+    expect(isCardTotal({ date: "2025-03-12", amount: -362.83 }, totals)).toBe(false);
+    expect(isCardTotal({ date: "2025-03-05", amount: -362.84 }, totals)).toBe(false);
+    expect(isCardTotal({ date: "2025-03-05", amount: 362.83 }, totals)).toBe(false);
+    // La somme arrive de la base en texte décimal : comparée en nombre.
+    expect(isCardTotal({ date: "2025-03-05", amount: -362.83 }, [{ day: "2025-03-05", cents: "-36283" as unknown as number }])).toBe(true);
   });
 });

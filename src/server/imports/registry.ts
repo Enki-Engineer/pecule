@@ -20,8 +20,11 @@ export type Table = { title: string; columns: string[]; lines: (string | number 
 /** Ce que Pécule contient déjà pour la même clé : `diffs` vide = rien ne changerait. */
 export type Existing = { summary: string; diffs: { label: string; before: string; after: string }[] } | null;
 
-/** `part` : la partie du fichier à lire quand il en porte plusieurs (un compte d'un relevé multi-comptes). */
-export type Ctx = { userId: number; documentId: number | null; relPath: string; part?: string | null };
+/**
+ * `part` : la partie du fichier à lire quand il en porte plusieurs (un compte d'un relevé multi-comptes).
+ * `segment` : la tranche de pages montrée, quand un long PDF est lu en plusieurs fois.
+ */
+export type Ctx = { userId: number; documentId: number | null; relPath: string; part?: string | null; segment?: { from: number; to: number; pages: number } };
 
 export type RowColumn = { key: string; label: string; type: "date" | "texte" | "montant" };
 /**
@@ -34,6 +37,10 @@ export type Rows<T> = {
   /** Lignes demandées par réponse de l'IA : s'il en reste, la suite lui est redemandée. */
   perReply: number;
   columns: RowColumn[];
+  /** Champs imprimés à la fin du document (solde d'arrivée, totaux) : pour un PDF lu par tranches, la dernière tranche qui les porte fait foi. */
+  atEnd?: string[];
+  /** Ce que la première tranche d'un long PDF a lu (le compte), à désigner aux tranches suivantes. */
+  focus?(data: T): string | null;
   /** Devise des montants, quand ce n'est pas celle du foyer. */
   currency?(data: T): string | undefined;
   /** Solde avant la première ligne : l'écran en tire le solde après chaque ligne. */

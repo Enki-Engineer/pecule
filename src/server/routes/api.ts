@@ -24,6 +24,8 @@ import { listMemories } from "../tools/analyse.ts";
 import { getLogo, logoKeyAllowed, logoStatus, refreshWeakLogos, resetLogo } from "../logos.ts";
 import { registerUndo, runUndo, snapshotTransactions } from "../undo.ts";
 import { suggestCategories } from "../suggest.ts";
+import { applyClassification, CLASSIFY_BATCH, proposeClassification } from "../classify-ai.ts";
+import { meterCost } from "../ai.ts";
 import { generateSummary, latestSummary } from "../weekly.ts";
 import { ADMIN_NOTIF_TYPES, NOTIF_TYPES, getSubscription, notify, recentNotifications, subscribe, unsubscribe, updatePrefs, vapidKeys, type NotifPrefs } from "../notify.ts";
 import { deleteEnvelope, deleteGoal, envelopeCandidates, listEnvelopes, listGoals, saveEnvelope, saveGoal } from "../planning.ts";
@@ -282,6 +284,21 @@ api.post("/transactions/bulk-category", async (req, res) => {
   // remember : règle créée sur le libellé de la première (mode tri, « classer aussi les autres »).
   for (const [i, t] of visible.entries()) await setTransactionCategory(t.id, b.categoryId, !!b.remember && i === 0);
   res.json({ updated: visible.length, undoId: registerUndo(req.user!.id, `${visible.length} opération(s) reclassée(s)`, restore) });
+});
+
+/**
+ * Classement en lot par l'IA : une catégorie proposée par libellé encore sans catégorie (rien n'est écrit), puis
+ * l'application de ce que le membre a retenu, annulable. Fermé en démo (src/server/demo.ts).
+ */
+api.post("/transactions/ai-classify", hourly(30), async (req, res) => {
+  const { value, error, eur } = await meterCost(() => proposeClassification(req.user!.id));
+  if (error) throw error;
+  res.json({ ...value, costEur: Math.round(eur * 10_000) / 10_000 });
+});
+
+api.post("/transactions/ai-classify/apply", async (req, res) => {
+  const b = z.object({ picks: z.array(z.object({ key: z.string().min(1).max(120), credit: z.boolean(), categoryId: z.string().max(16) })).min(1).max(CLASSIFY_BATCH), remember: z.boolean().default(true) }).parse(req.body);
+  res.json(await applyClassification(req.user!.id, b.picks, b.remember));
 });
 
 /** Prélèvements de même forme que celui-ci (avant de le nommer) : motif, nombre, dernier montant. */

@@ -153,6 +153,7 @@ export const comptes: ManualTheme = {
           ],
         },
         tk("Un achat par carte peut compter le jour de l'achat ou le jour où la banque le prélève : c'est un réglage du foyer, voir [Jour d'achat ou jour du débit](/manuel/jour-achat-debit)."),
+        tk("Les relevés en PDF déposés au coffre suivent la même règle : chaque achat garde son jour d'achat, et le total du mois écrit sur le compte ne compte pas une seconde fois ([Reprendre l'historique d'un compte avec ses relevés](/manuel/reprendre-un-historique))."),
       ],
       links: [{ to: "/soldes", label: ["Soldes à venir"] }],
       words: tk("carte bancaire différé encours prélèvement fin de mois en attente visa"),

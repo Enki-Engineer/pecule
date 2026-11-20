@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArchiveRestore, KeyRound, ScanFace, Upload } from "lucide-react";
 import { api, ApiError } from "../api.ts";
+import { SetupCodeHelp } from "./SetupCodeHelp.tsx";
+import { forgetSetupCode } from "../setup-code.ts";
 import { ProgressBar } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
@@ -140,8 +142,10 @@ function Report({ r }: { r: RestoreReport }) {
  * neuve. Le code d'installation, puis l'archive (envoyée par morceaux, ou choisie parmi celles du serveur), puis le
  * suivi du chargement — Pécule est en maintenance pendant ce temps — et ce qu'il reste à faire.
  */
-export function RestoreSetup({ onBack }: { onBack: () => void }) {
-  const [code, setCode] = useState("");
+export function RestoreSetup({ onBack, linkedCode, command }: { onBack: () => void; /** Code reçu avec le lien du premier démarrage. */ linkedCode?: string | null; /** Commande qui, sur le serveur, donne ce lien. */ command?: string }) {
+  const [code, setCode] = useState(linkedCode ?? "");
+  // Le code est venu avec le lien : son champ n'est montré que si le serveur le refuse.
+  const [linked, setLinked] = useState(!!linkedCode);
   const [opened, setOpened] = useState<Opened | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [archive, setArchive] = useState<string | null>(null);
@@ -155,6 +159,11 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
   const jeton = opened?.jeton;
   const encrypted = !!file && /\.age$/i.test(file.name);
   const following = status !== null && status.etape !== "envoi" && status.etape !== "termine" && status.etape !== "echec";
+  const done = status?.etape === "termine";
+  // La sauvegarde est restaurée : le code d'installation a servi, il n'est plus gardé pour cet onglet.
+  useEffect(() => {
+    if (done) forgetSetupCode();
+  }, [done]);
 
   // Pendant le chargement, l'état se relit toutes les deux secondes ; une réponse manquée (maintenance, réseau) n'arrête rien.
   useEffect(() => {
@@ -184,6 +193,9 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
       setOpened(await api<Opened>("/restore/open", { method: "POST", json: { code } }));
     } catch (e) {
       setError(errorText(e));
+      // Refusé : le code du lien ne sera pas reproposé, son champ revient.
+      forgetSetupCode();
+      setLinked(false);
     } finally {
       setBusy(false);
     }
@@ -268,8 +280,14 @@ export function RestoreSetup({ onBack }: { onBack: () => void }) {
       <>
         <p className="mb-1 text-lg font-semibold">{t("Restaurer une sauvegarde")}</p>
         <p className="mb-6 max-w-xs text-sm text-muted">{t("Reprends une sauvegarde complète de Pécule dans cette installation neuve : membres, opérations, factures, documents et réglages reviennent tels qu'ils étaient.")}</p>
-        <input key="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("Code d'installation")} aria-label={t("Code d'installation")} autoComplete="off" spellCheck={false} className={field} />
-        <p className="mt-2 max-w-xs text-xs text-muted">{t("Le code d'installation est écrit dans le fichier de réglages du serveur (SETUP_CODE, à défaut API_TOKEN) ; « setup » l'affiche à l'installation.")}</p>
+        {linked ? (
+          <p className="max-w-xs text-xs text-muted">{t("Code d'installation reçu avec le lien.")}</p>
+        ) : (
+          <>
+            <input key="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("Code d'installation")} aria-label={t("Code d'installation")} autoComplete="off" spellCheck={false} className={field} />
+            <SetupCodeHelp command={command} />
+          </>
+        )}
         <button type="button" onClick={open} disabled={busy || !code.trim()} className={main}>
           {t("Continuer")}
         </button>

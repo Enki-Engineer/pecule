@@ -2328,7 +2328,6 @@ export const de: Dict = {
   "Copier": "Kopieren",
   "C'est noté": "Notiert",
   "Un jeton d'administration donne tous les droits sur Pécule, au nom de l'administrateur : pour la ligne de commande, tes scripts, ou un assistant relié au serveur MCP. Donne-lui un nom par usage, et révoque celui qui ne sert plus. Seule son empreinte est gardée.": "Ein Administrations-Token gibt im Namen des Administrators alle Rechte auf Pécule: für die Kommandozeile, deine Skripte oder einen mit dem MCP-Server verbundenen Assistenten. Gib ihm je Verwendung einen Namen und widerrufe, was nicht mehr gebraucht wird. Gespeichert wird nur sein Fingerabdruck.",
-  "Le code d'installation est écrit dans le fichier de réglages du serveur (SETUP_CODE, à défaut API_TOKEN) ; « setup » l'affiche à l'installation.": "Der Installationscode steht in der Einstellungsdatei des Servers (SETUP_CODE, sonst API_TOKEN); „setup“ zeigt ihn bei der Installation an.",
   "Trop de demandes cette heure-ci : réessaie plus tard.": "Zu viele Anfragen in dieser Stunde: Versuch es später noch einmal.",
   "10 jetons au plus : révoques-en un d'abord.": "Höchstens 10 Token: Widerrufe zuerst eines.",
   "Notifications et appareil": "Benachrichtigungen und Gerät",
@@ -3349,4 +3348,9 @@ export const de: Dict = {
   "Classer {n} opération": ["{n} Buchung kategorisieren", "{n} Buchungen kategorisieren"],
   "Un contrôle ne passe pas : ce qui sera écrit dans tes écrans est peut-être faux. Valider quand même ?": ["Eine Prüfung schlägt fehl: Was in deine Bildschirme geschrieben wird, ist vielleicht falsch. Trotzdem bestätigen?", "{n} Prüfungen schlagen fehl: Was in deine Bildschirme geschrieben wird, ist vielleicht falsch. Trotzdem bestätigen?"],
   "Fait clé retiré : {nom}": "Eckdatum entfernt: {nom}",
+  "Code d'installation reçu avec le lien.": "Installationscode mit dem Link erhalten.",
+  "Le code d'installation vient du serveur : cette commande, lancée dans le dossier de Pécule, donne un lien qui le porte.": "Der Installationscode kommt vom Server: Dieser Befehl, im Ordner von Pécule ausgeführt, gibt dir einen Link, der ihn enthält.",
+  "Elle récupère la nouvelle version et relance Pécule ; avant de modifier la base, le serveur en garde lui-même une sauvegarde complète. Rien ne s'installe depuis l'appli.": "Er holt die neue Version und startet Pécule neu; bevor die Datenbank geändert wird, legt der Server selbst eine vollständige Sicherung davon an. Aus der App heraus wird nichts installiert.",
+  "Depuis Claude Code, lance cette commande, puis « /mcp » dans une session pour te connecter :": "Führe in Claude Code diesen Befehl aus, dann „/mcp“ in einer Sitzung, um dich zu verbinden:",
+  "Un autre assistant (Cursor, VS Code, Gemini CLI, Codex…) se branche sur la même adresse en envoyant l'en-tête « Authorization: Bearer » suivi d'un jeton d'administration : il agit alors avec tous les droits de l'administrateur, qui crée ce jeton dans le bloc « Jetons d'administration ».": "Ein anderer Assistent (Cursor, VS Code, Gemini CLI, Codex…) verbindet sich mit derselben Adresse, indem er den Header „Authorization: Bearer“ gefolgt von einem Administrations-Token sendet: Er handelt dann mit allen Rechten des Administrators, der dieses Token im Block „Administrations-Token“ erstellt.",
 };

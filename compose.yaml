@@ -1,33 +1,107 @@
-# Pécule avec Docker : l'appli et sa base MariaDB. Réglages dans `.env` (écrit par `node scripts/setup.mjs --docker`).
+# Pécule avec Docker : l'appli et sa base MariaDB. Ce fichier suffit — ni dépôt, ni Node, ni fichier de réglages.
 #
-#   docker compose up -d                 Pécule sur http://localhost:3000 (essai sur sa propre machine)
-#   docker compose --profile https up -d  en plus, Caddy sert https://<PECULE_DOMAIN> (certificat automatique)
+#   docker compose up -d                                  Pécule sur http://localhost:3000
+#   docker compose exec pecule node scripts/lien.mjs      le lien à ouvrir pour créer ton foyer
+#   docker compose exec pecule node scripts/doctor.mjs    contrôle de l'installation
+#   docker compose pull && docker compose up -d           mise à jour (la base est sauvegardée avant d'être modifiée)
 #
-# L'image est celle qui est publiée à chaque version ; si elle ne peut pas être récupérée (hors ligne, copie du
-# projet), elle est construite depuis ce dossier. `--build` la construit toujours depuis ce dossier.
-# Mettre à jour : `node scripts/maj.mjs` (sauvegarde, nouvelle image, redémarrage, contrôle).
+# Les secrets de l'installation sont tirés au premier démarrage et gardés dans le volume « pecule-reglages ».
+# Un fichier `.env` posé à côté de celui-ci est facultatif ; ce qu'il donne l'emporte toujours. Ce qu'on y règle :
 #
-# Les clés d'accès (passkeys) exigent https ou localhost : sur un serveur, utiliser le profil « https » ou
-# son propre proxy, et donner la même adresse dans APP_URL.
+#   APP_URL=https://pecule.exemple.fr    adresse où Pécule est servi (https exigé hors de localhost : les clés d'accès)
+#   COMPOSE_PROFILES=https               Caddy sert cette adresse en https, certificat automatique (ports 80 et 443)
+#   PECULE_PORT=3322                     port publié sur la machine, quand 3000 est pris (l'adresse locale suit)
+#   PECULE_IMAGE=ghcr.io/enki-engineer/pecule:1.34.0     une version précise plutôt que la dernière
+#
+# Avec son propre proxy https : pas de profil « https », le proxy pointe vers 127.0.0.1:3000 et APP_URL donne l'adresse.
+# Guide : https://github.com/Enki-Engineer/pecule/blob/stable/docs/guide/installation.md
+
+# Les volumes portent ce nom, où que soit rangé ce fichier (« pecule_pecule-base »…) : relancé d'un autre dossier, il
+# retrouve la même installation — `docker compose ls -a` dit si elle existe déjà, et où. Une seconde installation sur
+# la même machine : `docker compose -p autre-nom …`, ou COMPOSE_PROJECT_NAME dans son fichier .env.
+# Docker Compose lit aussi les variables du terminal : n'y exporte pas, pour un autre projet, une variable du même nom
+# qu'un réglage de Pécule (APP_URL, API_TOKEN, SECRET_KEY…).
+name: pecule
+
+x-pecule: &pecule
+  # L'image publiée avec chaque version (amd64 et arm64). Si elle ne peut pas être récupérée et que ce dossier est le
+  # dépôt, elle est construite sur place ; `docker compose up -d --build` la construit toujours depuis le dépôt.
+  image: ${PECULE_IMAGE:-ghcr.io/enki-engineer/pecule:latest}
+  build: .
+
 services:
-  pecule:
-    build: .
-    # Une version précise plutôt que la dernière : PECULE_IMAGE=ghcr.io/enki-engineer/pecule:1.22.0 dans .env.
-    image: ${PECULE_IMAGE:-ghcr.io/enki-engineer/pecule:latest}
-    restart: unless-stopped
-    env_file: ${PECULE_ENV_FILE:-.env}
+  # Passe une fois avant les autres : tire les secrets qui manquent (ou reprend ceux de .env) et les garde dans les
+  # volumes. Il s'arrête aussitôt : c'est normal de le voir « Exited (0) ».
+  reglages:
+    <<: *pecule
+    restart: "no"
+    # En administrateur du conteneur, pour écrire dans des volumes neufs quel que soit leur propriétaire, et sans
+    # réseau : il ne fait qu'écrire ces fichiers.
+    user: "0:0"
+    network_mode: none
+    command: ["node", "scripts/setup.mjs", "--conteneur"]
     environment:
-      DATABASE_URL: mysql://pecule:${DB_PASSWORD}@base:3306/pecule
-      DEMO_DATABASE_URL: mysql://pecule_demo:${DEMO_DB_PASSWORD}@base:3306/pecule_demo
+      - BASE_INIT_DIR=/app/data/base-init
+      # Le volume de la base, en lecture seule, pour une seule question : existe-t-elle déjà ? Si oui et que rien ne
+      # donne ses réglages, il refuse d'en tirer de nouveaux.
+      - BASE_DATA_DIR=/app/data/base
+      # L'adresse de ce démarrage, et si elle a été demandée : une installation servie ailleurs n'est pas ramenée à
+      # l'adresse d'origine parce que ce fichier est lancé d'un dossier qui n'a pas son .env.
+      - APP_URL=${APP_URL:-http://localhost:${PECULE_PORT:-3000}}
+      - ADDRESS_GIVEN=${APP_URL:-}${PECULE_PORT:-}
+      - API_TOKEN
+      - SETUP_CODE
+      - SYNC_TOKEN
+      - SECRET_KEY
+      - DB_PASSWORD
+      - DEMO_DB_PASSWORD
+      - DB_ROOT_PASSWORD
+    volumes:
+      - pecule-reglages:/app/data/reglages
+      - pecule-base-init:/app/data/base-init
+      - pecule-base:/app/data/base:ro
+
+  pecule:
+    <<: *pecule
+    restart: unless-stopped
+    environment:
+      - APP_URL=${APP_URL:-http://localhost:${PECULE_PORT:-3000}}
       # Les sauvegardes du serveur vont dans le volume monté plus bas, quoi que dise `.env` : dans le conteneur
       # lui-même, elles disparaîtraient à chaque mise à jour. Pour les ranger ailleurs, changer ce qui est monté là.
-      BACKUP_DIR: /app/data/sauvegardes
+      - BACKUP_DIR=/app/data/sauvegardes
+      # Réglages lus dans `.env` quand il les donne ; absents, ils gardent leur valeur d'origine (voir .env.example).
+      # Les secrets, eux, viennent sinon du volume « pecule-reglages ».
+      - API_TOKEN
+      - SETUP_CODE
+      - SYNC_TOKEN
+      - SECRET_KEY
+      - TRUST_PROXY
+      - SYNC_INTERVAL_MINUTES
+      - UPDATE_CHECK
+      - UPDATE_REPO
+      - BACKUP_BEFORE_MIGRATION
+      - VAPID_CONTACT
+      - FINTA_API_KEY
+      - AI_FOUNDRY_RESOURCE
+      - AI_FOUNDRY_API_KEY
+      - AI_MODEL
+      - AI_EFFORT
+      - AI_ASSISTANT_EFFORT
+      - AI_STT_DEPLOYMENT
+      - AI_TTS_VOICE
+      - COINSTATS_API_KEY
+      - COINSTATS_OWNER
+      - COINGECKO_DEMO_KEY
     depends_on:
+      reglages:
+        condition: service_completed_successfully
       base:
         condition: service_healthy
     ports:
       - "127.0.0.1:${PECULE_PORT:-3000}:3000"
     volumes:
+      # Réglages gardés par l'installation (secrets, adresses des bases) : écrits par « reglages », lus ici.
+      - pecule-reglages:/app/data/reglages:ro
       # Sauvegardes complètes écrites par le serveur : avant une migration, et les automatiques si on les demande.
       - pecule-sauvegardes:/app/data/sauvegardes
 
@@ -37,25 +111,29 @@ services:
     environment:
       MARIADB_DATABASE: pecule
       MARIADB_USER: pecule
-      MARIADB_PASSWORD: ${DB_PASSWORD}
-      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      DEMO_DB_PASSWORD: ${DEMO_DB_PASSWORD}
+      # Mots de passe tirés par « reglages ». MariaDB ne les lit qu'une fois, à la création de sa base, avec ce que
+      # porte ce même dossier : la base du mode démo et son utilisateur à part.
+      MARIADB_PASSWORD_FILE: /docker-entrypoint-initdb.d/.mot-de-passe
+      MARIADB_ROOT_PASSWORD_FILE: /docker-entrypoint-initdb.d/.mot-de-passe-root
     command: ["--max-allowed-packet=256M"]
+    depends_on:
+      reglages:
+        condition: service_completed_successfully
     volumes:
       - pecule-base:/var/lib/mysql
-      - ./docker/base-init.sh:/docker-entrypoint-initdb.d/10-demo.sh:ro
+      - pecule-base-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 40
 
-  # https avec certificat automatique (Let's Encrypt) : `--profile https`, PECULE_DOMAIN dans .env, ports 80 et 443 ouverts.
+  # https avec certificat automatique (Let's Encrypt) : COMPOSE_PROFILES=https et APP_URL dans .env, ports 80 et 443 ouverts.
   caddy:
     profiles: ["https"]
     image: caddy:2
     restart: unless-stopped
-    command: caddy reverse-proxy --from ${PECULE_DOMAIN:-localhost} --to pecule:3000
+    command: caddy reverse-proxy --from ${PECULE_DOMAIN:-${APP_URL:-localhost}} --to pecule:3000
     ports:
       - "80:80"
       - "443:443"
@@ -67,4 +145,6 @@ services:
 volumes:
   pecule-base:
   pecule-sauvegardes:
+  pecule-reglages:
+  pecule-base-init:
   pecule-caddy:

@@ -174,7 +174,7 @@ async function peculeVersion(admin: boolean) {
     newer_version: u.state.kind === "a-jour" ? null : u.state.version,
     ...(u.state.kind === "palier" ? { install_first: u.state.palier, why: "la dernière version ne reprend pas une base aussi ancienne : passer d'abord par celle-ci" } : {}),
     checked: u.enabled ? (u.checkedAt ?? "pas encore") : "jamais : la vérification est coupée sur ce serveur (UPDATE_CHECK=0)",
-    how: "Rien ne s'installe depuis l'appli ni par l'assistant : la mise à jour se lance sur le serveur (`node scripts/maj.mjs`, qui sauvegarde d'abord). Article du manuel : mise-a-jour.",
+    how: `Rien ne s'installe depuis l'appli ni par l'assistant : la mise à jour se lance sur le serveur, dans le dossier de Pécule, par \`${u.commandPalier ?? u.command}\` (une sauvegarde complète est prise avant que la base ne soit modifiée). Article du manuel : mise-a-jour.`,
   };
 }
 

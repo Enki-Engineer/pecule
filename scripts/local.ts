@@ -26,7 +26,30 @@ const [cmd, arg] = process.argv.slice(2);
 const compose = (...args: string[]) => execFileSync("docker", ["compose", "-f", "compose.dev.yaml", ...args], { stdio: "inherit" });
 const root = () => mysql.createConnection({ uri: ROOT, multipleStatements: true });
 
+/** Projet Compose et conteneur de la base locale (compose.dev.yaml). */
+const PROJECT = "pecule-local";
+const CONTAINER = "pecule-base-locale";
+
+/**
+ * Avant la 1.34.0, le conteneur de la base locale appartenait au projet Compose du dossier du dépôt (« pecule »), celui
+ * que porte désormais compose.yaml. Il est retiré pour être recréé dans son propre projet ; ses données sont dans un
+ * volume, que rien ne touche ici.
+ */
+function leaveOldProject() {
+  let project = "";
+  try {
+    project = execFileSync("docker", ["inspect", "--format", '{{ index .Config.Labels "com.docker.compose.project" }}', CONTAINER], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return; // pas de conteneur : rien à déplacer
+  }
+  if (!project || project === PROJECT) return;
+  console.log(`· La base locale passe du projet Compose « ${project} » à « ${PROJECT} » (ses données restent dans leur volume)`);
+  execFileSync("docker", ["stop", CONTAINER], { stdio: "ignore" });
+  execFileSync("docker", ["rm", CONTAINER], { stdio: "ignore" });
+}
+
 async function base() {
+  leaveOldProject();
   compose("up", "-d", "--wait");
   const c = await root();
   await c.query("CREATE DATABASE IF NOT EXISTS pecule; CREATE DATABASE IF NOT EXISTS pecule_demo");

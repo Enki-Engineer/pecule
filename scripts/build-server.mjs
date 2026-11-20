@@ -12,7 +12,7 @@ const isExternal = (id) => !id.startsWith(".") && !id.startsWith("@/") && !path.
 // La version en service est inscrite dans le serveur : il la connaît sans `package.json` à côté de lui (src/server/version.ts).
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
-await build({
+const result = await build({
   configFile: false,
   define: { __PECULE_VERSION__: JSON.stringify(pkg.version), __PECULE_DEPUIS__: JSON.stringify(pkg.pecule?.depuis ?? pkg.version) },
   publicDir: false, // public/ est déjà copié dans dist/client par le build du front
@@ -32,6 +32,27 @@ await build({
   ssr: { target: "node" },
 });
 console.log("✓ serveur bundlé → dist/server.mjs");
+
+// Ce que le serveur charge en service doit figurer dans `dependencies` : l'image Docker et l'archive prête à l'emploi
+// n'installent qu'elles (`pnpm install --prod`). Un paquet oublié ne manquerait qu'une fois en production.
+const output = (Array.isArray(result) ? result : [result]).flatMap((r) => r.output ?? []);
+const loaded = new Set();
+for (const chunk of output) {
+  if (chunk.type !== "chunk") continue;
+  for (const id of [...chunk.imports, ...chunk.dynamicImports]) loaded.add(id);
+  // Chargés par leur adresse dans un fil à part (lecture et découpage des PDF).
+  for (const m of chunk.code.matchAll(/import\.meta\.resolve\(\s*["']([^"']+)["']\s*\)/g)) loaded.add(m[1]);
+}
+/** « drizzle-orm/mysql2 » → « drizzle-orm » ; « @simplewebauthn/server/helpers » → « @simplewebauthn/server ». */
+const packageOf = (id) => id.split("/").slice(0, id.startsWith("@") ? 2 : 1).join("/");
+// Le serveur de développement de Vite n'est chargé que hors production.
+const DEV_ONLY = new Set(["vite"]);
+const missing = [...new Set([...loaded].filter((id) => !id.startsWith("node:") && isExternal(id)).map(packageOf))].filter((name) => !DEV_ONLY.has(name) && !(name in (pkg.dependencies ?? {}))).sort();
+if (missing.length) {
+  console.error(`✗ Chargé par le serveur mais absent de « dependencies » (package.json) : ${missing.join(", ")}.\n  L'image Docker et l'archive prête à l'emploi n'installent que « dependencies » : range-le là, pas dans « devDependencies ».`);
+  process.exit(1);
+}
+console.log(`✓ dépendances d'exécution : ${Object.keys(pkg.dependencies ?? {}).length} paquets, tous ceux que le serveur charge y sont`);
 
 // Fichiers historiques : absents d'un dépôt dont l'histoire est repliée dans le schéma de départ.
 if (existsSync("src/server/migrations")) cpSync("src/server/migrations", "dist/migrations", { recursive: true });

@@ -98,8 +98,8 @@ export const securite: ManualTheme = {
         tk("Une sauvegarde complète se restaure dans une installation neuve de Pécule — nouveau serveur, changement d'hébergeur, base perdue. Rien ne peut donc être écrasé."),
         {
           steps: [
-            tk("Installe Pécule sur le serveur et ouvre-le : l'écran [[Bienvenue dans Pécule]] s'affiche tant qu'aucun membre n'existe."),
-            tk("Touche [[J'ai une sauvegarde : la restaurer]] et donne le code d'installation."),
+            tk("Installe Pécule sur le serveur et ouvre le lien du premier démarrage que donne son installation : l'écran [[Bienvenue dans Pécule]] s'affiche tant qu'aucun membre n'existe."),
+            tk("Touche [[J'ai une sauvegarde : la restaurer]]. Le lien porte le code d'installation ; si l'écran le demande, la commande affichée sous le champ redonne ce lien."),
             tk("Choisis l'archive sur ton appareil, ou une archive déjà présente sur le serveur, puis touche [[Restaurer cette sauvegarde]]."),
             tk("Garde la page ouverte : Pécule vérifie l'archive, recharge la base et les fichiers, puis redémarre."),
           ],
@@ -147,8 +147,8 @@ export const securite: ManualTheme = {
         {
           steps: [
             tk("Ouvre [[Réglages]] → [[Suivi technique]], section [[Version et mises à jour]] : tu y lis la version en service et, s'il y en a une plus récente, ce qu'elle apporte."),
-            tk("Sur le serveur, dans le dossier de Pécule, lance la commande affichée : `node scripts/maj.mjs`."),
-            tk("Elle télécharge une sauvegarde complète, installe la version, attend que Pécule ait redémarré et contrôle le résultat. Pendant le redémarrage, l'appli affiche « Pécule démarre… »."),
+            tk("Sur le serveur, dans le dossier de Pécule, lance la commande affichée : elle dépend de la façon dont Pécule est installé (`docker compose pull && docker compose up -d` avec Docker, `node scripts/maj.mjs` sinon)."),
+            tk("Elle installe la version et relance Pécule ; une sauvegarde complète est prise avant que la base ne soit modifiée. Pendant le redémarrage, l'appli affiche « Pécule démarre… »."),
           ],
         },
         tk("Une fois par jour, Pécule demande à GitHub si une version plus récente est publiée ; [[Vérifier maintenant]] pose la question tout de suite. L'administrateur peut aussi en être prévenu par une notification, type [[Nouvelle version de Pécule publiée]]."),

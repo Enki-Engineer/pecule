@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, ExternalLink, RefreshCw } from "lucide-react";
+import { ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../api.ts";
 import { Card } from "./ui.tsx";
 import { Markdown } from "./Markdown.tsx";
+import { ServerCommand } from "./ServerCommand.tsx";
 import { Section } from "./SettingsSection.tsx";
 import { cn } from "../cn.ts";
 import { timeAgo } from "../format.ts";
@@ -19,6 +20,9 @@ type Status = {
   state: UpdateState;
   latest: { version: string; url: string; notes: string; publishedAt: string | null } | null;
   docker: boolean;
+  /** Commande qui installe la dernière version, pour cette installation ; celle de la version palier quand il en faut une. */
+  command?: string;
+  commandPalier?: string | null;
   backups: { name: string; octets: number; at: number }[];
   backupDir: string;
   backupBeforeMigration: boolean;
@@ -27,23 +31,6 @@ type Status = {
 const day = (at: number | string) => new Date(at).toLocaleDateString(locale(), { day: "2-digit", month: "2-digit", year: "numeric" });
 const hour = (at: number) => new Date(at).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" });
 const mo = (octets: number) => t("{n} Mo", { n: Math.max(1, Math.round(octets / 1_048_576)).toLocaleString(locale()) });
-
-/** Une commande à lancer sur le serveur, avec son bouton de copie. */
-function Command({ text }: { text: string }) {
-  const copy = () =>
-    navigator.clipboard.writeText(text).then(
-      () => toast.success(t("Commande copiée")),
-      () => toast.error(t("Copie impossible : sélectionne la commande à la main.")),
-    );
-  return (
-    <div className="mt-2 flex items-center gap-2 rounded-xl bg-bg px-3 py-2">
-      <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-[13px]">{text}</code>
-      <button type="button" onClick={copy} title={t("Copier la commande")} aria-label={t("Copier la commande")} className="press shrink-0 rounded-lg p-1.5 text-muted hover:text-ink">
-        <Copy size={15} />
-      </button>
-    </div>
-  );
-}
 
 /**
  * Réglages → Suivi technique (administrateur seulement) : la version de Pécule en service, celle qui est publiée si
@@ -110,16 +97,19 @@ export function UpdateSettings() {
                 <p className="mt-3 text-sm">
                   {t("Ta version est trop ancienne pour y passer d'un coup : installe d'abord la version {palier}, puis relance la mise à jour. Sur le serveur, dans le dossier de Pécule :", { palier: newer.palier })}
                 </p>
-                <Command text={`node scripts/maj.mjs --version ${newer.palier}`} />
+                <ServerCommand text={d.commandPalier ?? `node scripts/maj.mjs --version ${newer.palier}`} />
               </>
             ) : (
               <>
                 <p className="mt-3 text-sm">{t("Pour l'installer, lance cette commande sur le serveur, dans le dossier de Pécule :")}</p>
-                <Command text="node scripts/maj.mjs" />
+                {/* Un écran plus récent que le serveur, le temps d'une mise en ligne : la commande d'avant. */}
+                <ServerCommand text={d.command ?? "node scripts/maj.mjs"} />
               </>
             )}
             <p className="mt-2 text-xs text-muted">
-              {t("Elle télécharge une sauvegarde complète, installe la version, attend que Pécule ait redémarré et contrôle le résultat. Rien ne s'installe depuis l'appli.")}{" "}
+              {d.docker
+                ? t("Elle récupère la nouvelle version et relance Pécule ; avant de modifier la base, le serveur en garde lui-même une sauvegarde complète. Rien ne s'installe depuis l'appli.")
+                : t("Elle télécharge une sauvegarde complète, installe la version, attend que Pécule ait redémarré et contrôle le résultat. Rien ne s'installe depuis l'appli.")}{" "}
               {d.latest && (
                 <a href={d.latest.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-accent">
                   {t("Voir cette version sur GitHub")}

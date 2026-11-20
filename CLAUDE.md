@@ -91,13 +91,31 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   obligatoire, version de Node, migrations repliées).
 - Publier : pousser l'étiquette `vX.Y.Z` sur le commit de la version (`git tag v1.22.0 && git push origin v1.22.0`).
   `.github/workflows/publication.yml` refuse une étiquette qui n'est pas la version du paquet, publie l'image
-  (`ghcr.io/enki-engineer/pecule`), crée la version sur GitHub et avance la branche `stable`. Une étiquette publiée
-  ne se déplace pas : un correctif est une nouvelle version.
+  (`ghcr.io/enki-engineer/pecule`), joint à la version ses formats (`compose.yaml`, `pecule.tar.gz`, `pecule.zip`,
+  `SHA256SUMS`, fabriqués par `scripts/paquet.mjs`), crée la version sur GitHub et avance la branche `stable`. Une
+  étiquette publiée ne se déplace pas : un correctif est une nouvelle version.
 - Le serveur ne s'installe jamais lui-même une mise à jour : il annonce la version publiée (`src/server/updates.ts`,
-  réservé à l'administrateur, fermé en démo) et `scripts/maj.mjs` l'installe sur le serveur. La version en service
-  ne se lit que par une route d'administration (`GET /api/updates`), jamais par `/api/health`, ouverte à tous.
-- Un réglage nouveau a une valeur par défaut qui ne change rien pour une installation existante, et se décrit dans
-  `.env.example` et dans les notes de la version.
+  réservé à l'administrateur, fermé en démo) et affiche la commande de son installation (`src/lib/install.ts` :
+  `docker compose pull && docker compose up -d`, ou `scripts/maj.mjs`). La version en service ne se lit que par une
+  route d'administration (`GET /api/updates`), jamais par `/api/health`, ouverte à tous.
+- Un réglage nouveau a une valeur par défaut qui ne change rien pour une installation existante, se décrit dans
+  `.env.example` et dans les notes de la version, et s'ajoute à l'environnement du service « pecule » de
+  `compose.yaml` (par son seul nom : il est lu dans `.env` s'il y est ; un test compare au schéma).
+
+## Installation
+
+- **Trois formats, une seule façon de faire** : `compose.yaml` seul (Docker), l'archive prête à l'emploi
+  (`scripts/paquet.mjs`), les sources. Une étape ajoutée à l'installation se reporte dans `AGENTS.md` (la marche à
+  suivre des agents IA, lisible par son adresse sans cloner le dépôt), `docs/guide/installation.md` et la compétence
+  `skills/pecule/SKILL.md`, recopiée dans `.claude/skills/pecule/` (un test compare).
+- **Avec Docker, rien à écrire** : les secrets sont tirés par le service « reglages » et gardés dans un volume
+  (`src/lib/settings-file.ts`). Ce que donne l'environnement l'emporte toujours ; on ne tire jamais un secret à la
+  place d'un secret que l'installation a déjà.
+- **`dependencies` = ce que le serveur charge en service**, rien d'autre : l'image et l'archive n'installent
+  qu'elles. Ce qui ne sert qu'à construire l'écran va dans `devDependencies` (le build refuse un paquet mal rangé).
+- **Les scripts de l'installation tournent avec Node seul** (`doctor`, `lien`, `importer` : aucun fichier TypeScript
+  importé), lisent les réglages par `scripts/lib/reglages.mjs`, ont un `--help` et un `--json`, et n'affichent
+  jamais un secret — sauf le lien du premier démarrage, qui est fait pour être remis.
 
 ## Interface
 
@@ -145,6 +163,8 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Une devise (cotée par la BCE) ou un pays | `CURRENCIES` (`src/lib/currencies.ts`), `COUNTRIES` (`src/lib/countries.ts`) |
 | Un article du manuel | `src/lib/manual/<thème>.ts` : identifiant, titre, résumé, blocs, écrans à ouvrir, mots de recherche ; l'assistant et la recherche le trouvent seuls |
 | Une option de la mise à jour | `scripts/maj.mjs` (Node seul, sans dépendance) et `docs/guide/mise-a-jour.md` |
+| Une commande de l'installation | `scripts/<nom>.mjs` (Node seul, `--help`, `--json`) ; pour qu'elle existe avec Docker et dans l'archive : la ligne `COPY` du `Dockerfile` et `SCRIPTS` de `scripts/paquet.mjs` |
+| Une commande que l'appli affiche à celui qui l'héberge | `src/lib/install.ts` (une par façon d'installer), jamais écrite en dur dans un écran |
 | Un réglage que l'assistant peut changer | `src/server/tools/reglages.ts` ; s'il est gardé par l'appareil : `DeviceSettings` (`src/lib/device-settings.ts`) et `applyDeviceSettings` (`src/client/deviceSettings.ts`) |
 
 La logique qui peut être pure va dans `src/lib/` avec son test à côté (`*.test.ts`).

@@ -23,6 +23,8 @@ import { setMemberLang, storedLang } from "./lang.ts";
 import { runDemo, runReal } from "./demo-context.ts";
 import { isRestoring } from "./maintenance.ts";
 import { dateBasis } from "./stat-dates.ts";
+import { installKind } from "./install.ts";
+import { linkCommand } from "../lib/install.ts";
 import { LANG_IDS, t as tr } from "../lib/i18n.ts";
 
 const SESSION_COOKIE = "pecule_session";
@@ -226,7 +228,8 @@ authRouter.use(limiter);
 authRouter.get("/me", async (req, res) => {
   // language : la langue choisie par le membre (null tant qu'il n'a rien choisi : l'appareil garde la sienne).
   const language = req.user ? await storedLang(req.user.id).catch(() => null) : null;
-  // setup : installation neuve, aucun membre encore — l'écran propose de créer le premier (l'administrateur).
+  // setup : installation neuve, aucun membre encore — l'écran propose de créer le premier (l'administrateur), et dit
+  // par quelle commande (`setupCommand`, celle de cette installation) le serveur donne le lien qui porte le code.
   const setup = !req.user && !(await one("SELECT id FROM users LIMIT 1"));
   // region : pays, devise et fuseau du foyer (l'écran met en forme les montants dans cette devise).
   // modulesOff : écrans facultatifs retirés par le foyer (la démo les montre tous).
@@ -235,13 +238,14 @@ authRouter.get("/me", async (req, res) => {
   // chose que « Foyer » pour ce membre (sinon l'écran ne propose pas le choix) ; several : le foyer compte-t-il plusieurs
   // membres (le choix vaut alors pour les revenus et les impôts). Lus dans la base du membre (démo comprise).
   const view = req.user ? await (req.user.demo ? runDemo : runReal)(() => memberView(req.user!.id)).catch(() => null) : null;
-  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true } : {}) });
+  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true, setupCommand: linkCommand(installKind()) } : {}) });
 });
 
 /**
  * Premier démarrage : crée le premier membre du foyer, qui en est l'administrateur, et renvoie son lien d'inscription
- * (création de sa clé d'accès). Possible seulement tant qu'aucun membre n'existe, et avec le code d'installation —
- * le jeton d'administration du serveur (API_TOKEN) : celui qui installe Pécule l'a sous les yeux, pas un visiteur.
+ * (création de sa clé d'accès). Possible seulement tant qu'aucun membre n'existe, et avec le code d'installation
+ * (SETUP_CODE, à défaut le jeton d'administration) : celui qui installe Pécule le reçoit du serveur (`scripts/lien.mjs`
+ * le donne dans un lien), pas un visiteur.
  */
 authRouter.post("/setup", async (req, res) => {
   const body = z.object({ name: z.string().trim().min(1).max(80), code: z.string().min(1).max(400) }).parse(req.body);

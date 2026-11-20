@@ -1,101 +1,182 @@
-# AGENTS.md — Pécule pour un agent
+# AGENTS.md — installer et tenir Pécule pour quelqu'un
 
-Pécule est une application web de suivi des finances d'un foyer (comptes, opérations, catégories, patrimoine,
-factures, documents, impôts, retraite), que chaque foyer héberge lui-même. Ce fichier s'adresse à un agent IA à qui
-l'on demande d'**installer, configurer, vérifier, mettre à jour** une instance, ou d'**y charger des documents**.
-Pour contribuer au code, les règles sont dans `CLAUDE.md`.
+*This file is written in French. Follow it as it is and answer the person in their own language: the commands are
+the same in every language.*
 
-## Ce que tu peux faire sans rien demander
+Tu es un agent IA à qui une personne demande d'**installer, vérifier, mettre à jour** Pécule, ou d'**y charger ses
+documents**. Ce fichier est ta marche à suivre ; il se suffit, que tu sois dans le dépôt ou dans un dossier vide.
+Pour modifier le code de Pécule, les règles sont dans `CLAUDE.md`.
 
-Lire le dépôt, lancer `node scripts/doctor.mjs`, `node scripts/importer.mjs <dossier> --a-blanc`, `pnpm lint`,
-`pnpm test`, `pnpm build`, et lire l'API d'une instance avec son jeton (il n'ouvre rien tant qu'aucun membre n'existe :
-l'API répond alors 409). Les scripts se lancent depuis la racine du dépôt ; chacun a son `--help`.
+> Tu lis cette page par un outil qui résume les pages web ? Relis le fichier brut, en entier — un résumé perd des
+> options : `curl -fsSL https://raw.githubusercontent.com/Enki-Engineer/pecule/stable/AGENTS.md`
 
-## Ce qui demande l'accord de la personne
+Pécule est une application web de suivi des finances d'un foyer (comptes, opérations, budget, patrimoine, factures,
+documents, impôts, retraite), que chaque foyer héberge lui-même : un serveur Node.js et une base MariaDB ou MySQL.
+Une installation sert un foyer. On s'y connecte par une clé d'accès (Face ID, Touch ID, code de l'appareil), ce qui
+exige une adresse en **https** — ou `http://localhost` pour un essai sur sa propre machine.
 
-- Écrire ou remplacer un fichier `.env` (`setup.mjs` refuse d'écraser un fichier existant sans `--force`).
-- Démarrer, arrêter ou reconstruire des conteneurs ; supprimer un volume (`docker compose down -v` efface la base).
-- Tout ce qui écrit dans une instance en service : valider un import, restaurer une sauvegarde, changer un réglage.
-- Envoyer des documents à l'instance quand un fournisseur d'IA y est réglé : ils lui seront transmis, et la lecture a
-  un coût (annonce l'estimation rendue à l'ouverture du lot).
+## Règles
 
-Ne demande jamais à la personne de te dicter un secret dans la conversation : les secrets sont produits par
-`setup.mjs` et restent dans `.env`. Une exception, voulue : le **code d'installation** (rendu par `setup.mjs`, et lisible
-dans `.env` à la clé `SETUP_CODE`) se remet une fois à la personne, qui le saisit au premier démarrage.
+- **Sans rien demander** : lire, télécharger `compose.yaml` ou l'archive, lancer `doctor`, `lien`, `maj --verifier`,
+  `importer --a-blanc`.
+- **Avec l'accord de la personne** : démarrer, arrêter ou mettre à jour Pécule ; remplacer un fichier `.env` qui
+  existe ; installer un logiciel sur sa machine ; tout ce qui écrit dans une instance en service ; envoyer des
+  documents (ils partent chez son fournisseur d'IA, et leur lecture a un coût). « Installe Pécule » vaut accord pour
+  écrire les fichiers d'une installation neuve dans son dossier, pas pour la démarrer : demande-le si elle ne l'a pas dit.
+- **Jamais** : `docker compose down -v` ou supprimer une base sans son accord explicite et une sauvegarde ; lui
+  demander un secret dans la conversation ; afficher le contenu de `.env` ou des réglages gardés.
+- **Un seul secret passe par toi** : le lien du premier démarrage. Il porte le code d'installation, ne sert qu'une
+  fois, et c'est à la personne de le recevoir.
+- **Tu ne peux pas lancer de commandes** (assistant de conversation) ? Guide la personne : une commande à la fois,
+  demande-lui ce qu'elle affiche, puis continue.
+- Chaque commande a son `--help` ; `--json` rend un résultat à lire par programme. Sous Windows : `curl.exe`.
+- Les guides cités (`docs/…`) sont dans le dépôt et dans l'archive. Depuis un dossier vide, ils se lisent à
+  `https://raw.githubusercontent.com/Enki-Engineer/pecule/stable/<chemin>`.
+- Un réglage à ajouter (`.env.example` les décrit) : une ligne `CLÉ=valeur` ajoutée à `.env`, sans afficher le
+  fichier, puis un redémarrage.
+- L'appli parle la langue de la personne, choisie sur le premier écran ; les écrans sont nommés ici en français. En
+  anglais : « Bienvenue dans Pécule » = *Welcome to Pécule*, Réglages = *Settings*, Compte et sécurité = *Account and
+  security*, Comptes et connexions = *Accounts and connections*, Suivi technique = *Technical monitoring*.
 
-## Installer
+## 1. Choisir le chemin
 
-Suis `docs/guide/installation.md`. En résumé, chaque étape se vérifie :
+Demande à la personne, si elle ne l'a pas dit : **où veut-elle Pécule ?**
+
+- « Sur cet ordinateur, pour essayer » → adresse `http://localhost:3000` (ou un autre port, si elle en donne un),
+  rien d'autre à régler. Dis-lui que son téléphone ne pourra pas s'y connecter : c'est un essai.
+- « Sur un serveur, à cette adresse » → une adresse en https dont le nom pointe vers ce serveur. Demande alors s'il
+  y a déjà un proxy https devant (Nginx, Traefik, Caddy, celui d'un NAS).
+
+Puis regarde la machine :
+
+| Ce que tu trouves | Chemin |
+| --- | --- |
+| `docker compose version` répond (version 2 ou plus récente) | **Docker**, section 2 — le plus simple, à préférer |
+| Pas de Docker, mais `node --version` ≥ 24 et une base MariaDB ou MySQL vide | **Archive**, section 3 |
+| Ni l'un ni l'autre | Propose d'installer Docker (https://docs.docker.com/get-docker/), avec son accord |
+
+## 2. Docker
+
+Un fichier suffit : ni dépôt, ni Node, ni réglage à écrire pour un essai.
+
+**Avant tout**, `docker compose ls -a` : si un projet `pecule` y figure, Pécule est déjà installé sur cette machine.
+Son dossier est celui de la colonne « CONFIG FILES » : c'est là qu'on le met à jour ou qu'on le dépanne — ne le
+réinstalle pas ailleurs. Sinon, dans un dossier que la personne gardera (il ne portera que `compose.yaml` et, s'il y
+en a un, `.env` : c'est de là que se lancent les commandes ; les données sont dans des volumes Docker) :
 
 | Étape | Commande | Réussite |
 | --- | --- | --- |
-| Réglages | `node scripts/setup.mjs --docker [--port 3000] --json` (ou `--base "mysql://…" --url https://…`) | `{"ok":true,…,"portBusy":false,"installationCode":"…"}` ; si `portBusy`, recommence avec un autre `--port` et `--force` |
-| Démarrage | `docker compose up -d` (ou `pnpm install --frozen-lockfile && pnpm build && node dist/server.mjs`) | `GET /api/health` → `{"ok":true,"phase":"pret"}` |
-| Contrôle | `node scripts/doctor.mjs --json` | `ok: true` ; la ligne `premier_demarrage` porte `todo: true` tant qu'aucun membre n'existe |
-| Premier membre | la personne ouvre l'adresse, donne son prénom et le code d'installation, crée sa clé d'accès | `doctor` : « Le foyer a ses membres » |
+| Fichier | `mkdir -p pecule && cd pecule && curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/compose.yaml` | `compose.yaml` existe |
+| Réglages, s'il en faut | écrire `.env` à côté (voir ci-dessous) : un serveur, ou un autre port que 3000 | — |
+| Démarrage | `docker compose up -d` | code 0 ; le service `reglages` s'arrête aussitôt (« Exited », code 0 dans `docker compose ps -a`) : c'est normal |
+| Lien | `docker compose exec -T pecule node scripts/lien.mjs --json` | attend que Pécule soit prêt, puis `{"ok":true,"setup":true,"url":"…","link":"…","code":"…"}` : c'est `link` qu'il faut remettre |
+| Contrôle | `docker compose exec -T pecule node scripts/doctor.mjs --json` | `"ok": true` ; la ligne `installe` donne la version |
 
-La création de la clé d'accès (Face ID, Touch ID) est le seul geste que tu ne peux pas faire à sa place.
+`-T` : tu n'as pas de terminal interactif. La personne, dans le sien, tape les mêmes commandes sans lui.
 
-Pièges connus : port 3000 souvent pris (`--port`) ; `docker compose up -d` récupère l'image publiée
-(`ghcr.io/enki-engineer/pecule`) et ne la construit depuis le dépôt que s'il ne peut pas la joindre — `--build` pour
-essayer le code du dossier ; https obligatoire hors `localhost` ; l'adresse ouverte dans le navigateur doit être exactement
-`APP_URL` ; sur un hébergeur Node, gestionnaire **pnpm**, entrée `dist/server.mjs`, aucun répertoire de sortie ;
-changer `SECRET_KEY` (ou `API_TOKEN` sur une installation sans `SECRET_KEY`) rend illisibles les clés enregistrées
-dans l'appli.
-
-## Configurer
-
-Tout le reste se règle dans l'appli, par la personne ou avec elle :
-
-- **Banques** : Réglages → Comptes et connexions. Enable Banking demande un compte et une application à son nom, puis un
-  accord donné auprès de sa banque : guide `docs/connecteurs/enable-banking.md`. Sans cela : import d'un fichier
-  (OFX, QIF, CSV) ou compte tenu à la main.
-- **IA** : Réglages → Comptes et connexions → Intelligence artificielle (clé chiffrée en base). Facultatif.
-- **Écrans** : Réglages → Foyer.
-
-## Charger des documents
+Pour un essai sur la machine, aucun fichier `.env` — sauf si le port 3000 est pris ou qu'elle en veut un autre :
 
 ```sh
-node scripts/importer.mjs <dossier> --a-blanc --json      # ce qui serait envoyé
-node scripts/importer.mjs <dossier> --plafond 5 --json    # ouvre un lot, envoie, attend la lecture
+PECULE_PORT=3322                      # l'adresse suit d'elle-même : http://localhost:3322, rien d'autre à régler
 ```
 
-`--a-blanc` trie d'après le type et la taille, sans contacter l'instance ; une option inconnue arrête la commande.
-Un import réel demande qu'un membre existe déjà.
+Sur un serveur, `.env` tient en deux lignes :
 
-Puis relis le lot : une proposition n'est jamais écrite sans validation. Valide d'un coup ce qui est « sûr »
-(`--lot <n> --valider-surs`), et présente le reste à la personne (champs lus, contrôles en échec, écarts avec ce que
-Pécule contient déjà) avant de valider fichier par fichier. Détail : `docs/guide/importer-des-documents.md`.
+```sh
+APP_URL=https://pecule.exemple.fr     # l'adresse exacte, sans barre finale
+COMPOSE_PROFILES=https                # Caddy obtient le certificat (ports 80 et 443) — à omettre s'il y a déjà un proxy
+```
 
-Par le serveur MCP de l'instance (`POST /api/mcp`, jeton d'administration ou connexion OAuth) : `list_imports`,
-`get_import_item`, `review_import_item`, `validate_safe_imports`, et tous les outils de lecture et d'action de
-Pécule (`tools/list`).
+Avec un proxy déjà là : pas de `COMPOSE_PROFILES`, et le proxy renvoie l'adresse vers `127.0.0.1:3000`.
 
-## Arrêter, désinstaller
+Les secrets de l'installation sont tirés au premier démarrage et gardés dans le volume `pecule-reglages` : tu n'as
+rien à produire ni à recopier. Si un contrôle de `doctor` porte `"ok": false`, applique son champ `fix`.
 
-`docker compose down` arrête Pécule et garde la base. `docker compose down -v` **efface la base** : jamais sans
-l'accord de la personne et une sauvegarde. Pour tout retirer ensuite : `docker rmi ghcr.io/enki-engineer/pecule`, puis `.env`.
+| Piège | Remède |
+| --- | --- |
+| `port is already allocated` | `PECULE_PORT=3322` dans `.env`, puis `docker compose up -d` (l'adresse locale devient `http://localhost:3322`, `APP_URL` compris) |
+| l'image ne se télécharge pas | réseau, ou registre injoignable : `docker compose pull` dit pourquoi |
+| `service "reglages" didn't complete successfully` | `docker compose logs reglages` dit pourquoi : le plus souvent une variable du terminal qui porte le nom d'un réglage de Pécule (`APP_URL`, `API_TOKEN`, `SECRET_KEY`… : `unset`), ou un démarrage lancé hors du dossier de l'installation |
+| Pécule ne devient pas prêt | `docker compose logs pecule --tail 100` |
+| la clé d'accès ne se crée pas | l'adresse ouverte n'est pas exactement `APP_URL`, ou n'est pas en https |
 
-## Mettre à jour
+## 3. Archive (Node.js, sans Docker)
 
-Suis `docs/guide/mise-a-jour.md`. Mettre à jour redémarre Pécule : c'est avec l'accord de la personne.
+Le serveur est livré construit, avec ses dépendances : ni build, ni gestionnaire de paquets. Il faut Node 24 ou
+plus récent et une base MariaDB 10.6+ ou MySQL 8+ **vide**, que la personne crée (ou dont elle te donne l'adresse).
 
 | Étape | Commande | Réussite |
 | --- | --- | --- |
-| Où en est-on | `node scripts/maj.mjs --verifier --json` | `state` : `a-jour`, `disponible`, `palier` (alors `palier` nomme la version à installer d'abord) ou `inconnu` (GitHub injoignable, ou serveur arrêté) |
-| Mise à jour | `node scripts/maj.mjs --oui` (Node : ajoute `--redemarrer "<commande>"`, ou redémarre le serveur quand la commande le demande) | code de sortie 0 : sauvegarde écrite (la commande dit où), nouvelle version en service, `doctor` sans blocage |
-| Version palier | `node scripts/maj.mjs --version <palier> --oui`, puis `node scripts/maj.mjs --oui` | idem |
+| Archive | `curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule.tar.gz && tar -xzf pecule.tar.gz && cd pecule` (ou `pecule.zip`) | `dist/server.mjs` existe ; l'archive peut ensuite être supprimée |
+| Réglages | `node scripts/setup.mjs --base "mysql://utilisateur:motdepasse@127.0.0.1:3306/pecule" --url https://pecule.exemple.fr --json` | `"ok":true` et `"database":{"reachable":true,…}` (la base est essayée) ; `portBusy: true` → ajoute `--port <autre> --force` |
+| Démarrage | sur un serveur : un service (systemd, pm2, gestionnaire de l'hébergeur) qui lance `node dist/server.mjs` ; pour un essai : `nohup node dist/server.mjs > pecule.log 2>&1 &` | la commande rend la main ; l'étape suivante dit si le serveur est prêt |
+| Lien | `node scripts/lien.mjs --json` | attend que Pécule soit prêt, puis `{"ok":true,"setup":true,"link":"…"}` |
+| Contrôle | `node scripts/doctor.mjs --json` | `"ok": true` |
 
-Le dossier où le serveur garde ses sauvegardes ne se règle pas : `doctor` le donne (ligne `dossier_sauvegardes`,
-avec `todo: true` s'il est resté dans l'installation faute de dossier personnel inscriptible — proposer alors
-`BACKUP_DIR`). La commande s'arrête sans rien modifier si la sauvegarde échoue ; ne passe `--sans-sauvegarde` que si une sauvegarde
-vient d'être prise. Les migrations de la base s'appliquent au démarrage, et le serveur écrit lui-même une sauvegarde
-juste avant (`pecule-avant-migration-….zip`). En cas d'échec, lis le journal avant toute autre tentative, et ne
-restaure une sauvegarde (dans une base vide, ou par l'écran de premier démarrage d'une installation neuve) qu'avec
-l'accord de la personne. Un hébergeur relié à GitHub se met à
-jour en suivant la branche `stable`.
+Toutes ces commandes se lancent dans le dossier `pecule`. Sans `--url`, l'adresse est `http://localhost:<port>`
+(essai sur la machine) ; `--port` choisit le port, 3000 sinon. Lancé par `nohup`, le serveur ne repart pas avec la
+machine : dis-le à la personne. Chez un hébergeur Node.js qui règle les variables dans son interface : recopie-y le
+contenu du `.env` produit, fichier d'entrée `dist/server.mjs`, aucune commande de build, aucun répertoire de sortie.
+Un modèle de service systemd est dans `docs/guide/installation.md`.
 
-## Diagnostiquer
+## 4. Remettre la main à la personne
 
-`node scripts/doctor.mjs --json` d'abord. Puis le journal du serveur (`docker compose logs pecule --tail 100`), et dans
-l'appli Réglages → Suivi technique (alertes, synchronisations, journal des modifications).
+Donne-lui le **lien** rendu par `lien` (pas une variante de l'adresse) et dis-lui ce qui l'attend :
+
+1. elle ouvre le lien : l'écran « Bienvenue dans Pécule » ne demande que son prénom ;
+2. elle crée sa clé d'accès — c'est le seul geste que tu ne peux pas faire à sa place.
+
+Le lien a déjà servi, ou la page a été fermée avant la clé d'accès ? Relance `lien` : il donne ce qu'il faut ouvrir.
+
+## 5. Ensuite, dans l'appli
+
+Tout le reste se règle à l'écran, par la personne ou avec elle. Rien n'est obligatoire.
+
+- **Découvrir sans rien saisir** : Réglages → Mode démo ouvre Pécule sur une famille fictive ; on en sort en se
+  reconnectant.
+- **Banques** : Réglages → Comptes et connexions. Enable Banking (lecture seule, gratuit pour un usage personnel)
+  demande un compte à son nom et son accord auprès de sa banque : `docs/connecteurs/enable-banking.md`. Sinon : un
+  fichier de la banque (OFX, QIF, CSV), ou un compte tenu à la main.
+- **IA** (assistant, lecture des documents) : même écran, bloc « Intelligence artificielle », avec sa propre clé.
+- **Ton accès à Pécule** : son serveur MCP est à `<adresse>/api/mcp`. Claude s'y connecte par la clé d'accès de la
+  personne (Réglages → Comptes et connexions → Applications connectées donne l'adresse) ; tout autre client envoie
+  l'en-tête `Authorization: Bearer <jeton>` avec un jeton d'administration qu'elle crée au même écran.
+- **Ses documents** (bulletins, avis d'impôt, relevés, actes) : `node scripts/importer.mjs <dossier> --a-blanc --json`
+  montre ce qui serait envoyé ; sans `--a-blanc`, le lot est lu, puis **rien n'est écrit sans validation**. Avec
+  Docker, la commande se lance dans le conteneur : `docker compose cp <dossier> pecule:/tmp/documents`, puis
+  `docker compose exec -T -u 0 pecule node scripts/importer.mjs /tmp/documents --a-blanc --json` (et
+  `docker compose exec -T -u 0 pecule rm -rf /tmp/documents` à la fin). Détail : `docs/guide/importer-des-documents.md`.
+
+## 6. Mettre à jour
+
+Pécule prévient son administrateur (Réglages → Suivi technique) et affiche la commande de son installation.
+Mettre à jour redémarre Pécule : c'est avec l'accord de la personne.
+
+| Installation | Où en est-on | Mettre à jour |
+| --- | --- | --- |
+| Docker | `docker compose exec -T pecule node scripts/doctor.mjs --json` (contrôle `version`, une fois le premier membre créé) | `docker compose pull && docker compose up -d` |
+| Archive ou dépôt | `node scripts/maj.mjs --verifier --json` | `node scripts/maj.mjs --oui --redemarrer "<commande qui relance le serveur>"` |
+
+Ce sont tes commandes. À la personne, donne celle qu'elle tapera elle-même : la même avec Docker ; `node scripts/maj.mjs`
+sinon, qui demande confirmation puis dit à quel moment redémarrer le serveur.
+
+Avant de modifier sa base, le serveur en écrit lui-même une sauvegarde complète ; `maj.mjs` en télécharge une en
+plus, et s'arrête sans rien toucher si elle échoue. Si `state` vaut `palier`, installe d'abord la version nommée
+(`--version <palier>`). En cas d'échec : lis le journal avant toute autre tentative, et ne restaure une sauvegarde
+qu'avec l'accord de la personne. Détail : `docs/guide/mise-a-jour.md`.
+
+## 7. Diagnostiquer, arrêter, désinstaller
+
+- `doctor` d'abord (`--json`), puis le journal : `docker compose logs pecule --tail 100`, celui de l'hébergeur ou du
+  service, ou le fichier que tu as donné au serveur (`pecule.log`). Dans l'appli : Réglages → Suivi technique. Les
+  pannes connues sont à la fin de `docs/guide/installation.md`.
+- `docker compose down` arrête Pécule et garde tout. `docker compose down -v` **efface la base, les réglages et les
+  sauvegardes du serveur** : jamais sans l'accord de la personne et une sauvegarde téléchargée (Réglages → Compte et
+  sécurité → Sauvegarde complète).
+
+## Quand tu as fini
+
+Dis à la personne, en quelques lignes : l'adresse de Pécule, le lien à ouvrir, le dossier où il est installé (à
+garder), la commande qui le met à jour (section 6), comment le serveur est tenu en marche s'il n'est pas dans Docker,
+qu'une sauvegarde hors du serveur se règle dans Réglages → Compte et sécurité — et, pour un essai sur sa machine, que
+son téléphone ne pourra pas s'y connecter.

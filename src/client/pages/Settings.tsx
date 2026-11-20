@@ -24,6 +24,7 @@ import { LanguageSettings } from "../components/LanguageSettings.tsx";
 import { AutoBackupSettings, BackupSettings } from "../components/BackupSettings.tsx";
 import { OffsiteBackupSettings } from "../components/BackupOffsite.tsx";
 import { UpdateSettings } from "../components/UpdateSettings.tsx";
+import { ServerCommand } from "../components/ServerCommand.tsx";
 import { HouseholdSettings } from "../components/HouseholdSettings.tsx";
 import { ConnectionsSettings } from "../components/ConnectionsSettings.tsx";
 import { AiCostScreen, AiCostSummary } from "../components/AiCost.tsx";
@@ -470,6 +471,9 @@ function ConnectedAppsSection() {
             <span className="truncate">{url}</span>
             <Copy size={14} className="shrink-0 text-accent" />
           </button>
+          <p className="mt-3">{t("Depuis Claude Code, lance cette commande, puis « /mcp » dans une session pour te connecter :")}</p>
+          <ServerCommand text={`claude mcp add --transport http pecule ${url}`} className="card" />
+          <p className="mt-3">{t("Un autre assistant (Cursor, VS Code, Gemini CLI, Codex…) se branche sur la même adresse en envoyant l'en-tête « Authorization: Bearer » suivi d'un jeton d'administration : il agit alors avec tous les droits de l'administrateur, qui crée ce jeton dans le bloc « Jetons d'administration ».")}</p>
         </div>
         {grants.data?.grants.map((g) => (
           <div key={g.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">

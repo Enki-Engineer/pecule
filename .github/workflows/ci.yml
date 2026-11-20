@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# Une commande qui échoue au milieu d'un tube arrête l'étape.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   controles:
     runs-on: ubuntu-latest
@@ -53,3 +58,65 @@ jobs:
           curl -sf http://127.0.0.1:3000/api/health | grep '"phase":"pret"'
           curl -sf http://127.0.0.1:3000/api/auth/me | grep '"setup":true'
           node scripts/doctor.mjs --url http://127.0.0.1:3000 --fichier /dev/null || true
+
+      # L'archive prête à l'emploi, telle qu'une version la publie : dépliée hors du dépôt, elle doit démarrer sur une
+      # base vide avec Node seul — ni pnpm, ni build, ni dépendance prise ailleurs que dans l'archive.
+      - name: Archive prête à l'emploi
+        run: |
+          node scripts/paquet.mjs
+          ( cd dist/paquet && sha256sum --check SHA256SUMS )
+          mkdir -p "$RUNNER_TEMP/archive" && tar -xzf dist/paquet/pecule.tar.gz -C "$RUNNER_TEMP/archive"
+          unzip -q dist/paquet/pecule.zip -d "$RUNNER_TEMP/archive-zip" && diff -rq "$RUNNER_TEMP/archive/pecule" "$RUNNER_TEMP/archive-zip/pecule"
+          mysql -h127.0.0.1 -uroot -ppecule-ci -e "CREATE DATABASE pecule_archive" 2>/dev/null \
+            || docker exec "$(docker ps -q --filter ancestor=mariadb:11.8 | head -1)" mariadb -uroot -ppecule-ci -e "CREATE DATABASE pecule_archive"
+          cd "$RUNNER_TEMP/archive/pecule"
+          NODE="$(dirname "$(command -v node)")"
+          env -i PATH="$NODE:/usr/bin:/bin" HOME="$HOME" node scripts/setup.mjs --base "mysql://root:pecule-ci@127.0.0.1:3306/pecule_archive" --port 3100 --json | grep -q '"ok":true'
+          echo "BACKUP_DIR=$RUNNER_TEMP/sauvegardes" >> .env
+          env -i PATH="$NODE:/usr/bin:/bin" HOME="$HOME" node dist/server.mjs > "$RUNNER_TEMP/archive.log" 2>&1 &
+          env -i PATH="$NODE:/usr/bin:/bin" HOME="$HOME" node scripts/lien.mjs --json | tee "$RUNNER_TEMP/lien.json" | grep -q '"setup":true' || { cat "$RUNNER_TEMP/archive.log"; exit 1; }
+          env -i PATH="$NODE:/usr/bin:/bin" HOME="$HOME" node scripts/doctor.mjs
+          env -i PATH="$NODE:/usr/bin:/bin" HOME="$HOME" node scripts/maj.mjs --verifier --json | grep -q '"source": "archive"'
+
+  # L'installation Docker telle que la décrit le guide : un dossier qui ne contient que compose.yaml, aucun fichier
+  # de réglages, l'image construite depuis ce commit.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: pecule:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Installation neuve, sans fichier de réglages
+        env:
+          PECULE_IMAGE: pecule:ci
+        run: |
+          mkdir -p "$RUNNER_TEMP/installation" && cp compose.yaml "$RUNNER_TEMP/installation/" && cd "$RUNNER_TEMP/installation"
+          docker compose version
+          docker compose up -d
+          docker compose exec -T pecule node scripts/lien.mjs --json | tee lien.json
+          grep -q '"setup":true' lien.json && grep -q '"link":"http://localhost:3000/#code=' lien.json
+          docker compose exec -T pecule node scripts/doctor.mjs | tee doctor.txt
+          grep -q 'Mode démo disponible' doctor.txt
+          curl -sf http://127.0.0.1:3000/api/health | grep '"phase":"pret"'
+      - name: Premier membre, puis second démarrage avec les mêmes secrets
+        env:
+          PECULE_IMAGE: pecule:ci
+        run: |
+          cd "$RUNNER_TEMP/installation"
+          CODE="$(jq -r .code lien.json)"
+          curl -sf -X POST http://127.0.0.1:3000/api/auth/setup -H 'Content-Type: application/json' -d "{\"name\":\"Alex\",\"code\":\"$CODE\"}" | grep -q '"link"'
+          AVANT="$(docker compose exec -T pecule sha256sum data/reglages/pecule.env)"
+          docker compose up -d --force-recreate
+          docker compose exec -T pecule node scripts/lien.mjs --json | grep -q '"member":"Alex"'
+          test "$AVANT" = "$(docker compose exec -T pecule sha256sum data/reglages/pecule.env)"
+          docker compose exec -T pecule node scripts/doctor.mjs --json | grep -q '"id": "version"'
+      - name: Journal, en cas d'échec
+        if: failure()
+        run: cd "$RUNNER_TEMP/installation" && docker compose ps -a && docker compose logs --tail 80

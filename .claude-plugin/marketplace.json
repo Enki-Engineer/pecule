@@ -1,0 +1,12 @@
+{
+  "name": "pecule",
+  "owner": { "name": "Pécule" },
+  "metadata": { "description": "Installer et tenir Pécule, le suivi auto-hébergé des finances d'un foyer." },
+  "plugins": [
+    {
+      "name": "pecule",
+      "source": "./skills",
+      "description": "Installer, vérifier, mettre à jour une instance de Pécule et y charger un dossier de documents."
+    }
+  ]
+}

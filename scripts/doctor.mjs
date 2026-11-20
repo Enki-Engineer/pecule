@@ -2,22 +2,21 @@
 // Diagnostic d'une installation de Pécule : réglages, base, serveur, premier démarrage, version. Sans dépendance (Node seul).
 //
 //   node scripts/doctor.mjs [--fichier .env] [--url http://localhost:3000] [--json]
+//   docker compose exec pecule node scripts/doctor.mjs      avec Docker, sans Node sur la machine
 //
 // Code de sortie 0 si rien ne bloque, 1 sinon. Aucun secret n'est affiché.
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { describeDatabase, probeDatabase, supported } from "./lib/base.mjs";
+import { dockerState, loadSettings, localPort, ROOT, run } from "./lib/reglages.mjs";
 
 const argv = process.argv.slice(2);
 if (argv.includes("--help") || argv.includes("-h")) {
-  console.log("Diagnostic d'une installation de Pécule.\n\n  node scripts/doctor.mjs [--fichier .env] [--url http://localhost:3000] [--json]\n\nContrôle Node, les réglages, le serveur, son démarrage, le premier membre et la version en service. Code de sortie 1 si quelque chose bloque.");
+  console.log("Diagnostic d'une installation de Pécule.\n\n  node scripts/doctor.mjs [--fichier .env] [--url http://localhost:3000] [--json]\n  docker compose exec pecule node scripts/doctor.mjs      avec Docker, sans Node sur la machine\n\nContrôle Node, les réglages, le serveur, son démarrage, le premier membre et la version en service. Code de sortie 1 si quelque chose bloque.");
   process.exit(0);
 }
 const value = (name) => (argv.includes(`--${name}`) ? argv[argv.indexOf(`--${name}`) + 1] : undefined);
 const json = argv.includes("--json");
-// Sans --fichier : le .env du dossier courant, sinon celui de la racine du dépôt (le script peut être lancé d'ailleurs).
-const here = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const file = value("fichier") ?? (existsSync(".env") ? ".env" : path.join(here, ".env"));
 const checks = [];
 const check = (id, ok, message, fix) => checks.push({ id, ok, message, ...(ok || !fix ? {} : { fix }) });
 
@@ -25,33 +24,27 @@ const check = (id, ok, message, fix) => checks.push({ id, ok, message, ...(ok ||
 const major = Number(process.versions.node.split(".")[0]);
 check("node", major >= 24, `Node ${process.versions.node}`, "Installer Node 24 ou plus récent (ou utiliser Docker).");
 
-// 2. Réglages
-const env = {};
-if (existsSync(file)) {
-  for (const line of readFileSync(file, "utf8").split("\n")) {
-    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
-    if (m && !line.trim().startsWith("#")) env[m[1]] = m[2].replace(/^["']|["']$/g, "");
-  }
-  check("reglages", true, `${file} trouvé (${Object.keys(env).length} réglages)`);
-} else check("reglages", false, `${file} introuvable`, "node scripts/setup.mjs --docker   (ou --base \"mysql://…\")");
+// 2. Réglages : le fichier .env de la machine, ou ceux que l'installation garde dans son volume (Docker).
+const settings = loadSettings({ file: value("fichier") });
+const { env, docker, inside } = settings;
 
-const docker = !!env.DB_PASSWORD && !env.DATABASE_URL;
-if (existsSync(file)) {
-  for (const name of ["API_TOKEN", "SYNC_TOKEN"]) check(name.toLowerCase(), (env[name] ?? "").length >= 32, `${name} ${env[name] ? `(${env[name].length} caractères)` : "absent"}`, `${name} : 32 caractères au moins (node scripts/setup.mjs --force en tire un).`);
-  let appUrl = null;
+// La version des fichiers installés ici : celle du conteneur, de l'archive ou du dépôt. Avec Docker, lancé depuis la
+// machine, ce dossier ne dit rien de l'image ; la version en service se lit plus bas, auprès du serveur.
+if (inside || !docker) {
   try {
-    appUrl = new URL(env.APP_URL ?? "");
+    const manifest = path.join(ROOT, "package.json");
+    const version = existsSync(manifest) ? JSON.parse(readFileSync(manifest, "utf8")).version : null;
+    if (typeof version === "string") checks.push({ id: "installe", ok: true, version, message: `Pécule ${version} installé ici` });
   } catch {
-    /* signalé ci-dessous */
+    /* fichier illisible : la ligne est simplement absente */
   }
-  const local = !!appUrl && ["localhost", "127.0.0.1"].includes(appUrl.hostname);
-  check("app_url", !!appUrl && (appUrl.protocol === "https:" || local), `APP_URL ${env.APP_URL ?? "absent"}`, "APP_URL : une adresse en https, ou http://localhost pour un essai local (les clés d'accès l'exigent).");
-  check("base", docker || /^mysql:\/\//.test(env.DATABASE_URL ?? ""), docker ? "Base fournie par Docker Compose" : `DATABASE_URL ${env.DATABASE_URL ? "présent" : "absent"}`, "DATABASE_URL=mysql://utilisateur:motdepasse@hote:3306/base (ou setup --docker).");
 }
+const count = Object.keys(env).filter((k) => /^[A-Z0-9_]+$/.test(k)).length;
 
-// 3. Serveur
-const port = env.PECULE_PORT ?? env.PORT ?? "3000";
+// Le serveur répond-il ? Lu d'abord : un serveur en marche sans fichier de réglages tient les siens de son environnement.
+const port = localPort(settings);
 const target = (value("url") ?? `http://127.0.0.1:${port}`).replace(/\/+$/, "");
+const logs = docker ? "docker compose logs pecule --tail 100" : "le journal du serveur ou de l'hébergeur";
 let health = null;
 try {
   const r = await fetch(`${target}/api/health`, { signal: AbortSignal.timeout(8000) });
@@ -61,29 +54,80 @@ try {
 } catch {
   /* serveur arrêté ou injoignable */
 }
-check("serveur", !!health, health ? `Serveur joint sur ${target}` : `Pécule ne répond pas sur ${target}`, docker ? "docker compose up -d, puis docker compose logs pecule" : "pnpm build && node dist/server.mjs (ou voir le journal de l'hébergeur)");
+
+// Docker ne répond pas : rien de ce qui suit ne peut être lu dans les conteneurs.
+const engine = !inside && (docker || settings.dir) ? dockerState() : "pret";
+if (docker && engine !== "pret") check("docker", false, engine === "absent" ? "Docker (avec Compose) est introuvable sur cette machine" : "Docker est installé mais ne répond pas", engine === "absent" ? "Installer Docker : https://docs.docker.com/get-docker/" : "Démarrer Docker, puis relancer cette commande.");
+// Un fichier Compose ici, et Docker arrêté : si Pécule est tenu par Docker, rien ne peut le dire tant qu'il ne répond pas.
+else if (!docker && settings.dir && engine === "arrete" && !health) check("docker", false, "Docker est installé mais ne répond pas : impossible de dire si Pécule est tenu par Docker ici", "Démarrer Docker, puis relancer cette commande.");
+if (inside) check("reglages", settings.kept, settings.kept ? `Réglages gardés par l'installation (${settings.keptFile})` : `Réglages gardés introuvables (${settings.keptFile})`, "Le service « reglages » de compose.yaml n'a pas tourné : docker compose up -d");
+else if (settings.file) check("reglages", true, `${settings.file} trouvé (${count} réglages${settings.kept ? ", complétés par ceux que l'installation garde dans son volume" : ""})`);
+else if (docker) check("reglages", true, settings.kept ? "Pas de fichier .env : les réglages sont gardés par l'installation, dans le volume « pecule-reglages »" : "Pas de fichier .env : avec Docker il est facultatif, l'installation garde ses réglages dans un volume");
+// Pas de fichier, mais un Pécule répond : ses réglages lui viennent de son environnement (les variables d'un
+// hébergeur). Surtout ne pas conseiller d'en écrire : un .env posé à côté de lui pourrait remplacer sa clé de chiffrement.
+else if (health) check("reglages", true, "Pas de fichier de réglages ici : le serveur répond, ses réglages lui viennent de son environnement (variables de l'hébergeur)");
+else if (settings.dir && engine === "arrete") {
+  // Signalé plus haut : Docker ne répond pas.
+} else if (settings.dir) check("reglages", false, "Rien n'est installé dans ce dossier encore (ni réglages, ni conteneur)", "Avec Docker : docker compose up -d — sur un hébergement Node.js : node scripts/setup.mjs --base \"mysql://…\" --url https://…");
+else check("reglages", false, `${settings.asked} introuvable`, "node scripts/setup.mjs --base \"mysql://…\" --url https://…");
+
+// Les secrets ne se contrôlent que s'ils sont lisibles d'ici (fichier .env, ou conteneur en marche).
+const known = inside || !!settings.file || settings.kept;
+if (known) {
+  for (const name of ["API_TOKEN", "SYNC_TOKEN"]) {
+    // Avec Docker et un fichier .env sans secrets, ils sont dans le volume : rien à signaler tant que le conteneur ne tourne pas.
+    if (docker && !env[name] && !inside && !settings.kept) continue;
+    check(name.toLowerCase(), (env[name] ?? "").length >= 32, `${name} ${env[name] ? `(${env[name].length} caractères)` : "absent"}`, `${name} : 32 caractères au moins (node scripts/setup.mjs --force en tire un).`);
+  }
+  let appUrl = null;
+  try {
+    appUrl = new URL(env.APP_URL ?? (docker ? `http://localhost:${localPort(settings)}` : ""));
+  } catch {
+    /* signalé ci-dessous */
+  }
+  const local = !!appUrl && ["localhost", "127.0.0.1"].includes(appUrl.hostname);
+  check("app_url", !!appUrl && (appUrl.protocol === "https:" || local), `APP_URL ${env.APP_URL ?? (appUrl ? `${appUrl.origin} (par défaut)` : "absent")}`, "APP_URL : une adresse en https, ou http://localhost pour un essai local (les clés d'accès l'exigent).");
+  const ownBase = /^mysql:\/\//.test(env.DATABASE_URL ?? "");
+  check("base", docker || ownBase, docker ? (ownBase && !inside ? "Base donnée par DATABASE_URL" : "Base fournie par Docker Compose") : `DATABASE_URL ${env.DATABASE_URL ? "présent" : "absent"}`, "DATABASE_URL=mysql://utilisateur:motdepasse@hote:3306/base (ou Docker : docker compose up -d).");
+  // La base elle-même, quand son adresse vaut d'ici (pas celle du réseau des conteneurs, lue depuis la machine) et que
+  // le pilote du serveur est à portée : répond-elle, quelle version, vide ou déjà remplie ?
+  if (ownBase && (inside || !docker)) {
+    const probe = await probeDatabase(env.DATABASE_URL);
+    if (probe) {
+      const text = describeDatabase(probe);
+      const fine = probe.reachable && supported(probe.version);
+      checks.push({ id: "base_jointe", ok: fine, message: `${text[0].toUpperCase()}${text.slice(1)}`, ...(probe.reachable ? { version: probe.version, tables: probe.tables } : {}), ...(fine ? {} : { fix: probe.reachable ? "Passer à MariaDB 10.6 ou MySQL 8, ou plus récent." : "Vérifier l'hôte, l'utilisateur, le mot de passe et le nom de la base dans DATABASE_URL, et que la base existe." }) });
+    }
+  }
+}
+
+// 3. Serveur (joint plus haut)
+check("serveur", !!health, health ? `Serveur joint sur ${target}` : `Pécule ne répond pas sur ${target}`, docker ? `docker compose up -d, puis ${logs}` : settings.fresh ? "Installer d'abord Pécule (ligne précédente)." : "node dist/server.mjs (dépôt : pnpm build d'abord), ou voir le journal de l'hébergeur");
 if (health) {
-  check("demarrage", health.ok === true && health.phase === "pret", `Démarrage : ${health.phase}`, "Le serveur applique encore ses migrations, ou la base refuse la connexion : voir son journal.");
+  check("demarrage", health.ok === true && health.phase === "pret", `Démarrage : ${health.phase}`, health.phase === "echec" ? `La base refuse la connexion ou une migration a échoué : ${logs}` : `Le serveur applique encore ses migrations : réessayer dans un instant, puis ${logs}`);
   try {
     const me = await (await fetch(`${target}/api/auth/me`, { signal: AbortSignal.timeout(8000) })).json();
-    checks.push({ id: "premier_demarrage", ok: true, message: me.setup ? "Aucun membre encore : ouvrir l'appli pour créer le premier (code d'installation = SETUP_CODE du fichier de réglages, sinon API_TOKEN)" : "Le foyer a ses membres", todo: me.setup === true });
+    checks.push({ id: "premier_demarrage", ok: true, message: me.setup ? `Aucun membre encore : le lien du premier démarrage se demande par « ${run(settings, "node scripts/lien.mjs")} »` : "Le foyer a ses membres", todo: me.setup === true });
     checks.push({ id: "demo", ok: true, message: me.demoAvailable ? "Mode démo disponible" : "Mode démo non configuré (DEMO_DATABASE_URL), facultatif" });
-    // Version en service et mise à jour publiée : réservé à l'administrateur, donc lu avec le jeton du fichier de réglages.
+    // Version en service et mise à jour publiée : réservé à l'administrateur, donc lu avec le jeton des réglages.
     if (!me.setup && env.API_TOKEN) {
       // Un Pécule d'avant la 1.22.0 n'a pas cette route : la ligne est alors simplement absente.
       const r = await fetch(`${target}/api/updates`, { headers: { Authorization: `Bearer ${env.API_TOKEN}` }, signal: AbortSignal.timeout(8000) }).catch(() => null);
       const u = r?.ok ? await r.json().catch(() => null) : null;
       if (u && typeof u.version === "string") {
         const newer = u.state?.kind && u.state.kind !== "a-jour" ? u.state : null;
+        // La commande que l'installation annonce elle-même (un Pécule plus ancien ne la donne pas).
+        const update = typeof u.command === "string" && u.command ? u.command : "node scripts/maj.mjs";
+        const palier = newer?.kind === "palier" ? (typeof u.commandPalier === "string" && u.commandPalier ? u.commandPalier : `node scripts/maj.mjs --version ${newer.palier}`) : null;
         checks.push({
           id: "version",
           ok: true,
           version: u.version,
           message: !newer
             ? `Pécule ${u.version}${u.enabled && u.checkedAt ? ", à jour" : ""}`
-            : newer.kind === "palier"
-              ? `Pécule ${u.version} — la version ${newer.version} est publiée ; installer d'abord la ${newer.palier} : node scripts/maj.mjs --version ${newer.palier}`
-              : `Pécule ${u.version} — la version ${newer.version} est disponible : node scripts/maj.mjs`,
+            : palier
+              ? `Pécule ${u.version} — la version ${newer.version} est publiée ; installer d'abord la ${newer.palier} : ${palier}`
+              : `Pécule ${u.version} — la version ${newer.version} est disponible : ${update}`,
           todo: !!newer,
         });
       }
@@ -111,18 +155,19 @@ if (health) {
           id: "sauvegarde",
           ok: true,
           days,
-          message: days === null ? `Aucune sauvegarde encore (${auto}) : pnpm sauvegarde, ou Réglages → Compte et sécurité` : `Dernière sauvegarde : ${days === 0 ? "aujourd'hui" : days === 1 ? "hier" : `il y a ${days} jours`} (${auto})`,
+          message: days === null ? `Aucune sauvegarde encore (${auto}) : Réglages → Compte et sécurité` : `Dernière sauvegarde : ${days === 0 ? "aujourd'hui" : days === 1 ? "hier" : `il y a ${days} jours`} (${auto})`,
           todo: days === null || days >= 30 || (b.auto?.auto && !!b.state?.echec),
         });
       }
     }
   } catch {
-    check("api", false, "L'API ne répond pas comme attendu", "Voir le journal du serveur.");
+    check("api", false, "L'API ne répond pas comme attendu", `Voir ${logs}.`);
   }
 }
 
 const ok = checks.every((c) => c.ok);
-if (json) console.log(JSON.stringify({ ok, checks }, null, 1));
+// mode : comment Pécule est installé ici — « docker », « node », ou « aucun » tant que rien ne l'est.
+if (json) console.log(JSON.stringify({ ok, mode: docker ? "docker" : settings.fresh && !health ? "aucun" : "node", checks }, null, 1));
 else {
   for (const c of checks) console.log(`${c.ok ? "✓" : "✗"} ${c.message}${c.fix ? `\n    → ${c.fix}` : ""}`);
   console.log(ok ? "\nRien ne bloque." : "\nÀ corriger : les lignes marquées ✗.");

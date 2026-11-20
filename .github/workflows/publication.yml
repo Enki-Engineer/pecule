@@ -1,9 +1,10 @@
 name: Publication
 
 # Une étiquette « v1.22.0 » poussée sur le dépôt publie la version : image Docker (amd64 et arm64) sur ghcr.io,
-# version GitHub avec la section du journal des versions pour notes, et branche « stable » avancée jusqu'à elle.
-# L'étiquette doit être celle de la version de package.json, et CHANGELOG.md doit avoir sa section : sinon rien
-# n'est publié.
+# version GitHub avec ses formats en pièces jointes (compose.yaml, l'archive prête à l'emploi, leurs empreintes) et
+# pour notes le tableau « Installer ou mettre à jour » puis la section du journal des versions, et branche « stable »
+# avancée jusqu'à elle. L'étiquette doit être celle de la version de package.json, et CHANGELOG.md doit avoir sa
+# section : sinon rien n'est publié.
 on:
   push:
     tags: ["v*.*.*"]
@@ -16,16 +17,32 @@ concurrency:
   group: publication-${{ github.ref }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   publication:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: pnpm
       - name: Notes de la version (étiquette et journal contrôlés)
         run: node scripts/notes-de-version.mjs --etiquette "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+
+      # Les pièces jointes d'abord : si elles ne se fabriquent pas, rien n'est publié.
+      - name: Pièces jointes (compose.yaml, archive prête à l'emploi, empreintes)
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          node scripts/paquet.mjs
+          ( cd dist/paquet && sha256sum --check SHA256SUMS )
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -60,13 +77,15 @@ jobs:
         run: |
           pre=""
           case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
+          fichiers=(dist/paquet/compose.yaml dist/paquet/pecule.tar.gz dist/paquet/pecule.zip dist/paquet/SHA256SUMS)
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             # Version créée à la main sur GitHub : ses notes sont gardées, sauf si elle n'en a pas.
             if [ -z "$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)" ]; then
               gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
             fi
+            gh release upload "$GITHUB_REF_NAME" "${fichiers[@]}" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" --verify-tag --title "Pécule ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" $pre
+            gh release create "$GITHUB_REF_NAME" "${fichiers[@]}" --verify-tag --title "Pécule ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" $pre
           fi
 
       - name: Branche stable

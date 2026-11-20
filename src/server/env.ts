@@ -1,6 +1,20 @@
 import "dotenv/config";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { z } from "zod";
+import { mergeSettings, parseSettings, SETTINGS_FILE } from "../lib/settings-file.ts";
 import { DEFAULT_REPO } from "../lib/version.ts";
+
+/*
+ * Réglages gardés par l'installation elle-même (`src/lib/settings-file.ts`). SETTINGS_DIR n'est donné que par l'image
+ * Docker : `compose.yaml` y monte le volume « pecule-reglages », où son service « reglages » range les secrets
+ * qu'il a tirés. Ils complètent l'environnement sans jamais le remplacer. Sans SETTINGS_DIR, rien ne change.
+ */
+const settingsDir = process.env.SETTINGS_DIR?.trim();
+if (settingsDir) {
+  const file = path.join(settingsDir, SETTINGS_FILE);
+  if (existsSync(file)) mergeSettings(process.env, parseSettings(readFileSync(file, "utf8")));
+}
 
 /** Réglage « oui par défaut » : 0, false, non, no ou off le coupent. */
 const onOff = z
@@ -73,7 +87,14 @@ const schema = z.object({
     .transform((v) => v?.trim() || undefined),
 });
 
-export const env = schema.parse(process.env);
+const parsed = schema.safeParse(process.env);
+if (!parsed.success) {
+  // Un réglage manque ou n'a pas la bonne forme : le dire en clair, sans sa valeur, plutôt que par une pile d'appels.
+  const lines = parsed.error.issues.map((i) => `  - ${i.path.join(".") || "réglages"} : ${/received undefined/.test(i.message) ? "absent" : i.message}`);
+  console.error(`Pécule ne peut pas démarrer : réglages absents ou invalides.\n${lines.join("\n")}\nLes écrire : node scripts/setup.mjs --help — les contrôler : node scripts/doctor.mjs (guide : docs/guide/installation.md).`);
+  process.exit(1);
+}
+export const env = parsed.data;
 export const isProd = env.NODE_ENV === "production";
 /** Secret de chiffrement des clés gardées en base (voir SECRET_KEY). */
 export const sealingSecret = env.SECRET_KEY ?? env.API_TOKEN;

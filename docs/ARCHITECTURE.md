@@ -18,7 +18,8 @@ navigateur (React)  ──  /api  ──  serveur Express  ──  MySQL / Maria
 | `src/lib/` | Règles pures partagées par l'écran et le serveur, avec leurs tests |
 | `src/i18n/` | Dictionnaires (le texte français est la clé) |
 | `drizzle/` | Migrations et schéma de départ d'une installation neuve (`initial/schema.sql`) |
-| `scripts/` | `setup`, `doctor`, `maj` (mise à jour), `importer`, sauvegarde et restauration, notes de version, base locale, outils de traduction |
+| `scripts/` | `setup`, `lien` (lien du premier démarrage), `doctor`, `maj` (mise à jour), `importer`, `paquet` (pièces jointes d'une version), sauvegarde et restauration, notes de version, base locale, outils de traduction |
+| `skills/` | La compétence « pecule » pour un agent IA (installer, vérifier, mettre à jour), telle que la distribuent `npx skills`, `gh skill` et le catalogue de plugins de Claude Code ; `.claude/skills/pecule` en est la copie lue dans le dépôt |
 | `public/` | Fichiers statiques : icônes, service worker, script de thème |
 | `docs/` | Guides d'installation, d'import et de connexion des banques |
 
@@ -195,11 +196,45 @@ ses consignes.
   Manuel ou la recherche dans la palette (`loadManualDict`, `src/client/i18n.ts`), le serveur les connaît toutes. Le
   rangement est fait par `scripts/i18n/ecrire.py` ; un test refuse qu'un texte employé ailleurs y soit rangé.
 
+## Installation
+
+Trois formats, fabriqués à chaque version (`docs/guide/installation.md`) :
+
+- **Docker** — `compose.yaml` se suffit. Son service « reglages » (`node scripts/setup.mjs --conteneur`) passe une
+  fois avant les autres : il tire les secrets qui manquent, ou reprend ceux que donne un fichier `.env`, et les garde
+  dans le volume `pecule-reglages` ; il écrit aussi, dans `pecule-base-init`, ce que MariaDB lit à la création de sa
+  base (ses mots de passe, la base du mode démo) — un volume que le serveur ne monte pas : il ne reçoit que l'adresse
+  de ses deux bases, jamais le mot de passe de l'administrateur de la base. Le serveur complète son environnement par ces réglages gardés
+  (`SETTINGS_DIR`, `src/server/env.ts`), sans jamais remplacer ce que l'environnement donne. Les règles sont pures et
+  testées (`src/lib/settings-file.ts`) : rien n'est tiré à la place d'un secret déjà là, ni à côté d'un jeton
+  d'administration donné sans `SECRET_KEY` (il chiffre alors les clés gardées en base). `compose.yaml` transmet au
+  serveur chacun de ses réglages par son seul nom : lu dans `.env` s'il y est, absent sinon (un test compare la liste
+  au schéma des réglages).
+- **Archive prête à l'emploi** — `scripts/paquet.mjs` range dans `pecule.tar.gz` et `pecule.zip` le serveur construit,
+  ses scripts, ses guides et ses dépendances d'exécution, à plat et sans lien symbolique.
+- **Sources** — le dépôt, branche `stable`.
+
+Ce que le serveur charge en service est dans `dependencies` ; ce qui ne sert qu'à construire l'écran (React, icônes,
+graphiques) est dans `devDependencies`. L'image et l'archive n'installent que les premières, et le build s'arrête si
+le serveur charge un paquet qui n'y figure pas (`scripts/build-server.mjs`).
+
+Les scripts de l'installation (`doctor`, `lien`, `maj`, `importer`) lisent les réglages où qu'ils soient
+(`scripts/lib/reglages.mjs`) : le fichier `.env`, le volume quand ils tournent dans le conteneur, ou le conteneur
+depuis la machine. Les commandes que l'appli affiche à celui qui l'héberge dépendent de son installation
+(`src/lib/install.ts`, `src/server/install.ts`).
+
 ## Démarrage
 
 Le port s'ouvre tout de suite ; les migrations suivent, sous verrou (une base vide reçoit le schéma de départ en une
 étape, puis le jeu de catégories de départ). `GET /api/health` rend `{ ok, phase }`. Une synchronisation bancaire
 planifiée tourne dans le processus quand une source est reliée.
+
+**Premier démarrage** : tant qu'aucun membre n'existe, l'écran « Bienvenue dans Pécule » crée le premier —
+l'administrateur — contre le code d'installation (`SETUP_CODE`). `scripts/lien.mjs` attend que le serveur soit prêt
+et donne ce code dans un lien (`<adresse>/#code=…`) : le fragment n'est jamais envoyé au serveur, l'écran le lit à
+l'ouverture puis le retire de l'adresse (`src/client/setup-code.ts`), et ne demande plus qu'un prénom. Sans lien,
+l'écran affiche la commande qui le donne. Si le premier membre existe sans clé d'accès, `lien` redonne son lien
+d'inscription.
 
 ## Versions et mises à jour
 
@@ -207,15 +242,19 @@ planifiée tourne dans le processus quand une source est reliée.
   `src/server/version.ts`), avec `pecule.depuis` de `package.json` : la plus ancienne version depuis laquelle
   celle-ci se met à jour directement. Les comparaisons de versions sont des fonctions pures (`src/lib/version.ts`).
 - **Publication** : une étiquette `vX.Y.Z` lance `.github/workflows/publication.yml` — image Docker pour amd64 et
-  arm64 sur `ghcr.io`, version GitHub dont les notes sont la section de `CHANGELOG.md`
+  arm64 sur `ghcr.io`, pièces jointes (`compose.yaml`, `pecule.tar.gz`, `pecule.zip`, `SHA256SUMS`, sous des noms
+  qui ne changent pas d'une version à l'autre : la dernière se télécharge toujours à la même adresse), version GitHub
+  dont les notes sont le tableau « Installer ou mettre à jour » puis la section de `CHANGELOG.md`
   (`scripts/notes-de-version.mjs`), branche `stable` avancée jusqu'à elle.
 - **Annonce** : une fois par jour, `src/server/updates.ts` demande à GitHub la dernière version publiée et la garde
   (`app_kv`, « maj:etat »). `GET /api/updates` (administrateur, fermé en démo) la donne à Réglages → Suivi technique
   (`components/UpdateSettings.tsx`), à `doctor` et à `maj` ; l'administrateur reçoit une notification (type `maj`)
   et l'assistant lit la version par `get_settings`. Les notes de version, écrites hors de l'installation, ne sont
   jamais données à lire à l'IA.
-- **Installation** : `scripts/maj.mjs`, sur le serveur — sauvegarde complète téléchargée, image publiée ou
-  `git pull` et build, attente de la nouvelle version, `doctor`. Le serveur ne remplace jamais son propre code.
+- **Installation d'une version** : sur le serveur, par la commande de l'installation, que l'appli affiche. Docker :
+  `docker compose pull && docker compose up -d`. Sinon `scripts/maj.mjs` — sauvegarde complète téléchargée, puis
+  l'archive de la version (empreinte contrôlée, ancienne version gardée dans `.avant-maj`) ou `git pull` et build,
+  attente de la nouvelle version, `doctor`. Le serveur ne remplace jamais son propre code.
 - **Garde-fous** : avant d'appliquer une migration à une base déjà en service, le serveur écrit une sauvegarde
   complète dans son dossier de sauvegardes (`src/server/pre-migration.ts`, trois gardées, sous le verrou des
   migrations) ;

@@ -51,19 +51,35 @@ Anthropic API, Microsoft Foundry, or a compatible gateway. Without a key, everyt
 
 ## Install
 
-With Docker:
+Every release ships in three formats, attached to [its page](https://github.com/Enki-Engineer/pecule/releases/latest):
+
+| Format | For | You need |
+| --- | --- | --- |
+| **Docker** — one file, `compose.yaml` | A computer, a server, a NAS. The simplest: the app and its database together. | Docker with Compose 2 (tested from 2.9 to 5.5) |
+| **Ready-to-run archive** — `pecule.tar.gz` or `pecule.zip` | Node.js hosting without Docker. The server is already built. | Node.js 24, MariaDB 10.6+ or MySQL 8+ |
+| **Source** — `git clone -b stable` | Contributing, or a host that builds from GitHub. | Node.js 24, pnpm, a database |
+
+With Docker, three commands — nothing to clone, no Node, no settings file to write:
 
 ```sh
-git clone https://github.com/Enki-Engineer/pecule.git && cd pecule
-node scripts/setup.mjs --docker          # writes .env and prints your installation code
-docker compose up -d                     # http://localhost:3000
+curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/compose.yaml
+docker compose up -d                                 # http://localhost:3000
+docker compose exec pecule node scripts/lien.mjs     # the link to open to create your household
 ```
 
-For a server with https, a Node.js host without Docker and backups: see
-[docs/guide/installation.md](docs/guide/installation.md). Pécule tells its administrator when a new version is
-released; `node scripts/maj.mjs` backs up, updates and checks the result
-([docs/guide/mise-a-jour.md](docs/guide/mise-a-jour.md)). An AI coding agent can do the installation for you:
-[docs/guide/installer-avec-une-ia.md](docs/guide/installer-avec-une-ia.md).
+**Or let your AI assistant do it** — Claude Code, Codex, Gemini CLI, Cursor, Copilot, any agent that can run
+commands. Paste this, in your own language:
+
+> Install Pécule for me by following the instructions at
+> https://raw.githubusercontent.com/Enki-Engineer/pecule/stable/AGENTS.md — read the whole file with curl.
+> I want to try it on this computer.
+
+The [installation guide](docs/guide/installation.md) covers a server with https, the archive, backups and moving to
+another server; [installing with an AI agent](docs/guide/installer-avec-une-ia.md) says what the agent does and what
+stays yours (Claude Code: `/plugin install pecule --marketplace Enki-Engineer/pecule` adds the skill). Pécule tells
+its administrator when a new version is released and shows the command that installs it
+([updating](docs/guide/mise-a-jour.md)). Once the server runs, add Pécule to your phone's home screen or your Dock:
+it behaves like an app.
 
 ## Documentation
 

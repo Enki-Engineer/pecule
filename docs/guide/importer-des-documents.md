@@ -111,8 +111,25 @@ lancer sur l'ordinateur ou le serveur qui porte le dossier (service système, se
 le dossier peut être celui où votre scanner ou votre messagerie dépose ses PDF.
 
 L'adresse et le jeton d'administration viennent de `--url` et `--jeton`, sinon de `PECULE_URL` et `PECULE_API_TOKEN`,
-sinon d'`APP_URL` et `API_TOKEN` du fichier `.env` du dossier courant (la racine du dépôt). `--json` rend un résultat
-lisible par un outil ; `--help` liste les options, et une option inconnue arrête la commande.
+sinon d'`APP_URL` et `API_TOKEN` du fichier `.env` du dossier courant (celui de l'installation). `--json` rend un
+résultat lisible par un outil ; `--help` liste les options, et une option inconnue arrête la commande.
+
+### Avec Docker
+
+La commande est dans le conteneur, qui a déjà l'adresse et le jeton : on y copie le dossier, puis on la lance.
+
+```sh
+docker compose cp ~/Documents/Papiers pecule:/tmp/documents
+docker compose exec -u 0 pecule node scripts/importer.mjs /tmp/documents --a-blanc     # puis sans --a-blanc
+docker compose exec -u 0 pecule rm -rf /tmp/documents                                  # la copie n'a plus d'usage
+```
+
+`-u 0` : les fichiers copiés gardent le compte de votre machine, et certains ne sont lisibles que par lui ; la
+commande les lit donc en administrateur du conteneur.
+
+Depuis un autre ordinateur que le serveur : créez un jeton d'administration dans Réglages → Comptes et connexions,
+et donnez-le à la commande par `PECULE_API_TOKEN`, avec `PECULE_URL` (les scripts viennent de l'archive prête à
+l'emploi ou du dépôt).
 
 - `--a-blanc` trie d'après le type et la taille seulement, sans contacter Pécule : un fichier déjà au coffre y est
   annoncé « à envoyer », mais ne sera pas renvoyé lors du vrai import.

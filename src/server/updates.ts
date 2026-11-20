@@ -1,17 +1,19 @@
-import { existsSync } from "node:fs";
 import { z } from "zod";
 import { env } from "./env.ts";
 import { exec, one } from "./db.ts";
 import { runReal } from "./demo-context.ts";
 import { backupDir, listServerBackups, type ServerBackup } from "./pre-migration.ts";
+import { installKind } from "./install.ts";
 import { VERSION } from "./version.ts";
+import { updateCommand, versionCommand } from "../lib/install.ts";
+import { releaseChanges } from "../lib/release-notes.ts";
 import { cleanVersion, DOCKER_IMAGE, updateState, type UpdateState } from "../lib/version.ts";
 
 /*
  * Mises à jour : une fois par jour, le serveur demande à GitHub quelle est la dernière version publiée de Pécule et
  * la garde (`app_kv`, clé « maj:etat »). Réglages → Suivi technique l'annonce à l'administrateur, qui reçoit aussi une
- * notification s'il les a activées. Rien n'est installé d'ici : la mise à jour se lance sur le serveur
- * (`node scripts/maj.mjs`, docs/guide/mise-a-jour.md).
+ * notification s'il les a activées. Rien n'est installé d'ici : la mise à jour se lance sur le serveur, par la
+ * commande que l'appli affiche — celle de son installation (`src/lib/install.ts`, docs/guide/mise-a-jour.md).
  *
  * Seule la question part vers GitHub (qui voit, comme tout site, l'adresse IP du serveur) : aucune donnée du foyer,
  * ni l'adresse de l'installation, ni sa version.
@@ -109,7 +111,8 @@ async function ask(prev: Stored): Promise<Stored> {
     repo,
     checkedAt: now,
     etag: res.headers.get("etag"),
-    latest: { version, tag, url, notes: (parsed.data.body ?? "").slice(0, NOTES_MAX), publishedAt: parsed.data.published_at ?? null, depuis },
+    // Le tableau des formats de la version n'est pas gardé : l'écran affiche la commande de cette installation.
+    latest: { version, tag, url, notes: releaseChanges(parsed.data.body ?? "").slice(0, NOTES_MAX), publishedAt: parsed.data.published_at ?? null, depuis },
     error: null,
   };
 }
@@ -152,6 +155,10 @@ export type UpdateStatus = {
   /** Installation par Docker : la mise à jour passe par l'image publiée. */
   docker: boolean;
   image: string;
+  /** Commande qui installe la dernière version sur le serveur, pour cette installation. */
+  command: string;
+  /** Commande qui installe d'abord la version palier, quand il en faut une. */
+  commandPalier: string | null;
   /** Sauvegardes écrites par le serveur avant une migration, la plus récente d'abord, et leur dossier. */
   backups: ServerBackup[];
   backupDir: string;
@@ -167,6 +174,7 @@ export const updateAvailable = async (): Promise<UpdateState> => stateOf(await r
 export async function updateStatus(): Promise<UpdateStatus> {
   const s = await read();
   const state = stateOf(s);
+  const kind = installKind();
   return {
     version: VERSION,
     enabled: env.UPDATE_CHECK,
@@ -175,8 +183,10 @@ export async function updateStatus(): Promise<UpdateStatus> {
     error: env.UPDATE_CHECK ? s.error : null,
     state,
     latest: state.kind === "a-jour" ? null : s.latest,
-    docker: existsSync("/.dockerenv"),
+    docker: kind === "docker",
     image: DOCKER_IMAGE,
+    command: updateCommand(kind),
+    commandPalier: state.kind === "palier" ? versionCommand(kind, state.palier) : null,
     backups: listServerBackups(),
     backupDir: backupDir(),
     backupBeforeMigration: env.BACKUP_BEFORE_MIGRATION,

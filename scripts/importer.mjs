@@ -7,17 +7,26 @@
 //   node scripts/importer.mjs --lot <numéro> [--valider-surs] [--json]      suivre ou reprendre un lot
 //
 // Adresse et jeton : --url et --jeton, sinon PECULE_URL et PECULE_API_TOKEN (variables d'environnement ou fichier .env).
+// Avec Docker, la commande se lance dans le conteneur, qui a déjà l'une et l'autre :
+//   docker compose cp <dossier> pecule:/tmp/documents
+//   docker compose exec -u 0 pecule node scripts/importer.mjs /tmp/documents
+// (-u 0 : les fichiers copiés gardent le compte de la machine, et certains ne sont lisibles que par lui.)
 // --a-blanc : liste ce qui serait envoyé, sans rien envoyer. --valider-surs : valide ce qui peut l'être sans relecture
 // (contrôles passés, lecture sans doute, rien de changé à l'existant) ; le reste se relit dans l'appli (Documents → Coffre, onglet « Imports »).
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { loadSettings, localPort } from "./lib/reglages.mjs";
 
 const argv = process.argv.slice(2);
 const HELP = `Import massif d'un dossier de documents dans Pécule.
 
   node scripts/importer.mjs <dossier> [--a-blanc] [--valider-surs] [--plafond 5] [--nom "Mon dossier"] [--json]
   node scripts/importer.mjs --lot <numéro> [--valider-surs] [--json]
+
+Avec Docker, dans le conteneur (il a l'adresse et le jeton) :
+  docker compose cp <dossier> pecule:/tmp/documents
+  docker compose exec -u 0 pecule node scripts/importer.mjs /tmp/documents [options]
 
 --a-blanc       liste ce qui serait envoyé, d'après le type et la taille des fichiers, sans contacter Pécule
 --valider-surs  valide ce qui peut l'être sans relecture ; le reste se relit dans l'appli
@@ -58,7 +67,12 @@ if (existsSync(".env"))
     const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
     if (m && env[m[1]] === undefined) env[m[1]] = m[2].replace(/^["']|["']$/g, "");
   }
-const url = (value("url") ?? env.PECULE_URL ?? env.APP_URL ?? "").replace(/\/+$/, "");
+// Dans le conteneur de Pécule : le jeton est avec les réglages gardés par l'installation, et le serveur est ici même
+// (l'adresse publique, elle, n'est pas toujours joignable depuis le conteneur).
+const inside = !!process.env.SETTINGS_DIR?.trim();
+const kept = inside ? loadSettings() : null;
+if (kept) for (const [k, v] of Object.entries(kept.env)) if (env[k] === undefined) env[k] = v;
+const url = (value("url") ?? env.PECULE_URL ?? (kept ? `http://127.0.0.1:${localPort(kept)}` : env.APP_URL) ?? "").replace(/\/+$/, "");
 const token = value("jeton") ?? env.PECULE_API_TOKEN ?? env.API_TOKEN;
 const positional = argv.filter((a, i) => !a.startsWith("--") && !["--url", "--jeton", "--plafond", "--nom", "--lot", "--toutes"].includes(argv[i - 1]));
 const folder = positional[0];

@@ -6,6 +6,8 @@ import { ScanFace, KeyRound } from "lucide-react";
 import { api, useMe } from "../api.ts";
 import { ChestLogo, chestOpeningMs } from "../components/ChestLogo.tsx";
 import { RestoreSetup } from "../components/RestoreSetup.tsx";
+import { SetupCodeHelp } from "../components/SetupCodeHelp.tsx";
+import { forgetSetupCode, linkedSetupCode } from "../setup-code.ts";
 import { appLang, applyLang } from "../i18n.ts";
 import { clearOfflineCache } from "../offline.tsx";
 import { LANGS, t } from "../../lib/i18n.ts";
@@ -29,11 +31,14 @@ const errorText = (e: unknown) =>
 
 /**
  * Premier démarrage d'une installation neuve : le premier membre du foyer se crée lui-même (il en sera
- * l'administrateur), avec le code d'installation, puis crée sa clé d'accès sur l'écran d'inscription.
+ * l'administrateur), avec le code d'installation, puis crée sa clé d'accès sur l'écran d'inscription. Ouvert par le
+ * lien du premier démarrage, l'écran a déjà le code : il ne reste qu'un prénom à donner.
  */
-function Setup() {
+function Setup({ command }: { command?: string }) {
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(() => linkedSetupCode() ?? "");
+  // Le code est venu avec le lien : son champ n'est montré que si le serveur le refuse.
+  const [linked, setLinked] = useState(() => !!linkedSetupCode());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Reprendre une sauvegarde au lieu de créer un foyer neuf.
@@ -44,11 +49,16 @@ function Setup() {
     setError(null);
     try {
       const { link } = await api<{ link: string }>("/auth/setup", { method: "POST", json: { name, code } });
+      // Le code a servi : il n'est plus gardé pour cet onglet.
+      forgetSetupCode();
       // Le lien d'inscription est celui de ce serveur : on n'en garde que le chemin.
       const url = new URL(link);
       window.location.assign(url.pathname + url.search);
     } catch (e) {
       setError(errorText(e));
+      // Refusé : le code du lien ne sera pas reproposé, son champ revient.
+      forgetSetupCode();
+      setLinked(false);
       setBusy(false);
     }
   }
@@ -65,14 +75,20 @@ function Setup() {
         ))}
       </div>
       {restoring ? (
-        <RestoreSetup onBack={() => setRestoring(false)} />
+        <RestoreSetup onBack={() => setRestoring(false)} linkedCode={linkedSetupCode()} command={command} />
       ) : (
         <>
           <p className="mb-1 text-lg font-semibold">{t("Bienvenue dans Pécule")}</p>
           <p className="mb-6 max-w-xs text-sm text-muted">{t("Cette installation est neuve. Crée le premier membre du foyer : il en sera l'administrateur.")}</p>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Ton prénom")} aria-label={t("Ton prénom")} autoComplete="given-name" className={field} />
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("Code d'installation")} aria-label={t("Code d'installation")} autoComplete="off" spellCheck={false} className={`${field} mt-3`} />
-          <p className="mt-2 max-w-xs text-xs text-muted">{t("Le code d'installation est écrit dans le fichier de réglages du serveur (SETUP_CODE, à défaut API_TOKEN) ; « setup » l'affiche à l'installation.")}</p>
+          {linked ? (
+            <p className="mt-2 max-w-xs text-xs text-muted">{t("Code d'installation reçu avec le lien.")}</p>
+          ) : (
+            <>
+              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={t("Code d'installation")} aria-label={t("Code d'installation")} autoComplete="off" spellCheck={false} className={`${field} mt-3`} />
+              <SetupCodeHelp command={command} />
+            </>
+          )}
           <button type="button" onClick={create} disabled={busy || !name.trim() || !code.trim()} className="press mt-6 w-full max-w-xs rounded-xl bg-accent py-4 text-lg font-semibold text-white shadow-lg disabled:opacity-60">
             {t("Créer le foyer")}
           </button>
@@ -97,7 +113,8 @@ export function Login() {
   const [open, setOpen] = useState(false);
   // Installation neuve (aucun membre) : l'écran de premier démarrage remplace la connexion.
   // Une fois affiché, cet écran reste : une restauration y donne des membres à l'installation sans qu'il doive disparaître.
-  const fresh = useMe().data?.setup === true;
+  const me = useMe().data;
+  const fresh = me?.setup === true;
   const [setup, setSetup] = useState(fresh);
   if (fresh && !setup) setSetup(true);
 
@@ -122,7 +139,7 @@ export function Login() {
     }
   }
 
-  if (setup) return <Setup />;
+  if (setup) return <Setup command={me?.setupCommand} />;
   return (
     <Shell open={open}>
       <button

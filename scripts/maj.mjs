@@ -7,15 +7,20 @@
 //   node scripts/maj.mjs --version 1.22.0      une version précise (palier, ou retour à une version)
 //
 // Docker : récupère l'image publiée et relance le conteneur (`--source` : la construit depuis le dépôt).
-// Node : `pnpm install` et `pnpm build`, puis le serveur est à redémarrer (`--redemarrer "<commande>"` le fait).
+// Archive prête à l'emploi : télécharge celle de la version, contrôle son empreinte et remplace le serveur.
+// Dépôt : `git pull`, `pnpm install` et `pnpm build`.
+// Hors Docker, le serveur est ensuite à redémarrer (`--redemarrer "<commande>"` le fait).
 // Code de sortie 0 si l'installation est à jour et répond, 1 sinon. Aucun secret n'est affiché.
 import { spawnSync } from "node:child_process";
-import { accessSync, closeSync, constants, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { accessSync, closeSync, constants, createReadStream, createWriteStream, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
+import { loadSettings, localPort } from "./lib/reglages.mjs";
 import { cleanVersion, compareVersions, DEFAULT_REPO, DOCKER_IMAGE, updateState } from "../src/lib/version.ts";
 
 const HELP = `Met à jour une installation de Pécule.
@@ -27,7 +32,8 @@ const HELP = `Met à jour une installation de Pécule.
   --oui                 ne demande pas de confirmation
   --sans-sauvegarde     ne télécharge pas de sauvegarde avant (déconseillé)
   --source              Docker : construit l'image depuis le dépôt au lieu de récupérer celle qui est publiée
-  --redemarrer "<cmd>"  Node : commande qui redémarre le serveur une fois le build fait
+  --archive <fichier>   installation faite d'une archive : prend ce fichier (pecule.tar.gz) au lieu de le télécharger
+  --redemarrer "<cmd>"  hors Docker : commande qui redémarre le serveur une fois la version en place
   --fichier <.env>      fichier de réglages (par défaut .env)
   --url <adresse>       adresse du serveur (par défaut http://127.0.0.1:<port>)
   --json                résultat de --verifier en JSON
@@ -40,8 +46,8 @@ if (argv.includes("--help") || argv.includes("-h")) {
   console.log(HELP);
   process.exit(0);
 }
-const KNOWN = new Set(["--verifier", "--version", "--oui", "--sans-sauvegarde", "--source", "--redemarrer", "--fichier", "--url", "--json"]);
-const WITH_VALUE = new Set(["--version", "--redemarrer", "--fichier", "--url"]);
+const KNOWN = new Set(["--verifier", "--version", "--oui", "--sans-sauvegarde", "--source", "--archive", "--redemarrer", "--fichier", "--url", "--json"]);
+const WITH_VALUE = new Set(["--version", "--archive", "--redemarrer", "--fichier", "--url"]);
 for (let i = 0; i < argv.length; i++) {
   if (!KNOWN.has(argv[i])) fail(`Option inconnue : ${argv[i]} (--help liste les options).`);
   if (WITH_VALUE.has(argv[i]) && (argv[++i] === undefined || argv[i].startsWith("--"))) fail(`${argv[i - 1]} attend une valeur.`);
@@ -58,22 +64,28 @@ const say = (line) => {
   if (!json) console.log(line);
 };
 
-// La racine du dépôt : compose.yaml, .git et les autres scripts s'y trouvent, d'où que la commande soit lancée.
+// La racine de l'installation : compose.yaml, .git et les autres scripts s'y trouvent, d'où que la commande soit lancée.
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+/** Dossier d'où la commande est lancée : un chemin donné en option se lit depuis là. */
+const startDir = process.cwd();
 process.chdir(root);
 
 // ---------- Réglages ----------
+// Le fichier .env, ou — avec Docker, quand il ne porte pas les secrets — ceux que l'installation garde dans son volume.
 const file = value("fichier") ?? ".env";
-const env = {};
-if (existsSync(file))
-  for (const line of readFileSync(file, "utf8").split("\n")) {
-    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
-    if (m && !line.trim().startsWith("#")) env[m[1]] = m[2].replace(/^["']|["']$/g, "");
-  }
-const docker = !!env.DB_PASSWORD && !env.DATABASE_URL;
+const settings = loadSettings({ file });
+const { env, docker } = settings;
 const repo = /^[\w.-]+\/[\w.-]+$/.test(env.UPDATE_REPO ?? "") ? env.UPDATE_REPO : DEFAULT_REPO;
-const target = (value("url") ?? `http://127.0.0.1:${env.PECULE_PORT ?? env.PORT ?? "3000"}`).replace(/\/+$/, "");
+const target = (value("url") ?? `http://127.0.0.1:${localPort(settings)}`).replace(/\/+$/, "");
 const token = process.env.PECULE_API_TOKEN ?? env.API_TOKEN ?? "";
+if (value("archive") && docker) fail("--archive ne vaut que pour une installation faite d'une archive : avec Docker, la version vient de l'image.");
+// Comment le code de ce dossier y est arrivé : par Docker, par l'archive prête à l'emploi d'une version (le serveur
+// construit, sans ses sources), ou par le dépôt, qui se construit sur place.
+const fromArchive = !docker && !existsSync("src/server") && existsSync("dist/server.mjs");
+const mode = docker ? "docker" : fromArchive ? "archive" : "depot";
+const given = value("archive") ? path.resolve(startDir, value("archive")) : null;
+if (given && !fromArchive) fail("--archive ne vaut que pour une installation faite d'une archive : ce dossier porte les sources (git pull et build).");
+if (given && !existsSync(given)) fail(`Archive introuvable : ${given}`);
 const auth = token ? { Authorization: `Bearer ${token}` } : {};
 const asked = value("version");
 if (asked !== undefined && !cleanVersion(asked)) fail(`Version illisible : ${asked} (attendu : 1.22.0).`);
@@ -131,6 +143,29 @@ function output(cmd, args) {
   return r.status === 0 ? r.stdout.trim() : null;
 }
 const has = (cmd) => spawnSync(cmd, ["--version"], { stdio: "ignore" }).status === 0;
+
+/**
+ * La commande de redémarrage donnée par celui qui installe. Ce qu'elle lance — parfois le serveur lui-même, laissé en
+ * tâche de fond — n'hérite pas de la sortie de cette commande : un outil qui la lit (un agent, un tube) attendrait
+ * sinon une fin qui ne vient pas. Ce qu'elle écrit passe par un fichier, affiché ensuite.
+ */
+function restartWith(command) {
+  say(`  $ ${command}`);
+  // Un dossier à soi, créé pour l'occasion : personne d'autre ne peut y avoir posé de fichier d'avance.
+  const dir = mkdtempSync(path.join(tmpdir(), "pecule-redemarrage-"));
+  const log = path.join(dir, "sortie.log");
+  const fd = openSync(log, "wx", 0o600);
+  let status = 1;
+  try {
+    status = spawnSync(command, [], { shell: true, stdio: ["ignore", fd, fd] }).status ?? 1;
+  } finally {
+    closeSync(fd);
+  }
+  const text = readFileSync(log, "utf8").trim();
+  rmSync(dir, { recursive: true, force: true });
+  if (text && !json) console.log(text.split("\n").map((l) => `    ${l}`).join("\n"));
+  return status === 0;
+}
 
 async function confirm(question) {
   if (flag("oui")) return true;
@@ -204,16 +239,134 @@ async function backup(serverDir) {
   return dest;
 }
 
+// ---------- Archive prête à l'emploi ----------
+const sha256 = (file) =>
+  new Promise((resolve, reject) => {
+    const hash = createHash("sha256");
+    createReadStream(file).on("data", (chunk) => hash.update(chunk)).on("error", reject).on("end", () => resolve(hash.digest("hex")));
+  });
+
+/** L'empreinte d'un fichier dans un `SHA256SUMS` (« empreinte  nom » par ligne) ; `null` s'il n'y figure pas. */
+const expectedSum = (sums, name) => sums.split(/\r?\n/).map((l) => /^([0-9a-f]{64})\s+\*?(.+)$/.exec(l.trim())).find((m) => m && m[2] === name)?.[1] ?? null;
+
+async function download(url, dest) {
+  const res = await fetch(url, { headers: { "User-Agent": "Pecule" }, redirect: "follow" }).catch(() => null);
+  if (!res?.ok || !res.body) throw new Error(`${url} → ${res ? `HTTP ${res.status}` : "pas de réponse"}`);
+  await pipeline(Readable.fromWeb(res.body), createWriteStream(dest));
+}
+
+/**
+ * Remplace le serveur par celui de l'archive d'une version : `pecule.tar.gz`, jointe à la version publiée (ou
+ * donnée par `--archive`), dont l'empreinte est contrôlée. Ce que l'archive apporte remplace ce qui porte le même
+ * nom ; le reste du dossier (réglages, données) n'est pas touché. L'ancienne version est gardée dans `.avant-maj`.
+ */
+async function installArchive() {
+  const work = path.resolve(".maj");
+  rmSync(work, { recursive: true, force: true });
+  mkdirSync(work, { recursive: true });
+  /** Renonce : le dossier de travail repart, rien d'autre n'a été touché. */
+  const giveUp = (message) => {
+    rmSync(work, { recursive: true, force: true });
+    fail(message);
+  };
+  let archive = given;
+  let sums = null;
+  try {
+    if (archive) {
+      const beside = path.join(path.dirname(archive), "SHA256SUMS");
+      if (existsSync(beside)) sums = readFileSync(beside, "utf8");
+    } else {
+      const base = `https://github.com/${repo}/releases/download/${encodeURIComponent(latest.tag)}`;
+      const name = "pecule.tar.gz";
+      archive = path.join(work, name);
+      say(`  ${base}/${name}`);
+      await download(`${base}/${name}`, archive);
+      await download(`${base}/SHA256SUMS`, path.join(work, "SHA256SUMS"));
+      sums = readFileSync(path.join(work, "SHA256SUMS"), "utf8");
+    }
+  } catch (e) {
+    giveUp(`L'archive de la version n'a pas pu être téléchargée : ${e.message}\n    Rien n'a été remplacé. Télécharge-la depuis la page de la version, puis relance avec --archive <fichier>.`);
+  }
+  const wanted = sums ? expectedSum(sums, path.basename(archive)) : null;
+  if (sums && !wanted) giveUp(`SHA256SUMS ne connaît pas ${path.basename(archive)} : rien n'a été remplacé.`);
+  if (wanted) {
+    if ((await sha256(archive)) !== wanted) giveUp("L'empreinte de l'archive n'est pas celle de SHA256SUMS (téléchargement abîmé, ou fichier remplacé) : rien n'a été remplacé.");
+    say("✓ Empreinte de l'archive contrôlée");
+  } else say("! Pas de fichier SHA256SUMS à côté de l'archive : son empreinte n'est pas contrôlée.");
+
+  // Lancée par l'administrateur de la machine, l'extraction ne reprend pas le compte de celui qui a fabriqué l'archive.
+  if (!run("tar", ["-xzf", archive, "--no-same-owner", "-C", work])) giveUp("L'archive n'a pas pu être dépliée : rien n'a été remplacé.");
+  const fresh = path.join(work, "pecule");
+  let incoming;
+  try {
+    incoming = JSON.parse(readFileSync(path.join(fresh, "package.json"), "utf8"));
+  } catch {
+    giveUp("Ce fichier n'est pas une archive de Pécule (pecule/package.json introuvable) : rien n'a été remplacé.");
+  }
+  if (!existsSync(path.join(fresh, "dist", "server.mjs"))) giveUp("L'archive ne porte pas de serveur construit (dist/server.mjs) : rien n'a été remplacé.");
+  const need = Number(/(\d+)/.exec(incoming.engines?.node ?? "")?.[1] ?? 0);
+  if (need > Number(process.versions.node.split(".")[0])) giveUp(`Pécule ${incoming.version} demande Node ${need} ou plus récent (ici : ${process.versions.node}) : rien n'a été remplacé.`);
+
+  // Ce que l'archive d'une version apporte, et rien d'autre : jamais les réglages ni les données de l'installation,
+  // même si un fichier donné par --archive en portait.
+  const KEPT = (name) => name === "data" || name === ".env" || name.startsWith(".env.") && name !== ".env.example" || name === ".avant-maj" || name === ".maj";
+  const names = readdirSync(fresh).filter((name) => !KEPT(name));
+  // Tout est prêt : l'échange ne fait que renommer des dossiers du même disque.
+  const before = path.resolve(".avant-maj");
+  rmSync(before, { recursive: true, force: true });
+  mkdirSync(before, { recursive: true });
+  const moved = [];
+  try {
+    for (const name of names) {
+      if (existsSync(name)) {
+        renameSync(name, path.join(before, name));
+        moved.push({ name, had: true });
+      } else moved.push({ name, had: false });
+      renameSync(path.join(fresh, name), name);
+    }
+  } catch (e) {
+    // Retour à l'état d'avant : ce que l'archive a apporté repart, ce qui a été écarté revient à sa place.
+    const stuck = [];
+    for (const m of moved.reverse()) {
+      try {
+        if (!m.had || existsSync(path.join(before, m.name))) rmSync(m.name, { recursive: true, force: true });
+        if (existsSync(path.join(before, m.name))) renameSync(path.join(before, m.name), m.name);
+      } catch {
+        stuck.push(m.name);
+      }
+    }
+    fail(
+      stuck.length
+        ? `Le remplacement a échoué (${e.message}), et tout n'a pas pu être remis en place : ${stuck.join(", ")} ${stuck.length > 1 ? "sont restés" : "est resté"} dans ${path.relative(root, before)}. Remets-${stuck.length > 1 ? "les" : "le"} à la racine de l'installation avant de redémarrer le serveur.`
+        : `Le remplacement a échoué (${e.message}) : l'ancienne version a été remise en place, vérifie-le par « node scripts/doctor.mjs ».`,
+    );
+  }
+  rmSync(work, { recursive: true, force: true });
+  say(`✓ Pécule ${incoming.version} est en place ; la version d'avant est gardée dans ${path.relative(root, before)} (jusqu'à la prochaine mise à jour)`);
+}
+
 // ---------- Déroulé ----------
+const LABEL ={ docker: "Docker", archive: "archive prête à l'emploi", depot: "dépôt construit sur place" };
 const now = await running();
-const latest = asked ? { version: cleanVersion(asked), tag: `v${cleanVersion(asked)}`, depuis: null } : await published();
+// Une archive donnée dit elle-même sa version (son package.json) : c'est elle qui s'installe.
+const named = given ? cleanVersion((() => {
+  const r = spawnSync("tar", ["-xzOf", given, "pecule/package.json"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  try {
+    return r.status === 0 ? JSON.parse(r.stdout).version : null;
+  } catch {
+    return null;
+  }
+})()) : null;
+/** La version est choisie par celui qui lance la commande (--version, --archive), pas par ce que GitHub publie. */
+const chosen = asked !== undefined || !!given;
+const latest = asked ? { version: cleanVersion(asked), tag: `v${cleanVersion(asked)}`, depuis: null } : named ? { version: named, tag: `v${named}`, depuis: null } : given ? { version: null, reason: "ce fichier n'est pas une archive de Pécule" } : await published();
 const current = now.version ?? null;
 const state = current && latest.version ? updateState(current, latest.version, latest.depuis) : null;
 
 if (flag("verifier")) {
-  if (json) console.log(JSON.stringify({ ok: now.up === true, mode: docker ? "docker" : "node", running: current, latest: latest.version, state: state?.kind ?? "inconnu", ...(state?.kind === "palier" ? { palier: state.palier } : {}) }, null, 1));
+  if (json) console.log(JSON.stringify({ ok: now.up === true, mode: docker ? "docker" : "node", source: mode, running: current, latest: latest.version, state: state?.kind ?? "inconnu", ...(state?.kind === "palier" ? { palier: state.palier } : {}) }, null, 1));
   else {
-    console.log(!now.up ? `✗ Pécule ne répond pas sur ${target}` : current ? `✓ Pécule ${current} en service (${docker ? "Docker" : "Node"})` : now.refused ? "· Version en service inconnue : le jeton d'administration du fichier de réglages est refusé" : now.member === false ? "· Installation neuve : pas encore de membre" : "· Version en service antérieure à la 1.22.0 (elle ne sait pas dire sa version)");
+    console.log(!now.up ? `✗ Pécule ne répond pas sur ${target}` : current ? `✓ Pécule ${current} en service (${LABEL[mode]})` : now.refused ? "· Version en service inconnue : le jeton d'administration du fichier de réglages est refusé" : now.member === false ? "· Installation neuve : pas encore de membre" : "· Version en service antérieure à la 1.22.0 (elle ne sait pas dire sa version)");
     console.log(latest.version ? `· Dernière version publiée : ${latest.version}` : `· Dernière version publiée inconnue : ${latest.reason}`);
     if (state?.kind === "a-jour") console.log("\nRien à faire : l'installation est à jour.");
     else if (state?.kind === "palier") console.log(`\nLa version ${state.version} ne reprend pas une base aussi ancienne : installe d'abord la ${state.palier}.\n  node scripts/maj.mjs --version ${state.palier}`);
@@ -222,22 +375,24 @@ if (flag("verifier")) {
   process.exit(now.up ? 0 : 1);
 }
 
-say(`Pécule — mise à jour (${docker ? "Docker" : "Node"}, ${target})`);
+say(`Pécule — mise à jour (${LABEL[mode]}, ${target})`);
 say(current ? `· Version en service : ${current}` : !now.up ? "· Le serveur ne répond pas" : "· Version en service inconnue (antérieure à la 1.22.0, ou jeton refusé)");
 say(latest.version ? `· Version à installer : ${latest.version}` : `· Dernière version publiée inconnue (${latest.reason}) : ce que le dépôt ou l'image donne de plus récent sera installé`);
 
-if (!asked && state?.kind === "a-jour") {
+if (!chosen && state?.kind === "a-jour") {
   say("\n✓ Rien à faire : l'installation est à jour.");
   process.exit(0);
 }
-if (!asked && state?.kind === "palier") fail(`La version ${state.version} ne reprend pas une base aussi ancienne : installe d'abord la ${state.palier}, puis relance la mise à jour.\n    node scripts/maj.mjs --version ${state.palier}`);
-if (asked && current && compareVersions(latest.version, current) < 0)
+if (!chosen && state?.kind === "palier") fail(`La version ${state.version} ne reprend pas une base aussi ancienne : installe d'abord la ${state.palier}, puis relance la mise à jour.\n    node scripts/maj.mjs --version ${state.palier}`);
+if (chosen && current && latest.version && compareVersions(latest.version, current) < 0)
   say(`\n! ${latest.version} est plus ancienne que la version en service. La base ne revient pas en arrière : si une migration a été\n  appliquée depuis, restaure d'abord une sauvegarde d'avant (docs/guide/mise-a-jour.md).`);
 
 const git = existsSync(".git") && has("git");
 if (git && output("git", ["status", "--porcelain", "--untracked-files=no"])) fail("Des fichiers du dépôt sont modifiés (git status) : range ou annule ces modifications avant de mettre à jour.");
 if (docker && !has("docker")) fail("Docker est introuvable sur cette machine.");
-if (!docker && !has("pnpm")) fail("pnpm est introuvable (corepack enable, ou npm install -g pnpm).");
+if (mode === "depot" && !has("pnpm")) fail("pnpm est introuvable (corepack enable, ou npm install -g pnpm).");
+if (mode === "archive" && !has("tar")) fail("tar est introuvable sur cette machine : il déplie l'archive de la version.");
+if (mode === "archive" && !given && !latest.version) fail(`La version à télécharger est inconnue (${latest.reason}) : donne-la par --version, ou une archive déjà téléchargée par --archive.`);
 
 if (!(await confirm(`\nMettre à jour maintenant ? Pécule sera indisponible le temps du redémarrage.`))) {
   say("Rien n'a été fait.");
@@ -264,10 +419,10 @@ if (git) {
   const branch = output("git", ["symbolic-ref", "--quiet", "--short", "HEAD"]);
   const ok = asked ? run("git", ["checkout", "--detach", latest.tag]) : branch ? run("git", ["pull", "--ff-only"]) : latest.tag ? run("git", ["checkout", "--detach", latest.tag]) : false;
   if (!ok) fail(asked || !branch ? `La version ${latest.tag ?? "demandée"} est introuvable dans le dépôt.` : "git pull a échoué (la branche a divergé ?) : rien d'autre n'a été modifié.");
-} else say("\n· Pas de dépôt git ici : le code de ce dossier est gardé tel quel.");
+} else if (mode !== "archive") say("\n· Pas de dépôt git ici : le code de ce dossier est gardé tel quel.");
 
 // 3. La nouvelle version
-say(docker ? "\nImage et conteneur…" : "\nConstruction…");
+say(docker ? "\nImage et conteneur…" : mode === "archive" ? "\nArchive de la version…" : "\nConstruction…");
 // Ce qui tourne après une construction, c'est le code de ce dossier ; après une image récupérée, la version publiée.
 const checkout = () => cleanVersion(JSON.parse(readFileSync("package.json", "utf8")).version);
 let expected = latest.version;
@@ -281,11 +436,12 @@ if (docker) {
   if (build) expected = checkout();
   if (!run("docker", ["compose", "up", "-d", ...(build ? ["--build"] : []), "pecule"], compose)) fail("docker compose up a échoué : l'ancien conteneur tourne peut-être encore (docker compose ps, docker compose logs pecule).");
 } else {
-  if (!run("pnpm", ["install", "--frozen-lockfile"]) || !run("pnpm", ["build"])) fail("La construction a échoué : l'ancienne version tourne toujours, rien n'a été remplacé.");
+  if (mode === "archive") await installArchive();
+  else if (!run("pnpm", ["install", "--frozen-lockfile"]) || !run("pnpm", ["build"])) fail("La construction a échoué : l'ancienne version tourne toujours, rien n'a été remplacé.");
   expected = checkout();
   const restart = value("redemarrer");
   if (restart) {
-    if (!run(restart, [], { shell: true })) fail("La commande de redémarrage a échoué.");
+    if (!restartWith(restart)) fail("La commande de redémarrage a échoué.");
   } else {
     restarted = false;
     say("\n→ Redémarre maintenant le serveur (bouton de l'hébergeur, systemctl restart, pm2 restart…). J'attends la nouvelle version.");

@@ -3,6 +3,58 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.34.0
+
+Installer Pécule devient l'affaire d'un fichier et de trois commandes — ou d'une phrase dite à son assistant IA.
+Rien ne change pour une installation en service ; aucune migration.
+
+- **Docker : le fichier `compose.yaml` suffit.** Ni dépôt à cloner, ni Node sur la machine, ni fichier `.env` à
+  écrire : `docker compose up -d` tire lui-même les secrets de l'installation et les garde dans un volume
+  (`pecule-reglages`). Un fichier `.env` reste possible — deux lignes pour un serveur en https (`APP_URL`,
+  `COMPOSE_PROFILES=https`) — et ce qu'il donne l'emporte toujours : une installation existante garde ses secrets, sa
+  base et ses volumes. Essayé avec Docker Compose 2.9 et 2.20 (ceux de bien des NAS) comme avec la version courante.
+  Des garde-fous : relancé d'un dossier qui n'a pas le `.env` de l'installation, Pécule refuse de démarrer plutôt
+  que de changer d'adresse en silence ; une variable du terminal ne peut ni lui donner un secret trop court pour
+  être le sien, ni remplacer celui qui chiffre les clés gardées en base ; et une base déjà là dont les réglages ne
+  sont pas donnés n'en reçoit jamais de nouveaux.
+- **Un lien pour le premier démarrage.** `node scripts/lien.mjs` (avec Docker :
+  `docker compose exec pecule node scripts/lien.mjs`) attend que Pécule soit prêt et donne le lien à ouvrir : il porte
+  le code d'installation, et l'écran « Bienvenue dans Pécule » ne demande plus que ton prénom. Ouvert sans ce lien,
+  l'écran affiche la commande qui le donne. La même commande dépanne un premier membre resté sans clé d'accès (page
+  fermée trop tôt).
+- **Archive prête à l'emploi.** Chaque version joint `pecule.tar.gz` et `pecule.zip` : le serveur déjà construit et
+  ses dépendances, pour un hébergement Node.js sans Docker — ni build, ni pnpm. `node scripts/maj.mjs` met à jour une
+  installation faite ainsi (archive téléchargée, empreinte contrôlée, version d'avant gardée dans `.avant-maj`), ou
+  prend une archive déjà téléchargée par `--archive`.
+- **Les formats sont joints à chaque version** sur GitHub (`compose.yaml`, les deux archives, `SHA256SUMS`), sous des
+  noms qui ne changent pas : la dernière version se télécharge toujours à la même adresse. Les notes d'une version
+  commencent par un tableau « Installer ou mettre à jour ».
+- **Installer par son assistant IA, quel qu'il soit.** `AGENTS.md` est une marche à suivre complète, lisible par son
+  adresse sans cloner le dépôt ; la consigne à coller est dans le README et dans
+  `docs/guide/installer-avec-une-ia.md`. La compétence `pecule` s'installe par `npx skills add`, `gh skill install`
+  ou le catalogue de plugins de Claude Code.
+- **La mise à jour affichée est celle de ton installation** : Réglages → Suivi technique donne
+  `docker compose pull && docker compose up -d` avec Docker, `node scripts/maj.mjs` sinon.
+- **Image plus légère** : elle n'emporte plus que ce que le serveur charge (ses dépendances passent de 211 à 53 Mo).
+- `doctor`, `lien`, `maj` et `importer` lisent les réglages où qu'ils soient (fichier `.env`, volume, conteneur) ;
+  `doctor` dit « rien n'est installé ici » plutôt qu'une erreur, et un réglage qui manque au démarrage est nommé en
+  clair. `setup` et `doctor` essaient la base elle-même (joignable, version, vide ou non) : une adresse fausse se voit
+  avant le premier démarrage. Devant un serveur réglé par les variables de son hébergeur, `doctor` le dit et ne
+  conseille plus d'écrire un fichier `.env`, et `setup` refuse d'en écrire un à côté de lui. L'import d'un dossier de
+  documents se lance aussi dans le conteneur.
+
+Pour celui qui héberge :
+
+- Avec Docker, le projet Compose s'appelle désormais `pecule` où que soit rangé `compose.yaml`. Une installation
+  faite dans un dossier d'un autre nom retrouve ses volumes par `COMPOSE_PROJECT_NAME=<nom du dossier>` dans `.env`.
+- `compose.yaml` ne lit plus `PECULE_ENV_FILE` (un autre fichier que `.env` : `docker compose --env-file`), et ne
+  transmet plus au conteneur `PORT` ni `DATABASE_URL` écrits dans `.env` : le port du conteneur et la base sont ceux
+  de `compose.yaml`.
+- `setup.mjs --docker` inscrit `COMPOSE_PROFILES=https` pour une adresse publique : `docker compose up -d` suffit
+  ensuite (`--proxy` s'il y a déjà un proxy https devant Pécule).
+- Développement : la base locale (`pnpm local base`) a son propre projet Compose, `pecule-local` ; son conteneur y
+  passe au premier lancement, ses données ne bougent pas.
+
 ## 1.33.0
 
 - **L'assistant tient à jour les faits clés d'un bien.** Ce que la fiche d'un bien affiche sous « Faits clés »

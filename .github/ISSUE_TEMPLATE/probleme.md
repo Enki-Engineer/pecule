@@ -10,7 +10,8 @@ labels: bug
 
 **Ce qui s'est passé**
 
-**Mon installation** (Docker ou Node, version ou commit, navigateur) et la sortie de `node scripts/doctor.mjs` :
+**Mon installation** (Docker, archive ou sources ; version ou commit ; navigateur) et la sortie de `doctor`
+(`docker compose exec pecule node scripts/doctor.mjs`, ou `node scripts/doctor.mjs`) :
 
 ```
 ```

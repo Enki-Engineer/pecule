@@ -1,5 +1,10 @@
 # Base locale de développement : MariaDB 11.8, la même version que la production.
 # Pilotée par `pnpm local` (scripts/local.ts) ; écoute sur 127.0.0.1:3316 seulement.
+
+# Un projet Compose à elle, quel que soit le dossier du dépôt : celui de compose.yaml s'appelle « pecule » et porte lui
+# aussi un service « base » — sans cela, lancer l'un remplacerait le conteneur de l'autre. La même base sert ainsi à
+# toutes les copies de travail du dépôt.
+name: pecule-local
 services:
   base:
     image: mariadb:11.8
@@ -18,3 +23,5 @@ services:
       retries: 40
 volumes:
   pecule-base-locale:
+    # Le nom que ce volume portait quand le projet était celui du dossier « pecule » : une base locale déjà là est gardée.
+    name: pecule_pecule-base-locale

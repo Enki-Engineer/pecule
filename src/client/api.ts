@@ -181,7 +181,7 @@ export type Loan = {
 };
 
 /** `region` : pays, devise et fuseau du foyer. `language` : langue de Pécule choisie par le membre (null tant qu'il n'a rien choisi) ; `admin` : administrateur de Pécule (sauvegarde complète). */
-/** `setup` : installation neuve, aucun membre encore. */
+/** `setup` : installation neuve, aucun membre encore ; `setupCommand` : la commande qui, sur le serveur, donne le lien du premier démarrage. */
 export type Me = {
   user: {
     id: number;
@@ -200,6 +200,7 @@ export type Me = {
   } | null;
   demoAvailable?: boolean;
   setup?: boolean;
+  setupCommand?: string;
 };
 export const useMe = () => useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/auth/me"), staleTime: Infinity });
 /** Session en mode démo (données fictives). */

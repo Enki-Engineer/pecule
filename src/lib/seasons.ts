@@ -1,6 +1,6 @@
 /*
- * Thèmes de l'année : l'appli change d'allure d'elle-même — fond, couleur, boutons,
- * typographie des titres, motif et petit décor. Deux niveaux :
+ * Thèmes de l'année : quand le membre les active (aucun au départ, DEFAULT_SEASON_MODE), l'appli change d'allure
+ * d'elle-même — fond, couleur, boutons, typographie des titres, motif et petit décor. Deux niveaux :
  *  - les fêtes (Jour de l'an, Épiphanie, Chandeleur, Saint-Valentin, Saint-Patrick, Pâques, 14 Juillet,
  *    Rentrée, Halloween, Fête des Lumières, Noël), courtes et marquées ;
  *  - les saisons (hiver, printemps, été, automne), plus douces, le reste de l'année.
@@ -17,6 +17,15 @@ export type Season = Fete | Saison;
 
 /** Réglage « Thèmes de l'année » : fêtes et saisons, fêtes seulement, ou aucun. */
 export type SeasonMode = "tout" | "fetes" | "aucun";
+
+/** Réglage d'origine : aucun thème. L'appli garde son allure de tous les jours tant que le membre n'en active pas. */
+export const DEFAULT_SEASON_MODE: SeasonMode = "aucun";
+
+/**
+ * Réglage gardé par l'appareil, ramené à un mode connu : sans choix (ou valeur inconnue), celui d'origine. Les
+ * anciens « on » et « off » valent « tout » et « aucun ». Même lecture dans public/theme-init.js.
+ */
+export const asSeasonMode = (v: string | null | undefined): SeasonMode => (v === "tout" || v === "on" ? "tout" : v === "fetes" ? "fetes" : v === "aucun" || v === "off" ? "aucun" : DEFAULT_SEASON_MODE);
 
 export const SEASONS: Record<Season, { label: string; emoji: string; greeting: string | null; kind: "fete" | "saison"; dates: string }> = {
   anniversaire: localized({ label: tk("Anniversaire"), emoji: "🎂", greeting: tk("Joyeux anniversaire"), kind: "fete", dates: tk("le jour de chaque anniversaire saisi dans Réglages") }, "label", "greeting", "dates"),
@@ -136,7 +145,7 @@ export function birthdaysAt(date: Date, list: Birthday[]): Birthday[] {
 }
 
 /** Thème à appliquer à une date : un anniversaire prime sur la fête, qui prime sur la saison. */
-export function seasonAt(date: Date, mode: SeasonMode = "tout", birthdays: Birthday[] = [], country = "FR"): Season | null {
+export function seasonAt(date: Date, mode: SeasonMode = DEFAULT_SEASON_MODE, birthdays: Birthday[] = [], country = "FR"): Season | null {
   if (mode === "aucun") return null;
   if (birthdaysAt(date, birthdays).length) return "anniversaire";
   return feteAt(date, country) ?? (mode === "tout" && !SOUTHERN.has(country) ? saisonAt(date) : null);

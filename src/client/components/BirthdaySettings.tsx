@@ -13,11 +13,11 @@ const byDate = (a: Birthday, b: Birthday) => a.month - b.month || a.day - b.day 
 const monthName = (m: number) => new Date(2024, m - 1, 1).toLocaleDateString(locale(), { month: "long" });
 const dayOf = (b: Birthday) => `${new Date(2024, b.month - 1, b.day).toLocaleDateString(locale(), { day: "numeric", month: "long" })}${b.year ? ` ${b.year}` : ""}`;
 
-/** Anniversaires du foyer : le jour J, l'appli prend le thème « Anniversaire » sur tous les appareils de la famille. */
+/** Anniversaires du foyer : le jour J, l'appli prend le thème « Anniversaire » sur les appareils de la famille où les thèmes sont activés. */
 export function BirthdaySettings() {
   const birthdays = useBirthdays();
   const save = useSaveBirthdays();
-  const { previewing, setPreview } = useAppearance();
+  const { previewing, setPreview, seasons } = useAppearance();
   const [name, setName] = useState("");
   const [day, setDay] = useState("");
   const [month, setMonth] = useState("");
@@ -91,11 +91,17 @@ export function BirthdaySettings() {
         </form>
       </Card>
       <p className="mt-2 px-1 text-xs text-muted">
-        {t("Le jour J, Pécule prend les couleurs de l'anniversaire sur tous les appareils de la famille et le souhaite sur l'accueil. La liste est partagée par le foyer ; l'année est facultative.")}{" "}
+        {t("Le jour J, Pécule prend les couleurs de l'anniversaire et le souhaite sur l'accueil, sur les appareils de la famille où les thèmes de l'année sont activés. La liste est partagée par le foyer ; l'année est facultative.")}{" "}
         <button type="button" onClick={() => setPreview(previewing === "anniversaire" ? null : "anniversaire")} className="font-medium text-accent">
           {previewing === "anniversaire" ? t("Arrêter l'aperçu") : t("Voir le thème")}
         </button>
       </p>
+      {/* Thèmes coupés sur cet appareil (le réglage d'origine) : l'anniversaire ne s'y verra pas, autant le dire ici. */}
+      {seasons === "aucun" && (
+        <p className="mt-1 px-1 text-xs font-medium text-ink">
+          {t("Sur cet appareil, les thèmes de l'année sont sur « {aucun} » : choisis « {fetes} » ou « {tout} » pour que l'anniversaire s'y voie.", { aucun: t("Aucun##thème"), fetes: t("Fêtes seulement"), tout: t("Fêtes et saisons") })}
+        </p>
+      )}
     </div>
   );
 }

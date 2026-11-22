@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { LOGO_FONDS, LOGO_THEMES, logoSrc, type LogoId } from "../../lib/logo.ts";
 import { SEASONS } from "../../lib/seasons.ts";
-import { useLogo, useSeason } from "../theme.ts";
+import { useAppearance, useLogo, useSeason } from "../theme.ts";
 import { t } from "../../lib/i18n.ts";
 
 function Choice({ id, label, selected, onSelect }: { id: LogoId; label: string; selected: boolean; onSelect: () => void }) {
@@ -17,6 +17,7 @@ function Choice({ id, label, selected, onSelect }: { id: LogoId; label: string; 
 export function LogoSettings() {
   const { fond, setFond, home, setHome } = useLogo();
   const season = useSeason();
+  const { seasons } = useAppearance();
   const installed = window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
   return (
     <>
@@ -30,7 +31,9 @@ export function LogoSettings() {
         <p className="mt-2 px-1 text-xs text-muted">
           {season
             ? t("Le coffre de tous les jours, sur le fond de ton choix. Dans l'appli et dans l'onglet du navigateur, il prend tout seul le décor du thème du moment (en ce moment : {theme}).", { theme: SEASONS[season].label })
-            : t("Le coffre de tous les jours, sur le fond de ton choix. Dans l'appli et dans l'onglet du navigateur, il prend tout seul le décor du thème du moment.")}
+            : seasons === "aucun"
+              ? t("Le coffre de tous les jours, sur le fond de ton choix. Si tu actives les thèmes de l'année, il prend dans l'appli et dans l'onglet du navigateur le décor du thème du moment.")
+              : t("Le coffre de tous les jours, sur le fond de ton choix. Dans l'appli et dans l'onglet du navigateur, il prend tout seul le décor du thème du moment.")}
         </p>
       </div>
       <div>

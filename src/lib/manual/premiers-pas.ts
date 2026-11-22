@@ -33,7 +33,7 @@ export const premiersPas: ManualTheme = {
     {
       id: "presentation",
       title: tk("La présentation de bienvenue"),
-      summary: tk("Le tour de Pécule proposé à ta première connexion, à revoir quand tu veux."),
+      summary: tk("Les quelques étapes qui t'accueillent à ta première connexion, à revoir quand tu veux."),
       body: [
         tk("À ta première connexion, Pécule t'accueille par une présentation de quelques étapes : les réglages du foyer (pays, devise, écrans à garder ; l'administrateur seulement), les repères pour t'y retrouver, puis tes comptes, avec un guide pas à pas pour relier ta banque."),
         {
@@ -44,17 +44,36 @@ export const premiersPas: ManualTheme = {
           ],
         },
         tk("Son étape [[Tes comptes]] mène au guide [Relier une banque](/manuel/relier-une-banque) ; tu peux aussi choisir d'importer un fichier de ta banque, ou d'y revenir plus tard."),
+        tk("Sa dernière étape propose la [visite guidée](/manuel/visite-guidee) : le tour de l'appli elle-même, un endroit après l'autre."),
         { note: tk("Chaque membre a la sienne, à sa première connexion. Indisponible en mode démo.") },
       ],
       links: [{ to: "/bienvenue", label: ["Présentation de Pécule"] }],
-      words: tk("onboarding accueil premier lancement première fois visite guidée tutoriel découvrir tour démarrage guide de démarrage"),
+      words: tk("onboarding accueil bienvenue premier lancement première fois réglages du foyer démarrage guide de démarrage"),
+    },
+    {
+      id: "visite-guidee",
+      title: tk("La visite guidée"),
+      summary: tk("Le tour de l'appli dans l'appli elle-même : chaque endroit s'éclaire, avec une bulle qui l'explique."),
+      body: [
+        tk("La visite guidée fait le tour de Pécule sans quitter l'appli : un voile se pose sur l'écran, chaque endroit s'éclaire à son tour et une bulle dit en deux phrases à quoi il sert. Sur ordinateur, elle parcourt le menu — chaque famille ouvre son écran derrière la bulle — puis les outils de la barre du haut ; sur téléphone, les onglets, puis les boutons du haut."),
+        {
+          list: [
+            tk("Pour la lancer : [[Visite guidée]], en bas du menu, sous [[Assistant]] ; sur téléphone, dans [[Tout Pécule]]. La recherche la trouve aussi."),
+            tk("[[Suivant]] et [[Précédent]] font avancer et reculer, comme les flèches → et ← du clavier ; toucher l'endroit éclairé passe aussi à la suite."),
+            tk("[[Quitter la visite]], ou la touche Échap, l'arrête à tout moment : tu reviens à l'écran d'où tu es parti."),
+          ],
+        },
+        tk("Elle ne change rien : le temps de la visite, l'appli est seulement montrée. Elle ne passe que par les écrans que ton foyer a gardés, et se rejoue autant de fois que tu veux — y compris en mode démo, pour montrer Pécule à quelqu'un."),
+      ],
+      links: [{ to: "/?visite=1", label: ["Visite guidée"] }],
+      words: tk("tour de l'appli bulles explications découvrir prise en main tutoriel montrer rejouer aide au démarrage où est quoi"),
     },
     {
       id: "naviguer-ordinateur",
       title: tk("Se repérer sur ordinateur"),
       summary: tk("Le menu, la barre du haut, les fiches et le clic droit."),
       body: [
-        tk("À gauche, le menu range les écrans par groupes : [[Au quotidien]], [[Patrimoine]], [[Situation]], [[Documents]]. En bas du menu : [[Assistant]], [[Manuel]], [[Réglages]], puis [[Replier]], qui ne garde que les icônes."),
+        tk("À gauche, le menu range les écrans par groupes : [[Au quotidien]], [[Patrimoine]], [[Situation]], [[Documents]]. En bas du menu : [[Assistant]], [[Visite guidée]] (le tour de l'appli, une bulle après l'autre), [[Manuel]], [[Réglages]], puis [[Replier]], qui ne garde que les icônes."),
         tk("Un nombre à droite d'une ligne du menu compte ce qui t'attend (opérations à classer, comptes signalés, factures à rapprocher, tâches en retard). Clique sur le nombre : l'écran s'ouvre déjà filtré."),
         tk("La barre du haut porte, de gauche à droite : le chemin de l'écran ouvert, la période (sur [[Analyse]] et [[Opérations]]), le choix [[Foyer]] ou [[Moi]], la recherche, l'œil qui masque les montants, le « ? » qui ouvre la page du manuel de l'écran affiché, la synchronisation des banques et l'assistant."),
         {
@@ -76,7 +95,7 @@ export const premiersPas: ManualTheme = {
       summary: tk("Les onglets du bas, le menu « Tout Pécule » et les gestes."),
       body: [
         tk("En bas de l'écran : [[Accueil]], [[Opérations]], le bouton de l'assistant au centre, [[Mois]] et [[Patrimoine]]. Les factures sont dans [[Opérations]] : une bascule [[Opérations]] | [[Factures]] se trouve en haut des deux écrans."),
-        tk("Tous les autres écrans sont dans le menu [[Tout Pécule]], le bouton en haut à gauche des écrans principaux. On y trouve aussi le choix [[Foyer]] ou [[Moi]], [[Masquer les montants]], [[Assistant]], [[Manuel]] et [[Réglages]]."),
+        tk("Tous les autres écrans sont dans le menu [[Tout Pécule]], le bouton en haut à gauche des écrans principaux. On y trouve aussi le choix [[Foyer]] ou [[Moi]], [[Masquer les montants]], [[Assistant]], [[Visite guidée]], [[Manuel]] et [[Réglages]]."),
         {
           list: [
             tk("Tire l'écran vers le bas pour synchroniser les banques et rafraîchir."),

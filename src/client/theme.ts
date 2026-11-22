@@ -1,6 +1,6 @@
 import { region } from "./region.ts";
 import { useEffect, useState } from "react";
-import { asAccent, birthdaysAt, DEFAULT_ACCENT, parseBirthdays, seasonAt, SEASONS, type Accent, type Birthday, type Season, type SeasonMode } from "../lib/seasons.ts";
+import { asAccent, asSeasonMode, birthdaysAt, DEFAULT_ACCENT, parseBirthdays, seasonAt, SEASONS, type Accent, type Birthday, type Season, type SeasonMode } from "../lib/seasons.ts";
 import { locale } from "../lib/i18n.ts";
 import { asFond, asHomeTheme, HOME_ICON_COOKIE, homeIconId, logoId, manifestSrc, tabIconSrc, touchIconSrc, type LogoFond, type LogoId } from "../lib/logo.ts";
 import type { Density, ThemePref } from "../lib/device-settings.ts";
@@ -69,10 +69,9 @@ export function storeBirthdays(list: Birthday[]) {
   applyAppearance();
 }
 
-/** Réglage des thèmes de l'année ; l'ancien « off » vaut « aucun », l'ancien « on » vaut « tout ». */
+/** Réglage des thèmes de l'année sur cet appareil : « aucun » tant que le membre n'a rien choisi. */
 export function seasonMode(): SeasonMode {
-  const v = localStorage.getItem(SEASONS_KEY);
-  return v === "off" || v === "aucun" ? "aucun" : v === "fetes" ? "fetes" : "tout";
+  return asSeasonMode(localStorage.getItem(SEASONS_KEY));
 }
 
 /** Applique couleur et thème de l'année (aperçu prioritaire, sinon celui du jour selon le réglage). */

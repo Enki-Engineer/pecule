@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
-import { birthdaysAt, decorDue, easterSunday, feteAt, parseBirthdays, saisonAt, seasonAt, seasonWindow, SEASONS, upcomingSeasons } from "./seasons.ts";
+import { asSeasonMode, birthdaysAt, decorDue, DEFAULT_SEASON_MODE, easterSunday, feteAt, parseBirthdays, saisonAt, seasonAt, seasonWindow, SEASONS, upcomingSeasons } from "./seasons.ts";
+import { DEFAULT_FOND } from "./logo.ts";
 
 const d = (s: string) => new Date(`${s}T12:00:00`);
 const ymd = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
@@ -64,10 +65,23 @@ describe("saisonAt / seasonAt", () => {
     expect(saisonAt(d("2027-09-23"))).toBe("automne");
     expect(saisonAt(d("2027-11-30"))).toBe("automne");
   });
+  it("n'applique aucun thème tant que le membre n'en a pas activé", () => {
+    expect(DEFAULT_SEASON_MODE).toBe("aucun");
+    expect(seasonAt(d("2026-11-10"))).toBeNull();
+    expect(seasonAt(d("2026-12-24"))).toBeNull();
+    expect(asSeasonMode(null)).toBe("aucun");
+    expect(asSeasonMode("")).toBe("aucun");
+    expect(asSeasonMode("inconnu")).toBe("aucun");
+    expect(asSeasonMode("tout")).toBe("tout");
+    expect(asSeasonMode("fetes")).toBe("fetes");
+    // Valeurs gardées par d'anciennes versions.
+    expect(asSeasonMode("on")).toBe("tout");
+    expect(asSeasonMode("off")).toBe("aucun");
+  });
   it("fait primer la fête, et suit le réglage", () => {
-    expect(seasonAt(d("2026-11-10"))).toBe("automne");
-    expect(seasonAt(d("2026-10-30"))).toBe("halloween");
-    expect(seasonAt(d("2027-03-21"))).toBe("paques");
+    expect(seasonAt(d("2026-11-10"), "tout")).toBe("automne");
+    expect(seasonAt(d("2026-10-30"), "tout")).toBe("halloween");
+    expect(seasonAt(d("2027-03-21"), "tout")).toBe("paques");
     expect(seasonAt(d("2026-11-10"), "fetes")).toBeNull();
     expect(seasonAt(d("2026-10-30"), "fetes")).toBe("halloween");
     expect(seasonAt(d("2026-10-30"), "aucun")).toBeNull();
@@ -96,7 +110,7 @@ describe("anniversaires", () => {
     expect(seasonAt(d("2027-03-15"), "tout", list)).toBe("saint-patrick");
     expect(seasonAt(d("2027-03-16"), "fetes", list)).toBe("anniversaire");
     expect(seasonAt(d("2027-03-16"), "aucun", list)).toBeNull();
-    expect(seasonAt(d("2027-03-16"))).toBe("saint-patrick");
+    expect(seasonAt(d("2027-03-16"), "tout")).toBe("saint-patrick");
   });
   it("fêtent un 29 février le 28 les années ordinaires", () => {
     expect(birthdaysAt(d("2027-02-28"), list).map((b) => b.name)).toEqual(["Léo"]);
@@ -189,7 +203,7 @@ describe("public/theme-init.js", () => {
       }
       vm.runInNewContext(code, {
         document: { documentElement: root, querySelector: () => null },
-        localStorage: { getItem: (k: string) => (k === "pecule.pays" && country !== "FR" ? country : null) },
+        localStorage: { getItem: (k: string) => (k === "pecule.seasons" ? "tout" : k === "pecule.pays" && country !== "FR" ? country : null) },
         window: { matchMedia: () => ({ matches: false }) },
         Date: FakeDate,
       });
@@ -210,11 +224,37 @@ describe("public/theme-init.js", () => {
       }
       vm.runInNewContext(code, {
         document: { documentElement: root, querySelector: () => null },
-        localStorage: { getItem: (k: string) => (k === "pecule.anniversaires" ? JSON.stringify(list) : null) },
+        localStorage: { getItem: (k: string) => (k === "pecule.seasons" ? "tout" : k === "pecule.anniversaires" ? JSON.stringify(list) : null) },
         window: { matchMedia: () => ({ matches: false }) },
         Date: FakeDate,
       });
       expect(root.dataset.season ?? null, iso).toBe(seasonAt(day, "tout", list));
+    }
+  });
+  it("lit le réglage de l'appareil comme asSeasonMode : aucun thème sans choix, les anciens « on » et « off » compris", () => {
+    const code = readFileSync("public/theme-init.js", "utf8");
+    const list = [{ name: "Camille", month: 3, day: 16 }];
+    // Un jour de fête, un jour de saison, un anniversaire : ce que chaque réglage en fait.
+    for (const iso of ["2026-10-30", "2026-11-10", "2027-03-16"]) {
+      const day = d(iso);
+      class FakeDate extends Date {
+        constructor(...a: unknown[]) {
+          if (a.length) super(...(a as [number]));
+          else super(day.getTime());
+        }
+      }
+      for (const stored of [null, "", "aucun", "off", "fetes", "tout", "on", "inconnu"]) {
+        const root = { dataset: {} as Record<string, string> };
+        vm.runInNewContext(code, {
+          document: { documentElement: root, querySelector: () => null },
+          localStorage: { getItem: (k: string) => (k === "pecule.seasons" ? stored : k === "pecule.anniversaires" ? JSON.stringify(list) : null) },
+          window: { matchMedia: () => ({ matches: false }) },
+          Date: FakeDate,
+        });
+        expect(root.dataset.season ?? null, `${iso} ${stored}`).toBe(seasonAt(day, asSeasonMode(stored), list));
+        // Sans thème, le logo est le coffre de tous les jours, sur le fond d'origine.
+        if (asSeasonMode(stored) === "aucun") expect(root.dataset.logo, `${iso} ${stored}`).toBe(DEFAULT_FOND);
+      }
     }
   });
   it("connaît tous les thèmes", () => {

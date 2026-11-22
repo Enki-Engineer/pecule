@@ -35,6 +35,7 @@ import { ActionError } from "./actions.ts";
 import { UnknownMemberError } from "./members.ts";
 import { EbError, ebAuthOrigin, ebFinishAuth } from "./enable-banking.ts";
 import { auditWrites, recordAlert, requestContext } from "./journal.ts";
+import { themesContext } from "./themes.ts";
 import { icalRouter } from "./ical.ts";
 import { runNotifications } from "./notify.ts";
 import { runWeeklySummaries } from "./weekly.ts";
@@ -142,7 +143,7 @@ export async function createApp() {
   // Connexion OAuth de l'appli Claude au serveur MCP : découverte, enregistrement, autorisation, jetons (hors /api).
   app.use(oauthRouter);
   // langContext avant demoContext : un refus du mode démo est écrit dans la langue du membre.
-  app.use("/api", loadUser, sameOriginWrites, langContext, demoContext, requestContext, auditWrites);
+  app.use("/api", loadUser, sameOriginWrites, langContext, demoContext, themesContext, requestContext, auditWrites);
   app.use("/api/admin", admin);
   // Mode vocal : avant le lecteur JSON, l'enregistrement arrive en corps brut.
   app.use("/api", voiceApi);

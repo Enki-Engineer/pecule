@@ -26,7 +26,8 @@ carrière), et parle français, anglais, allemand, italien et espagnol. Le code 
   Pécule expose aussi un serveur MCP : votre propre assistant IA peut le lire et le tenir à jour.
 - **Manuel intégré** — tout ce que sait faire l'appli, par thème, avec une recherche, dans les cinq langues.
 - **Un accueil qui guide** — à sa première connexion, chaque membre est accueilli par une courte présentation : le
-  foyer à régler, les repères de l'appli, puis sa banque à relier, pas à pas.
+  foyer à régler, les repères de l'appli, puis sa banque à relier, pas à pas. Une visite guidée fait ensuite le tour
+  de l'appli, une bulle après l'autre, et se rejoue depuis le menu.
 - **Dans votre devise** — le foyer choisit son pays, sa devise et son fuseau horaire ; un compte tenu dans une autre
   devise est converti au cours de référence de la Banque centrale européenne du jour de chaque opération, et garde ses
   montants d'origine.

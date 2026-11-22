@@ -131,6 +131,12 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   Réglages → Comptes et connexions : il suit ce que le serveur sait lire d'Enable Banking (clé reconnue, application
   active, accord donné), et la banque ramène le membre là d'où il est parti. Un membre inscrit avant cette
   présentation n'est pas « à accueillir » ; elle se rejoue par son adresse. Jamais en démo.
+- **Visite guidée** (`src/client/components/Tour.tsx`, lancée par `src/client/tour.ts`) : le tour de l'appli dans
+  l'appli elle-même, depuis l'entrée « Visite guidée » du menu (ou l'adresse `?visite=1`). Un voile, une zone éclairée
+  qui glisse d'un repère de la coquille au suivant (`data-tour`), une bulle qui l'explique ; chaque famille du menu
+  ouvre son écran derrière la bulle. Les étapes — selon la coquille (ordinateur ou téléphone), les écrans que le foyer
+  a gardés, le choix Foyer / Moi — et la place de la bulle sont des règles pures (`src/lib/tour.ts`). L'appli est
+  figée le temps de la visite (`inert`), rien n'est écrit, et l'on revient à l'écran de départ.
 - **Sauvegarde complète** : une archive de toute la base et de tous les fichiers (`src/server/backup.ts`), restaurable
   dans une base vide (`pnpm restaurer`) ou, depuis l'écran de premier démarrage, dans une installation neuve
   (`src/server/restore.ts` : archive envoyée par morceaux, relue avant d'écrire, témoin `_restauration_en_cours` qui

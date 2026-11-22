@@ -1,5 +1,5 @@
 // Apparence avant le premier rendu (pas de flash) : clair / sombre (« auto » suit le système),
-// couleur d'accent choisie, thème de l'année automatique (même calcul que src/lib/seasons.ts) et logo du moment.
+// couleur d'accent choisie, thème de l'année s'il est activé (même calcul que src/lib/seasons.ts) et logo du moment.
 (function () {
   var root = document.documentElement;
   try {
@@ -11,8 +11,9 @@
     if (accent && accent !== "encre" && accent !== "indigo") root.dataset.accent = accent;
     // Densité « compacte » (ordinateur) : marges et lignes resserrées, voir src/styles/index.css.
     if (localStorage.getItem("pecule.densite") === "compacte") root.dataset.density = "compact";
+    // Aucun thème tant que le membre n'en a pas activé (même lecture que asSeasonMode, src/lib/seasons.ts).
     var mode = localStorage.getItem("pecule.seasons");
-    mode = mode === "off" || mode === "aucun" ? "aucun" : mode === "fetes" ? "fetes" : "tout";
+    mode = mode === "tout" || mode === "on" ? "tout" : mode === "fetes" ? "fetes" : "aucun";
     // Pays du foyer (recopié sur l'appareil par l'appli) : hors de France, pas de fête propre à la France ;
     // dans l'hémisphère sud, pas de thème de saison.
     var country = localStorage.getItem("pecule.pays") || "FR";

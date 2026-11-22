@@ -744,7 +744,7 @@ function AppearanceExtras() {
           ]}
         />
         <p className="mt-2 px-1 text-xs text-muted">
-          {t("L'appli change d'allure d'elle-même : fond, couleur, boutons, titres, motif et petit décor sur l'accueil. Les fêtes sont plus marquées ; les saisons habillent le reste de l'année. Les couleurs des graphiques ne changent jamais.")}
+          {t("Aucun thème au départ : c'est toi qui les actives. L'appli change alors d'allure d'elle-même au fil de l'année — fond, couleur, boutons, titres, motif, logo et petit décor sur l'accueil. Les fêtes sont plus marquées ; les saisons habillent le reste de l'année. Les couleurs des graphiques ne changent jamais.")}
         </p>
       </div>
       <BirthdaySettings />

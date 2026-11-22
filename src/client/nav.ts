@@ -31,9 +31,12 @@ export const COUNT_LINKS: Record<keyof Counts, { to: string; label: (n: number) 
   alerts: { to: "/reglages/suivi", label: (n) => tn("Voir l'alerte à traiter", "Voir les {n} alertes à traiter", n) },
 };
 export type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean; count?: keyof Counts };
-export const NAV: { title?: string; items: NavItem[] }[] = [
-  { items: [{ to: "/", label: t("Tableau de bord"), icon: LayoutDashboard, end: true }] },
+/** Familles du menu. Leur identifiant sert de repère à la visite guidée (`data-tour`, src/lib/tour.ts). */
+export type NavGroupId = "accueil" | "quotidien" | "patrimoine" | "situation" | "documents";
+export const NAV: { id: NavGroupId; title?: string; items: NavItem[] }[] = [
+  { id: "accueil", items: [{ to: "/", label: t("Tableau de bord"), icon: LayoutDashboard, end: true }] },
   {
+    id: "quotidien",
     title: t("Au quotidien"),
     items: [
       { to: "/operations", label: t("Opérations"), icon: ListOrdered, count: "uncategorized" },
@@ -44,6 +47,7 @@ export const NAV: { title?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    id: "patrimoine",
     title: t("Patrimoine"),
     items: [
       { to: "/patrimoine", label: t("Vue d'ensemble"), icon: PiggyBank, end: true },
@@ -54,6 +58,7 @@ export const NAV: { title?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    id: "situation",
     title: t("Situation"),
     items: [
       { to: "/revenus", label: t("Revenus"), icon: BadgeEuro },
@@ -62,6 +67,7 @@ export const NAV: { title?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    id: "documents",
     title: t("Documents"),
     items: [
       { to: "/documents", label: t("Coffre"), icon: FolderOpen },

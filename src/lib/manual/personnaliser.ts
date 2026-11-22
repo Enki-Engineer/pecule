@@ -46,14 +46,14 @@ export const personnaliser: ManualTheme = {
     {
       id: "themes-annee",
       title: tk("Thèmes de l'année et anniversaires"),
-      summary: tk("L'appli change d'allure aux fêtes, aux saisons et le jour d'un anniversaire."),
+      summary: tk("Si tu l'actives, l'appli change d'allure aux fêtes, aux saisons et le jour d'un anniversaire."),
       body: [
-        tk("Au fil de l'année, Pécule s'habille de lui-même : fond, couleur, motif et petit décor sur l'accueil. Les fêtes sont plus marquées ; les saisons habillent le reste de l'année."),
+        tk("Pécule peut s'habiller de lui-même au fil de l'année : fond, couleur, motif, logo et petit décor sur l'accueil. Les fêtes sont plus marquées ; les saisons habillent le reste de l'année. Aucun thème n'est activé au départ : c'est à toi de le choisir, appareil par appareil."),
         {
           list: [
-            tk("[[Thèmes de l'année]] : [[Fêtes et saisons]], [[Fêtes seulement]] ou [[Aucun##thème]]. Réglage de l'appareil."),
+            tk("[[Thèmes de l'année]] : [[Aucun##thème]] au départ ; choisis [[Fêtes seulement]] ou [[Fêtes et saisons]] pour les activer. Réglage de l'appareil."),
             tk("[[Aperçu]], à côté de chaque fête et de chaque saison, montre un thème sans attendre sa date."),
-            tk("[[Anniversaires]] : ajoute un prénom et une date ; ce jour-là, l'appli prend les couleurs de l'anniversaire sur tous les appareils du foyer et le souhaite sur l'accueil."),
+            tk("[[Anniversaires]] : ajoute un prénom et une date ; ce jour-là, l'appli prend les couleurs de l'anniversaire et le souhaite sur l'accueil, sur les appareils du foyer où les thèmes sont activés."),
           ],
         },
         tk("Pendant un thème, il remplace la couleur que tu as choisie."),

@@ -406,7 +406,7 @@ const setDeviceSettings = writeTool({
     "Change un réglage gardé par l'appareil que l'utilisateur a sous les yeux (il ne vaut que sur cet appareil) : `theme` (auto : comme l'appareil ; clair ; sombre), `accent` (couleur de l'appli : " +
     ACCENTS.map((a) => `${a.id} = ${tk(a.label)}`).join(", ") +
     "), `seasons` (thèmes de l'année — tout : fêtes et saisons ; fetes : fêtes seulement ; aucun), `density` (ordinateur — aeree ou compacte : marges et lignes resserrées), `discreet` (true : tous les montants sont remplacés par « ••• » ; false : ils sont affichés), `instant_open` (ouverture instantanée : les dernières données de synthèse sont gardées sur l'appareil ; false les efface). " +
-    "Tu ne peux pas lire la valeur actuelle de ces réglages. Pendant un thème de l'année (une fête, une saison), le thème remplace la couleur choisie : elle se verra à la fin du thème, ou tout de suite avec seasons = aucun — dis-le quand tu changes la couleur. Ne donner que ce qui change.",
+    "Tu ne peux pas lire la valeur actuelle de ces réglages. Les thèmes de l'année sont sur « aucun » tant que l'utilisateur ne les a pas activés ; une fois activés, le thème du moment (une fête, une saison) remplace la couleur choisie jusqu'à sa fin — dis-le quand tu actives les thèmes, ou si l'utilisateur ne voit pas la couleur qu'il a demandée. Ne donner que ce qui change.",
   input: z.object({
     theme: z.enum(THEME_PREFS).optional(),
     accent: z.enum(ACCENT_IDS).optional(),

@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Clock, Eye, FileUp, Globe, Landmark, LayoutGrid, Palette, PanelBottom, PanelLeft, Presentation, Search, Server, Shapes, Smartphone, Sparkles, Tags, TriangleAlert, UserPlus, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Clock, Compass, Eye, FileUp, Globe, Landmark, LayoutGrid, Palette, PanelBottom, PanelLeft, Presentation, Search, Server, Shapes, Smartphone, Sparkles, Tags, TriangleAlert, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { api, closeWelcome, useAccounts, useMe, type Me } from "../api.ts";
 import { consentsOf, guideFacts, takeBankOutcome, useBankState, type BankScope } from "../api-bank.ts";
@@ -9,6 +9,7 @@ import { enterDemo } from "../demo.ts";
 import { appLang, applyLang } from "../i18n.ts";
 import { useNav } from "../modules.ts";
 import { arrived, passage } from "../passage.ts";
+import { TOUR_LINK } from "../tour.ts";
 import { NAV } from "../nav.ts";
 import { useTheme } from "../theme.ts";
 import { useMedia } from "../useMedia.ts";
@@ -782,6 +783,8 @@ function StepReady({
 }) {
   const installed = window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
   const all: (false | { icon: LucideIcon; title: string; text: string; to: string })[] = [
+    // La visite guidée : le menu et les outils, montrés dans l'appli elle-même dès qu'on y entre.
+    { icon: Compass, title: t("Suivre la visite guidée"), text: t("Le menu et les outils de l'appli, éclairés un à un dans l'appli elle-même."), to: TOUR_LINK },
     accounts > 0 && { icon: Tags, title: t("Classer tes opérations"), text: t("Pécule retient tes choix et classe les suivantes de lui-même."), to: "/tri" },
     admin && !ai && { icon: Sparkles, title: t("Brancher l'assistant"), text: t("Facultatif : avec ta propre clé d'IA, Pécule lit tes factures et répond à tes questions."), to: "/reglages/connexions?c=ia" },
     admin && alone && { icon: UserPlus, title: t("Inviter un autre adulte"), text: t("À chacun sa clé d'accès et sa vue du foyer."), to: "/reglages/compte" },

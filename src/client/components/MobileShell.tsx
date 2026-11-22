@@ -3,7 +3,7 @@ import { HelpLink } from "./HelpLink.tsx";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Link, useLocation, useNavigate, useNavigationType } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutGrid, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Compass, Eye, EyeOff, LayoutGrid, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
 import { toggleDiscreet, useDiscreet } from "../discret.ts";
 import { toast } from "sonner";
 import { api, useMe, useSync } from "../api.ts";
@@ -13,6 +13,7 @@ import { openPalette } from "./CommandPalette.tsx";
 import { Sheet } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import { useScope } from "../shell.ts";
+import { startTour } from "../tour.ts";
 import { t, tn } from "../../lib/i18n.ts";
 
 /*
@@ -167,7 +168,7 @@ export function MobileHeader({ title, subtitle, right, sticky }: { title: string
         <div className="relative flex h-11 items-center justify-between">
           <div className="relative z-10 min-w-0 max-w-[45%]">
             {top ? (
-              <button type="button" onClick={() => setMenu(true)} aria-label={t("Tout Pécule")} className="press flex h-10 items-center gap-1.5 rounded-full pl-2 pr-2 text-ink">
+              <button type="button" onClick={() => setMenu(true)} data-tour="tout" aria-label={t("Tout Pécule")} className="press flex h-10 items-center gap-1.5 rounded-full pl-2 pr-2 text-ink">
                 <LayoutGrid size={21} />
                 {scope === "moi" && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">{t("Moi")}</span>}
               </button>
@@ -189,10 +190,13 @@ export function MobileHeader({ title, subtitle, right, sticky }: { title: string
           </div>
           <div className="relative z-10 flex items-center justify-end">
             <DemoBadge />
-            <HelpLink size={20} className="press size-10 text-ink" />
-            <button type="button" onClick={openPalette} aria-label={t("Rechercher")} className="press grid size-10 place-items-center rounded-full text-ink">
-              <Search size={20} />
-            </button>
+            {/* Aide et recherche : montrées ensemble par la visite guidée. */}
+            <span data-tour="outils" className="flex items-center">
+              <HelpLink size={20} className="press size-10 text-ink" />
+              <button type="button" onClick={openPalette} aria-label={t("Rechercher")} className="press grid size-10 place-items-center rounded-full text-ink">
+                <Search size={20} />
+              </button>
+            </span>
           </div>
         </div>
       </div>
@@ -285,6 +289,21 @@ export function MenuSheet({ open, onClose }: { open: boolean; onClose: () => voi
         </button>
         <div className="card divide-y divide-line overflow-hidden">
           {row("/assistant", t("Assistant"), Sparkles)}
+          {/* Visite guidée : le menu se ferme, puis la visite commence (components/Tour.tsx). */}
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              startTour();
+            }}
+            className="press flex h-12 w-full items-center gap-3 px-4 text-left"
+          >
+            <span className="grid size-8 place-items-center rounded-lg bg-accent-soft text-accent">
+              <Compass size={17} />
+            </span>
+            <span className="flex-1 text-[16px]">{t("Visite guidée")}</span>
+            <ChevronRight size={17} className="text-muted" />
+          </button>
           {row("/manuel", t("Manuel"), BookOpen)}
           {row("/reglages", t("Réglages"), Settings, counts.data?.alerts, true)}
         </div>
@@ -381,6 +400,10 @@ export function useEdgeSwipeBack(pageRef: RefObject<HTMLElement | null>, enabled
 /** Tirer pour actualiser (écrans principaux) : synchronise les banques puis recharge les données. */
 export function PullToRefresh({ enabled }: { enabled: boolean }) {
   const sync = useSync();
+  // La mutation change d'identité à chaque rendu : hors des dépendances de l'effet, sinon le premier mouvement du
+  // doigt (qui redessine la pastille) réinstallait les écoutes et le geste repartait de zéro, sans jamais aboutir.
+  const refresh = useRef(sync.mutateAsync);
+  refresh.current = sync.mutateAsync;
   const qc = useQueryClient();
   const [pull, setPull] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -420,7 +443,7 @@ export function PullToRefresh({ enabled }: { enabled: boolean }) {
       if (!reached) return;
       setBusy(true);
       try {
-        const r = await sync.mutateAsync();
+        const r = await refresh.current();
         await qc.invalidateQueries();
         toast.success(r.inserted ? tn("{n} nouvelle opération", "{n} nouvelles opérations", r.inserted) : t("À jour"));
       } catch (e) {
@@ -437,7 +460,7 @@ export function PullToRefresh({ enabled }: { enabled: boolean }) {
       window.removeEventListener("touchmove", onMove);
       window.removeEventListener("touchend", onEnd);
     };
-  }, [enabled, busy, sync, qc]);
+  }, [enabled, busy, qc]);
   if (!pull && !busy) return null;
   const ready = pull >= 64;
   return (

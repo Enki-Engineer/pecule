@@ -25,8 +25,9 @@ French, English, German, Italian and Spanish. The code and its comments are writ
   have, with a side-by-side table. It knows the app too: it explains how to do things, links to the right screen and
   changes a setting when you ask. Pécule also exposes an MCP server so your own AI assistant can read and update it.
 - **Built-in manual** — everything the app does, by topic, searchable, in all five languages.
-- **A guided start** — on their first sign-in, each member is welcomed by a short tour: the household to set up,
-  the app's landmarks, then their bank to link, step by step.
+- **A guided start** — on their first sign-in, each member is welcomed by a short introduction: the household to set
+  up, the app's landmarks, then their bank to link, step by step. A guided tour then walks through the app itself, one
+  bubble at a time, and can be replayed from the menu.
 - **Any currency** — the household picks its country, currency and time zone; an account held in another currency is
   converted at the European Central Bank reference rate of each transaction's day and keeps its original amounts.
 - **For a household** — each member has their own view; shared accounts and private ones; passkeys instead of

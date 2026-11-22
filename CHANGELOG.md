@@ -3,6 +3,42 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.37.0
+
+Une visite guidée fait le tour de l'appli dans l'appli elle-même, et les thèmes de l'année ne s'activent plus
+d'eux-mêmes. Aucune migration, aucun réglage nouveau.
+
+- **Visite guidée.** Une entrée « Visite guidée », en bas du menu sous l'assistant (sur téléphone : dans « Tout
+  Pécule »), pose un voile sur l'écran, éclaire tour à tour les vrais éléments de l'appli et dit en deux phrases à
+  quoi chacun sert. Sur ordinateur : le tableau de bord, chaque famille du menu — son écran s'ouvre derrière la
+  bulle —, puis la recherche, Foyer / Moi, le mode discret, le « ? » et l'assistant. Sur téléphone : les onglets,
+  l'assistant, puis les boutons du haut. Elle ne passe que par les écrans que le foyer a gardés, ne modifie rien,
+  ramène à l'écran d'où l'on est parti, et se rejoue autant qu'on veut — en mode démo aussi, pour montrer Pécule.
+- Au clavier : → ou Entrée pour la suite, ← pour revenir, Échap pour quitter ; toucher l'endroit éclairé passe aussi
+  à la suite. La recherche (« visite ») la lance, comme la dernière étape de la présentation de bienvenue, qui la
+  propose à chaque nouveau membre.
+- **Les thèmes de l'année sont sur « Aucun » au départ.** Fêtes et saisons ne changent plus l'allure de l'appli
+  d'elles-mêmes : chacun les active sur son appareil (Réglages → Apparence → Thèmes de l'année). Un appareil où ce
+  réglage n'avait jamais été touché revient donc à l'allure de tous les jours ; un appareil qui avait choisi « Fêtes
+  et saisons » ou « Fêtes seulement » garde son choix. Les anniversaires suivent le même réglage : Réglages le
+  rappelle quand les thèmes sont coupés sur l'appareil.
+- **Le coffre « Sable » partout au départ.** Sans thème, le logo affiché est le coffre de tous les jours sur son fond
+  d'origine : à la connexion, dans la présentation de bienvenue, en haut du menu et dans l'onglet du navigateur.
+- L'assistant ne cite plus l'unité amusante du thème du moment qu'à qui affiche ce thème : l'écran dit au serveur le
+  réglage de l'appareil à chaque requête.
+- **Sur téléphone, « tirer pour actualiser » aboutit de nouveau.** Le geste s'arrêtait au premier mouvement du doigt :
+  la pastille apparaissait, puis rien. Tirer l'écran d'un onglet principal vers le bas relit les banques, comme le
+  bouton de synchronisation.
+- Réglages → Comptes et connexions : les pastilles « Gratuit » et « Abonnement payant » de l'encart « Quelle source
+  choisir ? » ont le contraste voulu.
+- En anglais, la présentation de bienvenue s'appelle désormais « introduction », pour ne pas la confondre avec la
+  visite guidée (« guided tour »).
+- Pour qui développe : les étapes et la place de la bulle sont des règles pures et testées (`src/lib/tour.ts`) ; un
+  repère de la coquille se marque `data-tour` (un test vérifie que chaque étape a le sien) ; le composant est
+  `src/client/components/Tour.tsx`, chargé à la demande. Le réglage d'origine des thèmes est `DEFAULT_SEASON_MODE`
+  (`src/lib/seasons.ts`), lu de la même façon par `public/theme-init.js` (un test compare) ; l'écran l'envoie au
+  serveur dans l'en-tête `X-Themes` (`src/server/themes.ts`), à côté de `X-Langue` et `X-Perimetre`.
+
 ## 1.36.1
 
 Version de sécurité, issue d'une revue complète avant diffusion : aucune faille joignable sans être membre du foyer,

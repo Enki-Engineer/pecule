@@ -1,0 +1,158 @@
+/*
+ * Visite guidée (components/Tour.tsx) : un voile sur l'appli, une zone éclairée qui glisse d'un repère au suivant,
+ * et une bulle posée à côté. Rien ne bouge pour qui a demandé moins d'animations.
+ */
+.tour {
+  --tour-voile: rgb(20 20 19 / 0.5);
+  --tour-lisere: rgb(255 255 255 / 0.92);
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  /* Rien ne défile sous le voile ; pincer pour agrandir reste possible. */
+  touch-action: pinch-zoom;
+  animation: tour-arrive 260ms ease both;
+}
+:root[data-theme="dark"] .tour {
+  --tour-voile: rgb(0 0 0 / 0.64);
+  --tour-lisere: rgb(255 255 255 / 0.34);
+}
+.tour[data-part="true"] {
+  pointer-events: none;
+  animation: tour-part 200ms ease both;
+}
+@keyframes tour-arrive {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes tour-part {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Zone éclairée : son ombre immense fait le voile, un liseré clair en dessine le bord. */
+.tour-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 0.875rem;
+  box-shadow:
+    0 0 0 1.5px var(--tour-lisere),
+    0 0 1.25rem 0.125rem rgb(20 20 19 / 0.35),
+    0 0 0 200vmax var(--tour-voile);
+  cursor: pointer;
+  transition:
+    transform 440ms cubic-bezier(0.3, 0.7, 0.2, 1),
+    width 440ms cubic-bezier(0.3, 0.7, 0.2, 1),
+    height 440ms cubic-bezier(0.3, 0.7, 0.2, 1),
+    box-shadow 300ms ease;
+}
+/* Sans repère (la première bulle) : le voile seul. Même nombre d'ombres, pour que le liseré apparaisse en douceur. */
+.tour-zone[data-vide="true"] {
+  box-shadow:
+    0 0 0 0 transparent,
+    0 0 0 0 transparent,
+    0 0 0 200vmax var(--tour-voile);
+  cursor: default;
+}
+/* Première mesure : la zone se pose, elle ne traverse pas l'écran depuis son coin. */
+.tour-zone[data-pose="false"] {
+  transition: none;
+}
+
+/* Bulle : placée par `transform` ; son entrée joue sur `translate` et `opacity`, qui s'y ajoutent. */
+.tour-bulle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: min(21.5rem, calc(100vw - 1.5rem));
+  visibility: hidden;
+}
+/* Elle reçoit le focus pour être lue, pas pour être actionnée : pas de contour (ses boutons gardent le leur). */
+.tour-bulle:focus-visible {
+  outline: none;
+}
+.tour-bulle[data-vue="true"] {
+  visibility: visible;
+  animation: tour-bulle 300ms cubic-bezier(0.2, 0.8, 0.2, 1) 90ms both;
+}
+@keyframes tour-bulle {
+  from {
+    opacity: 0;
+    translate: var(--tour-dx, 0) var(--tour-dy, 0.5rem);
+  }
+}
+/* Elle arrive du côté du repère qu'elle montre. */
+.tour-bulle[data-cote="droite"] {
+  --tour-dx: -0.5rem;
+  --tour-dy: 0;
+}
+.tour-bulle[data-cote="gauche"] {
+  --tour-dx: 0.5rem;
+  --tour-dy: 0;
+}
+.tour-bulle[data-cote="bas"] {
+  --tour-dy: -0.5rem;
+}
+.tour-bulle[data-cote="haut"] {
+  --tour-dy: 0.5rem;
+}
+
+/* Pointe : un carré tourné, à cheval sur le bord qui regarde le repère (`--tour-pointe` : sa place le long du bord). */
+.tour-pointe {
+  position: absolute;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 0.1875rem;
+  background: var(--color-card);
+  transform: rotate(45deg);
+}
+.tour-bulle[data-cote="droite"] .tour-pointe {
+  left: -0.4375rem;
+  top: calc(var(--tour-pointe) - 0.4375rem);
+  box-shadow: -1px 1px 0 0 var(--color-line);
+}
+.tour-bulle[data-cote="gauche"] .tour-pointe {
+  right: -0.4375rem;
+  top: calc(var(--tour-pointe) - 0.4375rem);
+  box-shadow: 1px -1px 0 0 var(--color-line);
+}
+.tour-bulle[data-cote="bas"] .tour-pointe {
+  top: -0.4375rem;
+  left: calc(var(--tour-pointe) - 0.4375rem);
+  box-shadow: -1px -1px 0 0 var(--color-line);
+}
+.tour-bulle[data-cote="haut"] .tour-pointe {
+  bottom: -0.4375rem;
+  left: calc(var(--tour-pointe) - 0.4375rem);
+  box-shadow: 1px 1px 0 0 var(--color-line);
+}
+
+/* Avancement : un trait fin qui se remplit. */
+.tour-avance {
+  height: 0.1875rem;
+  border-radius: 999px;
+  background: var(--color-line);
+  overflow: hidden;
+}
+.tour-avance > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transform-origin: left;
+  transition: transform 440ms cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour,
+  .tour[data-part="true"],
+  .tour-bulle[data-vue="true"] {
+    animation: none;
+  }
+  .tour-zone,
+  .tour-avance > span {
+    transition: none;
+  }
+}

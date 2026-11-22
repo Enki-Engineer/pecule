@@ -7,6 +7,7 @@ import type { PayoutSummary } from "../lib/payouts.ts";
 import type { AccountKind, Owner } from "../lib/labels.ts";
 import { prepareFile } from "./upload.ts";
 import { appLang } from "./i18n.ts";
+import { seasonMode } from "./theme.ts";
 import type { Lang } from "../lib/i18n.ts";
 
 export class ApiError extends Error {
@@ -25,7 +26,8 @@ export async function api<T>(path: string, init?: RequestInit & { json?: unknown
   const res = await fetch(`/api${path}`, {
     ...init,
     credentials: "same-origin",
-    headers: { "X-Perimetre": scopeOf(), "X-Langue": appLang(), ...(init?.json !== undefined ? { "Content-Type": "application/json" } : {}), ...init?.headers },
+    // X-Themes : le réglage « Thèmes de l'année » de l'appareil, que le serveur ne garde pas (l'assistant ne parle du thème du moment qu'à qui l'affiche).
+    headers: { "X-Perimetre": scopeOf(), "X-Langue": appLang(), "X-Themes": seasonMode(), ...(init?.json !== undefined ? { "Content-Type": "application/json" } : {}), ...init?.headers },
     body: init?.json !== undefined ? JSON.stringify(init.json) : init?.body,
   });
   const data = await res.json().catch(() => ({}));
@@ -41,7 +43,7 @@ export async function apiStream<T>(path: string, body: unknown, h: { onText?: (t
   const res = await fetch(`/api${path}${path.includes("?") ? "&" : "?"}stream=1`, {
     method: "POST",
     credentials: "same-origin",
-    headers: { "X-Perimetre": scopeOf(), "X-Langue": appLang(), "Content-Type": "application/json", Accept: "text/event-stream" },
+    headers: { "X-Perimetre": scopeOf(), "X-Langue": appLang(), "X-Themes": seasonMode(), "Content-Type": "application/json", Accept: "text/event-stream" },
     body: JSON.stringify(body),
   });
   if (!res.ok || !res.body || !res.headers.get("content-type")?.includes("text/event-stream")) {

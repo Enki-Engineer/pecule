@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BadgeEuro, Bitcoin, BookOpen, Building2, CalendarClock, Landmark, Sunset, TrendingUp, CreditCard, FileText, FolderOpen, LayoutDashboard, ListOrdered, PieChart, PiggyBank, Receipt, Route, Search, Settings, Sparkles, Wallet } from "lucide-react";
+import { ArrowRight, BadgeEuro, Bitcoin, BookOpen, Building2, CalendarClock, Compass, Landmark, Sunset, TrendingUp, CreditCard, FileText, FolderOpen, LayoutDashboard, ListOrdered, PieChart, PiggyBank, Receipt, Route, Search, Settings, Sparkles, Wallet } from "lucide-react";
 import { api, useDemo } from "../api.ts";
 import { cn } from "../cn.ts";
 import { dateFr, money, moneyIn } from "../format.ts";
@@ -10,6 +10,7 @@ import { askAssistant } from "../assistantBus.ts";
 import { t } from "../../lib/i18n.ts";
 import { useEnabled } from "../modules.ts";
 import { loadManualDict } from "../i18n.ts";
+import { startTour, TOUR_LINK } from "../tour.ts";
 
 /** Ouvre la palette depuis n'importe où (bouton loupe, raccourci ⌘K). */
 export const openPalette = () => window.dispatchEvent(new Event("pecule-palette"));
@@ -43,7 +44,8 @@ const PAGES: { label: string; to: string; icon: typeof Search; words: string }[]
   { label: t("Importer des documents"), to: "/documents", icon: FolderOpen, words: t("importer dossier documents lot bulletins avis releves depot massif") },
   { label: t("Échéancier"), to: "/echeancier", icon: CalendarClock, words: t("echeancier echeances taches a faire rappels jalons calendrier") },
   { label: t("Manuel"), to: "/manuel", icon: BookOpen, words: t("manuel aide mode d'emploi guide documentation comment faire") },
-  { label: t("Présentation de Pécule"), to: "/bienvenue", icon: Route, words: t("presentation bienvenue visite guidee decouvrir premiers pas demarrer tour de l'appli") },
+  { label: t("Visite guidée"), to: TOUR_LINK, icon: Compass, words: t("visite guidee tour de l'appli bulles montrer le menu prise en main decouvrir") },
+  { label: t("Présentation de Pécule"), to: "/bienvenue", icon: Route, words: t("presentation bienvenue accueil premiers pas demarrer regler le foyer relier ma banque") },
   { label: t("Réglages"), to: "/reglages", icon: Settings, words: t("reglages parametres preferences") },
   { label: `${t("Réglages")} · ${t("Compte et sécurité")}`, to: "/reglages/compte", icon: Settings, words: t("membres cles d'acces passkey face id inscription deconnexion securite") },
   { label: t("Mode démo"), to: "/reglages/demo", icon: Settings, words: t("demo demonstration montrer presenter donnees fictives discretion") },
@@ -126,7 +128,13 @@ export function CommandPalette() {
       group: t("Aller à"),
       icon: p.icon,
       label: p.label,
-      run: go(p.to),
+      // La visite guidée se lance sur place : à la fin, elle ramène à l'écran d'où on l'a demandée.
+      run: p.to === TOUR_LINK
+        ? () => {
+            setOpen(false);
+            startTour();
+          }
+        : go(p.to),
     }));
     const r = debounced.length >= 2 ? search.data : undefined;
     if (r) {

@@ -4,6 +4,7 @@ import { IS_EXPENSE, STAT_SCOPE } from "./stats.ts";
 import { equivalence, FETE_BUDGETS, FUN_UNITS, MONTH_HOURS, type FunBudget, type FunData, type FunHighlight } from "../lib/fun.ts";
 import { birthdaysAt, parseBirthdays, SEASONS, seasonAt, seasonWindow, type Birthday, type Season } from "../lib/seasons.ts";
 import { t } from "../lib/i18n.ts";
+import { deviceSeasonMode } from "./themes.ts";
 
 /*
  * Équivalences amusantes (src/lib/fun.ts) : réglage du membre, taux horaire net d'après ses bulletins,
@@ -119,7 +120,8 @@ export async function funPrompt(userId: number): Promise<string | null> {
   if (!(await funEnabled(userId))) return null;
   const [hourly, birthdays] = await Promise.all([hourlyNet(userId), listBirthdays().catch(() => [])]);
   const today = new Date();
-  const season = seasonAt(today, "tout", birthdays, region().country);
+  // Le thème du moment, tel que l'appareil qui pose la question l'affiche : aucun tant que le membre n'a pas activé les thèmes.
+  const season = seasonAt(today, deviceSeasonMode(), birthdays, region().country);
   const feted = birthdaysAt(today, birthdays).map((b) => b.name);
   const parts: string[] = [];
   if (feted.length) parts.push(`c'est aujourd'hui l'anniversaire de ${feted.join(" et ")} (souhaite-le en une phrase, une seule fois dans la conversation)`);

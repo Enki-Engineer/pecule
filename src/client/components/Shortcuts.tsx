@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { X } from "lucide-react";
+import { tourActive } from "../tour.ts";
 import { t } from "../../lib/i18n.ts";
 import { useEnabled } from "../modules.ts";
 
@@ -60,7 +61,8 @@ export function Shortcuts() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || typing(e.target)) return;
+      // Pendant la visite guidée, le clavier est à elle (flèches, Entrée, Échap).
+      if (e.metaKey || e.ctrlKey || e.altKey || typing(e.target) || tourActive()) return;
       if (e.key === "?") {
         e.preventDefault();
         setHelp((h) => !h);

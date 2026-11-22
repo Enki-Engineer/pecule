@@ -280,7 +280,15 @@ function SourceGuide() {
           <div key={x.name} className="min-w-0">
             <dt className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px] font-semibold">
               {x.name}
-              <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none", x.free ? "bg-pos/15 text-pos" : "bg-warn/20 text-warn")}>{x.price}</span>
+              {/* Pastille sur fond de carte, liseré dans son ton : sur l'encart teinté, un aplat coloré n'avait pas le contraste voulu (4,5). */}
+              <span
+                className={cn(
+                  "rounded-full bg-card px-2 py-0.5 text-[11px] font-semibold leading-none",
+                  x.free ? "text-pos shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-pos)_32%,transparent)]" : "text-warn shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-warn)_36%,transparent)]",
+                )}
+              >
+                {x.price}
+              </span>
             </dt>
             <dd className="mt-1 text-[12.5px] leading-snug text-muted">{x.text}</dd>
           </div>

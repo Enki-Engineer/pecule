@@ -64,6 +64,8 @@ export const Projections = screen(() => import("./pages/Situation.tsx").then((m)
 export const Compare = screen(() => import("./pages/Compare.tsx").then((m) => m.ComparePage));
 export const Goals = screen(() => import("./pages/Goals.tsx").then((m) => m.Goals));
 export const Triage = screen(() => import("./pages/Triage.tsx").then((m) => m.Triage));
+// Visite guidée : chargée quand on la lance, depuis le menu (components/Layout.tsx).
+export const Tour = screen(() => import("./components/Tour.tsx").then((m) => m.Tour));
 // Présentation de bienvenue : hors de la liste de préchargement (un membre ne la voit qu'une fois) ; l'écran
 // d'inscription la précharge, pour qu'elle s'ouvre sans attente après la création de la clé d'accès.
 export const Onboarding = screen(() => import("./pages/Onboarding.tsx").then((m) => m.Onboarding));

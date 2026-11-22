@@ -1,12 +1,13 @@
 import { toggleDiscreet, useDiscreet } from "../discret.ts";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AssistantChat } from "../screens.tsx";
+import { AssistantChat, Tour } from "../screens.tsx";
+import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import { HelpLink } from "./HelpLink.tsx";
 import { DemoBadge } from "./DemoBadge.tsx";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, BookOpen, CalendarCheck, ChevronLeft, ChevronRight, Eye, EyeOff, House, ListOrdered, PanelLeftClose, PanelLeftOpen, PieChart, PiggyBank, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, CalendarCheck, ChevronLeft, ChevronRight, Compass, Eye, EyeOff, House, ListOrdered, PanelLeftClose, PanelLeftOpen, PieChart, PiggyBank, RefreshCw, Search, Settings, Sparkles } from "lucide-react";
 import { Spinner } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import { api, useMe, useMonth, useSync } from "../api.ts";
@@ -32,7 +33,18 @@ import { AppLogo } from "./AppLogo.tsx";
 import { useBirthdays } from "../birthdays.ts";
 import { periodLabel } from "../format.ts";
 import { arrived } from "../passage.ts";
+import { startTour, startTourSoon, stopTour, TOUR_PARAM, tourShell, useTourActive } from "../tour.ts";
 import { t, tn } from "../../lib/i18n.ts";
+
+/** La visite guidée n'a pas pu s'afficher (code introuvable hors ligne, erreur d'affichage) : elle s'arrête, l'appli reste là. */
+function TourFailed() {
+  useEffect(() => {
+    stopTour();
+    // Un seul message, même si l'effet est rejoué (React le fait une fois de plus en développement).
+    toast.error(t("La visite guidée n'a pas pu s'ouvrir. Recharge la page pour réessayer."), { id: "visite-guidee" });
+  }, []);
+  return null;
+}
 
 /*
  * Coquille de l'appli. Ordinateur (≥ 768 px) : menu latéral compact et repliable (⌘\\) avec compteurs,
@@ -96,12 +108,14 @@ export function Layout() {
   const xl = useWideScreen();
   const mobile = !useMedia("(min-width: 768px)");
   const top = isTopLevel(pathname);
+  // Visite guidée en cours (components/Tour.tsx) : l'appli est figée, ses gestes aussi.
+  const touring = useTourActive();
   const pageRef = useRef<HTMLDivElement>(null);
   const { back } = useBack();
   const backRef = useRef(back);
   backRef.current = back;
   const stableBack = useRef(() => backRef.current()).current;
-  useEdgeSwipeBack(pageRef, mobile && !top, stableBack);
+  useEdgeSwipeBack(pageRef, mobile && !top && !touring, stableBack);
   const [rail, setRail] = useRail();
   const [panel, setPanel] = useState(() => localStorage.getItem(PANEL_KEY) === "1");
   const [prefill, setPrefill] = useState<string | undefined>();
@@ -128,10 +142,26 @@ export function Layout() {
     setPanel(open);
     localStorage.setItem(PANEL_KEY, open ? "1" : "0");
   };
+
+  // Visite guidée demandée par une adresse (recherche, manuel, fin de la présentation de bienvenue) : le paramètre
+  // est retiré de l'adresse, puis la visite commence — une fois le coffre rangé, quand on arrive de la présentation.
+  const arrival = useLocation().state as { depuisBienvenue?: boolean } | null;
+  useEffect(() => tourShell(), []);
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (!params.has(TOUR_PARAM)) return;
+    params.delete(TOUR_PARAM);
+    const rest = params.toString();
+    navigate({ pathname, search: rest ? `?${rest}` : "" }, { replace: true, state: arrival });
+    // La demande est gardée hors de la coquille (src/client/tour.ts) : elle survit au changement d'adresse qu'on
+    // vient de faire, et à un remontage de la coquille.
+    startTourSoon(arrival?.depuisBienvenue ? 900 : 0);
+  }, [search]);
   // Écran d'où l'on est passé en plein écran : on y revient en le quittant.
   const lastScreen = useRef("/");
   useEffect(() => {
-    if (pathname !== "/assistant") lastScreen.current = pathname + search;
+    // La visite guidée fait défiler des écrans derrière sa bulle : ce ne sont pas ceux d'où l'on vient.
+    if (pathname !== "/assistant" && !touring) lastScreen.current = pathname + search;
   }, [pathname, search]);
   /** Quitte le plein écran : vers le panneau (écran assez large), sinon l'assistant se ferme. */
   const leaveFull = (toPanel: boolean) => {
@@ -225,11 +255,20 @@ export function Layout() {
       <NavTracker />
       <FetchingBar />
       <SeasonDecor />
-      <PullToRefresh enabled={mobile && top && pathname !== "/assistant"} />
+      {/* Pas pendant la visite guidée : le geste écoute la fenêtre, il synchroniserait les banques sous le voile. */}
+      <PullToRefresh enabled={mobile && top && pathname !== "/assistant" && !touring} />
       <CommandPalette />
       <DrillDrawer />
       <InvoiceViewer />
       <Shortcuts />
+      {/* Visite guidée (components/Tour.tsx), chargée quand on la lance ; une panne ne touche qu'elle. */}
+      {touring && (
+        <ErrorBoundary fallback={<TourFailed />}>
+          <Suspense fallback={null}>
+            <Tour />
+          </Suspense>
+        </ErrorBoundary>
+      )}
 
       {/* Barre d'onglets (mobile) : 4 onglets et l'assistant au centre ; Factures est dans Opérations, Réglages dans l'accueil. */}
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 bg-card/90 shadow-[0_-1px_0_var(--color-line)] backdrop-blur-xl md:hidden">
@@ -240,6 +279,7 @@ export function Layout() {
           <Link
             to="/assistant"
             data-tab
+            data-tour="onglet-assistant"
             aria-label={t("Assistant")}
             className={cn(
               "grid size-12 shrink-0 place-items-center rounded-2xl text-white shadow-[0_6px_16px_color-mix(in_srgb,var(--color-accent)_35%,transparent)] transition-transform duration-150 active:scale-90",
@@ -311,8 +351,8 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
         <AppLogo className={cn("size-7 rounded-md", landing && "[view-transition-name:pecule-coffre]")} />
         {!rail && <span className="text-[18px] font-semibold tracking-tight">Pécule</span>}
       </Link>
-      {nav.map((g, i) => (
-        <div key={i} className="mb-2">
+      {nav.map((g) => (
+        <div key={g.id} data-tour={g.id} className="mb-2">
           {g.title && !rail && <div className="px-2.5 pb-1 pt-3 text-[12px] font-medium text-muted">{g.title}</div>}
           {g.title && rail && <div className="mx-3 my-2 border-t border-line" />}
           {g.items.map((it) => (
@@ -327,7 +367,7 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
           ))}
         </div>
       ))}
-      <div className="mt-auto space-y-0.5 pt-4">
+      <div data-tour="pied" className="mt-auto space-y-0.5 pt-4">
         {xl ? (
           <button type="button" onClick={onAssistant} title={rail ? "Assistant (⌘J)" : undefined} className={cn(navItem(panelOpen, rail), "w-full text-accent")}>
             <Sparkles size={16} className="shrink-0" />
@@ -339,6 +379,11 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
             <Sparkles size={16} className="shrink-0" /> {!rail && "Assistant"}
           </NavLink>
         )}
+        {/* Visite guidée : le tour de l'appli, bulle après bulle (components/Tour.tsx). */}
+        <button type="button" onClick={(e) => startTour(e.currentTarget)} title={rail ? t("Visite guidée") : undefined} className={cn(navItem(false, rail), "w-full")}>
+          <Compass size={16} className="shrink-0" />
+          {!rail && <span className="flex-1 text-left">{t("Visite guidée")}</span>}
+        </button>
         <NavLink to="/manuel" viewTransition title={rail ? t("Manuel") : undefined} className={({ isActive }) => navItem(isActive, rail)}>
           <BookOpen size={16} className="shrink-0" />
           {!rail && <span>{t("Manuel")}</span>}
@@ -433,6 +478,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
           « Foyer » diraient la même chose (tous les comptes sont ceux du membre, ou le foyer n'a qu'un membre). */}
       {scopeChoice && (
       <div
+        data-tour="perimetre"
         className={cn("flex shrink-0 rounded-full bg-line/70 p-0.5 text-[12.5px] font-medium", !scoped && "cursor-not-allowed opacity-45")}
         title={
           kind === "comptes"
@@ -460,6 +506,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
       <button
         type="button"
         onClick={openPalette}
+        data-tour="recherche"
         title={t("Rechercher (⌘K)")}
         aria-label={t("Rechercher…")}
         className={cn(
@@ -475,6 +522,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
       <button
         type="button"
         onClick={toggleDiscreet}
+        data-tour="discret"
         aria-pressed={discreet}
         title={discreet ? t("Afficher les montants (M)") : t("Masquer les montants (M)")}
         aria-label={discreet ? t("Afficher les montants") : t("Masquer les montants")}
@@ -482,13 +530,14 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
       >
         {discreet ? <EyeOff size={15} /> : <Eye size={15} />}
       </button>
-      <HelpLink className="size-8 text-muted hover:bg-card hover:text-ink" />
+      <HelpLink tour="aide" className="size-8 text-muted hover:bg-card hover:text-ink" />
       <button type="button" onClick={refresh} disabled={sync.isPending} title={t("Synchroniser les banques")} className="grid size-8 shrink-0 place-items-center rounded-md text-muted hover:bg-bg hover:text-ink disabled:opacity-50">
         <RefreshCw size={15} className={sync.isPending ? "animate-spin" : ""} />
       </button>
       <button
         type="button"
         onClick={onAssistant}
+        data-tour="assistant"
         title={t("Assistant (⌘J)")}
         aria-label={t("Assistant")}
         className={cn("flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold", panelOpen ? "bg-accent-soft text-ink shadow-[inset_0_0_0_1px_var(--color-line)]" : "bg-ink text-card hover:opacity-90")}
@@ -609,12 +658,13 @@ function PeriodPicker({ operations, label }: { operations: boolean; label: strin
   );
 }
 
-type MobileTabDef = { to: string; label: string; icon: typeof House; match: (p: string) => boolean };
+/** `tour` : repère de l'onglet pour la visite guidée (src/lib/tour.ts). */
+type MobileTabDef = { to: string; label: string; icon: typeof House; tour: string; match: (p: string) => boolean };
 const mobileTabs: MobileTabDef[] = [
-  { to: "/", label: t("Accueil"), icon: House, match: (p) => p === "/" || p.startsWith("/reglages") || p.startsWith("/manuel") },
-  { to: "/operations", label: t("Opérations"), icon: ListOrdered, match: (p) => p.startsWith("/operations") || p.startsWith("/factures") },
-  { to: "/mois", label: t("Mois"), icon: PieChart, match: (p) => p.startsWith("/mois") },
-  { to: "/patrimoine", label: t("Patrimoine"), icon: PiggyBank, match: (p) => p.startsWith("/patrimoine") || p.startsWith("/credits") },
+  { to: "/", label: t("Accueil"), icon: House, tour: "onglet-accueil", match: (p) => p === "/" || p.startsWith("/reglages") || p.startsWith("/manuel") },
+  { to: "/operations", label: t("Opérations"), icon: ListOrdered, tour: "onglet-operations", match: (p) => p.startsWith("/operations") || p.startsWith("/factures") },
+  { to: "/mois", label: t("Mois"), icon: PieChart, tour: "onglet-mois", match: (p) => p.startsWith("/mois") },
+  { to: "/patrimoine", label: t("Patrimoine"), icon: PiggyBank, tour: "onglet-patrimoine", match: (p) => p.startsWith("/patrimoine") || p.startsWith("/credits") },
 ];
 
 function MobileTab({ tab, active }: { tab: MobileTabDef; active: boolean }) {
@@ -622,6 +672,7 @@ function MobileTab({ tab, active }: { tab: MobileTabDef; active: boolean }) {
     <Link
       to={tab.to}
       data-tab
+      data-tour={tab.tour}
       aria-current={active ? "page" : undefined}
       className={cn("relative flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 text-[10.5px] font-medium transition-colors active:scale-95", active ? "text-accent" : "text-muted")}
     >

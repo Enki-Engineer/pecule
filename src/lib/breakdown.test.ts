@@ -123,3 +123,26 @@ describe("arcsOf", () => {
     expect(others).toMatchObject({ label: "Autres postes", value: 1738.3 });
   });
 });
+
+describe("virements qui franchissent la vue du membre", () => {
+  const rows: BreakdownRow[] = [
+    row("A1", "Salaire", null, "revenu", 2400),
+    row("virement:recu:camille", "Apports de Camille", null, "revenu", 900, 2),
+    row("B1-01", "Loyer / Crédit immobilier", "Logement", "depense", -900),
+    row("virement:verse:joint", "Versements au compte commun", "Versements au compte commun", "depense", -600, 2),
+  ];
+
+  it("un apport est une part des revenus, colorée, forée par son identifiant", () => {
+    const part = incomeParts(rows, []).find((p) => p.key === "virement:recu:camille")!;
+    expect(part).toMatchObject({ label: "Apports de Camille", total: 900, count: 2, transfer: true, category: "virement:recu:camille", slot: 8, arc: "virement:recu:camille" });
+    // La couleur du salaire ne bouge pas.
+    expect(incomeParts(rows, []).find((p) => p.key === "A1")!.slot).toBe(1);
+  });
+
+  it("un versement fait son propre poste de dépense, foré par son identifiant et non par un poste du référentiel", () => {
+    const part = spendingParts(rows, [], ["Logement"]).find((p) => p.transfer)!;
+    expect(part).toMatchObject({ label: "Versements au compte commun", total: 600, count: 2, category: "virement:verse:joint" });
+    expect(part.poste).toBeUndefined();
+    expect(spendingParts(rows, [], ["Logement"]).find((p) => p.label === "Logement")!.poste).toBe("Logement");
+  });
+});

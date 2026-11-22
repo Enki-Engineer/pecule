@@ -137,6 +137,12 @@ export type Transaction = {
   category_name: string | null;
   category_poste: string | null;
   category_kind: string | null;
+  /**
+   * Virement entre comptes du foyer qui franchit la vue du membre : il compte, en revenu (« recu ») ou en dépense
+   * (« verse »), et la ligne porte le nom de l'apport ou du versement (`category_name`) ; `owner` : titulaire du
+   * compte d'en face. Absent pour toute autre opération, mouvement interne resté neutre compris.
+   */
+  transfer?: { way: "recu" | "verse"; owner: string; id: string } | null;
   account_name: string;
   account_owner: Owner;
   invoice_count?: number;

@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0034_reprise_source.sql
+-- inclut-jusqu-a: drizzle/0035_virements_entre_comptes.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -973,6 +973,13 @@ CREATE TABLE `transaction_splits` (
   KEY `fk_splits_item` (`invoice_item_id`),
   CONSTRAINT `fk_splits_item` FOREIGN KEY (`invoice_item_id`) REFERENCES `invoice_items` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_splits_tx` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- § table transfer_peers
+CREATE TABLE `transfer_peers` (
+  `transaction_id` varchar(160) NOT NULL,
+  `peer_account_id` varchar(64) NOT NULL,
+  PRIMARY KEY (`transaction_id`),
+  KEY `idx_transfer_peer_account` (`peer_account_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table users
 CREATE TABLE `users` (

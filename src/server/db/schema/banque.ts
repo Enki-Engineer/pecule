@@ -106,6 +106,21 @@ export const transactions = mysqlTable(
   ],
 );
 
+/**
+ * L'autre bout d'un virement entre deux comptes du foyer : pour une opération classée « mouvement interne », le compte
+ * où se trouve son pendant (même montant, sens opposé, quelques jours d'écart au plus). Table recalculée par Pécule
+ * (`src/server/transfers.ts`), jamais saisie : les statistiques y lisent si un virement reste dans la vue du membre ou
+ * la franchit (`crossesView`, `src/server/stats.ts`).
+ */
+export const transferPeers = mysqlTable(
+  "transfer_peers",
+  {
+    transactionId: varchar("transaction_id", { length: 160 }).primaryKey(),
+    peerAccountId: varchar("peer_account_id", { length: 64 }).notNull(),
+  },
+  (t) => [index("idx_transfer_peer_account").on(t.peerAccountId)],
+);
+
 /** Historique quotidien des soldes. */
 export const balances = mysqlTable(
   "balances",

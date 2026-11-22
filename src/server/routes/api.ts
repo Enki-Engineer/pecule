@@ -1,6 +1,8 @@
 import { householdDay } from "../region.ts";
 import { today } from "../region.ts";
-import { IS_EXPENSE, LINE_KIND, STAT_DATE_JOIN, STAT_SCOPE, statDate } from "../stats.ts";
+import { isExpense, lineKind, peerOwner, STAT_DATE_JOIN, STAT_SCOPE, statDate } from "../stats.ts";
+import { ensureTransferPeers } from "../transfers.ts";
+import { nameTransfers, parseTransferId, transferId, transferName } from "../../lib/transfers.ts";
 import { fillPurchaseDates } from "../stat-dates.ts";
 import { addMonths, isYearPeriod, PERIOD_RE, periodRange } from "../../lib/periods.ts";
 import { Router, json, raw, type Request, type Response } from "express";
@@ -84,6 +86,11 @@ api.post("/sync", requireSyncAccess, hourly(12), async (req, res) => {
 });
 
 api.use(requireAuth);
+// Les statistiques lisent le rapprochement des virements entre comptes : remis à jour s'il a changé (une requête légère).
+api.use(async (_req, _res, next) => {
+  await ensureTransferPeers();
+  next();
+});
 api.use(invoicesApi);
 api.use(documentsApi);
 api.use(situationApi);
@@ -148,19 +155,22 @@ api.get("/summary", async (req, res) => {
       await one<{ total: number | null }>(
         `SELECT -SUM(t.amount) AS total FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id
          LEFT JOIN categories c ON c.id = t.category_id
-         WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH) AND DAY(t.date) <= ? AND ${IS_EXPENSE}`,
+         WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH) AND DAY(t.date) <= ? AND ${isExpense(userAccounts(req))}`,
         [`${m}-01`, `${m}-01`, uptoDay],
       )
     )?.total ?? 0;
 
   // Mêmes regroupements que l'écran Mois (par poste), pour que les montants concordent.
-  const top = await q(
-    `SELECT COALESCE(c.poste, c.name) AS id, COALESCE(c.poste, c.name) AS name, c.poste, -SUM(t.amount) AS total
-     FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id
-     JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND c.kind = 'depense' AND t.date >= ? GROUP BY COALESCE(c.poste, c.name), c.poste ORDER BY total DESC LIMIT 4`,
-    [`${thisMonth}-01`],
-  );
+  // Un versement vers un compte hors de la vue du membre y fait son propre poste, comme à l'écran Mois.
+  const top = (
+    await q<{ id: string; name: string; poste: string | null; peer: string | null; total: number }>(
+      `SELECT COALESCE(c.poste, c.name) AS id, COALESCE(c.poste, c.name) AS name, c.poste, ${peerOwner(userAccounts(req))} AS peer, -SUM(t.amount) AS total
+       FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id
+       JOIN categories c ON c.id = t.category_id
+       WHERE ${STAT_SCOPE} AND ${isExpense(userAccounts(req))} AND t.date >= ? GROUP BY COALESCE(c.poste, c.name), c.poste, peer ORDER BY total DESC LIMIT 4`,
+      [`${thisMonth}-01`],
+    )
+  ).map(({ peer, ...r }) => (peer ? { ...r, id: transferName("verse", peer, tr), name: transferName("verse", peer, tr), poste: transferName("verse", peer, tr) } : r));
   const uncategorized = await one<{ n: number }>(
     `SELECT COUNT(*) AS n FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id WHERE ${STAT_SCOPE} AND t.category_id IS NULL`,
   );
@@ -218,7 +228,7 @@ const txFilters = z.object({
  * Conditions d'une liste d'opérations, les mêmes pour la liste et pour son bilan mois par mois. `x` : alias de
  * `transactions` (a = comptes du membre, `STAT_DATE_JOIN` joint). Le marchand, lui, se filtre après la lecture.
  */
-function txWhere(req: Request, f: z.infer<typeof txFilters>, x = "t") {
+async function txWhere(req: Request, f: z.infer<typeof txFilters>, x = "t") {
   const where = [`${x}.status IN ('posted', 'pending')`];
   const params: unknown[] = [];
   const day = statDate(x);
@@ -228,9 +238,21 @@ function txWhere(req: Request, f: z.infer<typeof txFilters>, x = "t") {
   }
   if (f.id) where.push(`${x}.id = ?`), params.push(f.id);
   if (f.account) where.push(`${x}.account_id = ?`), params.push(f.account);
+  // « Apports de … », « Versements à … » (forage d'une répartition) : les virements qui franchissent la vue, par titulaire
+  // du compte d'en face. Un graphique par poste envoie le nom du versement, celui que ce serveur vient de lui donner.
+  const owners = f.poste && !f.category ? await q<{ owner: string }>("SELECT DISTINCT owner FROM accounts") : [];
+  const named = owners.find((o) => transferName("verse", o.owner, tr) === f.poste);
+  const transfer = parseTransferId(f.category) ?? (named ? { way: "verse" as const, owner: named.owner } : null);
+  if (transfer)
+    where.push(
+      `${x}.amount ${transfer.way === "recu" ? ">" : "<"} 0 AND ${x}.category_id IN (SELECT id FROM categories WHERE kind = 'interne')
+       AND ${x}.id IN (SELECT tp.transaction_id FROM transfer_peers tp JOIN accounts po ON po.id = tp.peer_account_id
+         WHERE po.owner = ? AND NOT EXISTS (SELECT 1 FROM ${userAccounts(req)} pa WHERE pa.id = tp.peer_account_id AND pa.excluded = 0))`,
+    ),
+      params.push(transfer.owner);
   // Une opération ventilée répond aux catégories de ses lignes.
-  if (f.category) where.push(`${x}.id IN (SELECT l.id FROM tx_lines l WHERE l.category_id = ?)`), params.push(f.category);
-  if (f.poste) where.push(`${x}.id IN (SELECT l.id FROM tx_lines l JOIN categories lc ON lc.id = l.category_id WHERE lc.poste = ?)`), params.push(f.poste);
+  else if (f.category) where.push(`${x}.id IN (SELECT l.id FROM tx_lines l WHERE l.category_id = ?)`), params.push(f.category);
+  if (f.poste && !named) where.push(`${x}.id IN (SELECT l.id FROM tx_lines l JOIN categories lc ON lc.id = l.category_id WHERE lc.poste = ?)`), params.push(f.poste);
   if (f.uncategorized) where.push(`${x}.category_id IS NULL AND a.excluded = 0`);
   if (f.nature) where.push(`${natureSql(x)} = ?`), params.push(f.nature);
   if (f.debits) where.push(`${x}.amount < 0`);
@@ -242,25 +264,26 @@ function txWhere(req: Request, f: z.infer<typeof txFilters>, x = "t") {
     ),
       params.push(...Array(6).fill(`%${f.q}%`));
   if (!f.account && !f.id) where.push("a.excluded = 0");
-  return { where, params };
+  return { where, params, transfer };
 }
 
 /** Bilan mois par mois de la liste filtrée (bandeau de chaque mois de l'écran Opérations) et postes colorés. */
 api.get("/transactions/months", async (req, res) => {
   const f = txFilters.omit({ merchant: true }).parse(req.query);
-  const { where, params } = txWhere(req, f, "tr");
-  res.json({ months: await listMonths(userAccounts(req), where, params, f), colored: await coloredPostes(userAccounts(req)) });
+  const { where, params, transfer } = await txWhere(req, f, "tr");
+  // Une liste réduite à des apports ou à des versements : ni catégorie ni poste du référentiel à recouper.
+  res.json({ months: await listMonths(userAccounts(req), where, params, transfer ? {} : f), colored: await coloredPostes(userAccounts(req)) });
 });
 
 api.get("/transactions", async (req, res) => {
   const f = txFilters
     .extend({ limit: z.coerce.number().int().min(1).max(500).default(100), offset: z.coerce.number().int().min(0).default(0) })
     .parse(req.query);
-  const { where, params } = txWhere(req, f);
+  const { where, params } = await txWhere(req, f);
   const day = statDate("t");
-  const raw = await q<{ label: string; merchant: string | null }>(
+  const raw = await q<{ label: string; merchant: string | null; amount: number; peer: string | null; category_name: string | null; category_poste: string | null; category_kind: string | null }>(
     `SELECT t.id, t.account_id, ${day} AS date, t.date AS booked_date, t.purchase_date, t.amount, t.original_amount, t.original_currency, t.label, t.merchant, t.bank_label, t.status, t.category_id, t.category_source, t.note,
-            c.name AS category_name, c.poste AS category_poste, c.kind AS category_kind,
+            c.name AS category_name, c.poste AS category_poste, c.kind AS category_kind, ${peerOwner(userAccounts(req))} AS peer,
             COALESCE(a.display_name, a.name) AS account_name, a.owner AS account_owner,
             (SELECT COUNT(*) FROM invoice_transactions it WHERE it.transaction_id = t.id) AS invoice_count,
             (SELECT COUNT(*) FROM transaction_splits s WHERE s.transaction_id = t.id) AS split_count
@@ -271,7 +294,15 @@ api.get("/transactions", async (req, res) => {
   );
   // Le nom affiché d'un marchand se calcule depuis le libellé : filtre fait ici (volumes d'un mois).
   const rows = f.merchant ? raw.filter((r) => merchantName(r.label, r.merchant) === f.merchant).slice(f.offset, f.offset + f.limit + 1) : raw;
-  res.json({ transactions: rows.slice(0, f.limit), hasMore: rows.length > f.limit });
+  // Un virement qui franchit la vue compte : la ligne porte son nom d'apport ou de versement et la nature qu'elle a
+  // dans les statistiques ; `transfer` dit pourquoi à l'écran. Sa catégorie en base (`category_id`) ne change pas.
+  const shown = rows.slice(0, f.limit).map(({ peer, ...r }) => {
+    if (!peer) return r;
+    const way = Number(r.amount) > 0 ? ("recu" as const) : ("verse" as const);
+    const name = transferName(way, peer, tr);
+    return { ...r, category_name: name, category_poste: way === "verse" ? name : null, category_kind: way === "recu" ? "revenu" : "depense", transfer: { way, owner: peer, id: transferId(way, peer) } };
+  });
+  res.json({ transactions: shown, hasMore: rows.length > f.limit });
 });
 
 /** Classement en lot (sélection multiple sur ordinateur) : jamais de règle créée, opérations visibles du membre seulement. */
@@ -395,21 +426,25 @@ api.get("/months/:month", async (req, res) => {
   const p = period.parse(req.params.month);
   const { start, end, prevStart, year } = periodRange(p);
   const byCategory = async (from: string, to: string) =>
-    q<{ id: string | null; name: string | null; poste: string | null; kind: string | null; total: number; count: number }>(
-      // Sans catégorie : débits comptés en dépenses, crédits en revenus (deux groupes distincts).
-      `SELECT c.id, c.name, c.poste, ${LINE_KIND} AS kind,
-              SUM(t.amount) AS total, COUNT(*) AS count
-       FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < ?
-       GROUP BY c.id, c.name, c.poste, ${LINE_KIND} ORDER BY total`,
-      [from, to],
+    nameTransfers(
+      await q<{ id: string | null; name: string | null; poste: string | null; kind: string | null; peer: string | null; total: number; count: number }>(
+        // Sans catégorie : débits comptés en dépenses, crédits en revenus (deux groupes distincts). Un virement qui
+        // franchit la vue a sa propre ligne, par titulaire du compte d'en face (`peer`).
+        `SELECT c.id, c.name, c.poste, ${lineKind(userAccounts(req))} AS kind, ${peerOwner(userAccounts(req))} AS peer,
+                SUM(t.amount) AS total, COUNT(*) AS count
+         FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
+         WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < ?
+         GROUP BY c.id, c.name, c.poste, kind, peer ORDER BY total`,
+        [from, to],
+      ),
+      tr,
     );
   // Dépenses pas à pas, pour le cumul : jour par jour pour un mois, mois par mois pour une année (`day` = le rang).
   const steps = async (from: string, to: string) =>
     q<{ day: number; total: number }>(
       `SELECT ${year ? "MONTH" : "DAY"}(t.date) AS day, -SUM(t.amount) AS total FROM tx_lines t JOIN ${userAccounts(req)} a ON a.id = t.account_id
        LEFT JOIN categories c ON c.id = t.category_id
-       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < ? AND ${IS_EXPENSE}
+       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date < ? AND ${isExpense(userAccounts(req))}
        GROUP BY day ORDER BY day`,
       [from, to],
     );

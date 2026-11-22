@@ -103,9 +103,9 @@ export function Month({ bare = false }: { bare?: boolean }) {
           <div className={clsx("space-y-4 transition-opacity duration-200", isPlaceholderData && "opacity-50")}>
           <div className="grid grid-cols-3 gap-3">
             {/* Période en cours : pas d'écart sur les revenus (ils tombent en une fois, la comparaison n'a pas de sens avant la fin). */}
-            <Tile label={t("Revenus")} info={t("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Les mouvements entre tes comptes n'en font pas partie.")} value={tot.revenus} prev={isCurrent ? 0 : tp.revenus} good="up" />
+            <Tile label={t("Revenus")} info={t("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Un virement entre deux comptes comptés ici n'en fait pas partie ; s'il vient d'un compte qui n'est pas compté ici, c'est un apport, et il compte.")} value={tot.revenus} prev={isCurrent ? 0 : tp.revenus} good="up" />
             {/* Période en cours : comparaison à la période précédente au même point, comme sur l'accueil. */}
-            <Tile label={t("Dépenses")} info={t("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne ni les mouvements entre tes comptes.")} value={tot.depenses} prev={isCurrent ? prevSameRank : tp.depenses} good="down" />
+            <Tile label={t("Dépenses")} info={t("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne, ni un virement entre deux comptes comptés ici ; s'il part vers un compte qui n'est pas compté ici, c'est un versement, et il compte.")} value={tot.depenses} prev={isCurrent ? prevSameRank : tp.depenses} good="down" />
             <Tile label={year ? t("Solde de l'année") : t("Solde du mois")} info={t("Revenus moins dépenses. L'épargne n'en est pas retirée : c'est ce qui reste avant de mettre de côté.")} value={tot.revenus - tot.depenses} prev={isCurrent ? 0 : tp.revenus - tp.depenses} good="up" />
           </div>
           <div className="-mt-2 px-1 text-xs text-muted">

@@ -117,7 +117,7 @@ function AccountEditor({ a }: { a: Account }) {
         {a.display_name && a.display_name !== a.name && <span className="mt-1 block text-xs text-muted">{t("Nom donné par la banque : {nom}", { nom: a.name })}</span>}
       </label>
       <Toggle checked={!!a.hidden} onChange={(v) => patch({ hidden: v })} label={t("Masqué##compte")} hint={t("Retiré de ton accueil ; ses opérations restent comptées.")} />
-      <Toggle checked={!!a.excluded} onChange={(v) => patch({ excluded: v })} label={t("Hors statistiques")} hint={t("Exclu de tes totaux et de tes opérations à classer.")} />
+      <Toggle checked={!!a.excluded} onChange={(v) => patch({ excluded: v })} label={t("Hors statistiques")} hint={t("Exclu de tes totaux et de tes opérations à classer. Un virement entre ce compte et un compte que tu comptes apparaît alors comme un apport ou un versement.")} />
       {a.source === "manuel" && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 py-2 text-sm text-muted">
           <ManualCurrency a={a} />

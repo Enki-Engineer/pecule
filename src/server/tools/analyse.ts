@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { IS_EXPENSE, LINE_KIND, STAT_SCOPE } from "../stats.ts";
+import { isExpense, isNeutral, lineKind, STAT_SCOPE, transferKey } from "../stats.ts";
+import { inFrench, parseTransferId, transferName } from "../../lib/transfers.ts";
 import { exec, one, q } from "../db.ts";
 import { userAccountsSql } from "../actions.ts";
 import { merchantName, natureSql } from "../../lib/nature.ts";
@@ -20,8 +21,9 @@ const GROUP_SQL: Record<(typeof GROUPS)[number], { key: string; label: string; o
   none: { key: "'total'", label: "'Total'", order: "total" },
   month: { key: "DATE_FORMAT(t.date, '%Y-%m')", label: "DATE_FORMAT(t.date, '%Y-%m')", order: "key" },
   year: { key: "YEAR(t.date)", label: "YEAR(t.date)", order: "key" },
-  category: { key: "COALESCE(t.category_id, '-')", label: "COALESCE(MAX(c.name), 'À classer')", order: "total" },
-  poste: { key: "COALESCE(c.poste, c.name, 'À classer')", label: "COALESCE(c.poste, c.name, 'À classer')", order: "total" },
+  // `{virement}` : la clé d'un virement qui franchit la vue du membre (`transferKey`), qui a sa propre ligne « Apports de … » ou « Versements à … ».
+  category: { key: "COALESCE({virement}, t.category_id, '-')", label: "COALESCE(MAX(c.name), 'À classer')", order: "total" },
+  poste: { key: "COALESCE({virement}, c.poste, c.name, 'À classer')", label: "COALESCE({virement}, c.poste, c.name, 'À classer')", order: "total" },
   merchant: {
     key: "COALESCE(NULLIF(tt.merchant, ''), NULLIF(tt.label_key, ''), tt.label)",
     label: "MAX(COALESCE(NULLIF(tt.merchant, ''), tt.label))",
@@ -31,13 +33,16 @@ const GROUP_SQL: Record<(typeof GROUPS)[number], { key: string; label: string; o
   account: { key: "t.account_id", label: "MAX(COALESCE(a.display_name, a.name))", order: "total" },
 };
 
-const KIND_SQL = {
-  depenses: { where: IS_EXPENSE, sign: -1 },
-  revenus: { where: `${LINE_KIND} = 'revenu'`, sign: 1 },
-  epargne: { where: "c.kind = 'epargne'", sign: -1 },
-  interne: { where: "c.kind = 'interne'", sign: 1 },
-  tout: { where: "1 = 1", sign: 1 },
-} as const;
+/** Ce que chaque total compte, dans la vue du membre (`accountsSql`) : mêmes définitions que les écrans (src/server/stats.ts). */
+const kindSql = (accountsSql: string) =>
+  ({
+    depenses: { where: isExpense(accountsSql), sign: -1 },
+    revenus: { where: `${lineKind(accountsSql)} = 'revenu'`, sign: 1 },
+    epargne: { where: "c.kind = 'epargne'", sign: -1 },
+    // Les mouvements restés neutres : un virement qui franchit la vue est compté en revenu ou en dépense.
+    interne: { where: isNeutral(accountsSql), sign: 1 },
+    tout: { where: "1 = 1", sign: 1 },
+  }) as const;
 
 const monthsBetween = (from: string, to: string) => {
   const [y1, m1] = from.split("-").map(Number);
@@ -50,6 +55,7 @@ const analyzeSpending = readTool({
   progress: tk("Calcul des totaux…"),
   description:
     "Totaux exacts sur n'importe quelle période (toutes les opérations, sans limite de nombre), avec les définitions des écrans : dépenses nettes, revenus, épargne, mouvements internes ou tout. " +
+    "Un virement entre deux comptes du foyer ne compte pas, sauf s'il vient d'un compte hors des statistiques de l'utilisateur ou y part : il est alors compté en revenu (« Apports de … ») ou en dépense (« Versements à … »), avec sa propre ligne dans un regroupement par catégorie ou par poste. " +
     "Regroupement au choix (mois, année, catégorie, poste, marchand, nature : carte / prélèvement / virement / espèces / frais, compte) et filtres (texte, catégories, poste, nature, compte, montants). " +
     "À utiliser pour toute question « combien », « où », « évolution », « comparaison », « moyenne » — plutôt que d'additionner une liste d'opérations. " +
     "Sans dates : les 12 derniers mois. Les dépenses sont renvoyées en positif.",
@@ -77,8 +83,10 @@ const analyzeSpending = readTool({
         return d.toISOString().slice(0, 10);
       })();
     if (from > to) throw new ToolError("date_from est après date_to");
-    const kind = KIND_SQL[f.kind ?? "depenses"];
-    const g = GROUP_SQL[f.group_by ?? "none"];
+    const A = userAccountsSql(userId);
+    const kind = kindSql(A)[f.kind ?? "depenses"];
+    const base = GROUP_SQL[f.group_by ?? "none"];
+    const g = { ...base, key: base.key.replace("{virement}", transferKey(A)), label: base.label.replace("{virement}", transferKey(A)) };
     const where = [STAT_SCOPE, kind.where, "t.date >= ?", "t.date <= ?"];
     const params: unknown[] = [from, to];
     if (f.query) where.push("(tt.label LIKE ? OR tt.merchant LIKE ? OR tt.note LIKE ?)"), params.push(...Array(3).fill(`%${f.query}%`));
@@ -94,7 +102,7 @@ const analyzeSpending = readTool({
     if (f.account_id) where.push("t.account_id = ?"), params.push(f.account_id);
     if (f.min_amount !== undefined) where.push("t.amount >= ?"), params.push(f.min_amount);
     if (f.max_amount !== undefined) where.push("t.amount <= ?"), params.push(f.max_amount);
-    const from_ = `FROM tx_lines t JOIN ${userAccountsSql(userId)} a ON a.id = t.account_id JOIN transactions tt ON tt.id = t.id LEFT JOIN categories c ON c.id = t.category_id
+    const from_ = `FROM tx_lines t JOIN ${A} a ON a.id = t.account_id JOIN transactions tt ON tt.id = t.id LEFT JOIN categories c ON c.id = t.category_id
                    WHERE ${where.join(" AND ")}`;
     const totals = await one<{ total: number | null; n: number; first: string | null; last: string | null }>(
       `SELECT ${kind.sign} * SUM(t.amount) AS total, COUNT(*) AS n, MIN(t.date) AS first, MAX(t.date) AS last ${from_}`,
@@ -126,7 +134,7 @@ const analyzeSpending = readTool({
       out.groups = groups.map(([name, m]) => ({ key: name, label: name, total: r2(m.total), count: m.n, share: total ? r2((m.total / total) * 100) : null }));
       out.groups_returned = groups.length;
       out.groups_total = map.size;
-    } else if (g !== GROUP_SQL.none) {
+    } else if (base !== GROUP_SQL.none) {
       // Alias « grp » et « lbl » : dans un GROUP BY, MySQL cherche d'abord une colonne des tables — un alias
       // « label » désignait donc le libellé de l'opération, et chaque mois se découpait en une ligne par libellé.
       const rows = await q<{ grp: string; lbl: string; total: number; n: number }>(
@@ -135,7 +143,12 @@ const analyzeSpending = readTool({
          ORDER BY ${g.order === "key" ? "grp" : "total DESC"} LIMIT ?`,
         [...params, f.limit ?? 40],
       );
-      out.groups = rows.map((r) => ({ key: String(r.grp), label: String(r.lbl), total: r2(Number(r.total)), count: r.n, share: total ? r2((Number(r.total) / total) * 100) : null }));
+      // Un virement qui franchit la vue porte son nom d'apport ou de versement, pas celui de sa catégorie « interne ».
+      const label = (r: { grp: string; lbl: string }) => {
+        const transfer = parseTransferId(String(r.grp));
+        return transfer ? transferName(transfer.way, transfer.owner, inFrench) : String(r.lbl);
+      };
+      out.groups = rows.map((r) => ({ key: String(r.grp), label: label(r), total: r2(Number(r.total)), count: r.n, share: total ? r2((Number(r.total) / total) * 100) : null }));
       out.groups_returned = rows.length;
     }
     return out;

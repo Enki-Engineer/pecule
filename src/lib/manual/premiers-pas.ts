@@ -172,6 +172,7 @@ export const premiersPas: ManualTheme = {
       summary: tk("Voir tout le foyer — comptes, revenus, impôts — ou seulement ce qui est à toi."),
       body: [
         tk("[[Foyer]] compte tous les comptes que tu vois, comptes communs compris. [[Moi]] ne garde que tes comptes : ni le compte commun, ni ceux des autres."),
+        tk("Dans [[Moi]], ce que tu vires au compte commun compte comme une dépense, « Versements au compte commun » : voir [Apports et versements entre comptes](/manuel/apports-versements)."),
         tk("Sur ordinateur, le choix est dans la barre du haut. Sur téléphone, il est en tête du menu [[Tout Pécule]]. Il est mémorisé sur l'appareil."),
         tk("Il change le tableau de bord, [[Opérations]], les opérations à classer, [[Analyse]], [[Comparer]] et [[Budget]]."),
         tk("Il vaut aussi pour [[Revenus]] et [[Impôts]], où il compte les membres : [[Foyer]] réunit tes bulletins et tes déclarations avec ceux des membres qui partagent les leurs, [[Moi]] ne garde que les tiens. Sur téléphone, le choix est alors à côté du titre de l'écran. Voir [Revenus et bulletins de paie](/manuel/revenus) et [Impôts](/manuel/impots)."),

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { BadgeEuro, Building2, ChevronDown, ChevronRight, CircleHelp, Gift, Tag, TrendingUp, Undo2, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, BadgeEuro, Building2, ChevronDown, ChevronRight, CircleHelp, Gift, Tag, TrendingUp, Undo2, type LucideIcon } from "lucide-react";
+import { Link } from "react-router";
 import { Card, Segmented } from "./ui.tsx";
 import { Donut } from "./Donut.tsx";
 import { Tile, categoryIcon } from "./Logo.tsx";
@@ -34,7 +35,8 @@ function incomeIcon(name: string): LucideIcon {
   if (/sci\b|loyer|locati|immobili/.test(n)) return Building2;
   return CircleHelp;
 }
-export const iconOf = (kind: BreakdownKind, p: { label: string; unclassified: boolean }) => (p.unclassified ? CircleHelp : kind === "revenus" ? incomeIcon(p.label) : categoryIcon(p.label));
+export const iconOf = (kind: BreakdownKind, p: { label: string; unclassified: boolean; transfer?: boolean }) =>
+  p.unclassified ? CircleHelp : p.transfer ? ArrowLeftRight : kind === "revenus" ? incomeIcon(p.label) : categoryIcon(p.label);
 
 export const share = (v: number, total: number) => {
   if (v <= 0 || total <= 0) return null;
@@ -42,6 +44,8 @@ export const share = (v: number, total: number) => {
   return pct < 1 ? "< 1 %" : `${Math.round(pct)} %`;
 };
 const ops = (n: number) => tn("{n} opération", "{n} opérations", n);
+/** Une part faite de virements qui franchissent la vue le dit sous son nom : c'est ce qui la distingue d'une catégorie. */
+const transfers = (n: number) => tn("{n} virement", "{n} virements", n);
 
 export function openPart(kind: BreakdownKind, month: string, p: Part) {
   const sub = periodLabel(month);
@@ -73,7 +77,7 @@ function PartRow({ kind, month, part, total, active, open, onActive, onToggle }:
           <span className={cn("block truncate text-[14px] font-medium", part.unclassified && "text-warn")}>{td(part.label)}</span>
           <span className="block truncate text-[12px] text-muted">
             {pct ? `${pct} · ` : ""}
-            {ops(part.count)}
+            {part.transfer ? transfers(part.count) : ops(part.count)}
           </span>
         </span>
         <span className="shrink-0 text-right">
@@ -172,7 +176,22 @@ export function Breakdown({ kind, data, byScreen = false }: { kind: BreakdownKin
           <div className="w-full flex-1 self-center py-6 text-center text-sm text-muted">{kind === "depenses" ? t("Aucune dépense ce mois-ci.") : t("Aucun revenu ce mois-ci.")}</div>
         )}
       </div>
+      {parts.some((p) => p.transfer) && <TransferNote kind={kind} />}
     </div>
+  );
+}
+
+/** Sous une répartition qui compte des virements entre comptes : ce qu'est un apport, ce qu'est un versement, en une phrase. */
+export function TransferNote({ kind, className }: { kind: BreakdownKind; className?: string }) {
+  return (
+    <p className={cn("mt-3 border-t border-line pt-3 text-[12.5px] leading-snug text-muted", className)}>
+      {kind === "revenus"
+        ? t("Un apport est un virement reçu d'un compte qui n'est pas compté dans cette vue — celui d'un autre membre, par exemple. Il compte comme un revenu : c'est lui qui paie une part des dépenses comptées ici.")
+        : t("Un versement est un virement parti vers un compte qui n'est pas compté dans cette vue — le compte commun quand tu regardes « Moi », par exemple. Il compte comme une dépense.")}{" "}
+      <Link to="/manuel/apports-versements" className="font-medium text-accent">
+        {t("En savoir plus")}
+      </Link>
+    </p>
   );
 }
 

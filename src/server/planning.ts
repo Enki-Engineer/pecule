@@ -1,7 +1,7 @@
 import { today } from "./region.ts";
 import { exec, one, q } from "./db.ts";
 import { ActionError } from "./actions.ts";
-import { IS_EXPENSE, STAT_SCOPE } from "./stats.ts";
+import { isExpense, STAT_SCOPE } from "./stats.ts";
 import { t as tr } from "../lib/i18n.ts";
 
 /*
@@ -22,7 +22,7 @@ async function averages(accountsSql: string) {
   const rows = await q<{ poste: string | null; category_id: string | null; total: number }>(
     `SELECT c.poste, t.category_id, -SUM(t.amount) / 3 AS total
      FROM tx_lines t JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND ${IS_EXPENSE} AND t.date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 3 MONTH) AND t.date < DATE_FORMAT(CURDATE(), '%Y-%m-01')
+     WHERE ${STAT_SCOPE} AND ${isExpense(accountsSql)} AND t.date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 3 MONTH) AND t.date < DATE_FORMAT(CURDATE(), '%Y-%m-01')
      GROUP BY c.poste, t.category_id`,
   );
   const byPoste = new Map<string, number>();
@@ -40,7 +40,7 @@ export async function listEnvelopes(userId: number, accountsSql: string) {
   const spent = await q<{ poste: string | null; category_id: string | null; total: number }>(
     `SELECT c.poste, t.category_id, -SUM(t.amount) AS total
      FROM tx_lines t JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND ${IS_EXPENSE} AND t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH)
+     WHERE ${STAT_SCOPE} AND ${isExpense(accountsSql)} AND t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH)
      GROUP BY c.poste, t.category_id`,
     [`${month}-01`, `${month}-01`],
   );

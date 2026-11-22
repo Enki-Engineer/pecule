@@ -9,6 +9,7 @@
  */
 
 import { tk } from "./i18n.ts";
+import { isTransferId } from "./transfers.ts";
 
 export const MAX_COLORED = 8;
 
@@ -28,9 +29,11 @@ export type Part = {
   unclassified: boolean;
   /** Part de l'anneau qui la représente : la sienne, « autres » ou « a-classer ». */
   arc: string;
-  /** Filtre des opérations : poste (sorties) ou catégorie (entrées). */
+  /** Filtre des opérations : poste (sorties) ou catégorie (entrées, et versements vers un compte hors de la vue). */
   poste?: string;
   category?: string;
+  /** Virements qui franchissent la vue du membre : « Apports de … », « Versements à … » (src/lib/transfers.ts). */
+  transfer?: boolean;
   /** Catégories du poste (sorties), les plus lourdes d'abord. */
   items: { id: string | null; name: string; total: number; count: number }[];
 };
@@ -61,7 +64,20 @@ export function spendingParts(rows: BreakdownRow[], previous: BreakdownRow[], co
   const map = new Map<string, Omit<Part, "arc"> & { code: string }>();
   for (const r of spend(rows)) {
     const k = r.poste ?? "";
-    const p = map.get(k) ?? { key: k || "a-classer", label: r.poste ?? tk("À classer"), total: 0, count: 0, prev: prev.get(k) ?? 0, slot: null, unclassified: !r.poste, poste: r.poste ?? undefined, items: [], code: r.id ?? "" };
+    // Un versement vers un compte hors de la vue n'est pas un poste du référentiel : ses opérations se retrouvent par son identifiant.
+    const transfer = isTransferId(r.id);
+    const p = map.get(k) ?? {
+      key: k || "a-classer",
+      label: r.poste ?? tk("À classer"),
+      total: 0,
+      count: 0,
+      prev: prev.get(k) ?? 0,
+      slot: null,
+      unclassified: !r.poste,
+      ...(transfer ? { category: r.id ?? undefined, transfer } : { poste: r.poste ?? undefined }),
+      items: [],
+      code: r.id ?? "",
+    };
     p.total -= Number(r.total);
     p.count += Number(r.count);
     if (r.id && byCode(r.id, p.code) < 0) p.code = r.id;
@@ -79,12 +95,24 @@ export function spendingParts(rows: BreakdownRow[], previous: BreakdownRow[], co
   );
 }
 
-/** Entrées du mois par catégorie. */
+/**
+ * Entrées du mois par catégorie. Une catégorie prend la couleur du rang de son code (A1 → 1…) ; un apport venu d'un
+ * compte hors de la vue (« Apports de … ») prend une couleur laissée libre, en partant de la dernière, la même d'un
+ * mois à l'autre tant que le référentiel ne change pas.
+ */
 export function incomeParts(rows: BreakdownRow[], previous: BreakdownRow[]): Part[] {
   const income = (list: BreakdownRow[]) => list.filter((r) => r.kind === "revenu");
+  const rankOf = (r: BreakdownRow) => (isTransferId(r.id) ? 0 : Number(r.id?.match(/\d+/)?.[0] ?? 0));
+  const taken = new Set(income(rows).map(rankOf));
+  const free = Array.from({ length: MAX_COLORED }, (_, i) => MAX_COLORED - i).filter((slot) => !taken.has(slot));
+  const transfers = income(rows)
+    .filter((r) => isTransferId(r.id))
+    .map((r) => r.id!)
+    .sort(byCode);
   return finish(
     income(rows).map((r) => {
-      const rank = Number(r.id?.match(/\d+/)?.[0] ?? 0);
+      const transfer = isTransferId(r.id);
+      const rank = transfer ? (free[transfers.indexOf(r.id!)] ?? 0) : rankOf(r);
       return {
         key: r.id ?? "a-classer",
         label: r.name ?? tk("Revenus non classés"),
@@ -94,6 +122,7 @@ export function incomeParts(rows: BreakdownRow[], previous: BreakdownRow[]): Par
         slot: r.id && rank >= 1 && rank <= MAX_COLORED ? rank : null,
         unclassified: !r.id,
         category: r.id ?? undefined,
+        ...(transfer ? { transfer } : {}),
         items: [],
       };
     }),
@@ -144,7 +173,7 @@ export function averageRows(months: BreakdownRow[][]): BreakdownRow[] {
   return [...map.values()].map((r) => ({ ...r, total: r2(r.total / months.length), count: Math.round(r.count / months.length) }));
 }
 
-export type Arc = { key: string; label: string; value: number; slot: number | null; unclassified: boolean };
+export type Arc = { key: string; label: string; value: number; slot: number | null; unclassified: boolean; /** Part faite de virements qui franchissent la vue (son icône le dit). */ transfer?: boolean };
 
 /** Parts de l'anneau, dans l'ordre fixe des couleurs ; « Autres » puis « à classer » ferment la marche. */
 export function arcsOf(parts: Part[], othersLabel = tk("Autres postes")): Arc[] {
@@ -154,9 +183,9 @@ export function arcsOf(parts: Part[], othersLabel = tk("Autres postes")): Arc[] 
   const unclassified = pos.filter((p) => p.unclassified);
   const sum = (list: Part[]) => r2(list.reduce((s, p) => s + p.total, 0));
   return [
-    ...colored.map((p) => ({ key: p.arc, label: p.label, value: p.total, slot: p.slot, unclassified: false })),
+    ...colored.map((p) => ({ key: p.arc, label: p.label, value: p.total, slot: p.slot, unclassified: false, ...(p.transfer ? { transfer: true } : {}) })),
     // Un seul poste gris : il garde son nom.
-    ...(others.length ? [{ key: "autres", label: others.length === 1 ? others[0].label : othersLabel, value: sum(others), slot: null, unclassified: false }] : []),
+    ...(others.length ? [{ key: "autres", label: others.length === 1 ? others[0].label : othersLabel, value: sum(others), slot: null, unclassified: false, ...(others.length === 1 && others[0].transfer ? { transfer: true } : {}) }] : []),
     ...(unclassified.length ? [{ key: "a-classer", label: unclassified[0].label, value: sum(unclassified), slot: null, unclassified: true }] : []),
   ];
 }

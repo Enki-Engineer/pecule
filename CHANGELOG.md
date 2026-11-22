@@ -3,6 +3,52 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.38.0
+
+Dans un foyer où chacun garde ses comptes hors des statistiques de l'autre, les dépenses du compte commun étaient
+comptées, mais pas l'argent que l'autre y verse : le foyer semblait dépenser plus qu'il ne gagne. Les virements entre
+comptes comptent désormais quand ils franchissent ce que tu regardes. Une migration (une table) ; aucun réglage
+nouveau, rien à activer.
+
+- **« Apports de … » parmi les revenus.** Un virement reçu d'un compte que ta vue ne compte pas — le compte d'un
+  autre membre que tu as sorti de tes statistiques — compte comme un revenu, sur sa propre ligne, au nom de son
+  titulaire. Exemple : Camille vire 900 € sur le compte commun depuis son compte, qu'Alex a sorti de ses
+  statistiques ; Alex voit « Apports de Camille : 900 € » dans ses revenus, en face des dépenses du compte commun.
+  Le salaire de Camille et ses dépenses personnelles restent hors de sa vue.
+- **« Versements à … » parmi les dépenses.** Le même principe dans l'autre sens : un virement parti vers un compte
+  que ta vue ne compte pas fait son propre poste de dépense. Dans « Moi », ce que tu vires au compte commun apparaît
+  ainsi en « Versements au compte commun » — jusqu'ici, il ne comptait nulle part.
+- **Rien ne change** pour un virement entre deux comptes comptés dans ta vue (il reste neutre), pour le total d'une
+  carte à débit différé, ni pour un foyer qui compte tous ses comptes. L'opération garde sa catégorie : compter de
+  nouveau le compte d'en face rend le virement neutre.
+- **Les mêmes chiffres partout** : accueil, Mois, Analyse (répartition, flux, frise, comparaison), tendances,
+  prévision — un apport qui revient chaque mois y est attendu comme un salaire —, budget, Opérations, assistant et
+  serveur MCP. Les mois passés sont recalculés : l'historique des revenus et des dépenses change pour qui est
+  concerné.
+- **Dit en clair à l'écran** : la ligne compte des « virements » et non des opérations, une phrase sous la
+  répartition dit ce qu'est un apport ou un versement, le détail d'une opération dit pourquoi elle compte, la
+  pastille « i » de Revenus et de Dépenses le rappelle, et le réglage « Hors statistiques » d'un compte prévient.
+  Nouvel article du manuel : « Apports et versements entre comptes ».
+
+Comment Pécule retrouve les deux bouts d'un virement : deux opérations classées en mouvement interne, du même
+montant, de sens opposé, sur deux comptes, à cinq jours d'écart au plus ; chacune n'a qu'un pendant, le plus proche
+dans le temps. Si le compte d'en face n'est pas dans Pécule, le virement reste neutre.
+
+Migration `0035_virements_entre_comptes` : la table `transfer_peers` (le compte d'en face de chaque virement
+rapproché). Elle se déduit des opérations : Pécule la remplit à la première lecture et la tient à jour seul.
+
+Pour qui écrit du code ou se sert de l'API : `LINE_KIND` et `IS_EXPENSE` deviennent `lineKind(comptes)` et
+`isExpense(comptes)` (`src/server/stats.ts`) ; une répartition par catégorie rend ces lignes sous un identifiant
+`virement:recu:<titulaire>` ou `virement:verse:<titulaire>`, que la liste des opérations accepte comme filtre
+`category` ; une opération de la liste porte `transfer` quand elle compte ainsi, `counted_as` dans
+`search_transactions`.
+
+Essais : règles pures testées (rapprochement, noms, répartition) ; 771 tests ; sur une copie d'une base en service,
+écart avant / après égal aux seuls virements qui franchissent la vue, pour deux membres et les deux périmètres ;
+écrans vus sur téléphone et sur ordinateur (Mois, répartition, flux, détail d'une opération), en français, en anglais
+et en allemand ; outils de l'assistant rejoués par le serveur MCP local, aux mêmes totaux que l'écran ; schéma de
+départ régénéré et comparé.
+
 ## 1.37.5
 
 L'installateur npm s'appelle « create-pecule ». Rien ne change pour une installation en service ; aucune migration,

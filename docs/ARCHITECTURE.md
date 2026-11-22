@@ -42,6 +42,15 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
 - **Statistiques** — `src/server/stats.ts` définit une fois ce qu'est une dépense, un revenu, un mouvement interne ;
   la vue `tx_lines` éclate les opérations ventilées. Tout écran et tout outil de l'IA passent par là. Une période
   d'analyse est un mois (`2026-11`) ou une année entière (`2026`) : `src/lib/periods.ts`.
+- **Virements entre comptes** — un mouvement interne est neutre tant que ses deux comptes sont comptés dans la vue du
+  membre ; si le compte d'en face ne l'est pas (sorti de ses statistiques, ou compte commun dans le périmètre
+  « Moi »), la ligne compte en revenu (« Apports de … ») ou en dépense (« Versements à … »). `src/lib/transfers.ts`
+  rapproche les deux bouts d'un virement (même montant, sens opposé, cinq jours d'écart au plus, un seul pendant par
+  ligne) et nomme ce qu'il devient ; la table `transfer_peers` garde le compte d'en face, recalculée par
+  `src/server/transfers.ts` dès que l'empreinte des mouvements internes change (contrôlée avant toute lecture : une
+  requête légère, aucun chemin d'écriture à accrocher) ; `lineKind`, `isExpense`, `peerOwner` et `transferKey`
+  (`src/server/stats.ts`) en font la définition commune, et `nameTransfers` donne à ces lignes leur nom dans une
+  répartition. L'opération garde sa catégorie : rien n'est réécrit, et chaque membre a sa lecture.
 - **Jour d'une opération** — `transactions.date` est le jour d'écriture de la banque (pour une carte à débit
   différé : le jour du prélèvement, le mois suivant) ; `purchase_date` est le jour de l'achat, donné par la banque
   ou lu dans le libellé (`src/server/stat-dates.ts`). Le foyer choisit lequel compte (Réglages → Foyer, ligne

@@ -132,7 +132,7 @@ export const comptes: ManualTheme = {
           list: [
             tk("[[Nom affiché]] : le nom du compte dans toute l'appli, pour tout le foyer. Laisse vide pour reprendre le nom donné par la banque."),
             tk("[[Masqué##compte]] : le compte est retiré de ton accueil ; ses opérations restent comptées."),
-            tk("[[Hors statistiques]] : le compte est exclu de tes totaux et de tes opérations à classer."),
+            tk("[[Hors statistiques]] : le compte est exclu de tes totaux et de tes opérations à classer. Un virement entre ce compte et un compte que tu comptes apparaît alors comme un apport ou un versement : voir [Apports et versements entre comptes](/manuel/apports-versements)."),
           ],
         },
         tk("Masquer un compte ou le sortir des statistiques ne vaut que pour toi : les autres membres gardent leurs propres réglages. Les comptes masqués sont repliés en bas de la liste."),

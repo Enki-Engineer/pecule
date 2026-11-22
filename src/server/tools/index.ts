@@ -1,3 +1,4 @@
+import { ensureTransferPeers } from "../transfers.ts";
 import type Anthropic from "@anthropic-ai/sdk";
 import { logAudit, runAs, type Via } from "../journal.ts";
 import { banqueTools } from "./banque.ts";
@@ -46,6 +47,8 @@ function get(name: string): Tool {
 export async function runReadTool(ctx: ToolCtx, name: string, input: unknown): Promise<unknown> {
   const t = get(name);
   if (t.kind !== "read") throw new ToolError(`${name} est une action : elle demande une confirmation`);
+  // Les totaux lisent le rapprochement des virements entre comptes : à jour avant la lecture.
+  await ensureTransferPeers();
   return t.run(ctx, t.input.parse(input ?? {}));
 }
 

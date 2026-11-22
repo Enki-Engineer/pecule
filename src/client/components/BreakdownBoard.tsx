@@ -5,7 +5,7 @@ import { Card, InfoTip, Segmented } from "./ui.tsx";
 import { Donut } from "./Donut.tsx";
 import { Tile } from "./Logo.tsx";
 import { openDrill } from "./DrillDrawer.tsx";
-import { colorOf, HATCH, iconOf, openPart, share } from "./Breakdown.tsx";
+import { colorOf, HATCH, iconOf, openPart, share, TransferNote } from "./Breakdown.tsx";
 import { cn } from "../cn.ts";
 import { money, periodLabel } from "../format.ts";
 import { isDiscreet } from "../discret.ts";
@@ -124,8 +124,8 @@ export function BreakdownBoard({ data, current }: { data: MonthStats; /** Pério
             {totals.revenus > 0 && totals.epargne > 0 && <div className="mt-2 text-[13.5px] text-muted">{t("{part} des revenus mis de côté", { part: share(totals.epargne, totals.revenus) ?? "" })}</div>}
           </div>
           <div className="w-full max-w-md space-y-3">
-            <Gauge label={t("Revenus")} info={t("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Les mouvements entre tes comptes n'en font pas partie.")} value={totals.revenus} scale={scale} color="var(--color-pos)" />
-            <Gauge label={t("Dépenses")} info={t("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne ni les mouvements entre tes comptes.")} value={totals.depenses} scale={scale} color="var(--color-ink)" />
+            <Gauge label={t("Revenus")} info={t("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Un virement entre deux comptes comptés ici n'en fait pas partie ; s'il vient d'un compte qui n'est pas compté ici, c'est un apport, et il compte.")} value={totals.revenus} scale={scale} color="var(--color-pos)" />
+            <Gauge label={t("Dépenses")} info={t("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne, ni un virement entre deux comptes comptés ici ; s'il part vers un compte qui n'est pas compté ici, c'est un versement, et il compte.")} value={totals.depenses} scale={scale} color="var(--color-ink)" />
             <Gauge label={t("Épargne")} info={t("Ce qui est classé en épargne : les versements vers un livret, une assurance-vie, un plan d'épargne.")} value={totals.epargne} scale={scale} color="var(--color-pos)" hatched />
           </div>
         </div>
@@ -185,6 +185,7 @@ export function BreakdownBoard({ data, current }: { data: MonthStats; /** Pério
           <div className="py-8 text-center text-sm text-muted">{EMPTY[kind]}</div>
         )}
         {!year && <div className="mt-3 text-[12.5px] text-muted">{HINTS[kind]}{caps.length > 0 && ` · ${t("le trait sur une barre : le plafond de son enveloppe")}`}</div>}
+        {kind !== "epargne" && side.parts.some((p) => p.transfer) && <TransferNote kind={kind} />}
       </Card>
     </>
   );
@@ -345,7 +346,7 @@ function BoardRow({
           </Tile>
           <span className="min-w-0">
             <span className={cn("block truncate text-[15px] font-medium", part.unclassified && "text-warn")}>{td(part.label)}</span>
-            <span className="block truncate text-[12.5px] text-muted">{tn("{n} opération", "{n} opérations", part.count)}</span>
+            <span className="block truncate text-[12.5px] text-muted">{part.transfer ? tn("{n} virement", "{n} virements", part.count) : tn("{n} opération", "{n} opérations", part.count)}</span>
             {/* Liste étroite (panneau de l'assistant ouvert) : la barre n'a plus sa colonne, un filet sous le nom la remplace. */}
             <span className="mt-1 block h-1 w-40 max-w-full overflow-hidden rounded-full bg-line/60 @3xl:hidden">
               <span className="block h-full rounded-full" style={{ width: `${Math.max(part.total > 0 ? 2 : 0, (Math.max(0, part.total) / max) * 100)}%`, background: color }} />

@@ -1,7 +1,8 @@
 import { today } from "./region.ts";
 import { exec, one, q } from "./db.ts";
 import { ActionError, userAccountsSql } from "./actions.ts";
-import { IS_EXPENSE, STAT_SCOPE } from "./stats.ts";
+import { isExpense, peerOwner, STAT_SCOPE } from "./stats.ts";
+import { transferName } from "../lib/transfers.ts";
 import { summarizeLoan, type ScheduleRow } from "../lib/loans.ts";
 import type { FactPlan } from "../lib/facts.ts";
 import { documentVisible } from "./documents.ts";
@@ -214,10 +215,11 @@ export async function budget(userId: number) {
     if (t) seen.set(c.id, { date: t.date, amount: Number(t.amount) });
   }
   // Dépenses réelles : moyenne mensuelle des 3 derniers mois complets, par poste.
-  const actual = await q<{ poste: string | null; total: number }>(
-    `SELECT c.poste, ROUND(-SUM(t.amount) / 3, 2) AS total FROM tx_lines t JOIN ${A} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND ${IS_EXPENSE} AND t.date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 3 MONTH) AND t.date < DATE_FORMAT(CURDATE(), '%Y-%m-01')
-     GROUP BY c.poste ORDER BY total DESC`,
+  // Un versement vers un compte hors de la vue du membre fait son propre poste (src/lib/transfers.ts).
+  const actual = await q<{ poste: string | null; peer: string | null; total: number }>(
+    `SELECT c.poste, ${peerOwner(A)} AS peer, ROUND(-SUM(t.amount) / 3, 2) AS total FROM tx_lines t JOIN ${A} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
+     WHERE ${STAT_SCOPE} AND ${isExpense(A)} AND t.date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 3 MONTH) AND t.date < DATE_FORMAT(CURDATE(), '%Y-%m-01')
+     GROUP BY c.poste, peer ORDER BY total DESC`,
   );
   const counted = commitments.filter((c) => COUNTED.has(c.status));
   const fixedMonthly = r2(counted.reduce((s, c) => s + monthlyOf(c), 0));
@@ -226,7 +228,7 @@ export async function budget(userId: number) {
   return {
     commitments: commitments.map((c) => ({ ...c, monthly_equiv: r2(monthlyOf(c)), last_seen: seen.get(c.id) ?? null })),
     income,
-    actualByPoste: actual.map((a) => ({ poste: a.poste ?? tk("À classer"), monthly: Number(a.total) })),
+    actualByPoste: actual.map((a) => ({ poste: a.peer ? transferName("verse", a.peer, tr) : (a.poste ?? tk("À classer")), monthly: Number(a.total) })),
     totals: {
       fixedMonthly,
       incomeMonthly,

@@ -1,6 +1,6 @@
 import { householdDay } from "./region.ts";
 import { q } from "./db.ts";
-import { IS_EXPENSE, LINE_KIND, STAT_DATE_JOIN, STAT_SCOPE, statDate } from "./stats.ts";
+import { isExpense, lineKind, peerOwner, STAT_DATE_JOIN, STAT_SCOPE, statDate } from "./stats.ts";
 import { debitSeries } from "./debits.ts";
 import { labelShape, merchantName, natureOf, natureSql } from "../lib/nature.ts";
 import { txTitle } from "../lib/labels.ts";
@@ -9,7 +9,8 @@ import { addMonths, FORECAST_MONTHS, periodRange } from "../lib/periods.ts";
 import { expectedIn, recurringKey, recurringSeries, type Expected, type RecurringRow } from "../lib/recurring.ts";
 import { mergeDebitRows } from "../lib/debit-rows.ts";
 import { pickColored } from "../lib/breakdown.ts";
-import { tk } from "../lib/i18n.ts";
+import { t as translated, tk } from "../lib/i18n.ts";
+import { transferId, transferName, transferWay } from "../lib/transfers.ts";
 export { comparisonSpan, type CompareBase } from "../lib/periods.ts";
 
 /*
@@ -17,45 +18,50 @@ export { comparisonSpan, type CompareBase } from "../lib/periods.ts";
  * catégorie), par quel moyen il part (achats carte, prélèvements, virements, espèces, frais) et vers quels postes ;
  * tendance mois par mois ; frise ; calendrier des prélèvements ; marchands ; prévision des mois à venir. Mêmes
  * définitions que stats.ts : la nature ventile les dépenses, elle ne change pas les totaux. Mouvements internes
- * exclus. Le jour d'une opération est celui de la vue tx_lines (jour d'achat ou d'écriture, selon le foyer).
+ * exclus, sauf le virement qui franchit la vue du membre : il y entre en « Apports de … », en sort en « Versements
+ * à … » (src/lib/transfers.ts). Le jour d'une opération est celui de la vue tx_lines (jour d'achat ou d'écriture, selon le foyer).
  */
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const inRange = "t.date >= ? AND t.date < ?";
 
-export async function monthFlows(accountsSql: string, period: string) {
+/** `tr` : la langue des noms donnés aux virements qui franchissent la vue (celle du membre à l'écran, le français pour l'assistant). */
+export async function monthFlows(accountsSql: string, period: string, tr: typeof translated = translated) {
   const { start, end } = periodRange(period);
+  const kind = lineKind(accountsSql);
+  const peer = peerOwner(accountsSql);
   const base = `FROM tx_lines t JOIN transactions tr ON tr.id = t.id JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
     WHERE ${STAT_SCOPE} AND ${inRange}`;
   const [incomes, spend, savings] = await Promise.all([
-    q<{ id: string | null; name: string | null; total: number }>(
-      `SELECT c.id, c.name, ROUND(SUM(t.amount), 2) AS total ${base} AND ${LINE_KIND} = 'revenu' GROUP BY c.id, c.name HAVING total > 0 ORDER BY total DESC`,
+    q<{ id: string | null; name: string | null; peer: string | null; total: number }>(
+      `SELECT c.id, c.name, ${peer} AS peer, ROUND(SUM(t.amount), 2) AS total ${base} AND ${kind} = 'revenu' GROUP BY c.id, c.name, peer HAVING total > 0 ORDER BY total DESC`,
       [start, end],
     ),
     // Dépenses brutes par nature et par poste (débits) ; les remboursements sont comptés à part.
-    q<{ nature: string; poste: string | null; total: number; n: number }>(
-      `SELECT ${natureSql("tr")} AS nature, c.poste, ROUND(-SUM(t.amount), 2) AS total, COUNT(*) AS n ${base} AND ${IS_EXPENSE} AND t.amount < 0
-       GROUP BY nature, c.poste ORDER BY total DESC`,
+    q<{ nature: string; poste: string | null; peer: string | null; total: number; n: number }>(
+      `SELECT ${natureSql("tr")} AS nature, c.poste, ${peer} AS peer, ROUND(-SUM(t.amount), 2) AS total, COUNT(*) AS n ${base} AND ${kind} = 'depense' AND t.amount < 0
+       GROUP BY nature, c.poste, peer ORDER BY total DESC`,
       [start, end],
     ),
     q<{ total: number | null }>(`SELECT ROUND(-SUM(t.amount), 2) AS total ${base} AND c.kind = 'epargne'`, [start, end]),
   ]);
-  const refunds = await q<{ total: number | null }>(`SELECT ROUND(SUM(t.amount), 2) AS total ${base} AND ${IS_EXPENSE} AND t.amount > 0`, [start, end]);
+  const refunds = await q<{ total: number | null }>(`SELECT ROUND(SUM(t.amount), 2) AS total ${base} AND ${kind} = 'depense' AND t.amount > 0`, [start, end]);
   const income = r2(incomes.reduce((s, i) => s + Number(i.total), 0));
   const gross = r2(spend.reduce((s, x) => s + Number(x.total), 0));
   const refund = r2(Number(refunds[0]?.total ?? 0));
   const saved = r2(Number(savings[0]?.total ?? 0));
   return {
     month: period,
-    incomes: incomes.map((i) => ({ id: i.id, name: i.name ?? tk("Revenus non classés"), total: Number(i.total) })),
-    flows: spend.map((x) => ({ nature: x.nature, poste: x.poste ?? tk("À classer"), total: Number(x.total), count: Number(x.n) })),
+    incomes: incomes.map((i) => (i.peer ? { id: transferId("recu", i.peer), name: transferName("recu", i.peer, tr), total: Number(i.total) } : { id: i.id, name: i.name ?? tk("Revenus non classés"), total: Number(i.total) })),
+    flows: spend.map((x) => ({ nature: x.nature, poste: x.peer ? transferName("verse", x.peer, tr) : (x.poste ?? tk("À classer")), total: Number(x.total), count: Number(x.n) })),
     totals: { income, grossSpend: gross, refunds: refund, netSpend: r2(gross - refund), savings: saved, balance: r2(income - (gross - refund) - saved) },
   };
 }
 
 /**
  * Bilan mois par mois d'une liste d'opérations (écran Opérations) : leur nombre, celles qui restent à classer, et
- * leurs lignes comptées comme partout — revenus, dépenses nettes, épargne ; un mouvement interne ne compte pas.
+ * leurs lignes comptées comme partout — revenus, dépenses nettes, épargne ; un mouvement interne ne compte pas, sauf
+ * s'il franchit la vue du membre (apport ou versement).
  * `where` : conditions de la liste (tr = transactions, a = comptes du membre). Filtrée sur une catégorie ou un poste,
  * la liste ne compte que les lignes qui y sont rangées (une opération ventilée n'y entre que pour sa part).
  */
@@ -63,12 +69,13 @@ export async function listMonths(accountsSql: string, where: string[], params: u
   const conds = [...where];
   const values = [...params];
   if (only.category) conds.push("t.category_id = ?"), values.push(only.category);
+  const kind = lineKind(accountsSql);
   if (only.poste) conds.push("c.poste = ?"), values.push(only.poste);
   const rows = await q<{ month: string; count: number; uncategorized: number; revenus: number; depenses: number; epargne: number }>(
     `SELECT DATE_FORMAT(t.date, '%Y-%m') AS month, COUNT(DISTINCT tr.id) AS count,
             COUNT(DISTINCT CASE WHEN tr.category_id IS NULL AND t.split_id = 0 THEN tr.id END) AS uncategorized,
-            SUM(CASE WHEN ${LINE_KIND} = 'revenu' THEN t.amount ELSE 0 END) AS revenus,
-            -SUM(CASE WHEN ${LINE_KIND} = 'depense' THEN t.amount ELSE 0 END) AS depenses,
+            SUM(CASE WHEN ${kind} = 'revenu' THEN t.amount ELSE 0 END) AS revenus,
+            -SUM(CASE WHEN ${kind} = 'depense' THEN t.amount ELSE 0 END) AS depenses,
             -SUM(CASE WHEN c.kind = 'epargne' THEN t.amount ELSE 0 END) AS epargne
      FROM tx_lines t JOIN transactions tr ON tr.id = t.id JOIN ${accountsSql} a ON a.id = tr.account_id
      LEFT JOIN categories c ON c.id = t.category_id ${STAT_DATE_JOIN}
@@ -81,10 +88,11 @@ export async function listMonths(accountsSql: string, where: string[], params: u
 
 /** Revenus, dépenses et épargne mois par mois, du mois `from` au mois `to` compris (un mois sans opération n'a pas de ligne). */
 export async function monthlyTrend(accountsSql: string, from: string, to: string) {
+  const kind = lineKind(accountsSql);
   return q<{ month: string; revenus: number; depenses: number; epargne: number }>(
     `SELECT DATE_FORMAT(t.date, '%Y-%m') AS month,
-            SUM(CASE WHEN ${LINE_KIND} = 'revenu' THEN t.amount ELSE 0 END) AS revenus,
-            -SUM(CASE WHEN ${LINE_KIND} = 'depense' THEN t.amount ELSE 0 END) AS depenses,
+            SUM(CASE WHEN ${kind} = 'revenu' THEN t.amount ELSE 0 END) AS revenus,
+            -SUM(CASE WHEN ${kind} = 'depense' THEN t.amount ELSE 0 END) AS depenses,
             -SUM(CASE WHEN c.kind = 'epargne' THEN t.amount ELSE 0 END) AS epargne
      FROM tx_lines t JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
      WHERE ${STAT_SCOPE} AND ${inRange}
@@ -98,7 +106,7 @@ export async function natureTrend(accountsSql: string, from: string, to: string)
   const rows = await q<{ month: string; nature: string; total: number }>(
     `SELECT DATE_FORMAT(t.date, '%Y-%m') AS month, ${natureSql("tr")} AS nature, ROUND(-SUM(t.amount), 2) AS total
      FROM tx_lines t JOIN transactions tr ON tr.id = t.id JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND ${IS_EXPENSE} AND t.amount < 0 AND ${inRange}
+     WHERE ${STAT_SCOPE} AND ${isExpense(accountsSql)} AND t.amount < 0 AND ${inRange}
      GROUP BY month, nature ORDER BY month`,
     [`${from}-01`, `${addMonths(to, 1)}-01`],
   );
@@ -114,15 +122,17 @@ export async function natureTrend(accountsSql: string, from: string, to: string)
 
 /** Opérations comptées depuis le mois `from`, avec la clé qui regroupe ce qui revient (forme du libellé d'un prélèvement sans nom, clé du marchand sinon). */
 async function recurringRows(accountsSql: string, from: string): Promise<RecurringRow[]> {
-  const rows = await q<{ date: string; amount: number; label: string; merchant: string | null; bank_label: string | null; label_key: string; category: string | null; kind: "depense" | "revenu" }>(
-    `SELECT DATE_FORMAT(t.date, '%Y-%m-%d') AS date, ROUND(SUM(t.amount), 2) AS amount, tr.label, tr.merchant, tr.bank_label, tr.label_key, MIN(c.name) AS category, ${LINE_KIND} AS kind
+  const kind = lineKind(accountsSql);
+  const rows = await q<{ date: string; amount: number; label: string; merchant: string | null; bank_label: string | null; label_key: string; category: string | null; peer: string | null; kind: "depense" | "revenu" }>(
+    `SELECT DATE_FORMAT(t.date, '%Y-%m-%d') AS date, ROUND(SUM(t.amount), 2) AS amount, tr.label, tr.merchant, tr.bank_label, tr.label_key, MIN(c.name) AS category, MIN(${peerOwner(accountsSql)}) AS peer, ${kind} AS kind
      FROM tx_lines t JOIN transactions tr ON tr.id = t.id JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND t.date >= ? AND ${LINE_KIND} IN ('depense', 'revenu')
+     WHERE ${STAT_SCOPE} AND t.date >= ? AND ${kind} IN ('depense', 'revenu')
      GROUP BY tr.id, t.date, tr.label, tr.merchant, tr.bank_label, tr.label_key, kind`,
     [`${from}-01`],
   );
   return rows
-    .map((r) => ({ ...r, amount: Number(r.amount) }))
+    // Un virement qui franchit la vue revient chaque mois comme un salaire : il porte son nom d'apport ou de versement.
+    .map(({ peer, ...r }) => ({ ...r, amount: Number(r.amount), category: peer ? transferName(transferWay(r.kind), peer, translated) : r.category }))
     // Une dépense sort, un revenu entre : un remboursement ou une régularisation ne fait pas une récurrence.
     .filter((r) => (r.kind === "depense" ? r.amount < 0 : r.amount > 0))
     .map(recurringRow);
@@ -225,15 +235,18 @@ export async function monthTimeline(accountsSql: string, period: string) {
   const today = householdDay();
   const current = today.slice(0, 7);
   const slotOf = (date: string) => Number(year ? date.slice(5, 7) : date.slice(8, 10));
-  const rows = await q<{ id: string; date: string; booked: string; status: string; label: string; merchant: string | null; bank_label: string | null; nature: string; kind: TimelinePoint["kind"]; amount: number; category: string | null; poste: string | null }>(
-    `SELECT tr.id, DATE_FORMAT(t.date, '%Y-%m-%d') AS date, DATE_FORMAT(tr.date, '%Y-%m-%d') AS booked, tr.status, tr.label, tr.merchant, tr.bank_label, ${natureSql("tr")} AS nature, ${LINE_KIND} AS kind,
-            ROUND(SUM(t.amount), 2) AS amount, MIN(c.name) AS category, MIN(c.poste) AS poste
+  const kind = lineKind(accountsSql);
+  const rows = await q<{ id: string; date: string; booked: string; status: string; label: string; merchant: string | null; bank_label: string | null; nature: string; kind: TimelinePoint["kind"]; amount: number; category: string | null; poste: string | null; peer: string | null }>(
+    `SELECT tr.id, DATE_FORMAT(t.date, '%Y-%m-%d') AS date, DATE_FORMAT(tr.date, '%Y-%m-%d') AS booked, tr.status, tr.label, tr.merchant, tr.bank_label, ${natureSql("tr")} AS nature, ${kind} AS kind,
+            ROUND(SUM(t.amount), 2) AS amount, MIN(c.name) AS category, MIN(c.poste) AS poste, MIN(${peerOwner(accountsSql)}) AS peer
      FROM tx_lines t JOIN transactions tr ON tr.id = t.id JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND ${inRange} AND ${LINE_KIND} IN ('depense', 'revenu', 'epargne')
+     WHERE ${STAT_SCOPE} AND ${inRange} AND ${kind} IN ('depense', 'revenu', 'epargne')
      GROUP BY tr.id, t.date, tr.date, tr.status, tr.label, tr.merchant, tr.bank_label, nature, kind
      HAVING amount <> 0 ORDER BY t.date, amount`,
     [start, end],
   );
+  // Un virement qui franchit la vue porte son nom d'apport ou de versement, pas celui de sa catégorie « interne ».
+  const transfer = (r: { peer: string | null; kind: string }) => (r.peer ? transferName(transferWay(r.kind), r.peer, translated) : null);
   const points: TimelinePoint[] = rows.map((r) => ({
     id: r.id,
     date: r.date,
@@ -241,9 +254,9 @@ export async function monthTimeline(accountsSql: string, period: string) {
     amount: Number(r.amount),
     kind: r.kind,
     nature: r.nature,
-    name: txTitle({ merchant: r.merchant, label: r.label, bank_label: r.bank_label, category_name: r.category }),
-    category: r.category,
-    poste: r.poste,
+    name: txTitle({ merchant: r.merchant, label: r.label, bank_label: r.bank_label, category_name: transfer(r) ?? r.category }),
+    category: transfer(r) ?? r.category,
+    poste: r.peer ? (r.kind === "depense" ? transfer(r) : null) : r.poste,
     // Achat par carte pas encore prélevé : la banque l'a annoncé, elle l'écrira le jour du prélèvement.
     ...(r.status === "pending" ? { pending: true, booked: r.booked } : r.booked !== r.date ? { booked: r.booked } : {}),
   }));
@@ -329,14 +342,23 @@ export async function monthMerchants(accountsSql: string, period: string) {
  * de mois), rangés dans l'ordre du référentiel.
  */
 export async function coloredPostes(accountsSql: string) {
-  const rows = await q<{ poste: string; code: string; total: number }>(
-    `SELECT c.poste, MIN(c.id) AS code, -SUM(t.amount) AS total
-     FROM tx_lines t JOIN ${accountsSql} a ON a.id = t.account_id JOIN categories c ON c.id = t.category_id
-     WHERE ${STAT_SCOPE} AND c.kind = 'depense' AND c.poste IS NOT NULL
-       AND t.date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH)
-     GROUP BY c.poste`,
-  );
-  return pickColored(rows);
+  const since = "t.date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH)";
+  const [rows, transfers] = await Promise.all([
+    q<{ poste: string; code: string; total: number }>(
+      `SELECT c.poste, MIN(c.id) AS code, -SUM(t.amount) AS total
+       FROM tx_lines t JOIN ${accountsSql} a ON a.id = t.account_id JOIN categories c ON c.id = t.category_id
+       WHERE ${STAT_SCOPE} AND c.kind = 'depense' AND c.poste IS NOT NULL AND ${since}
+       GROUP BY c.poste`,
+    ),
+    // Les versements vers un compte hors de la vue font chacun leur poste : ils concourent, rangés après le référentiel.
+    q<{ peer: string | null; total: number }>(
+      `SELECT ${peerOwner(accountsSql)} AS peer, -SUM(t.amount) AS total
+       FROM tx_lines t JOIN ${accountsSql} a ON a.id = t.account_id JOIN categories c ON c.id = t.category_id
+       WHERE ${STAT_SCOPE} AND c.kind = 'interne' AND t.amount < 0 AND ${since}
+       GROUP BY peer HAVING peer IS NOT NULL`,
+    ),
+  ]);
+  return pickColored([...rows, ...transfers.map((r) => ({ poste: transferName("verse", r.peer!, translated), code: `~${transferId("verse", r.peer!)}`, total: Number(r.total) }))]);
 }
 
 /* ---------- Comparer deux périodes ---------- */
@@ -344,13 +366,14 @@ export async function coloredPostes(accountsSql: string) {
 /** Dépenses par poste, revenus et épargne de deux périodes (b divisée pour une moyenne). */
 export async function comparePeriods(accountsSql: string, a: { from: string; to: string }, b: { from: string; to: string; divisor: number }) {
   const sums = async (s: { from: string; to: string }) => {
-    const rows = await q<{ poste: string; kind: string; total: number }>(
-      `SELECT COALESCE(c.poste, IF(t.amount < 0, 'À classer', 'Revenus non classés')) AS poste, ${LINE_KIND} AS kind, SUM(t.amount) AS total
+    const rows = await q<{ poste: string; kind: string; peer: string | null; total: number }>(
+      `SELECT COALESCE(c.poste, IF(t.amount < 0, 'À classer', 'Revenus non classés')) AS poste, ${lineKind(accountsSql)} AS kind, ${peerOwner(accountsSql)} AS peer, SUM(t.amount) AS total
        FROM tx_lines t JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date <= ? GROUP BY poste, kind`,
+       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date <= ? GROUP BY poste, kind, peer`,
       [s.from, s.to],
     );
-    return rows;
+    // Un versement vers un compte hors de la vue fait son propre poste de dépense.
+    return rows.map(({ peer, ...r }) => (peer ? { ...r, poste: transferName(transferWay(r.kind), peer, translated) } : r));
   };
   const [ra, rb] = await Promise.all([sums(a), sums(b)]);
   const total = (rows: typeof ra, kind: string, sign: number, div = 1) => r2((sign * rows.filter((r) => r.kind === kind).reduce((s, r) => s + Number(r.total), 0)) / div);

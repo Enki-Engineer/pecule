@@ -1,6 +1,6 @@
 import { householdCurrency, moneySymbol, region } from "./region.ts";
 import { exec, one, q } from "./db.ts";
-import { IS_EXPENSE, STAT_SCOPE } from "./stats.ts";
+import { CATEGORY_KIND, STAT_SCOPE } from "./stats.ts";
 import { equivalence, FETE_BUDGETS, FUN_UNITS, MONTH_HOURS, type FunBudget, type FunData, type FunHighlight } from "../lib/fun.ts";
 import { birthdaysAt, parseBirthdays, SEASONS, seasonAt, seasonWindow, type Birthday, type Season } from "../lib/seasons.ts";
 import { t } from "../lib/i18n.ts";
@@ -58,7 +58,7 @@ async function highlights(userId: number, accountsSql: string): Promise<FunHighl
     one<{ id: string; label: string; amount: number; date: string }>(
       `SELECT tr.id, COALESCE(NULLIF(NULLIF(tr.merchant, ''), 'Inconnu'), NULLIF(tr.bank_label, ''), tr.label) AS label, -t.amount AS amount, DATE_FORMAT(t.date, '%Y-%m-%d') AS date
        FROM tx_lines t JOIN transactions tr ON tr.id = t.id JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-       WHERE ${STAT_SCOPE} AND ${IS_EXPENSE} AND t.amount < 0 AND t.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+       WHERE ${STAT_SCOPE} AND ${CATEGORY_KIND} = 'depense' AND t.amount < 0 AND t.date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
        ORDER BY t.amount ASC LIMIT 1`,
     ),
     one<{ poste: string; total: number }>(

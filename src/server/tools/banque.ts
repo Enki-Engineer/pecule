@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { IS_EXPENSE, LINE_KIND, STAT_DATE_JOIN, statDate } from "../stats.ts";
+import { isExpense, lineKind, peerOwner, STAT_DATE_JOIN, statDate, transferKey } from "../stats.ts";
+import { inFrench, nameTransfers, parseTransferId, transferName } from "../../lib/transfers.ts";
 import { one, q } from "../db.ts";
 import { setTransactionCategory, setTransactionNote, userAccountsSql } from "../actions.ts";
 import { syncBanks } from "../bank-sync.ts";
@@ -34,7 +35,7 @@ const getOverview = readTool({
       (
         await one<{ t: number | null }>(
           `SELECT -SUM(t.amount) AS t FROM tx_lines t JOIN ${A} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-           WHERE ${SCOPE} AND ${IS_EXPENSE} AND t.date >= ? AND t.date <= ?`,
+           WHERE ${SCOPE} AND ${isExpense(A)} AND t.date >= ? AND t.date <= ?`,
           [from, to],
         )
       )?.t ?? 0;
@@ -80,6 +81,7 @@ const searchTransactions = readTool({
     "Recherche des opérations bancaires (100 au plus ; tri par date ou par montant). Montants négatifs = débits. uncategorized=true pour les opérations à classer. " +
     "total_matching et sum_matching = nombre et somme de TOUTES les opérations qui correspondent (pas seulement celles renvoyées). " +
     "nature = carte, prelevement, virement, retrait, frais, interne, remboursement ou entree. " +
+    "counted_as (« Apports de … », « Versements à … ») : ce virement entre comptes du foyer franchit la vue de l'utilisateur et compte dans ses totaux, en revenu ou en dépense, bien que sa catégorie soit un mouvement interne. " +
     "invoices = factures reliées avec leurs articles : c'est ce qui a été acheté (Amazon, Cdiscount…), à lire avant de dire qu'on ne sait pas ce qu'est un achat.",
   input: z.object({
     query: z.string().max(100).optional().describe("Texte cherché dans le libellé, le marchand ou la note"),
@@ -119,7 +121,7 @@ const searchTransactions = readTool({
     const order = { date_desc: `${day} DESC, t.id`, date_asc: `${day}, t.id`, amount_asc: `t.amount, ${day} DESC`, amount_desc: `t.amount DESC, ${day} DESC` }[f.sort ?? "date_desc"];
     const rows = await q<{ id: string; invoice_count: number } & Record<string, unknown>>(
       `SELECT t.id, ${day} AS date, IF(t.date <> ${day}, t.date, NULL) AS debit_date, t.amount, t.label, t.merchant, t.bank_label, t.category_id, c.name AS category, ${natureSql("t")} AS nature,
-              COALESCE(a.display_name, a.name) AS account, t.note,
+              COALESCE(a.display_name, a.name) AS account, t.note, IF(a.excluded = 0, ${transferKey(A)}, NULL) AS transfer,
               (SELECT COUNT(*) FROM invoice_transactions it WHERE it.transaction_id = t.id) AS invoice_count
        FROM transactions t JOIN ${A} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id ${STAT_DATE_JOIN}
        WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ?`,
@@ -146,7 +148,11 @@ const searchTransactions = readTool({
       total_matching: total?.n ?? rows.length,
       sum_matching: r2(Number(total?.s ?? 0)),
       returned: rows.length,
-      transactions: rows.map((r) => (byTx.has(r.id) ? { ...r, invoices: byTx.get(r.id) } : r)),
+      // Un virement qui franchit la vue du membre : `counted_as` dit sous quel nom il compte (revenu ou dépense).
+      transactions: rows.map(({ transfer, ...r }) => {
+        const way = parseTransferId(typeof transfer === "string" ? transfer : null);
+        return { ...r, ...(way ? { counted_as: transferName(way.way, way.owner, inFrench) } : {}), ...(byTx.has(r.id) ? { invoices: byTx.get(r.id) } : {}) };
+      }),
     };
   },
 });
@@ -186,16 +192,21 @@ const getTransaction = readTool({
 const monthBreakdown = readTool({
   name: "month_breakdown",
   progress: tk("Analyse du mois…"),
-  description: "Revenus, dépenses et épargne d'un mois par catégorie, avec le mois précédent pour comparaison.",
+  description:
+    "Revenus, dépenses et épargne d'un mois par catégorie, avec le mois précédent pour comparaison. Une ligne « Apports de … » (revenu) ou « Versements à … » (dépense) est un virement entre comptes du foyer qui vient d'un compte hors des statistiques de l'utilisateur, ou y part : il compte, à la différence d'un mouvement interne entre deux comptes comptés.",
   input: z.object({ month: month.describe("AAAA-MM") }),
   async run({ userId }, { month: m }) {
-    const byCat = (start: string) =>
-      q(
-        `SELECT c.id, c.name, c.poste, ${LINE_KIND} AS kind, ROUND(SUM(t.amount), 2) AS total, COUNT(*) AS n
-         FROM tx_lines t JOIN ${userAccountsSql(userId)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-         WHERE ${SCOPE} AND t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH)
-         GROUP BY c.id, c.name, c.poste, ${LINE_KIND} ORDER BY total`,
-        [start, start],
+    const A = userAccountsSql(userId);
+    const byCat = async (start: string) =>
+      nameTransfers(
+        await q<{ id: string | null; name: string | null; poste: string | null; kind: string | null; peer: string | null; total: number; n: number }>(
+          `SELECT c.id, c.name, c.poste, ${lineKind(A)} AS kind, ${peerOwner(A)} AS peer, ROUND(SUM(t.amount), 2) AS total, COUNT(*) AS n
+           FROM tx_lines t JOIN ${A} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
+           WHERE ${SCOPE} AND t.date >= ? AND t.date < DATE_ADD(?, INTERVAL 1 MONTH)
+           GROUP BY c.id, c.name, c.poste, kind, peer ORDER BY total`,
+          [start, start],
+        ),
+        inFrench,
       );
     const prev = new Date(`${m}-01T12:00:00Z`);
     prev.setUTCMonth(prev.getUTCMonth() - 1);
@@ -206,13 +217,13 @@ const monthBreakdown = readTool({
 const getTrend = readTool({
   name: "get_trend",
   progress: tk("Calcul de la tendance…"),
-  description: "Revenus, dépenses et épargne par mois sur les 12 derniers mois.",
+  description: "Revenus, dépenses et épargne par mois sur les 12 derniers mois (apports et versements entre comptes compris, comme à l'écran).",
   input: z.object({}),
   run: ({ userId }) =>
     q(
       `SELECT DATE_FORMAT(t.date, '%Y-%m') AS month,
-              ROUND(SUM(CASE WHEN ${LINE_KIND} = 'revenu' THEN t.amount ELSE 0 END), 2) AS revenus,
-              ROUND(-SUM(CASE WHEN ${LINE_KIND} = 'depense' THEN t.amount ELSE 0 END), 2) AS depenses,
+              ROUND(SUM(CASE WHEN ${lineKind(userAccountsSql(userId))} = 'revenu' THEN t.amount ELSE 0 END), 2) AS revenus,
+              ROUND(-SUM(CASE WHEN ${lineKind(userAccountsSql(userId))} = 'depense' THEN t.amount ELSE 0 END), 2) AS depenses,
               ROUND(-SUM(CASE WHEN c.kind = 'epargne' THEN t.amount ELSE 0 END), 2) AS epargne
        FROM tx_lines t JOIN ${userAccountsSql(userId)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
        WHERE ${SCOPE} AND t.date >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH) GROUP BY month ORDER BY month`,
@@ -227,7 +238,7 @@ const getFlows = readTool({
   input: z.object({ month: month.describe("AAAA-MM") }),
   async run({ userId }, { month: m }) {
     const A = userAccountsSql(userId);
-    const [flows, debits, merchants] = await Promise.all([monthFlows(A, m), monthDebits(userId, A, m), monthMerchants(A, m)]);
+    const [flows, debits, merchants] = await Promise.all([monthFlows(A, m, inFrench), monthDebits(userId, A, m), monthMerchants(A, m)]);
     return { ...flows, debits, merchants: merchants.slice(0, 15) };
   },
 });

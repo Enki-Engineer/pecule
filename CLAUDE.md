@@ -25,6 +25,9 @@ pnpm lint && pnpm test && pnpm build
   Le jour d'une opération est `tx_lines.date` — le jour d'achat ou le jour d'écriture de la banque, selon le réglage
   du foyer — ; une requête qui lit `transactions` pour un total ou une liste datée prend `statDate()` et
   `STAT_DATE_JOIN`, jamais `transactions.date` seul (réservé aux synchronisations et aux rapprochements).
+  Ce qu'une ligne vaut dépend de la vue du membre : `lineKind(comptes)` et `isExpense(comptes)`, jamais `c.kind` seul
+  pour un total — un virement entre comptes du foyer qui vient d'un compte hors de la vue, ou qui y part, compte en
+  revenu (« Apports de … ») ou en dépense (« Versements à … ») (`src/lib/transfers.ts`, table `transfer_peers`).
 - **Toute requête sur les opérations passe par les comptes du membre** (`userAccounts(req)`) : masquer un compte ou le
   sortir des statistiques est un réglage par membre.
 - **Le mode démo ne touche jamais la vraie base** : `src/server/demo-context.ts` aiguille chaque requête ; toute route

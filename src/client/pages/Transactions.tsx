@@ -17,6 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useMedia } from "../useMedia.ts";
 import { cn } from "../cn.ts";
 import { Link } from "react-router";
+import { transferLabel } from "../../lib/transfers.ts";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, transactionListQuery, transactionMonthRowsQuery, transactionMonthsQuery, useAccounts, useCategories, useSuggestions, useTransactionDetails, useUpdateTransaction, type Category, type Transaction, type TxFilters, type TxMonth } from "../api.ts";
@@ -92,7 +93,8 @@ export function Transactions() {
 
   const chips: { key: string; label: string }[] = [];
   if (account) chips.push({ key: "compte", label: accounts.data?.accounts.find((a) => a.id === account)?.display_name ?? accounts.data?.accounts.find((a) => a.id === account)?.name ?? tr("Compte") });
-  if (category) chips.push({ key: "categorie", label: td(categories.data?.categories.find((c) => c.id === category)?.name) ?? category });
+  // Arrivée d'une répartition sur « Apports de … » ou « Versements à … » : le filtre porte ce nom, pas son identifiant.
+  if (category) chips.push({ key: "categorie", label: transferLabel(category, tr) ?? td(categories.data?.categories.find((c) => c.id === category)?.name) ?? category });
   if (poste) chips.push({ key: "poste", label: td(poste) });
   if (month) chips.push({ key: "mois", label: periodLabel(month) });
   if (nature) chips.push({ key: "nature", label: NATURE_LABELS[nature as Nature] ?? nature });
@@ -251,8 +253,8 @@ function MonthFigures({ m, full = false, className }: { m: MonthTotals; full?: b
   );
   return (
     <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", className)}>
-      {(full || !both) && m.revenus !== 0 && figure(tr("Revenus"), tr("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Les mouvements entre tes comptes n'en font pas partie."), signed(m.revenus), tone("chip-pos"))}
-      {m.depenses !== 0 && figure(tr("Dépenses"), tr("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne ni les mouvements entre tes comptes."), money(m.depenses, true), "")}
+      {(full || !both) && m.revenus !== 0 && figure(tr("Revenus"), tr("Ce qui est classé en revenu sur la période ; une entrée sans catégorie compte aussi. Un virement entre deux comptes comptés ici n'en fait pas partie ; s'il vient d'un compte qui n'est pas compté ici, c'est un apport, et il compte."), signed(m.revenus), tone("chip-pos"))}
+      {m.depenses !== 0 && figure(tr("Dépenses"), tr("Ce qui est classé en dépense, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne, ni un virement entre deux comptes comptés ici ; s'il part vers un compte qui n'est pas compté ici, c'est un versement, et il compte."), money(m.depenses, true), "")}
       {full && m.epargne !== 0 && figure(tr("Épargne"), tr("Ce qui est classé en épargne : les versements vers un livret, une assurance-vie, un plan d'épargne."), money(m.epargne, true), tone("chip-solid"))}
       {both && figure(tr("Solde"), tr("Revenus moins dépenses. L'épargne n'en est pas retirée : c'est ce qui reste avant de mettre de côté."), signed(balance), tone(balance >= 0 ? "chip-pos" : "chip-neg"))}
     </div>
@@ -403,7 +405,7 @@ function TransactionSheet({ t, categories, onClose, panel = false }: { t: Transa
           </div>
           <TxAmount tx={t} className="text-xl font-bold" />
         </div>
-        {Number(t.amount) < 0 && t.category_kind !== "interne" && <Equivalence amount={Number(t.amount)} className="mt-1 text-right" />}
+        {Number(t.amount) < 0 && t.category_kind !== "interne" && !t.transfer && <Equivalence amount={Number(t.amount)} className="mt-1 text-right" />}
         <div className="mt-3 flex items-center gap-2 text-sm">
           <span className="shrink-0 text-muted">{tr("Catégorie :")}</span>
           {t.split_count ? (
@@ -414,6 +416,17 @@ function TransactionSheet({ t, categories, onClose, panel = false }: { t: Transa
             <span className="font-medium text-warn">{tr("À classer")}</span>
           )}
         </div>
+        {/* Un virement entre comptes qui compte : dire pourquoi, là où on se le demande. */}
+        {t.transfer && (
+          <p className="mt-2 rounded-lg bg-bg px-3 py-2 text-xs leading-snug text-muted">
+            {t.transfer.way === "recu"
+              ? tr("Ce virement vient d'un compte qui n'est pas compté dans cette vue : il compte ici comme un revenu. Il reste classé en mouvement interne.")
+              : tr("Ce virement part vers un compte qui n'est pas compté dans cette vue : il compte ici comme une dépense. Il reste classé en mouvement interne.")}{" "}
+            <Link to="/manuel/apports-versements" className="font-medium text-accent">
+              {tr("En savoir plus")}
+            </Link>
+          </p>
+        )}
         {t.category_source === "auto" && (
           <div className="mt-3 flex items-center gap-1.5 text-xs text-muted">
             <Sparkles size={13} /> {tr("Catégorie devinée d'après une opération semblable")}
@@ -916,6 +929,7 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, fi
           </select>
           <select value={params.category ?? ""} onChange={(e) => setParam("categorie", e.target.value || null)} aria-label={tr("Catégorie")} className="card max-w-56 px-2.5 py-1.5 text-[13px]">
             <option value="">{tr("Toutes les catégories")}</option>
+            {transferLabel(params.category, tr) && <option value={params.category}>{transferLabel(params.category, tr)}</option>}
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {td(c.name)}

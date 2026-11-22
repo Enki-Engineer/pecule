@@ -35,8 +35,9 @@ export const analyseBudget: ManualTheme = {
         tk("Un chiffre a la même définition partout : le tableau de bord, l'analyse et l'assistant donnent les mêmes valeurs. La pastille « i » à côté d'un chiffre rappelle la sienne."),
         {
           list: [
-            tk("**Dépenses** : ce qui est classé en dépense sur la période, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne ni les mouvements entre tes comptes n'en font partie."),
+            tk("**Dépenses** : ce qui est classé en dépense sur la période, remboursements déduits ; une sortie sans catégorie compte aussi. Ni l'épargne, ni un virement entre deux comptes comptés dans ta vue n'en font partie."),
             tk("**Revenus** : ce qui est classé en revenu ; une entrée sans catégorie compte aussi."),
+            tk("**Apports et versements** : un virement entre comptes du foyer qui vient d'un compte hors de ta vue, ou qui y part, compte en revenu ou en dépense. Voir [Apports et versements entre comptes](/manuel/apports-versements)."),
             tk("**Solde du mois** : revenus moins dépenses. L'épargne n'en est pas retirée : c'est ce qui reste avant de mettre de côté."),
             tk("**Épargne** : ce qui est classé en épargne — les versements vers un livret, une assurance vie, un plan d'épargne."),
             tk("**Disponible** : ce qu'il y a sur tes comptes aujourd'hui, hors cartes. Les achats par carte à débit différé pas encore prélevés n'en sont pas déduits."),
@@ -48,6 +49,39 @@ export const analyseBudget: ManualTheme = {
       ],
       links: [{ to: "/mois", label: ["Analyse"] }],
       words: tk("définition calcul comment est calculé signification revenus dépenses épargne solde reste différence entre"),
+    },
+    {
+      id: "apports-versements",
+      title: tk("Apports et versements entre comptes"),
+      summary: tk("Pourquoi un virement entre deux comptes du foyer compte parfois comme un revenu ou comme une dépense."),
+      body: [
+        tk("Un virement entre deux comptes du foyer ne compte ni en revenu ni en dépense : l'argent change de compte, il ne quitte pas le foyer. C'est vrai tant que les deux comptes sont comptés dans ce que tu regardes."),
+        tk("Quand l'un des deux ne l'est pas, l'argent entre dans ta vue ou en sort. Pécule le compte alors :"),
+        {
+          list: [
+            tk("**Apports de …** : un virement reçu d'un compte qui n'est pas compté dans ta vue. Il s'ajoute aux revenus, sur sa propre ligne."),
+            tk("**Versements à …** : un virement parti vers un compte qui n'est pas compté dans ta vue. Il s'ajoute aux dépenses, dans son propre poste."),
+          ],
+        },
+        tk("Un compte n'est pas compté dans ta vue dans deux cas : tu l'as sorti de tes statistiques ([[Hors statistiques]], dans [[Réglages]] → [[Comptes et connexions]]), ou tu regardes [[Moi]] et ce compte n'est pas à toi — le compte commun, par exemple."),
+        { note: tk("Exemple. Alex et Camille ont chacun leur compte, et un compte commun qui paie le loyer et les courses. Alex a sorti le compte de Camille de ses statistiques. Chaque mois, Camille vire 900 € sur le compte commun. Sans cela, la vue d'Alex compterait toutes les dépenses du compte commun mais un seul salaire, le sien : le foyer semblerait dépenser plus qu'il ne gagne. Pécule ajoute donc « Apports de Camille : 900 € » à ses revenus. Le salaire de Camille et ses dépenses personnelles, eux, restent hors de la vue d'Alex.") },
+        tk("Dans [[Moi]], c'est le même principe dans l'autre sens : les dépenses du compte commun ne sont plus dans ta vue, et ce que tu lui vires apparaît en « Versements au compte commun »."),
+        tk("Dans une répartition, la ligne compte des virements au lieu d'opérations, et une phrase sous la liste rappelle ce que c'est ; un clic ouvre les virements. Dans le détail d'une opération, une note dit pourquoi elle compte."),
+        {
+          list: [
+            tk("L'opération garde sa catégorie : rien n'est reclassé. Si tu comptes de nouveau le compte d'en face dans tes statistiques, le virement redevient neutre."),
+            tk("Chaque membre a sa vue : le même virement peut être un apport pour l'un et ne rien changer pour l'autre."),
+            tk("Pécule retrouve les deux bouts d'un virement quand ils sont tous deux classés en mouvement interne, du même montant, à cinq jours d'écart au plus. Si le compte d'en face n'est pas dans Pécule, ou si l'autre bout est classé autrement, le virement reste neutre."),
+            tk("Le total d'une carte à débit différé, prélevé sur le compte, n'est pas un virement entre deux comptes : il reste neutre."),
+          ],
+        },
+        { tip: tk("Pour voir tous les revenus et toutes les dépenses du foyer, compte tous ses comptes dans tes statistiques : il n'y a alors plus ni apport ni versement.") },
+      ],
+      links: [
+        { to: "/mois", label: ["Analyse"] },
+        { to: "/reglages/connexions", label: ["Réglages", "Comptes et connexions"] },
+      ],
+      words: tk("apport versement virement interne compte commun participation contribution conjoint revenus du foyer dépenses supérieures aux revenus solde négatif balance transfert entre comptes"),
     },
     {
       id: "analyse",

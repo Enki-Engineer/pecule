@@ -4,7 +4,7 @@
 # le serveur bundlé (dist/), ces dépendances et les commandes de l'installation.
 # L'image de base est épinglée par son empreinte (Dependabot la remet à jour) et pnpm par sa version exacte : ce qui
 # construit une version publiée ne change pas sans une modification de ce fichier.
-FROM --platform=$BUILDPLATFORM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS build
+FROM --platform=$BUILDPLATFORM node:26-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS build
 WORKDIR /app
 RUN npm install -g pnpm@12.6.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -14,7 +14,7 @@ RUN pnpm build
 
 # Seulement ce que le serveur charge en service (`dependencies`) : ce qui ne sert qu'à construire l'écran — React,
 # les icônes, les graphiques — est dans `devDependencies` et reste hors de l'image.
-FROM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS deps
+FROM node:26-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS deps
 WORKDIR /app
 RUN npm install -g pnpm@12.6.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -22,7 +22,7 @@ RUN pnpm install --frozen-lockfile --prod \
   # Jamais chargés par le serveur : les déclarations de types et les cartes des sources des paquets (la moitié de leur poids).
   && find node_modules \( -name '*.d.ts' -o -name '*.d.mts' -o -name '*.d.cts' -o -name '*.map' \) -type f -delete
 
-FROM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
+FROM node:26-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000
 COPY --from=build /app/package.json ./

@@ -274,7 +274,7 @@ export function ProjectionsPage() {
               <DocList docs={d.documents.map((x) => ({ ...x, kind: "fiche", doc_date: null }))} />
             </>
           )}
-          <p className="mt-3 px-1 text-xs text-muted">{home ? t("Hypothèses à revoir chaque semestre.") : t("Hypothèses reprises de Notion ; à revoir chaque semestre (une tâche dans l'échéancier le rappelle).")}</p>
+          <p className="mt-3 px-1 text-xs text-muted">{t("Hypothèses à revoir chaque semestre.")}</p>
         </>
       )}
     </>

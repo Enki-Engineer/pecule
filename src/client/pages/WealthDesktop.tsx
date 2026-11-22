@@ -388,7 +388,7 @@ export function Composition({
           );
         })}
       </div>
-      {at && !at.parts && <p className="mt-3 text-[12px] text-muted">{t("Ce relevé ne détaille pas les poches (repris de Notion).")}</p>}
+      {at && !at.parts && <p className="mt-3 text-[12px] text-muted">{t("Ce relevé ne détaille pas les poches.")}</p>}
       {at && (
         <div className="mt-3 flex justify-between border-t border-line pt-2 text-[13px]">
           <span className="text-muted">{t("Patrimoine net depuis le {date}", { date: dateFr(at.date) })}</span>

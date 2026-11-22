@@ -163,7 +163,7 @@ export async function dataCoverage(userId: number) {
     pay?.n ? `Bulletins de paie : ${pay.n}, de ${pay.first} à ${pay.last}.` : null,
     tax?.first ? `Impôt sur le revenu : revenus ${tax.first} à ${tax.last}.` : null,
     snap?.first ? `Patrimoine : instantanés depuis le ${d(snap.first)}.` : null,
-    `Coffre : ${docs?.n ?? 0} documents (contrats, avis, actes, baux, fiches Notion…).`,
+    `Coffre : ${docs?.n ?? 0} documents (contrats, avis, actes, baux, fiches…).`,
   ]
     .filter(Boolean)
     .join("\n");

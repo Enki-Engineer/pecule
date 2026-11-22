@@ -623,7 +623,7 @@ export function ProjectionsDesktop({ d, today, home = false }: { d: Projections;
           </div>
         )}
       </div>
-      <p className="mt-4 text-[12px] text-muted">{home ? t("Hypothèses à revoir chaque semestre.") : t("Hypothèses reprises de Notion ; à revoir chaque semestre (une tâche dans l'échéancier le rappelle).")}</p>
+      <p className="mt-4 text-[12px] text-muted">{t("Hypothèses à revoir chaque semestre.")}</p>
     </>
   );
 }

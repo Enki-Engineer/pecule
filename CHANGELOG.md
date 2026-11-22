@@ -3,6 +3,18 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.37.2
+
+Deux textes disaient d'où venaient les données d'une installation en particulier ; ils valent maintenant pour tout
+foyer. Aucune migration, aucun réglage nouveau.
+
+- **Patrimoine → Répartition** : devant un relevé ancien sans détail, la note dit seulement « Ce relevé ne détaille
+  pas les poches. », sans nommer l'outil d'où il avait été repris.
+- **Projections** : la note sous les hypothèses est la même partout, « Hypothèses à revoir chaque semestre. » ; elle
+  ne promet plus une tâche de rappel que Pécule ne crée pas lui-même.
+- L'assistant ne cite plus cet outil quand il décrit ce que range le coffre (consigne, `search_documents`, état des
+  données).
+
 ## 1.37.1
 
 Le plafond du mois pour l'IA peut désormais tout arrêter, assistant compris. Rien ne change tant que la nouvelle case

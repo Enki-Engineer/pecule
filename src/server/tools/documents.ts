@@ -22,7 +22,7 @@ const searchDocs = readTool({
   name: "search_documents",
   progress: tk("Recherche dans les documents…"),
   description:
-    "Recherche plein texte dans le coffre de documents (avis d'impôt, contrats, baux, actes, prêts, diagnostics, relevés, fiches reprises de Notion…), avec filtres par domaine et type. Renvoie titre, date, résumé et un extrait autour des mots cherchés. Les identifiants sensibles (IBAN, n° de Sécurité sociale…) sont masqués dans le texte.",
+    "Recherche plein texte dans le coffre de documents (avis d'impôt, contrats, baux, actes, prêts, diagnostics, relevés, fiches…), avec filtres par domaine et type. Renvoie titre, date, résumé et un extrait autour des mots cherchés. Les identifiants sensibles (IBAN, n° de Sécurité sociale…) sont masqués dans le texte.",
   input: z.object({
     query: z.string().max(100).optional().describe("Mots cherchés (titre, résumé, texte du document)"),
     domain: z.enum(DOMAINS).optional(),

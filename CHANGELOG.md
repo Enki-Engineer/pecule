@@ -3,6 +3,27 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.37.3
+
+Deux suites de la revue de sécurité. Aucune migration, aucun réglage nouveau.
+
+- **Un secret de l'installation ne se remplace plus en silence (Docker).** Docker Compose lit les variables du
+  terminal comme celles du fichier `.env` : un `API_TOKEN` exporté pour un autre projet devenait, sans un mot, le
+  jeton d'administration de Pécule. Le service « reglages » refuse désormais de démarrer quand un secret reçu de
+  l'environnement n'est pas celui que l'installation garde (jeton d'administration, jeton de synchronisation, code
+  d'installation, mot de passe d'une base déjà créée) ; le message dit quelle variable retirer, et comment changer
+  le secret exprès (`docker compose run --rm -e FORCE_SETTINGS=1 reglages`). Au premier démarrage, il nomme les
+  secrets qu'il a repris de l'environnement plutôt que tirés. Le secret de chiffrement avait déjà son garde-fou.
+  **Si tu changes un de ces secrets dans `.env`, il faut maintenant le demander exprès** (guide d'installation).
+- **Marques reconnues** : les réseaux de transport et de vélos des grandes agglomérations rejoignent le référentiel
+  (RATP, Île-de-France Mobilités, Vélib', RTM, Tisséo, TBM, Ilévia, Naolib, Irigo, STAR, CTS, Lignes d'Azur, TaM),
+  avec Eau de Paris et Eaux de Marseille, et les abréviations d'autres caisses régionales de banque. Le
+  référentiel ne penche plus vers une seule ville ; une marque qui n'était là que pour un foyer en est retirée (un
+  foyer ajoute ses propres enseignes dans Réglages → Classement).
+
+Essais : 760 tests ; garde-fou rejoué sur une installation Docker neuve (jeton exporté à l'installation : nommé ;
+autre jeton ensuite : refusé, avec ou sans `SECRET_KEY` ; changement demandé exprès : pris).
+
 ## 1.37.2
 
 Deux textes disaient d'où venaient les données d'une installation en particulier ; ils valent maintenant pour tout

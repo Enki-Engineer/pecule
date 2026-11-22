@@ -99,14 +99,27 @@ describe("réglages qu'un démarrage ne peut pas reprendre tels quels", () => {
   it("ce qui chiffre les clés gardées en base ne change jamais en silence", () => {
     const kept = { API_TOKEN: long("a"), SECRET_KEY: long("s") };
     expect(check({ SECRET_KEY: long("z") }, kept)).toEqual([{ reason: "chiffrement" }]);
-    // Le jeton d'administration, lui, peut changer : la clé de chiffrement est à part.
-    expect(check({ API_TOKEN: long("b") }, kept)).toEqual([]);
+    // Le jeton d'administration ne casse pas le chiffrement (la clé est à part), mais ne se remplace pas en silence.
+    expect(check({ API_TOKEN: long("b") }, kept)).toEqual([{ reason: "remplace", name: "API_TOKEN" }]);
     // Installation d'avant, qui chiffre avec son jeton : changer le jeton, ou ajouter une autre clé, casserait tout.
     const old = { API_TOKEN: long("a") };
     expect(check({ API_TOKEN: long("b") }, old)).toEqual([{ reason: "chiffrement" }]);
     expect(check({ SECRET_KEY: long("z") }, old)).toEqual([{ reason: "chiffrement" }]);
-    // Le passage prévu : l'ancien jeton devient la clé de chiffrement, le jeton peut alors changer.
-    expect(check({ SECRET_KEY: long("a"), API_TOKEN: long("b") }, old)).toEqual([]);
+    // Le passage prévu : l'ancien jeton devient la clé de chiffrement — rien ne devient illisible. Le jeton, lui,
+    // change : c'est dit, et demandé exprès (FORCE_SETTINGS).
+    expect(check({ SECRET_KEY: long("a"), API_TOKEN: long("b") }, old)).toEqual([{ reason: "remplace", name: "API_TOKEN" }]);
+    expect(check({ SECRET_KEY: long("a") }, old)).toEqual([]);
+  });
+
+  it("un secret gardé ne se remplace pas en silence", () => {
+    const kept = { API_TOKEN: long("a"), SECRET_KEY: long("s"), SYNC_TOKEN: long("y"), SETUP_CODE: long("c") };
+    // Une variable du même nom, exportée dans le terminal pour un autre projet : assez longue pour passer, mais pas la nôtre.
+    expect(check({ API_TOKEN: long("x") }, kept)).toEqual([{ reason: "remplace", name: "API_TOKEN" }]);
+    expect(check({ SYNC_TOKEN: long("x"), SETUP_CODE: long("x") }, kept).map((r) => r.reason === "remplace" && r.name)).toEqual(["SETUP_CODE", "SYNC_TOKEN"]);
+    // Le même secret redonné (le fichier .env de l'installation) : rien à dire.
+    expect(check({ ...kept }, kept)).toEqual([]);
+    // Un secret que l'installation n'avait pas encore : il est repris, pas remplacé.
+    expect(check({ SYNC_TOKEN: long("y") }, { API_TOKEN: long("a"), SECRET_KEY: long("s") })).toEqual([]);
   });
 
   it("l'adresse ne change pas parce que le fichier .env manque", () => {
@@ -131,6 +144,14 @@ describe("base déjà créée", () => {
     expect(check({ API_TOKEN: long("a") }, {}, true)).toEqual([{ reason: "base" }]);
     // Une installation neuve : la base n'existe pas encore, tout se tire.
     expect(check({}, {}, false)).toEqual([]);
+  });
+
+  it("son mot de passe ne se remplace pas une fois la base créée", () => {
+    const kept = { DB_PASSWORD: "gardé", API_TOKEN: long("a"), SECRET_KEY: long("s") };
+    // MariaDB ne relit pas son mot de passe : en donner un autre rendrait la base injoignable.
+    expect(check({ DB_PASSWORD: "un autre" }, kept, true)).toEqual([{ reason: "remplace", name: "DB_PASSWORD" }]);
+    // Tant que la base n'existe pas, le changer est sans effet.
+    expect(check({ DB_PASSWORD: "un autre" }, kept, false)).toEqual([]);
   });
 
   it("avec son mot de passe, donné ou gardé, tout passe", () => {

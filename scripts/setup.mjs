@@ -118,8 +118,10 @@ async function keepSettings() {
           ? `${r.name}, donné par l'environnement, est trop court (${r.min} caractères au moins) : il vient sans doute d'un autre projet. Retire-le de ton terminal (unset ${r.name}) ou corrige-le dans .env.`
           : r.reason === "chiffrement"
             ? "Le secret qui chiffre les clés gardées en base (SECRET_KEY, à défaut API_TOKEN) ne serait plus celui de cette installation : la clé de la banque et celle de l'IA deviendraient illisibles. Une variable du terminal ou de .env le remplace-t-elle ? Pour changer le jeton d'administration d'une installation sans SECRET_KEY, donne d'abord à SECRET_KEY la valeur de l'ancien jeton."
+            : r.reason === "remplace"
+              ? `${r.name}, donné par l'environnement, n'est pas celui que cette installation garde : il le remplacerait. Une variable de ce nom est-elle exportée dans ton terminal pour un autre projet ? Retire-la (unset ${r.name}). Pour changer ce secret exprès, écris-le dans .env et passe outre comme indiqué ci-dessous.`
             : `Cette installation de Pécule est servie à ${r.from} ; lancée d'ici, elle passerait à ${r.to}. Le fichier .env de son dossier manque sans doute : relance depuis ce dossier, ou écris l'adresse voulue dans .env (APP_URL, ou PECULE_PORT pour un essai sur la machine).`;
-      fail(`${refused.map(say).join("\n  ")}\n  Rien n'a été modifié ; Pécule reste arrêté tant que ce démarrage n'aboutit pas. Passer outre, en connaissance de cause : docker compose run --rm -e FORCE_SETTINGS=1 reglages`);
+      fail(`${refused.map(say).join("\n  ")}\n  Rien n'a été modifié ; Pécule reste arrêté tant que ce démarrage n'aboutit pas. Passer outre, en connaissance de cause : docker compose run --rm -e FORCE_SETTINGS=1 reglages, puis docker compose up -d`);
     }
 
     // Le serveur ne reçoit que ses propres secrets et l'adresse de ses deux bases : pas le mot de passe de
@@ -144,7 +146,8 @@ async function keepSettings() {
     }
     if (json) console.log(JSON.stringify({ ok: true, file, drawn: settled.drawn, given: settled.given }));
     else {
-      const parts = [settled.drawn.length ? `${settled.drawn.length} tiré${settled.drawn.length > 1 ? "s" : ""} au hasard` : null, settled.given.length ? `${settled.given.length} repris de l'environnement` : null].filter(Boolean);
+      const parts = [settled.drawn.length ? `${settled.drawn.length} tiré${settled.drawn.length > 1 ? "s" : ""} au hasard` : null, // Nommés (un nom n'est pas un secret) : un jeton pris dans une variable du terminal ne passe pas inaperçu.
+        settled.given.length ? `repris de l'environnement (fichier .env ou variables du terminal) : ${settled.given.join(", ")}` : null].filter(Boolean);
       console.log(`✓ Réglages de l'installation gardés dans ${file}${parts.length ? ` (secrets : ${parts.join(", ")})` : " (rien de nouveau)"}.`);
     }
   } catch (e) {

@@ -128,7 +128,12 @@ export type Refusal =
   /** Ce qui chiffre les clés gardées en base changerait : elles deviendraient illisibles. */
   | { reason: "chiffrement" }
   /** L'adresse de l'installation changerait sans que rien ne l'ait demandé : le fichier `.env` de son dossier manque. */
-  | { reason: "adresse"; from: string; to: string };
+  | { reason: "adresse"; from: string; to: string }
+  /**
+   * Un secret donné par l'environnement remplacerait celui que l'installation garde. Une variable du même nom exportée
+   * dans le terminal pour un autre projet suffit : le jeton d'administration changerait sans que personne l'ait voulu.
+   */
+  | { reason: "remplace"; name: SecretName };
 
 /**
  * Ce qui empêche de reprendre tels quels les réglages donnés à ce démarrage. Docker Compose lit aussi les variables
@@ -151,6 +156,16 @@ export function refusals(given: Record<string, string | undefined>, kept: Settin
   // Une installation déjà en service ne change jamais de secret de chiffrement sans qu'on le veuille.
   const before = sealing(kept);
   if (before && sealing(settled.values) !== before) out.push({ reason: "chiffrement" });
+  // Aucun secret déjà gardé ne se remplace en silence. Le secret de chiffrement a son propre refus, plus parlant ; un
+  // mot de passe de la base ne compte que si la base existe (avant, le changer est sans effet).
+  const sealer: SecretName = (kept.SECRET_KEY ?? "").trim() || (given.SECRET_KEY ?? "").trim() ? "SECRET_KEY" : "API_TOKEN";
+  for (const name of SECRET_NAMES) {
+    const now = (given[name] ?? "").trim();
+    const was = (kept[name] ?? "").trim();
+    if (!now || !was || now === was || name === sealer || name === "SECRET_KEY") continue;
+    if (name in DATABASE_SECRETS && !databaseExists) continue;
+    out.push({ reason: "remplace", name });
+  }
   const from = (kept[KEPT_ADDRESS] ?? "").trim();
   const to = (address?.effective ?? "").trim().replace(/\/+$/, "");
   if (from && to && from !== to && !address?.explicit) out.push({ reason: "adresse", from, to });

@@ -124,8 +124,9 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   les mêmes fonctions que `maj.mjs` (`scripts/lib/archive.mjs`). Rien de l'appli n'est sur npm, et il ne se republie
   que lorsqu'il change. Aucun guide n'annonce « npx pecule » tant que le nom n'est pas publié par le projet.
 - **Avec Docker, rien à écrire** : les secrets sont tirés par le service « reglages » et gardés dans un volume
-  (`src/lib/settings-file.ts`). Ce que donne l'environnement l'emporte toujours ; on ne tire jamais un secret à la
-  place d'un secret que l'installation a déjà.
+  (`src/lib/settings-file.ts`). Ce que donne l'environnement l'emporte ; on ne tire jamais un secret à la
+  place d'un secret que l'installation a déjà, et l'environnement n'en remplace aucun en silence (`refusals` : une
+  variable du terminal ne se distingue pas d'une ligne de `.env` — le changement se demande par `FORCE_SETTINGS=1`).
 - **`dependencies` = ce que le serveur charge en service**, rien d'autre : l'image et l'archive n'installent
   qu'elles. Ce qui ne sert qu'à construire l'écran va dans `devDependencies` (le build refuse un paquet mal rangé).
 - **Les scripts de l'installation tournent avec Node seul** (`doctor`, `lien`, `importer` : aucun fichier TypeScript

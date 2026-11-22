@@ -6,7 +6,8 @@
 #   docker compose pull && docker compose up -d           mise à jour (la base est sauvegardée avant d'être modifiée)
 #
 # Les secrets de l'installation sont tirés au premier démarrage et gardés dans le volume « pecule-reglages ».
-# Un fichier `.env` posé à côté de celui-ci est facultatif ; ce qu'il donne l'emporte toujours. Ce qu'on y règle :
+# Un fichier `.env` posé à côté de celui-ci est facultatif ; ce qu'il donne l'emporte, sauf sur un secret déjà gardé,
+# qui ne se remplace qu'exprès (docker compose run --rm -e FORCE_SETTINGS=1 reglages). Ce qu'on y règle :
 #
 #   APP_URL=https://pecule.exemple.fr    adresse où Pécule est servi (https exigé hors de localhost : les clés d'accès)
 #   COMPOSE_PROFILES=https               Caddy sert cette adresse en https, certificat automatique (ports 80 et 443)
@@ -20,7 +21,8 @@
 # retrouve la même installation — `docker compose ls -a` dit si elle existe déjà, et où. Une seconde installation sur
 # la même machine : `docker compose -p autre-nom …`, ou COMPOSE_PROJECT_NAME dans son fichier .env.
 # Docker Compose lit aussi les variables du terminal : n'y exporte pas, pour un autre projet, une variable du même nom
-# qu'un réglage de Pécule (APP_URL, API_TOKEN, SECRET_KEY…).
+# qu'un réglage de Pécule (APP_URL, API_TOKEN, SECRET_KEY…). Le service « reglages » refuse qu'une telle variable
+# remplace un secret de l'installation, et nomme ceux qu'il reprend de l'environnement au premier démarrage.
 name: pecule
 
 # Aucun conteneur ne peut gagner de droits par un programme qui en donne (« no-new-privileges ») ; le serveur, qui ne

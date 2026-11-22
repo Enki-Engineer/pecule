@@ -52,7 +52,9 @@ Deux précautions, qui tiennent à Docker Compose :
   `.env` de son dossier manque), Pécule refuse de démarrer plutôt que de changer d'adresse en silence.
 - **Compose lit aussi les variables du terminal** : une variable exportée pour un autre projet sous le nom d'un
   réglage de Pécule (`APP_URL`, `API_TOKEN`, `SECRET_KEY`…) entrerait dans l'installation. Pécule refuse un secret
-  trop court pour être le sien, et ne laisse jamais changer celui qui chiffre les clés gardées en base.
+  trop court pour être le sien, ne laisse jamais changer celui qui chiffre les clés gardées en base, et ne remplace
+  aucun secret qu'il garde déjà — jeton d'administration compris — sans qu'on le lui demande exprès. Au premier
+  démarrage, il nomme les secrets qu'il a repris de l'environnement plutôt que tirés (`docker compose logs reglages`).
 
 ### Sur un serveur, en https
 
@@ -70,7 +72,11 @@ https (Nginx, Traefik, celui d'un NAS), ne mettez pas `COMPOSE_PROFILES` : faite
 
 ### Ce qui se règle dans `.env`
 
-Le fichier est facultatif ; ce qu'il donne l'emporte toujours sur ce que l'installation garde elle-même.
+Le fichier est facultatif ; ce qu'il donne l'emporte sur ce que l'installation garde elle-même. Une exception : un
+secret déjà gardé (`API_TOKEN`, `SYNC_TOKEN`, `SETUP_CODE`, mot de passe de la base) ne se remplace pas par une
+simple ligne de `.env` — Pécule ne saurait pas la distinguer d'une variable oubliée dans le terminal. Pour changer
+l'un d'eux exprès : écrivez la nouvelle valeur dans `.env`, puis `docker compose run --rm -e FORCE_SETTINGS=1 reglages`
+et `docker compose up -d`.
 
 | Réglage | Effet |
 | --- | --- |
@@ -319,7 +325,7 @@ Ce qu'il faut savoir :
 | « Pécule démarre ou est en maintenance » qui dure | La base refuse la connexion ou une migration a échoué : journal du serveur (`docker compose logs pecule --tail 100`). |
 | `docker compose up` : `port is already allocated` | Le port 3000 est pris : `PECULE_PORT=3322` dans `.env`, puis `docker compose up -d`. |
 | `docker compose up` : l'image ne peut pas être récupérée | Réseau ou registre injoignable : `docker compose pull` dit pourquoi. Depuis le dépôt, `docker compose up -d --build` la construit sur place. |
-| Le service `reglages` reste en erreur (`didn't complete successfully`) | Son journal dit pourquoi (`docker compose logs reglages`). « Cette installation est servie à … » : le démarrage est lancé hors du dossier de l'installation, sans son `.env` — relancez-le depuis ce dossier. « … trop court » ou « le secret qui chiffre les clés … » : une variable du terminal porte le nom d'un réglage de Pécule (`unset SECRET_KEY`, par exemple). Pécule reste arrêté tant que ce démarrage n'aboutit pas ; rien n'a été modifié. |
+| Le service `reglages` reste en erreur (`didn't complete successfully`) | Son journal dit pourquoi (`docker compose logs reglages`). « Cette installation est servie à … » : le démarrage est lancé hors du dossier de l'installation, sans son `.env` — relancez-le depuis ce dossier. « … trop court », « le secret qui chiffre les clés … » ou « … n'est pas celui que cette installation garde » : une variable du terminal porte le nom d'un réglage de Pécule (`unset API_TOKEN`, par exemple) ; si le changement est voulu, le message dit comment passer outre. Pécule reste arrêté tant que ce démarrage n'aboutit pas ; rien n'a été modifié. |
 | La clé d'accès ne se crée pas | L'adresse ouverte dans le navigateur n'est pas celle d'`APP_URL`, ou elle n'est pas en https. |
 | « Code d'installation incorrect » | Le lien a déjà servi, ou vient d'une autre installation : `lien` redonne le bon. |
 | Le prénom est donné, mais la page a été fermée avant la clé d'accès | `lien` redonne le lien d'inscription du premier membre. |

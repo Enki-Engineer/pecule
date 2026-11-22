@@ -86,7 +86,7 @@ const work = (name: string) => {
 describe("installateur du paquet npm", () => {
   it("déplie l'archive de la version dans le dossier, empreinte contrôlée, sans rien laisser à côté", async () => {
     const cwd = work("a");
-    const r = await launch(["installer", "--depuis", good, "--json"], cwd);
+    const r = await launch(["--depuis", good, "--json"], cwd);
     expect(r.code, r.stdout + r.stderr).toBe(0);
     expect(r.json).toMatchObject({ ok: true, version: pkg.version, dir: path.join(cwd, "pecule"), checked: true, setup: null });
     expect(r.json?.next).toEqual(['node scripts/setup.mjs --base "mysql://utilisateur:motdepasse@127.0.0.1:3306/pecule"', "node dist/server.mjs", "node scripts/lien.mjs"]);
@@ -96,7 +96,7 @@ describe("installateur du paquet npm", () => {
 
   it("refuse une archive dont l'empreinte n'est pas celle de la version, et ne laisse rien", async () => {
     const cwd = work("b");
-    const r = await launch(["installer", "--depuis", tampered, "--json"], cwd);
+    const r = await launch(["--depuis", tampered, "--json"], cwd);
     expect(r.code).toBe(1);
     expect(r.json).toMatchObject({ ok: false });
     expect(String(r.json?.error)).toMatch(/empreinte/);
@@ -105,7 +105,7 @@ describe("installateur du paquet npm", () => {
 
   it("dit qu'une version n'est pas publiée, et ne laisse rien", async () => {
     const cwd = work("c");
-    const r = await launch(["installer", "--depuis", `${good}-absente`, "--json"], cwd);
+    const r = await launch(["--depuis", `${good}-absente`, "--json"], cwd);
     expect(r.code).toBe(1);
     expect(String(r.json?.error)).toMatch(/n'a pas pu être téléchargée/);
     expect(readdirSync(cwd)).toEqual([]);
@@ -113,7 +113,7 @@ describe("installateur du paquet npm", () => {
 
   it("prend une archive déjà téléchargée, sans réseau, et règle l'installation si la base est donnée", async () => {
     const cwd = work("d");
-    const r = await launch(["installer", "ici", "--archive", path.join(root, "versions", "juste", "pecule.tar.gz"), "--base", "mysql://alex:secret@127.0.0.1:3306/pecule", "--port", "3100", "--json"], cwd);
+    const r = await launch(["ici", "--archive", path.join(root, "versions", "juste", "pecule.tar.gz"), "--base", "mysql://alex:secret@127.0.0.1:3306/pecule", "--port", "3100", "--json"], cwd);
     expect(r.code, r.stdout + r.stderr).toBe(0);
     expect(r.json).toMatchObject({ ok: true, checked: true, setup: { ok: true, recu: ["--base", "mysql://alex:secret@127.0.0.1:3306/pecule", "--port", "3100", "--json"] } });
     expect(r.json?.next).toEqual(["node dist/server.mjs", "node scripts/lien.mjs"]);
@@ -122,13 +122,14 @@ describe("installateur du paquet npm", () => {
 
   it("ne touche ni à une installation déjà là, ni à un dossier qui n'est pas vide", async () => {
     const cwd = work("e");
-    expect((await launch(["installer", "--depuis", good, "--json"], cwd)).code).toBe(0);
+    expect((await launch(["--depuis", good, "--json"], cwd)).code).toBe(0);
+    // Le mot « installer », que demandait la première forme de la commande, reste admis en tête.
     const again = await launch(["installer", "--depuis", good, "--json"], cwd);
     expect(again.code).toBe(1);
     expect(String(again.json?.error)).toMatch(/déjà installé.*node scripts\/maj\.mjs/);
     mkdirSync(path.join(cwd, "autre"));
     writeFileSync(path.join(cwd, "autre", "notes.txt"), "à moi");
-    const busy = await launch(["installer", "autre", "--depuis", good, "--json"], cwd);
+    const busy = await launch(["autre", "--depuis", good, "--json"], cwd);
     expect(busy.code).toBe(1);
     expect(String(busy.json?.error)).toMatch(/n'est pas vide/);
     expect(readdirSync(path.join(cwd, "autre"))).toEqual(["notes.txt"]);
@@ -136,7 +137,7 @@ describe("installateur du paquet npm", () => {
 
   it("refuse une version qui demande un Node plus récent que celui de la machine", async () => {
     const cwd = work("f");
-    const r = await launch(["installer", "--depuis", good.replace("/juste", "/vieux-node"), "--json"], cwd);
+    const r = await launch(["--depuis", good.replace("/juste", "/vieux-node"), "--json"], cwd);
     expect(r.code).toBe(1);
     expect(String(r.json?.error)).toMatch(/demande Node 99/);
     expect(readdirSync(cwd)).toEqual([]);
@@ -144,12 +145,14 @@ describe("installateur du paquet npm", () => {
 
   it("dit non à ce qu'il ne connaît pas, et son aide nomme la commande", async () => {
     const cwd = work("g");
-    expect(String((await launch(["demarrer", "--json"], cwd)).json?.error)).toMatch(/Commande inconnue/);
-    expect(String((await launch(["installer", "--force", "--json"], cwd)).json?.error)).toMatch(/Option inconnue/);
+    expect(String((await launch(["--force", "--json"], cwd)).json?.error)).toMatch(/Option inconnue/);
     const help = await launch(["--help"], cwd);
     expect(help.code).toBe(0);
-    expect(help.stdout).toContain("npx pecule installer");
+    expect(help.stdout).toContain("npm create pecule");
+    expect(help.stdout).toContain("npx create-pecule");
     expect((await launch(["--version"], cwd)).stdout.trim()).toBe(pkg.version);
+    // Suivi d'un numéro, « --version » choisit la version à installer : il ne rend pas celle de l'installateur.
+    expect(String((await launch(["--version", "pas-un-numero", "--json"], cwd)).json?.error)).toMatch(/Version illisible/);
     expect(readdirSync(cwd)).toEqual([]);
   });
 });
@@ -168,7 +171,9 @@ describe("paquet npm", () => {
   });
   it("le script des archives n'y met que l'installateur", () => {
     const paquet = readFileSync("scripts/paquet.mjs", "utf8");
-    expect(paquet).toContain('bin: { pecule: "scripts/pecule.mjs" }');
+    // « npm create pecule » lance le paquet « create-pecule », par la commande du même nom.
+    expect(paquet).toContain('const NPM_NAME = "create-pecule"');
+    expect(paquet).toContain('bin: { [NPM_NAME]: "scripts/pecule.mjs" }');
     expect(paquet).toContain('files: ["scripts"]');
     expect(existsSync("npm/README.md")).toBe(true);
   });

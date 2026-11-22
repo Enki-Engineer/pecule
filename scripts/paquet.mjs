@@ -7,7 +7,7 @@
 //
 // Écrit dans le dossier de sortie :
 //   pecule.tar.gz   pecule.zip   compose.yaml   SHA256SUMS   npm/
-// `npm/` est le paquet « pecule » de npm : l'installateur seul (`scripts/pecule.mjs`), qui télécharge l'archive de la
+// `npm/` est le paquet « create-pecule » de npm (« npm create pecule ») : l'installateur seul (`scripts/pecule.mjs`), qui télécharge l'archive de la
 // dernière version publiée. Il se publie par « npm publish dist/paquet/npm » — quand l'installateur change, pas à
 // chaque version.
 // Des noms sans numéro de version : la dernière version publiée se télécharge toujours à la même adresse
@@ -28,7 +28,7 @@ const HELP = `Fabrique les pièces jointes d'une version de Pécule (après « p
   pecule.tar.gz, pecule.zip   l'archive prête à l'emploi : serveur construit, dépendances d'exécution, scripts
   compose.yaml                le fichier Docker Compose de la version
   SHA256SUMS                  l'empreinte de chacun
-  npm/                        le paquet npm « pecule » : l'installateur, qui télécharge l'archive de la dernière version
+  npm/                        le paquet npm « create-pecule » : l'installateur, qui télécharge l'archive de la dernière version
 
   --npm    ne fabrique que le paquet npm (pas besoin de « pnpm build »)`;
 const argv = process.argv.slice(2);
@@ -66,10 +66,12 @@ if ([root, path.dirname(root)].includes(out) || root.startsWith(`${out}${path.se
 
 // ---------- Le paquet npm : l'installateur seul ----------
 /**
- * Le paquet « pecule » de npm ne porte pas l'appli : seulement `scripts/pecule.mjs`, qui télécharge l'archive de la
+ * Le paquet « create-pecule » de npm (la commande « npm create pecule » ; npm refuse le nom « pecule », trop proche
+ * d'un autre paquet) ne porte pas l'appli : seulement `scripts/pecule.mjs`, qui télécharge l'archive de la
  * dernière version publiée sur GitHub et contrôle son empreinte. Une seule source pour l'appli, rien d'elle sur npm,
  * et un paquet qui n'a pas à être republié à chaque version.
  */
+const NPM_NAME = "create-pecule";
 function npmPackage() {
   const dir = path.join(out, "npm");
   rmSync(dir, { recursive: true, force: true });
@@ -79,12 +81,12 @@ function npmPackage() {
   cpSync("npm/README.md", path.join(dir, "README.md"));
   cpSync("LICENSE", path.join(dir, "LICENSE"));
   const manifest = {
-    name: pkg.name,
+    name: NPM_NAME,
     version: pkg.version,
     description: `Self-hosted household finance tracker (installer). ${pkg.description}`,
     license: pkg.license,
     type: "module",
-    bin: { pecule: "scripts/pecule.mjs" },
+    bin: { [NPM_NAME]: "scripts/pecule.mjs" },
     files: ["scripts"],
     engines: pkg.engines,
     repository: { type: "git", url: `git+https://github.com/${DEFAULT_REPO}.git` },

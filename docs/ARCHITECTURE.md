@@ -244,7 +244,7 @@ Trois formats, fabriqués à chaque version (`docs/guide/installation.md`) :
   serveur chacun de ses réglages par son seul nom : lu dans `.env` s'il y est, absent sinon (un test compare la liste
   au schéma des réglages).
 - **Archive prête à l'emploi** — `scripts/paquet.mjs` range dans `pecule.tar.gz` et `pecule.zip` le serveur construit,
-  ses scripts, ses guides et ses dépendances d'exécution, à plat et sans lien symbolique. Le paquet npm « pecule »
+  ses scripts, ses guides et ses dépendances d'exécution, à plat et sans lien symbolique. Le paquet npm « create-pecule »
   (`scripts/pecule.mjs`, `node scripts/paquet.mjs --npm`) n'en est que l'installateur : il télécharge l'archive de la
   dernière version, contrôle son empreinte et la déplie (`scripts/lib/archive.mjs`, partagé avec `maj.mjs`).
 - **Sources** — le dépôt, branche `stable`.

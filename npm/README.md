@@ -9,7 +9,7 @@ checks its SHA-256 and unpacks it into a folder. The app itself is not on npm.
 ## Install
 
 ```sh
-npx pecule installer            # → ./pecule
+npm create pecule               # → ./pecule
 cd pecule
 node scripts/setup.mjs --base "mysql://user:password@127.0.0.1:3306/pecule" --url https://pecule.example.com
 node dist/server.mjs            # run it as a service: systemd, pm2, your host's process manager
@@ -21,7 +21,8 @@ on the server.
 
 | Option | |
 | --- | --- |
-| `npx pecule installer <folder>` | Another folder than `./pecule` (it must be empty or not exist yet). |
+| `npm create pecule <folder>` | Another folder than `./pecule` (it must be empty or not exist yet). |
+| `npx create-pecule <folder> [options]` | The same installer, with options (with `npm create`, put them after `--`). |
 | `--base "mysql://…"` | Also runs the settings step (`node scripts/setup.mjs --base …`); `--url` and `--port` go with it. |
 | `--version 1.34.1` | That release instead of the latest one. |
 | `--archive <file>` | An archive you already downloaded: no network access. |
@@ -41,12 +42,12 @@ Ce paquet est l'**installateur** de Pécule : il télécharge l'archive prête �
 son empreinte et la déplie dans un dossier. L'appli elle-même n'est pas sur npm.
 
 ```sh
-npx pecule installer            # → ./pecule
+npm create pecule               # → ./pecule
 cd pecule
 node scripts/setup.mjs --base "mysql://utilisateur:motdepasse@127.0.0.1:3306/pecule" --url https://pecule.exemple.fr
 node dist/server.mjs            # à confier à un service : systemd, pm2, le gestionnaire de ton hébergeur
 node scripts/lien.mjs           # donne le lien à ouvrir pour créer le premier membre du foyer
 ```
 
-Il faut Node.js 24 ou plus récent et une base MariaDB 10.6+ ou MySQL 8+ vide. `npx pecule installer --help` dit le
+Il faut Node.js 24 ou plus récent et une base MariaDB 10.6+ ou MySQL 8+ vide. `npx create-pecule --help` dit le
 reste. Avec Docker, ce paquet ne sert pas : le fichier `compose.yaml` de la dernière version suffit.

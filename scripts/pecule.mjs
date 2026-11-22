@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Installateur de Pécule, publié sur npm sous le nom « pecule » :
+// Installateur de Pécule, publié sur npm sous le nom « create-pecule » (npm refuse « pecule », trop proche d'un autre
+// paquet) :
 //
-//   npx pecule installer [dossier]
+//   npm create pecule [dossier]            ou, avec des options :   npx create-pecule [dossier] [options]
 //
 // Il télécharge l'archive prête à l'emploi de la dernière version publiée (`pecule.tar.gz`, jointe à la version sur
 // GitHub), contrôle son empreinte et la déplie dans un dossier : le même résultat que le téléchargement à la main.
@@ -21,7 +22,8 @@ const NODE_MIN = 24;
 
 const HELP = `Installe Pécule (suivi des finances d'un foyer, auto-hébergé) dans un dossier, sans Docker.
 
-  npx pecule installer [dossier] [options]
+  npm create pecule [dossier]
+  npx create-pecule [dossier] [options]      (avec « npm create », les options se donnent après « -- »)
 
 Télécharge l'archive prête à l'emploi de la dernière version, contrôle son empreinte et la déplie dans <dossier>
 (défaut : ./pecule). Il faut Node.js ${NODE_MIN} ou plus récent et une base MariaDB 10.6+ ou MySQL 8+ vide.
@@ -68,20 +70,19 @@ if (argv.includes("--help") || argv.includes("-h") || argv[0] === "aide" || argv
   console.log(HELP);
   process.exit(0);
 }
-if (argv[0] === "--version" || argv[0] === "-v") {
+// « --version » seul : la version de l'installateur ; suivi d'un numéro, c'est la version de Pécule à installer.
+if (argv[0] === "-v" || (argv[0] === "--version" && argv.length === 1)) {
   console.log(packageInfo().version ?? "?");
   process.exit(0);
 }
-if (!argv.length) {
-  console.log(HELP);
-  process.exit(0);
-}
-if (argv[0] !== "installer" && argv[0] !== "install") fail(`Commande inconnue : ${argv[0]} (essaie « npx pecule installer » ; --help dit le reste).`);
+// Sans rien : l'installation dans ./pecule, comme le veut « npm create ». Le mot « installer », que demandait la
+// première forme de la commande, reste admis en tête.
+const first = argv[0] === "installer" || argv[0] === "install" ? 1 : 0;
 
 const WITH_VALUE = new Set(["--base", "--url", "--port", "--version", "--archive", "--depuis"]);
 const options = {};
 let folder = null;
-for (let i = 1; i < argv.length; i++) {
+for (let i = first; i < argv.length; i++) {
   const a = argv[i];
   if (a === "--json") continue;
   if (WITH_VALUE.has(a)) {

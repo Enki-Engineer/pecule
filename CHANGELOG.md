@@ -3,6 +3,23 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.37.5
+
+L'installateur npm s'appelle « create-pecule ». Rien ne change pour une installation en service ; aucune migration,
+aucun réglage nouveau.
+
+- **`npm create pecule`.** Le registre npm refuse le nom « pecule », qu'il juge trop proche d'un paquet existant —
+  pour tout le monde, si bien que personne d'autre ne peut le prendre non plus. L'installateur se publiera donc sous
+  « create-pecule », dont la commande est `npm create pecule [dossier]` (ou `npx create-pecule [dossier] [options]`).
+  Sans argument, il installe dans `./pecule` ; le mot « installer », que demandait la première forme de la commande,
+  reste admis en tête ; `--version` seul rend la version de l'installateur, suivi d'un numéro il choisit la version
+  de Pécule à installer.
+- Le nom est réservé sur npm par un paquet d'attente. Le vrai installateur y sera publié à l'ouverture du dépôt :
+  d'ici là, aucun guide n'annonce la commande.
+
+Essais : tests de l'installateur (archive dépliée, empreinte refusée, version absente, dossier occupé), paquet
+empaqueté puis installé hors du dépôt.
+
 ## 1.37.4
 
 Plus rien dans le code ne nomme l'outil d'où une installation en particulier avait repris son historique. Rien ne

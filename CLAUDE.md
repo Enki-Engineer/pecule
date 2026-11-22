@@ -119,10 +119,12 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   (`scripts/paquet.mjs`), les sources. Une étape ajoutée à l'installation se reporte dans `AGENTS.md` (la marche à
   suivre des agents IA, lisible par son adresse sans cloner le dépôt), `docs/guide/installation.md` et la compétence
   `skills/pecule/SKILL.md`, recopiée dans `.claude/skills/pecule/` (un test compare).
-- **Le paquet npm « pecule » n'est que l'installateur** (`scripts/pecule.mjs`, fabriqué par
-  `node scripts/paquet.mjs --npm`) : il télécharge l'archive de la dernière version et contrôle son empreinte, par
-  les mêmes fonctions que `maj.mjs` (`scripts/lib/archive.mjs`). Rien de l'appli n'est sur npm, et il ne se republie
-  que lorsqu'il change. Aucun guide n'annonce « npx pecule » tant que le nom n'est pas publié par le projet.
+- **Le paquet npm « create-pecule » n'est que l'installateur** (`scripts/pecule.mjs`, fabriqué par
+  `node scripts/paquet.mjs --npm` ; commande `npm create pecule` — npm refuse le nom « pecule », trop proche d'un
+  autre paquet) : il télécharge l'archive de la dernière version et contrôle son empreinte, par les mêmes fonctions
+  que `maj.mjs` (`scripts/lib/archive.mjs`). Rien de l'appli n'est sur npm, et il ne se republie que lorsqu'il
+  change. Le nom est réservé sur npm par un paquet d'attente (0.0.1) ; aucun guide n'annonce « npm create pecule »
+  tant que le vrai installateur n'y est pas publié (à l'ouverture du dépôt : `npm publish dist/paquet/npm --access public`).
 - **Avec Docker, rien à écrire** : les secrets sont tirés par le service « reglages » et gardés dans un volume
   (`src/lib/settings-file.ts`). Ce que donne l'environnement l'emporte ; on ne tire jamais un secret à la
   place d'un secret que l'installation a déjà, et l'environnement n'en remplace aucun en silence (`refusals` : une

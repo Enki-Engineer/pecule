@@ -36,6 +36,7 @@ import { UnknownMemberError } from "./members.ts";
 import { EbError, ebAuthOrigin, ebFinishAuth } from "./enable-banking.ts";
 import { auditWrites, recordAlert, requestContext } from "./journal.ts";
 import { themesContext } from "./themes.ts";
+import { AiPausedError } from "./ai-cost.ts";
 import { icalRouter } from "./ical.ts";
 import { runNotifications } from "./notify.ts";
 import { runWeeklySummaries } from "./weekly.ts";
@@ -222,6 +223,8 @@ export async function createApp() {
     if (kind === "entity.parse.failed") return res.status(400).json({ error: t("Données invalides") });
     if (kind === "entity.too.large") return res.status(413).json({ error: t("Fichier vide ou de plus de 20 Mo") });
     if (err instanceof ActionError || err instanceof UnknownMemberError) return res.status(err.status).json({ error: err.message });
+    // Plafond du mois atteint, IA en pause : un refus attendu, pas une panne.
+    if (err instanceof AiPausedError) return res.status(err.status).json({ error: err.message });
     // Refus d'Enable Banking (clé, banque, accord) : le message est rendu tel quel, ce n'est pas une panne de Pécule.
     if (err instanceof FxError) return res.status(err.unsupported ? 400 : 502).json({ error: err.unsupported ? t("Devise non prise en charge : {devise}", { devise: err.currency }) : t("Cours de change indisponible pour {devise} : réessaie dans un moment.", { devise: err.currency }) });
     if (err instanceof EbError) return res.status(err.status === 400 ? 400 : 502).json({ error: err.status === 400 ? err.message : t("Enable Banking a refusé la demande : {message}", { message: err.message }) });

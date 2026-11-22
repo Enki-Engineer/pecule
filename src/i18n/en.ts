@@ -3528,4 +3528,11 @@ export const en: Dict = {
   "presentation bienvenue accueil premiers pas demarrer regler le foyer relier ma banque": "introduction welcome presentation onboarding first steps getting started set up household link my bank",
   "La visite guidée n'a pas pu s'ouvrir. Recharge la page pour réessayer.": "The guided tour could not open. Reload the page to try again.",
   "Le coffre de tous les jours, sur le fond de ton choix. Dans l'appli et dans l'onglet du navigateur, il prend tout seul le décor du thème du moment.": "The everyday chest, on the background of your choice. In the app and in the browser tab, it takes on the decoration of the current theme by itself.",
+  "Au plafond, tout mettre en pause, l'assistant compris": "At the cap, pause everything, the assistant included",
+  "L'assistant, le mode vocal, le classement par l'IA et la lecture des fichiers déposés attendent aussi le mois suivant, ou un plafond relevé. Un fichier déposé est gardé, sans être lu. En mode démo, l'assistant s'arrête toujours au plafond.": "The assistant, voice mode, AI categorisation and the reading of uploaded files also wait for the next month, or a raised cap. An uploaded file is kept, without being read. In demo mode, the assistant always stops at the cap.",
+  "Plafond atteint : l'IA est en pause jusqu'au mois prochain. Relève le plafond pour la remettre en marche.": "Cap reached: the AI is paused until next month. Raise the cap to start it again.",
+  "Le plafond du mois pour l'IA est atteint : l'assistant et la lecture des documents reprennent le mois prochain, ou dès que l'administrateur relève le plafond (Réglages → Coût de l'IA).": "This month's AI cap has been reached: the assistant and document reading resume next month, or as soon as the administrator raises the cap (Settings → AI cost).",
+  "{depense} sur {plafond} : l'assistant et toutes les lectures attendent le mois prochain, ou un plafond relevé.": "{depense} of {plafond}: the assistant and all reading wait for next month, or a raised cap.",
+  "Plafond atteint : tout attend le mois suivant, l'assistant compris.": "Cap reached: everything waits for the next month, the assistant included.",
+  "Plafond atteint : l'assistant et les fichiers déposés un à un répondent toujours.": "Cap reached: the assistant and files uploaded one at a time always respond.",
 };

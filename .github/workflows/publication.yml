@@ -114,7 +114,13 @@ jobs:
             if [ -z "$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)" ]; then
               gh release edit "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
             fi
-            gh release upload "$GITHUB_REF_NAME" "${fichiers[@]}" --clobber
+            # Versions immuables (réglage du dépôt) : une version déjà publiée ne reçoit plus de pièce jointe. Ses pièces
+            # sont celles de sa première publication ; ce nouveau passage ne les remplace pas.
+            if [ "$(gh release view "$GITHUB_REF_NAME" --json isImmutable --jq .isImmutable)" = "true" ]; then
+              echo "Version déjà publiée et immuable : ses pièces jointes ne sont pas remplacées."
+            else
+              gh release upload "$GITHUB_REF_NAME" "${fichiers[@]}" --clobber
+            fi
           else
             gh release create "$GITHUB_REF_NAME" "${fichiers[@]}" --verify-tag --title "Pécule ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" $pre $derniere
           fi

@@ -1,6 +1,7 @@
 import { householdTimeZone } from "./region.ts";
 import { exec, one, q } from "./db.ts";
 import { assistantEnabled, sendMessage, updateThread } from "./assistant.ts";
+import { aiPaused } from "./ai-cost.ts";
 import { notify } from "./notify.ts";
 import { recordAlert } from "./journal.ts";
 import { memberLang, runInLang } from "./lang.ts";
@@ -47,7 +48,7 @@ export async function latestSummary(userId: number): Promise<(Summary & { text: 
 
 /** Prépare le résumé du membre pour la semaine en cours (une fois par semaine, sauf `force`). */
 export async function generateSummary(userId: number, force = false): Promise<Summary | null> {
-  if (!assistantEnabled()) return null;
+  if (!assistantEnabled() || (await aiPaused())) return null;
   const week = isoWeek(new Date());
   const prev = await one<{ value: string }>("SELECT value FROM app_kv WHERE `key` = ?", [`weekly:${userId}`]);
   if (prev && !force && (JSON.parse(prev.value) as Summary).week === week) return null;

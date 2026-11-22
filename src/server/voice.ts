@@ -5,6 +5,7 @@ import { env } from "./env.ts";
 import { ActionError } from "./actions.ts";
 import { requireAuth } from "./auth.ts";
 import { aiEnabled, foundryAccess, recordCost } from "./ai.ts";
+import { assertAiBudget } from "./ai-cost.ts";
 import { recordAlert } from "./journal.ts";
 import { isDemo } from "./demo-context.ts";
 import { VOICES, VOICE_IDS, isPhantom, speechSsml, speechText, voiceFor, type VoiceId } from "../lib/voice.ts";
@@ -127,6 +128,7 @@ voiceApi.get("/voice/status", requireAuth, (_req, res) => res.json({ enabled: vo
 voiceApi.post("/voice/transcribe", requireAuth, limiter, express.raw({ type: () => true, limit: MAX_AUDIO }), async (req, res) => {
   if (isDemo() || req.user?.demo) throw new ActionError(403, t("Indisponible en mode démo"));
   if (!voiceEnabled()) throw new ActionError(503, t("Mode vocal non configuré"));
+  await assertAiBudget();
   if (!Buffer.isBuffer(req.body) || req.body.length < 1000) throw new ActionError(400, t("Enregistrement vide"));
   res.json({ text: await transcribe(req.body, req.get("content-type") ?? "audio/webm") });
 });
@@ -134,6 +136,7 @@ voiceApi.post("/voice/transcribe", requireAuth, limiter, express.raw({ type: () 
 voiceApi.post("/voice/speak", requireAuth, speakLimiter, express.json({ limit: "50kb" }), async (req, res) => {
   if (isDemo() || req.user?.demo) throw new ActionError(403, t("Indisponible en mode démo"));
   if (!voiceEnabled()) throw new ActionError(503, t("Mode vocal non configuré"));
+  await assertAiBudget();
   const { text, voice } = z.object({ text: z.string().min(1).max(8000), voice: z.enum(VOICE_IDS).optional() }).parse(req.body);
   const spoken = speechText(text);
   if (!spoken) throw new ActionError(400, t("Rien à lire"));

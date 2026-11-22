@@ -180,7 +180,10 @@ lisent l'écran Réglages → Coût de l'IA (`GET /api/assistant/usage`) et l'ou
 le tarif saisi pour un modèle inconnu vivent dans `app_kv` (`ai:budget`, `ai:prices`, `src/server/ai-cost.ts`) :
 au plafond, l'administrateur est prévenu (notification « ia ») et, si le foyer l'a choisi, les lectures de fond —
 file de l'import massif, traduction des noms — attendent (`backgroundPaused()`). Ce qu'un membre demande lui-même
-n'est jamais coupé.
+n'est jamais coupé — sauf si le foyer a choisi de tout arrêter au plafond (`pauseAll`) : `assertAiBudget()`
+(`src/server/ai-cost.ts`) refuse alors chaque appel demandé par un membre (assistant, voix, classement en lot, lecture
+d'un bulletin), et un fichier déposé est rangé sans être lu. Une session de démo s'arrête toujours au plafond. La
+règle est pure (`budgetStops`, `src/lib/ai-usage.ts`) ; une action déjà proposée par l'assistant se confirme encore.
 
 Une réponse de l'assistant est du Markdown, enrichi de trois marques que ses consignes lui apprennent : encadrés
 (`> [!IMPORTANT]`, `[!WARNING]`, `[!TIP]`, `[!NOTE]`), surlignage (`==…==`) et couleur selon le sens pour le foyer

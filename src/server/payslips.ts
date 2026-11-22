@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { exec, one, q } from "./db.ts";
 import { aiClient, aiEnabled, aiModel, recordUsage } from "./ai.ts";
+import { assertAiBudget } from "./ai-cost.ts";
 import { ActionError } from "./actions.ts";
 import { canonicalEmployer, payslipYears } from "../lib/payslips.ts";
 import { audience, type Scope } from "./sharing.ts";
@@ -55,6 +56,7 @@ const SCHEMA = {
 /** Lit un bulletin rangé au coffre et enregistre ses montants. */
 export async function extractPayslip(documentId: number): Promise<{ period: string; employer: string } | null> {
   if (!aiEnabled()) throw new ActionError(503, "IA non configurée");
+  await assertAiBudget();
   const doc = await one<{ id: number; owner_user_id: number | null; content_text: string | null; file_mime: string | null; title: string }>(
     "SELECT id, owner_user_id, content_text, file_mime, title FROM documents WHERE id = ?",
     [documentId],

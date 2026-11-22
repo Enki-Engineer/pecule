@@ -5,6 +5,7 @@ import { z } from "zod";
 import { exec, one, q } from "./db.ts";
 import { householdSummary } from "./household.ts";
 import { aiClient, aiEnabled, aiModel, recordUsage } from "./ai.ts";
+import { aiPaused } from "./ai-cost.ts";
 import { ActionError } from "./actions.ts";
 import { redact, redactOrNull } from "../lib/redact.ts";
 import { TOPICS, guessTopic, isTopic } from "../lib/contracts.ts";
@@ -246,7 +247,8 @@ const MAX_PDF_PAGES_FOR_CLAUDE = 40;
  * le fichier ne peut pas lui être montré.
  */
 export async function classifyDocument(content: Buffer, mime: string, text: string, pages: number | null, hint: string, userId?: number): Promise<Classification | null> {
-  if (!aiEnabled()) return null;
+  // IA en pause (plafond du mois) : le fichier est rangé sans être lu, comme sans IA — privé à celui qui le dépose.
+  if (!aiEnabled() || (await aiPaused())) return null;
   let doc: Anthropic.ContentBlockParam;
   if (text.trim().length >= 200) {
     doc = { type: "text", text: `Texte du document${pages ? ` (${pages} pages)` : ""}, début :\n\n${text.slice(0, 15_000)}` };

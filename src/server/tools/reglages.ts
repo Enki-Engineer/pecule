@@ -138,6 +138,8 @@ const getSettings = readTool({
       ai_cost: {
         monthly_budget_eur: isDemo() ? null : budget.monthly,
         pause_background_when_reached: isDemo() ? false : budget.pauseBackground,
+        // Au plafond, tout s'arrête — assistant, voix, classement, lecture des fichiers déposés — jusqu'au mois suivant.
+        pause_everything_when_reached: isDemo() ? false : budget.pauseAll,
         read_with: "get_ai_usage",
         where: "/reglages/cout-ia",
         change_with: "update_settings (administrateur) pour le plafond du mois ; le tarif d'un modèle se saisit à l'écran",
@@ -202,7 +204,7 @@ const updateSettings = writeTool({
   description:
     "Change un réglage gardé par Pécule, à la demande de l'utilisateur. Pour lui : `language` (fr, en, de, it, es : la langue de l'appli sur tous ses appareils, réponses de l'assistant et voix comprises ; l'écran se recharge) `fun_equivalences` (équivalences amusantes) et `dashboard_template` (repartir d'un modèle pour son tableau de bord d'ordinateur : ensemble, essentiel — le plus léger, à proposer à qui trouve l'écran trop chargé —, quotidien, budget ou patrimoine ; son agencement actuel est remplacé ; get_settings décrit chaque modèle). " +
     "Pour tout le foyer, administrateur seulement : `card_purchase_day` (« achat » : un achat par carte compte au jour de l'achat ; « debit » : au jour où la banque le prélève — tous les chiffres datés du foyer changent de jour ; libre en mode démo), `show_screens` et `hide_screens` (écrans facultatifs : immobilier, crypto, projections, revenus, impots, retraite ; retirer un écran ne supprime aucune donnée). " +
-    "Coût de l'IA, administrateur seulement, indisponible en mode démo : `ai_monthly_budget` (plafond de dépense du mois, en euros ; null pour le retirer — à 80 % puis au plafond, l'administrateur est prévenu par une notification) et `ai_pause_background` (une fois le plafond atteint, mettre en pause les lectures de fond : imports de dossier et traduction des noms ; l'assistant et les fichiers déposés un à un répondent toujours). " +
+    "Coût de l'IA, administrateur seulement, indisponible en mode démo : `ai_monthly_budget` (plafond de dépense du mois, en euros ; null pour le retirer — à 80 % puis au plafond, l'administrateur est prévenu par une notification) et `ai_pause_background` (une fois le plafond atteint, mettre en pause les lectures de fond : imports de dossier et traduction des noms ; l'assistant et les fichiers déposés un à un répondent toujours) et `ai_pause_all` (au plafond, tout mettre en pause jusqu'au mois suivant : l'assistant lui-même, le mode vocal, le classement par l'IA et la lecture des fichiers déposés, en plus des lectures de fond — c'est ce qui borne vraiment la dépense ; le plafond se relève alors à l'écran, Réglages → Coût de l'IA). " +
     "Ne donner que ce qui change. Lire d'abord get_settings pour connaître la valeur actuelle.",
   input: z.object({
     language: z.enum(LANG_IDS).optional(),
@@ -213,6 +215,7 @@ const updateSettings = writeTool({
     hide_screens: screens.optional(),
     ai_monthly_budget: z.number().min(0).max(MAX_BUDGET).nullable().optional(),
     ai_pause_background: z.boolean().optional(),
+    ai_pause_all: z.boolean().optional(),
   }),
   async describe({ userId }, i) {
     const details: string[] = [];
@@ -240,18 +243,20 @@ const updateSettings = writeTool({
       if (i.show_screens?.length) details.push(field(tr("Écrans affichés"), i.show_screens.map(moduleName).join(", ")));
       if (i.hide_screens?.length) details.push(field(tr("Écrans retirés du menu"), i.hide_screens.map(moduleName).join(", ")), tr("Aucune donnée n'est supprimée."));
     }
-    if (i.ai_monthly_budget !== undefined || i.ai_pause_background !== undefined) {
+    if (i.ai_monthly_budget !== undefined || i.ai_pause_background !== undefined || i.ai_pause_all !== undefined) {
       if (isDemo()) throw new ToolError("Indisponible en mode démo : le plafond du coût de l'IA est un réglage du vrai foyer");
       if (!(await isAdmin(userId))) throw new ToolError("Réservé à l'administrateur du foyer : le plafond du coût de l'IA se règle dans Réglages → Coût de l'IA (/reglages/cout-ia)");
       const now = await aiBudget();
       const monthly = i.ai_monthly_budget !== undefined ? i.ai_monthly_budget || null : now.monthly;
-      if (i.ai_pause_background && !monthly) throw new ToolError("ai_pause_background demande un plafond : donner aussi ai_monthly_budget");
+      if ((i.ai_pause_background || i.ai_pause_all) && !monthly) throw new ToolError("ai_pause_background et ai_pause_all demandent un plafond : donner aussi ai_monthly_budget");
       const shown = (n: number | null) => (n ? aiEur(n) : tr("aucun"));
       if (i.ai_monthly_budget !== undefined) details.push(change(tr("Plafond du mois pour l'IA"), shown(now.monthly), shown(monthly)));
       if (i.ai_pause_background !== undefined)
         details.push(i.ai_pause_background ? tr("Plafond atteint : les imports de dossier et la traduction des noms attendent.") : tr("Plafond atteint : rien n'est mis en pause, tu es seulement prévenu."));
+      if (i.ai_pause_all !== undefined)
+        details.push(i.ai_pause_all ? tr("Plafond atteint : tout attend le mois suivant, l'assistant compris.") : tr("Plafond atteint : l'assistant et les fichiers déposés un à un répondent toujours."));
     }
-    if (!details.length) throw new ToolError("Rien à changer : donner language, fun_equivalences, dashboard_template, card_purchase_day, show_screens, hide_screens, ai_monthly_budget ou ai_pause_background");
+    if (!details.length) throw new ToolError("Rien à changer : donner language, fun_equivalences, dashboard_template, card_purchase_day, show_screens, hide_screens, ai_monthly_budget, ai_pause_background ou ai_pause_all");
     return { label: tr("Modifier les réglages"), details };
   },
   async run({ userId }, i) {
@@ -265,8 +270,12 @@ const updateSettings = writeTool({
       for (const m of i.hide_screens ?? []) off.add(m);
       await saveHouseholdSettings({ modulesOff: [...off] });
     }
-    if (i.ai_monthly_budget !== undefined || i.ai_pause_background !== undefined) {
-      await saveAiBudget({ ...(i.ai_monthly_budget !== undefined ? { monthly: i.ai_monthly_budget || null } : {}), ...(i.ai_pause_background !== undefined ? { pauseBackground: i.ai_pause_background } : {}) });
+    if (i.ai_monthly_budget !== undefined || i.ai_pause_background !== undefined || i.ai_pause_all !== undefined) {
+      await saveAiBudget({
+        ...(i.ai_monthly_budget !== undefined ? { monthly: i.ai_monthly_budget || null } : {}),
+        ...(i.ai_pause_background !== undefined ? { pauseBackground: i.ai_pause_background } : {}),
+        ...(i.ai_pause_all !== undefined ? { pauseAll: i.ai_pause_all } : {}),
+      });
       // Un plafond relevé ou retiré : les imports en attente reprennent.
       kickImports();
     }

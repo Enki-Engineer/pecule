@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { ActionError, userAccountsSql } from "./actions.ts";
 import { aiClient, aiEnabled, aiModel, recordUsage } from "./ai.ts";
+import { assertAiBudget } from "./ai-cost.ts";
 import { exec, q } from "./db.ts";
 import { householdSummary } from "./household.ts";
 import { logAudit } from "./journal.ts";
@@ -68,6 +69,7 @@ export type ClassProposal = Omit<LabelGroup, "ids"> & { categoryId: string | nul
 /** Demande à l'IA une catégorie pour les libellés les plus fréquents encore sans catégorie. Rien n'est écrit. */
 export async function proposeClassification(userId: number): Promise<{ proposals: ClassProposal[]; operations: number; labels: number; remaining: number }> {
   if (!aiEnabled()) throw new ActionError(400, t("L'IA n'est pas réglée : Réglages → Comptes et connexions."));
+  await assertAiBudget();
   const scope = await unclassed(userId);
   const groups = scope.groups.slice(0, CLASSIFY_BATCH);
   const totals = { operations: scope.rows.length, labels: scope.groups.length, remaining: scope.groups.length - groups.length };

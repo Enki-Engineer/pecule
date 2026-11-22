@@ -1,5 +1,6 @@
 import { aiEnabled, aiModel, usdToEur } from "./ai.ts";
 import { aiBudget, customPrices, type AiBudget } from "./ai-cost.ts";
+import { budgetStops } from "../lib/ai-usage.ts";
 import { one, q } from "./db.ts";
 import { isDemo } from "./demo-context.ts";
 import { listMembers } from "./members.ts";
@@ -33,7 +34,7 @@ const UNIT: Partial<Record<UsageKind, "conversation" | "appel">> = { assistant: 
 
 const r4 = (n: number) => Math.round(n * 10_000) / 10_000;
 const MONTHS = 12;
-const NO_BUDGET: AiBudget = { monthly: null, pauseBackground: false };
+const NO_BUDGET: AiBudget = { monthly: null, pauseBackground: false, pauseAll: false };
 
 type MonthRow = { month: string; feature: string; eur: number; calls: number };
 type DetailRow = { feature: string; model: string; user_id: number | null; eur: number; usd: number; calls: number; input: number; cache_read: number; cache_write: number; output: number };
@@ -170,7 +171,7 @@ export async function usageReport(userId: number, wanted?: string | null): Promi
       batches: batches.map((b) => ({ id: b.id, name: b.name, total: r4(Number(b.eur)), files: Number(b.files) })),
     },
     // La dépense du plafond est celle affichée au-dessus : un seul chiffre pour le mois en cours.
-    budget: { monthly: budget.monthly, pauseBackground: budget.pauseBackground, spent: now.total, state, paused: budget.pauseBackground && state === "depasse" },
+    budget: { monthly: budget.monthly, pauseBackground: budget.pauseBackground, pauseAll: budget.pauseAll, spent: now.total, state, paused: budgetStops(budget, state).background, blocked: budgetStops(budget, state).all },
     prices: priced
       .map((model) => {
         const { price, source } = priceOf(model, custom);

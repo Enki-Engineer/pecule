@@ -307,7 +307,11 @@ async function checksFor(userId: number) {
     const amounts = { depense: aiEur(budget.spent), plafond: aiEur(budget.monthly) };
     await notify(userId, "ia", `ia:${month}:${budget.state}`, {
       title: budget.state === "depasse" ? t("Coût de l'IA : plafond du mois atteint") : t("Coût de l'IA : {pct} % du plafond du mois", { pct: Math.round((budget.spent / budget.monthly) * 100) }),
-      body: budget.paused ? t("{depense} sur {plafond} : les imports de dossier et les traductions attendent.", amounts) : t("{depense} sur {plafond} depuis le début du mois.", amounts),
+      body: budget.blocked
+        ? t("{depense} sur {plafond} : l'assistant et toutes les lectures attendent le mois prochain, ou un plafond relevé.", amounts)
+        : budget.paused
+          ? t("{depense} sur {plafond} : les imports de dossier et les traductions attendent.", amounts)
+          : t("{depense} sur {plafond} depuis le début du mois.", amounts),
       url: "/reglages/cout-ia",
       tag: "ia",
     });

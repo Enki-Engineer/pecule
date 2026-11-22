@@ -169,6 +169,17 @@ export function budgetState(spent: number, monthly: number | null | undefined): 
   return spent >= monthly * BUDGET_ALERT ? "alerte" : "ok";
 }
 
+/**
+ * Ce que le plafond arrête une fois atteint. `background` : les lectures de fond (import de dossier, traduction des
+ * noms). `all` : tout appel à l'IA demandé par un membre aussi — assistant, mode vocal, classement en lot, lecture
+ * d'un fichier déposé. Une session de démo s'arrête toujours au plafond : une démonstration ne dépense pas au-delà de
+ * ce que le foyer s'est fixé.
+ */
+export function budgetStops(b: { pauseBackground: boolean; pauseAll: boolean }, state: BudgetState, demo = false): { background: boolean; all: boolean } {
+  const reached = state === "depasse";
+  return { background: reached && (b.pauseBackground || b.pauseAll), all: reached && (b.pauseAll || demo) };
+}
+
 /* ---------- Ce que lit l'écran ---------- */
 
 /** Coût de l'IA du foyer, en euros : réponse de `GET /api/assistant/usage` et de l'outil `get_ai_usage`. */
@@ -192,7 +203,8 @@ export type UsageReport = {
     threads: { id: string; title: string; total: number; calls: number }[];
     batches: { id: number; name: string; total: number; files: number }[];
   };
-  budget: { monthly: number | null; pauseBackground: boolean; spent: number; state: BudgetState; paused: boolean };
+  /** `paused` : les lectures de fond attendent ; `blocked` : l'assistant et les lectures demandées par un membre aussi. */
+  budget: { monthly: number | null; pauseBackground: boolean; pauseAll: boolean; spent: number; state: BudgetState; paused: boolean; blocked: boolean };
   /** Tarif de chaque modèle rencontré (dollars par million de jetons) et d'où il vient. */
   prices: { model: string; input: number; output: number; source: PriceSource; active: boolean }[];
 };

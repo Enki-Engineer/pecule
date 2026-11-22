@@ -3,6 +3,29 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.37.1
+
+Le plafond du mois pour l'IA peut désormais tout arrêter, assistant compris. Rien ne change tant que la nouvelle case
+n'est pas cochée ; aucune migration, aucun réglage d'hébergement nouveau.
+
+- **« Au plafond, tout mettre en pause, l'assistant compris ».** Réglages → Coût de l'IA, sous le plafond du mois :
+  jusqu'ici, le plafond prévenait l'administrateur et pouvait mettre en pause les lectures de fond, mais l'assistant
+  répondait toujours — une session laissée ouverte pouvait donc dépenser sans borne. Avec cette case, l'assistant,
+  le mode vocal, le classement par l'IA et la lecture des fichiers déposés attendent eux aussi le mois suivant, ou
+  un plafond relevé. Un fichier déposé pendant la pause est gardé (privé à celui qui le dépose), sans être lu ; une
+  action que l'assistant avait déjà proposée se confirme encore. L'assistant répond alors que l'IA est en pause, et
+  l'administrateur relève le plafond à l'écran.
+- **En mode démo, l'assistant s'arrête toujours au plafond**, que la case soit cochée ou non : une démonstration ne
+  dépense pas au-delà de ce que le foyer s'est fixé.
+- La notification « plafond atteint » dit ce qui attend ; l'assistant et le serveur MCP lisent et règlent ce choix
+  (`pause_everything_when_reached`, `ai_pause_all`).
+
+Pour celui qui publie : les versions du dépôt sont désormais immuables (réglage de GitHub) — relancer la publication
+d'une version déjà publiée ne remplace plus ses pièces jointes, et le flux le dit au lieu d'échouer.
+
+Essais : règle pure testée (`budgetStops`) ; 13 scénarios rejoués contre une instance locale avec un fournisseur d'IA
+factice (aucun appel sortant tenté pendant la pause) ; écran contrôlé sur téléphone et ordinateur.
+
 ## 1.37.0
 
 Une visite guidée fait le tour de l'appli dans l'appli elle-même, et les thèmes de l'année ne s'activent plus

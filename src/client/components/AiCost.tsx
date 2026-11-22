@@ -351,7 +351,7 @@ function NumberField({ value, onCommit, label, unit, disabled, placeholder }: { 
 function Budget({ r }: { r: Report }) {
   const qc = useQueryClient();
   const save = useMutation({
-    mutationFn: (json: { monthly?: number | null; pauseBackground?: boolean }) => api("/ai/budget", { method: "PUT", json }),
+    mutationFn: (json: { monthly?: number | null; pauseBackground?: boolean; pauseAll?: boolean }) => api("/ai/budget", { method: "PUT", json }),
     // La case et le champ suivent le geste sans attendre le serveur ; sa réponse (état du plafond, pause) les remplace ensuite.
     onMutate: (json) => qc.setQueriesData<Report>({ queryKey: ["ai-usage"] }, (old) => (old ? { ...old, budget: { ...old.budget, ...json } } : old)),
     onError: (e) => toast.error(e instanceof Error ? e.message : t("Enregistrement impossible")),
@@ -381,10 +381,27 @@ function Budget({ r }: { r: Report }) {
             type="checkbox"
             checked={b.pauseBackground}
             disabled={!r.admin || b.monthly == null}
-            onChange={(e) => save.mutate({ pauseBackground: e.target.checked })}
+            onChange={(e) => save.mutate(e.target.checked ? { pauseBackground: true } : { pauseBackground: false, pauseAll: false })}
             className="size-5 shrink-0 accent-[var(--color-accent)]"
           />
         </label>
+        {/* Le plafond qui arrête vraiment la dépense : il emporte les lectures de fond. */}
+        <label className={cn("flex items-center justify-between gap-3 px-4 py-3", b.monthly == null && "opacity-50")}>
+          <span>
+            <span className="block text-[15px] font-medium">{t("Au plafond, tout mettre en pause, l'assistant compris")}</span>
+            <span className="block text-[13px] text-muted">
+              {t("L'assistant, le mode vocal, le classement par l'IA et la lecture des fichiers déposés attendent aussi le mois suivant, ou un plafond relevé. Un fichier déposé est gardé, sans être lu. En mode démo, l'assistant s'arrête toujours au plafond.")}
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={b.pauseAll}
+            disabled={!r.admin || b.monthly == null}
+            onChange={(e) => save.mutate(e.target.checked ? { pauseBackground: true, pauseAll: true } : { pauseAll: false })}
+            className="size-5 shrink-0 accent-[var(--color-accent)]"
+          />
+        </label>
+        {b.blocked && <p className="px-4 py-3 text-[13px] font-medium text-warn">{t("Plafond atteint : l'IA est en pause jusqu'au mois prochain. Relève le plafond pour la remettre en marche.")}</p>}
       </Card>
       {!r.admin && <p className="mt-1.5 px-1 text-xs text-muted">{t("Le plafond et les tarifs se règlent par l'administrateur du foyer.")}</p>}
     </Section>

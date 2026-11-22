@@ -26,6 +26,7 @@ import { registerUndo, runUndo, snapshotTransactions } from "../undo.ts";
 import { suggestCategories } from "../suggest.ts";
 import { applyClassification, CLASSIFY_BATCH, proposeClassification } from "../classify-ai.ts";
 import { meterCost } from "../ai.ts";
+import { assertAiBudget } from "../ai-cost.ts";
 import { generateSummary, latestSummary } from "../weekly.ts";
 import { ADMIN_NOTIF_TYPES, NOTIF_TYPES, getSubscription, notify, recentNotifications, subscribe, unsubscribe, updatePrefs, vapidKeys, type NotifPrefs } from "../notify.ts";
 import { deleteEnvelope, deleteGoal, envelopeCandidates, listEnvelopes, listGoals, saveEnvelope, saveGoal } from "../planning.ts";
@@ -697,6 +698,9 @@ const screenContext = z.object({
 
 api.post("/assistant/message", assistantLimiter, async (req, res) => {
   if (!assistantEnabled()) return res.status(503).json({ error: tr("Assistant non configuré") });
+  // Plafond du mois atteint, et le foyer a choisi de tout arrêter là : pas de nouvelle demande. Une action déjà
+  // proposée se confirme encore (`/assistant/confirm`) : elle ne resterait pas en suspens.
+  await assertAiBudget();
   const body = z
     .object({
       threadId: z.string().uuid().optional(),

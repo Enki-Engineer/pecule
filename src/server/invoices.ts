@@ -4,6 +4,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { exec, one, q } from "./db.ts";
 import { aiClient, aiEnabled, aiModel, recordUsage } from "./ai.ts";
+import { aiPaused, assertAiBudget } from "./ai-cost.ts";
 import { autoMatch, cardDate, labelMatchesMerchant, legalWarranty, scoreCandidate, type Candidate, type MatchTransaction } from "../lib/invoices.ts";
 
 /*
@@ -215,6 +216,9 @@ export const canExtract = (mime: string) => aiEnabled() && (mime === "applicatio
 /** Lit une facture (PDF ou photo) avec Claude ; null si le format n'est pas lisible ou l'assistant non configuré. */
 export async function extractInvoice(content: Buffer, mime: string, hint?: string): Promise<Extraction | null> {
   if (!canExtract(mime)) return null;
+  // IA en pause (plafond du mois) : celui qui dépose un fichier le voit rangé sans être lu (l'appelant attrape le
+  // refus) ; celui qui demande une relecture reçoit le message.
+  await assertAiBudget();
   const categories = await q<{ id: string; name: string; poste: string | null }>("SELECT id, name, poste FROM categories WHERE kind = 'depense' ORDER BY sort_order, id");
   const data = content.toString("base64");
   const doc: Anthropic.ContentBlockParam =
@@ -243,7 +247,7 @@ const categorization = z.object({ items: z.array(z.object({ index: z.number().in
 /** Catégorise des articles d'après leur libellé (collecteurs qui ne fournissent pas de fichier lisible). */
 export async function categorizeItems(items: InvoiceItemInput[], merchant: string): Promise<InvoiceItemInput[]> {
   const todo = items.map((it, index) => ({ it, index })).filter(({ it }) => !it.categoryId);
-  if (!todo.length || !aiEnabled()) return items;
+  if (!todo.length || !aiEnabled() || (await aiPaused())) return items;
   const categories = await q<{ id: string; name: string; poste: string | null }>("SELECT id, name, poste FROM categories WHERE kind = 'depense' ORDER BY sort_order, id");
   const response = await aiClient().messages.create({
     model: aiModel(),

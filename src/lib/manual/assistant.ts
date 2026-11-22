@@ -237,9 +237,10 @@ export const assistant: ManualTheme = {
           steps: [
             tk("Dans [[Réglages]] → [[Coût de l'IA]], section [[Plafond du mois]], saisis la dépense à ne pas dépasser (en euros). Vide : aucun plafond."),
             tk("Coche [[Au plafond, mettre en pause les lectures de fond]] pour que les imports de dossier et la traduction des noms attendent le mois suivant, ou un plafond relevé."),
+            tk("Coche [[Au plafond, tout mettre en pause, l'assistant compris]] pour que rien ne dépasse : l'assistant, le mode vocal, le classement par l'IA et la lecture des fichiers déposés attendent eux aussi. Un fichier déposé est gardé, sans être lu ; il se relit plus tard."),
           ],
         },
-        tk("L'administrateur reçoit une notification à 80 % du plafond, puis quand il est atteint. L'assistant, une facture ou un document déposé un à un répondent toujours : le plafond ne coupe jamais ce que tu demandes toi-même. Le plafond se règle par l'administrateur, à l'écran ou en le demandant à l'assistant."),
+        tk("L'administrateur reçoit une notification à 80 % du plafond, puis quand il est atteint. Sans la seconde case, l'assistant, une facture ou un document déposé un à un répondent toujours : le plafond ne coupe pas ce que tu demandes toi-même. Avec elle, l'assistant répond que l'IA est en pause, jusqu'au mois suivant ou jusqu'à ce que l'administrateur relève le plafond — à l'écran, puisque l'assistant ne répond plus. En mode démo, l'assistant s'arrête toujours au plafond."),
         tk("**Les tarifs.** La section [[Tarifs des modèles]] montre le prix compté pour chaque modèle, en dollars par million de jetons. Un modèle ou un déploiement que Pécule ne reconnaît pas est compté au tarif d'un modèle de référence et marqué « tarif estimé » : [[Modifier]] permet de saisir le sien, et ses appels déjà comptés sont alors recalculés."),
         { note: tk("C'est une estimation : la facture de ton fournisseur fait foi. Interroger Pécule depuis l'appli Claude ne coûte rien ici : c'est ton abonnement Claude qui le porte.") },
       ],

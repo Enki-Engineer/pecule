@@ -20,9 +20,13 @@ aiCostApi.get("/assistant/usage", async (req, res) => {
 });
 
 aiCostApi.put("/ai/budget", requireAdmin, async (req, res) => {
-  const body = z.object({ monthly: z.number().min(0).max(MAX_BUDGET).nullable().optional(), pauseBackground: z.boolean().optional() }).parse(req.body);
-  const saved = await saveAiBudget({ ...(body.monthly !== undefined ? { monthly: body.monthly || null } : {}), ...(body.pauseBackground !== undefined ? { pauseBackground: body.pauseBackground } : {}) });
-  void logAudit("PUT /api/ai/budget", null, { plafond: saved.monthly ?? "aucun", pause: saved.pauseBackground });
+  const body = z.object({ monthly: z.number().min(0).max(MAX_BUDGET).nullable().optional(), pauseBackground: z.boolean().optional(), pauseAll: z.boolean().optional() }).parse(req.body);
+  const saved = await saveAiBudget({
+    ...(body.monthly !== undefined ? { monthly: body.monthly || null } : {}),
+    ...(body.pauseBackground !== undefined ? { pauseBackground: body.pauseBackground } : {}),
+    ...(body.pauseAll !== undefined ? { pauseAll: body.pauseAll } : {}),
+  });
+  void logAudit("PUT /api/ai/budget", null, { plafond: saved.monthly ?? "aucun", pause: saved.pauseAll ? "tout" : saved.pauseBackground ? "lectures de fond" : "rien" });
   // Un plafond relevé ou retiré : les imports en attente reprennent.
   kick();
   res.json(saved);

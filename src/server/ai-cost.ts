@@ -1,7 +1,8 @@
 import { exec, one } from "./db.ts";
-import { runReal } from "./demo-context.ts";
+import { isDemo, runReal } from "./demo-context.ts";
 import { today } from "./region.ts";
-import { type CustomPrices, budgetState, fullPrice, knownModel } from "../lib/ai-usage.ts";
+import { type CustomPrices, budgetState, budgetStops, fullPrice, knownModel } from "../lib/ai-usage.ts";
+import { t, tk } from "../lib/i18n.ts";
 
 /*
  * Réglages du coût de l'IA, gardés dans `app_kv` : les tarifs saisis pour un modèle que Pécule ne connaît pas
@@ -77,14 +78,19 @@ export async function setModelPrice(model: string, price: { input: number; outpu
 
 /* ---------- Plafond du mois ---------- */
 
-/** Plafond de dépense du mois, en euros (null : aucun), et ce qu'il arrête une fois atteint. */
-export type AiBudget = { monthly: number | null; pauseBackground: boolean };
+/**
+ * Plafond de dépense du mois, en euros (null : aucun), et ce qu'il arrête une fois atteint : rien (l'administrateur
+ * est seulement prévenu), les lectures de fond (`pauseBackground`), ou tout appel à l'IA, assistant compris
+ * (`pauseAll`, qui emporte les lectures de fond).
+ */
+export type AiBudget = { monthly: number | null; pauseBackground: boolean; pauseAll: boolean };
 /** Plafond le plus haut accepté, en euros. */
 export const MAX_BUDGET = 10_000;
 
 function cleanBudget(raw: Partial<AiBudget> | null): AiBudget {
   const monthly = typeof raw?.monthly === "number" && Number.isFinite(raw.monthly) && raw.monthly > 0 ? Math.min(MAX_BUDGET, Math.round(raw.monthly * 100) / 100) : null;
-  return { monthly, pauseBackground: monthly !== null && raw?.pauseBackground === true };
+  const pauseAll = monthly !== null && raw?.pauseAll === true;
+  return { monthly, pauseBackground: monthly !== null && (raw?.pauseBackground === true || pauseAll), pauseAll };
 }
 
 let budget: { value: AiBudget; at: number } | null = null;
@@ -96,7 +102,9 @@ export async function aiBudget(): Promise<AiBudget> {
 }
 
 export async function saveAiBudget(next: Partial<AiBudget>): Promise<AiBudget> {
-  const value = cleanBudget({ ...(await aiBudget()), ...next });
+  // Les lectures de fond remises en marche : tout ne peut plus être en pause.
+  const asked = next.pauseBackground === false && next.pauseAll === undefined ? { ...next, pauseAll: false } : next;
+  const value = cleanBudget({ ...(await aiBudget()), ...asked });
   await writeKv(BUDGET_KEY, value);
   budget = { value, at: Date.now() };
   return value;
@@ -120,16 +128,43 @@ export function addSpent(eur: number) {
   if (spent && spent.month === today().slice(0, 7)) spent.eur += eur;
 }
 
-/** Où en est le mois : dépense, plafond, et si les lectures de fond sont en pause. */
+/** Où en est le mois : dépense, plafond, si les lectures de fond sont en pause (`paused`), et si tout l'est (`blocked`). */
 export async function budgetStatus() {
   const [b, eur] = await Promise.all([aiBudget(), monthSpent()]);
   const state = budgetState(eur, b.monthly);
-  return { ...b, spent: eur, state, paused: b.pauseBackground && state === "depasse" };
+  const stops = budgetStops(b, state);
+  return { ...b, spent: eur, state, paused: stops.background, blocked: stops.all };
+}
+
+/**
+ * L'IA est en pause pour ce que demande un membre : le plafond du mois est atteint et le foyer a choisi de tout
+ * arrêter là — ou la requête vient d'une session de démo, qui s'arrête toujours au plafond. C'est ce qui borne la
+ * dépense d'une session laissée ouverte ou d'un accès détourné. En cas de doute (base injoignable), rien n'est arrêté.
+ */
+export const aiPaused = (): Promise<boolean> =>
+  Promise.all([aiBudget(), monthSpent()])
+    .then(([b, eur]) => budgetStops(b, budgetState(eur, b.monthly), isDemo()).all)
+    .catch(() => false);
+
+const AI_PAUSED = tk("Le plafond du mois pour l'IA est atteint : l'assistant et la lecture des documents reprennent le mois prochain, ou dès que l'administrateur relève le plafond (Réglages → Coût de l'IA).");
+
+/** Refus d'un appel à l'IA parce que le plafond du mois est atteint (réponse 429, message dans la langue du membre). */
+export class AiPausedError extends Error {
+  readonly status = 429;
+  constructor() {
+    super(t(AI_PAUSED));
+  }
+}
+
+/** À poser en tête de tout ce qu'un membre demande à l'IA : refuse quand elle est en pause (`aiPaused`). */
+export async function assertAiBudget(): Promise<void> {
+  if (await aiPaused()) throw new AiPausedError();
 }
 
 /**
  * Le plafond du mois est atteint et le foyer a choisi d'arrêter là les lectures de fond (import de dossier,
- * traduction des noms). Ce qu'un membre demande lui-même — assistant, facture ou document déposé — répond toujours.
+ * traduction des noms). Ce qu'un membre demande lui-même — assistant, facture ou document déposé — répond toujours,
+ * sauf si le foyer a choisi de tout arrêter au plafond (`aiPaused`).
  * En cas de doute (base injoignable), rien n'est mis en pause.
  */
 export const backgroundPaused = (): Promise<boolean> =>

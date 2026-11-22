@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AI_MODELS, DEFAULT_AI_MODEL } from "./ai-providers.ts";
-import { KIND_GROUP, REFERENCE_MODEL, USAGE_GROUPS, USAGE_KINDS, budgetState, cacheSavingUsd, daysInMonth, knownModel, priceOf, projectMonth, shiftMonth, speechCostUsd, transcriptionCost, usageCostUsd, usageKind } from "./ai-usage.ts";
+import { KIND_GROUP, REFERENCE_MODEL, USAGE_GROUPS, USAGE_KINDS, budgetState, budgetStops, cacheSavingUsd, daysInMonth, knownModel, priceOf, projectMonth, shiftMonth, speechCostUsd, transcriptionCost, usageCostUsd, usageKind } from "./ai-usage.ts";
 
 describe("tarif d'un modèle", () => {
   it("reconnaît un modèle daté ou un déploiement qui porte son nom", () => {
@@ -92,5 +92,19 @@ describe("mois en cours", () => {
     expect(budgetState(10, 10)).toBe("depasse");
     expect(budgetState(50, null)).toBe("ok");
     expect(budgetState(50, 0)).toBe("ok");
+  });
+  it("dit ce que le plafond arrête une fois atteint", () => {
+    const none = { pauseBackground: false, pauseAll: false };
+    const background = { pauseBackground: true, pauseAll: false };
+    const all = { pauseBackground: true, pauseAll: true };
+    // Tant que le plafond n'est pas atteint, rien ne s'arrête, quel que soit le réglage.
+    for (const b of [none, background, all]) for (const state of ["ok", "alerte"] as const) expect(budgetStops(b, state, true)).toEqual({ background: false, all: false });
+    expect(budgetStops(none, "depasse")).toEqual({ background: false, all: false });
+    expect(budgetStops(background, "depasse")).toEqual({ background: true, all: false });
+    expect(budgetStops(all, "depasse")).toEqual({ background: true, all: true });
+    // Tout arrêter emporte les lectures de fond, même si la première case a été écrite décochée.
+    expect(budgetStops({ pauseBackground: false, pauseAll: true }, "depasse")).toEqual({ background: true, all: true });
+    // Une session de démo s'arrête au plafond, quel que soit le réglage du foyer.
+    expect(budgetStops(none, "depasse", true)).toEqual({ background: false, all: true });
   });
 });

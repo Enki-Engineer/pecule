@@ -3,6 +3,20 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.38.1
+
+Pécule est public. Rien ne change dans l'appli ; aucune migration, aucun réglage nouveau.
+
+- **Le dépôt est ouvert**, sous licence AGPL-3.0 : le code, les versions et leurs fichiers se lisent et se
+  téléchargent sans compte — la marche à suivre des agents (`AGENTS.md`), le fichier `compose.yaml`, l'archive prête
+  à l'emploi et leurs empreintes.
+- **La provenance d'une version se vérifie.** À partir de celle-ci, l'archive, `compose.yaml` et l'image portent une
+  attestation signée : elle prouve qu'ils ont été fabriqués par le flux de publication du projet, à partir du commit
+  de la version (`gh attestation verify`, guide de mise à jour). Les versions d'avant n'en ont pas.
+- Les captures du README sont celles de la version en service.
+- Côté dépôt : recherche de secrets et blocage à l'envoi, signalement privé des failles, branches `main` et `stable`
+  sans poussée forcée ni suppression, étiquettes de version qui ne se déplacent pas.
+
 ## 1.38.0
 
 Dans un foyer où chacun garde ses comptes hors des statistiques de l'autre, les dépenses du compte commun étaient

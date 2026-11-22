@@ -163,8 +163,8 @@ export const assistant: ManualTheme = {
       title: tk("Ce que l'assistant retient"),
       summary: tk("Les faits qu'il garde d'une conversation à l'autre, à consulter et à effacer."),
       body: [
-        tk("Quand tu lui donnes une information durable — ce qu'est un prélèvement, une situation de vie, une préférence —, l'assistant la retient et le dit. Tu peux aussi le lui demander : « souviens-toi que… »."),
-        tk("Ces faits te sont propres et sont joints à ses consignes à chaque conversation. Ils sont listés dans [[Réglages]] → [[Assistant]], sous la mémoire de l'assistant : la corbeille en efface un. Tu peux aussi lui dire « oublie que… »."),
+        tk("Quand tu lui donnes une information durable — ce qu'est un prélèvement, une situation de vie, une préférence —, l'assistant propose de la retenir : la phrase exacte s'affiche, et [[Confirmer]] l'enregistre. Tu peux aussi le lui demander : « souviens-toi que… ». Rien n'entre dans sa mémoire sans ton accord."),
+        tk("Ces faits te sont propres et sont joints à ses consignes à chaque conversation. Ils sont listés dans [[Réglages]] → [[Assistant]], sous la mémoire de l'assistant : la corbeille en efface un. Tu peux aussi lui dire « oublie que… » : il te montre le fait, que tu confirmes."),
         { note: tk("Tes conversations ne sont visibles que de toi.") },
       ],
       links: [{ to: "/reglages/assistant#memoire", label: ["Réglages", "Assistant"] }],

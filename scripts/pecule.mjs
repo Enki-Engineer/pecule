@@ -136,6 +136,8 @@ const giveUp = (message) => {
 
 const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || null;
 const base = options.depuis ?? null;
+// Un miroir se joint en https : en clair, l'archive et ses empreintes pourraient être remplacées ensemble en chemin.
+if (base && !/^https:\/\//i.test(base) && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i.test(base)) giveUp(`--depuis : il faut une adresse en https (ici : ${base}).`);
 let tag = asked ? `v${asked}` : null;
 let archive = given;
 // Empreintes : le SHA256SUMS joint à la version, ou celui posé à côté d'une archive donnée.
@@ -168,7 +170,9 @@ let checked = false;
 if (wanted) {
   if ((await sha256(archive)) !== wanted) giveUp(`L'empreinte de l'archive n'est pas celle de ${SUMS} (téléchargement abîmé, ou fichier remplacé) : rien n'a été installé.`);
   checked = true;
-  say("✓ Empreinte de l'archive contrôlée");
+  // Dit ce que le contrôle prouve : l'archive est arrivée entière. Les empreintes viennent du même endroit qu'elle ;
+  // son origine se vérifie par l'attestation de provenance de la version (docs/guide/mise-a-jour.md).
+  say("✓ Archive arrivée intacte (empreinte contrôlée)");
 } else say(`! Pas de fichier ${SUMS} à côté de l'archive : son empreinte n'est pas contrôlée.`);
 
 if (!untar(archive, work)) giveUp("L'archive n'a pas pu être dépliée (la commande « tar » est-elle sur cette machine ?) : rien n'a été installé.");

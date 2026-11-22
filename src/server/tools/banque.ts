@@ -176,7 +176,10 @@ const getTransaction = readTool({
        WHERE s.transaction_id = ? ORDER BY s.position`,
       [transaction_id],
     );
-    return { transaction: tx, invoices, splits };
+    // Ventilation venue de la facture privée d'un autre membre : les montants restent (ils font les statistiques du
+    // foyer), les libellés d'articles ne sont pas rendus — même règle que l'écran (`/transactions/:id/details`).
+    const hidden = await one(`SELECT i.id FROM invoice_transactions it JOIN invoices i ON i.id = it.invoice_id WHERE it.transaction_id = ? AND NOT ${invoiceVisible(userId)} LIMIT 1`, [transaction_id]);
+    return { transaction: tx, invoices, splits: hidden ? (splits as { label: string | null }[]).map((s) => ({ ...s, label: null })) : splits };
   },
 });
 

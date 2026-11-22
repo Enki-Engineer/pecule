@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { exec, q } from "./db.ts";
+import { isDemo } from "./demo-context.ts";
 
 /*
  * « Annuler » : avant un classement (ou une note), on photographie l'état des opérations touchées —
@@ -7,7 +8,8 @@ import { exec, q } from "./db.ts";
  * et on garde la fonction inverse 5 minutes en mémoire. L'écran affiche « Annuler » pendant ce temps.
  */
 
-type Entry = { userId: number; expires: number; label: string; run: () => Promise<void> };
+/** `demo` : l'annulation a été photographiée dans la base de démo — elle ne se rejoue que là. */
+type Entry = { userId: number; demo: boolean; expires: number; label: string; run: () => Promise<void> };
 const store = new Map<string, Entry>();
 const TTL = 5 * 60_000;
 
@@ -19,15 +21,16 @@ function purge() {
 export function registerUndo(userId: number, label: string, run: () => Promise<void>): string {
   purge();
   const id = randomUUID();
-  store.set(id, { userId, label, run, expires: Date.now() + TTL });
+  store.set(id, { userId, demo: isDemo(), label, run, expires: Date.now() + TTL });
   return id;
 }
 
-/** Exécute l'annulation (une seule fois) ; null si expirée ou d'un autre membre. */
+/** Exécute l'annulation (une seule fois) ; null si expirée, d'un autre membre, ou de l'autre base (démo ou réelle). */
 export async function runUndo(userId: number, id: string): Promise<string | null> {
   purge();
   const e = store.get(id);
-  if (!e || e.userId !== userId) return null;
+  // Une annulation enregistrée en démo, rejouée depuis une session normale (ou l'inverse), écrirait dans l'autre base.
+  if (!e || e.userId !== userId || e.demo !== isDemo()) return null;
   store.delete(id);
   await e.run();
   return e.label;

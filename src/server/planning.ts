@@ -121,7 +121,7 @@ type GoalRow = { id: number; owner_user_id: number | null; name: string; emoji: 
 
 export async function listGoals(userId: number) {
   const rows = await q<GoalRow & { asset_name: string | null; asset_value: number | null; asset_share: number | null }>(
-    `SELECT g.*, a.name AS asset_name, a.value AS asset_value, a.share AS asset_share FROM goals g LEFT JOIN assets a ON a.id = g.asset_id
+    `SELECT g.*, a.name AS asset_name, a.value AS asset_value, a.share AS asset_share FROM goals g LEFT JOIN assets a ON a.id = g.asset_id AND ${own("a", userId)}
      WHERE ${own("g", userId)} AND g.status <> 'archive' ORDER BY g.status = 'atteint', g.target_date IS NULL, g.target_date, g.id`,
   );
   const now = new Date(`${today()}T12:00:00`);

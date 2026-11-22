@@ -310,7 +310,7 @@ api.get("/transactions/:id/debit-shape", async (req, res) => {
     `SELECT COUNT(*) AS n, SUM(t.amount) AS total FROM transactions t JOIN ${userAccounts(req)} a ON a.id = t.account_id WHERE t.amount < 0 AND LOWER(TRIM(t.label)) REGEXP ?`,
     [regex],
   );
-  const linked = await one<{ id: number; label: string }>("SELECT id, label FROM commitments WHERE label_regex = ? LIMIT 1", [regex]);
+  const linked = await one<{ id: number; label: string }>("SELECT id, label FROM commitments WHERE label_regex = ? AND (owner_user_id IS NULL OR owner_user_id = ?) LIMIT 1", [regex, req.user!.id]);
   res.json({ regex, count: same?.n ?? 0, total: Number(same?.total ?? 0), commitment: linked ?? null });
 });
 
@@ -473,10 +473,13 @@ api.get("/crypto", async (req, res) => {
 });
 
 /** Synchro CoinStats à la demande (quantités de tous les portefeuilles du compte). */
-api.post("/crypto/sync", hourly(6), async (_req, res) => {
+api.post("/crypto/sync", hourly(6), async (req, res) => {
   const r = await syncCrypto("manuel");
   if (r === null) throw new ActionError(409, tr("Une synchro crypto est déjà en cours, ou CoinStats n'est pas configuré"));
-  res.json(r);
+  // Ce que la synchro a lu ne regarde que le titulaire des portefeuilles (comme `cryptoStatus`) ; leur valeur totale
+  // n'est rendue à personne ici : l'écran la relit par l'état.
+  const mine = await one("SELECT 1 AS x FROM crypto_sources WHERE owner_user_id = ? LIMIT 1", [req.user!.id]);
+  res.json(mine ? { sources: r.sources, lines: r.lines, archived: r.archived } : {});
 });
 
 /** Inclure ou exclure un portefeuille CoinStats du patrimoine. */
@@ -491,7 +494,10 @@ api.post("/crypto/sources/:id/accept", hourly(12), async (req, res) => {
   if (!(await acceptSourceValue(req.user!.id, z.string().max(96).parse(req.params.id)))) throw new ActionError(409, tr("Ce portefeuille n'attend pas de confirmation"));
   const r = await syncCrypto("manuel");
   if (r === null) throw new ActionError(409, tr("Une synchro crypto est déjà en cours, ou CoinStats n'est pas configuré"));
-  res.json(r);
+  // Ce que la synchro a lu ne regarde que le titulaire des portefeuilles (comme `cryptoStatus`) ; leur valeur totale
+  // n'est rendue à personne ici : l'écran la relit par l'état.
+  const mine = await one("SELECT 1 AS x FROM crypto_sources WHERE owner_user_id = ? LIMIT 1", [req.user!.id]);
+  res.json(mine ? { sources: r.sources, lines: r.lines, archived: r.archived } : {});
 });
 
 /** Ajouter une source lue sur la blockchain (staking EGLD MultiversX, validateur Ethereum). */

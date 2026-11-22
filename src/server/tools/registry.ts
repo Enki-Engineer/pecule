@@ -18,8 +18,6 @@ type Base<S extends Input> = {
   input: S;
   /** Libellé affiché pendant l'exécution (« Recherche des opérations… »). */
   progress?: string;
-  /** Outil exécuté sans confirmation mais qui modifie des données (mémoire de l'assistant) : refusé à un accès en lecture seule. */
-  mutates?: boolean;
   /** Outil qui n'a de sens que devant l'écran de l'appli (réglage gardé par l'appareil) : absent du serveur MCP. */
   screenOnly?: boolean;
 };
@@ -66,8 +64,35 @@ export function jsonSchema(s: Input): JsonObjectSchema {
 /** Message d'erreur de validation compréhensible par Claude. */
 export function inputError(e: unknown): string {
   if (e instanceof z.ZodError) return `Paramètres invalides : ${e.issues.map((i) => `${i.path.join(".") || "(racine)"} ${i.message}`).join(" ; ")}`;
-  if (e instanceof ToolError) return e.message;
-  return e instanceof Error ? e.message : String(e);
+  // Erreur métier (ToolError, ou une erreur à code de réponse : ActionError, membre inconnu, refus d'une banque) :
+  // son message est écrit pour être lu.
+  if (e instanceof ToolError || (e instanceof Error && typeof (e as { status?: unknown }).status === "number")) return e.message;
+  // Erreur inattendue (requête refusée par la base, panne) : son texte peut nommer des tables ou citer la requête —
+  // il va au journal du serveur, pas au modèle ni au client MCP.
+  console.error("[outil] erreur inattendue", e);
+  return "Erreur interne de Pécule : l'outil n'a pas abouti. Réessayer, ou le signaler à l'utilisateur.";
+}
+
+const squeeze = (s: string) => s.replace(/\s+/g, " ").trim();
+
+/**
+ * Textes libres d'une action (notes, résumé, hypothèses — toute phrase, à n'importe quelle profondeur des paramètres)
+ * que sa confirmation ne montre pas : ils y sont ajoutés. Le membre confirme ainsi ce qui sera écrit, pas un simple
+ * « notes réécrites » — un texte soufflé par un document piégé ne passe pas inaperçu. Un mot seul (identifiant, date,
+ * valeur d'une liste) n'est pas un texte libre.
+ */
+export function unshownTexts(input: unknown, shown: string): string[] {
+  const seen = squeeze(shown);
+  const out: string[] = [];
+  const visit = (v: unknown) => {
+    if (typeof v === "string") {
+      const text = squeeze(v);
+      if (text.length >= 8 && text.includes(" ") && !seen.includes(text.slice(0, 40)) && !out.includes(text)) out.push(text);
+    } else if (Array.isArray(v)) v.forEach(visit);
+    else if (v && typeof v === "object") Object.values(v).forEach(visit);
+  };
+  visit(input);
+  return out;
 }
 
 export const r2 = (n: number) => Math.round(n * 100) / 100;

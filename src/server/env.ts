@@ -23,7 +23,12 @@ const onOff = z
   .transform((v) => !["0", "false", "non", "no", "off"].includes(v.trim().toLowerCase()));
 
 const schema = z.object({
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  /**
+   * « production » sans rien dire : une installation dont les réglages ont été écrits à la main, sans cette ligne, ne
+   * démarre pas en mode développement (témoins sans « Secure », scripts en ligne admis, serveur de développement de
+   * l'écran exposé). Le développement le demande (`pnpm dev`, `pnpm local dev`), les tests aussi.
+   */
+  NODE_ENV: z.enum(["development", "production", "test"]).default("production"),
   PORT: z.coerce.number().default(3000),
   DATABASE_URL: z.string().min(1),
   /** Mode démo : base séparée remplie de données fictives (désactivé si absent). */
@@ -41,7 +46,7 @@ const schema = z.object({
    * on peut alors changer le jeton sans rien ressaisir. Absent : c'est le jeton d'administration qui en tient lieu.
    */
   SECRET_KEY: z.string().min(32).optional(),
-  /** Jeton limité au déclenchement de la synchro (tâche planifiée hPanel). */
+  /** Jeton limité au déclenchement de la synchro (tâche planifiée de l'hébergeur : `POST /api/sync`). */
   SYNC_TOKEN: z.string().min(32),
   /** Finta (agrégateur bancaire) : facultatif. Sans clé, cette source n'est simplement pas lue. */
   FINTA_API_KEY: z.string().startsWith("finta_").optional(),

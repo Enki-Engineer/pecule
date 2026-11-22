@@ -2,7 +2,7 @@ import { inflateSync } from "node:zlib";
 import { q } from "./db.ts";
 import { isDemo } from "./demo-context.ts";
 import { ebBanks, ebLinkedBanks } from "./enable-banking.ts";
-import { publicFetch } from "./net.ts";
+import { publicFetch, readCapped } from "./net.ts";
 import { brandOf } from "../lib/brands.ts";
 import { bankLogoKey, bankLogoUse, bankLogoVariant, decentIcon, isEnableBankingLogo, parseBankLogoKey, pngInk, pngSize } from "../lib/bank-logos.ts";
 
@@ -45,8 +45,8 @@ async function fetchPng(url: string): Promise<Logo | null> {
     if (!res.ok) return null;
     const mime = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
     if (mime !== "image/png") return null;
-    const data = Buffer.from(await res.arrayBuffer());
-    return data.length >= 200 && data.length <= MAX_BYTES && pngSize(data) ? { mime, data } : null;
+    const data = await readCapped(res, MAX_BYTES);
+    return data && data.length >= 200 && pngSize(data) ? { mime, data } : null;
   } catch {
     return null;
   }

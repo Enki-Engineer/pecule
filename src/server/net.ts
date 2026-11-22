@@ -15,6 +15,16 @@ export async function resolvesPublic(hostname: string): Promise<boolean> {
   }
 }
 
+/** Vrai si le nom d'hôte se résout, et seulement vers des adresses privées : un appareil du réseau du serveur (un NAS). */
+export async function resolvesPrivate(hostname: string): Promise<boolean> {
+  try {
+    const found = await lookup(hostname.replace(/^\[|\]$/g, ""), { all: true });
+    return found.length > 0 && found.every((a) => isPrivateAddress(a.address));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * `fetch` en https qui vérifie la destination à chaque saut : la première adresse comme chaque redirection doivent
  * mener à un hôte public (un site tiers ne peut pas renvoyer le serveur vers son propre réseau).
@@ -31,6 +41,33 @@ export async function publicFetch(url: string, init: RequestInit = {}, hops = 4)
     current = new URL(next, u).toString();
   }
   throw new Error("Trop de redirections");
+}
+
+/**
+ * Corps d'une réponse, lu au fil de l'eau et abandonné dès qu'il dépasse `maxBytes` : un site qui annonce une image et
+ * envoie un flux sans fin n'est pas gardé en mémoire le temps du délai. `null` s'il est trop gros (ou s'il l'annonce).
+ */
+export async function readCapped(res: Response, maxBytes: number): Promise<Buffer | null> {
+  const announced = Number(res.headers.get("content-length"));
+  if (announced > maxBytes) {
+    await res.body?.cancel().catch(() => undefined);
+    return null;
+  }
+  if (!res.body) return Buffer.alloc(0);
+  const chunks: Buffer[] = [];
+  let size = 0;
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks);
 }
 
 /** Adresses d'un nom d'hôte, s'il se résout dans le délai et seulement vers des adresses publiques ; sinon aucune. */

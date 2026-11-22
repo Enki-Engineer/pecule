@@ -138,6 +138,16 @@ type Contrat = z.infer<typeof contratParse>;
 const CONTRAT_LABELS = { label: tk("Intitulé"), provider: tk("Prestataire"), monthly: tk("Montant mensuel"), annual: tk("Montant annuel"), start_date: tk("Début du contrat"), end_date: tk("Fin du contrat"), renewal_date: tk("Prochain renouvellement"), notice_days: tk("Préavis en jours") };
 const refOf = (d: Contrat) => `import:${slug(d.provider ?? "")}:${slug(d.label)}`.slice(0, 191);
 
+/**
+ * Référence de l'engagement que ce document crée ou retrouve, pour ce membre. Celle d'un engagement privé d'un autre
+ * membre ne se reprend pas (il en lirait les montants et les remplacerait) : ce membre reçoit alors la sienne.
+ */
+async function refFor(d: Contrat, userId: number): Promise<string> {
+  const base = refOf(d);
+  const taken = await one("SELECT 1 AS x FROM commitments WHERE source_ref = ? AND owner_user_id IS NOT NULL AND owner_user_id <> ?", [base, userId]);
+  return taken ? `${base.slice(0, 178)}:m${userId}` : base;
+}
+
 export const contrat: Extractor<Contrat> = {
   id: "contrat",
   label: tk("Contrat d'assurance ou d'abonnement"),
@@ -182,7 +192,7 @@ export const contrat: Extractor<Contrat> = {
   async existing(d, ctx) {
     // Même engagement : celui que ce document a déjà créé, sinon un engagement du même prestataire au même intitulé.
     const row =
-      (await one<Record<string, unknown>>("SELECT * FROM commitments WHERE source_ref = ?", [refOf(d)])) ??
+      (await one<Record<string, unknown>>("SELECT * FROM commitments WHERE source_ref = ?", [await refFor(d, ctx.userId)])) ??
       (d.provider ? await one<Record<string, unknown>>("SELECT * FROM commitments WHERE (owner_user_id IS NULL OR owner_user_id = ?) AND provider = ? AND label = ? LIMIT 1", [ctx.userId, d.provider, d.label]) : undefined);
     if (!row) return null;
     return { summary: t("Cet engagement est déjà au budget."), diffs: diffs(row, d, CONTRAT_LABELS) };
@@ -190,7 +200,7 @@ export const contrat: Extractor<Contrat> = {
   async apply(d, ctx, track) {
     const known = d.provider ? await one<{ id: number }>("SELECT id FROM commitments WHERE (owner_user_id IS NULL OR owner_user_id = ?) AND provider = ? AND label = ? AND source_ref IS NULL LIMIT 1", [ctx.userId, d.provider, d.label]) : undefined;
     const values = { label: d.label.slice(0, 160), type: d.type, provider: d.provider?.slice(0, 120) ?? null, monthly: d.monthly, annual: d.annual, start_date: d.start_date, end_date: d.end_date, renewal_date: d.renewal_date, notice_days: d.notice_days };
-    const done = known ? await track.upsert("commitments", { id: known.id }, values) : await track.upsert("commitments", { source_ref: refOf(d) }, { ...values, status: "actif", source: "import" });
+    const done = known ? await track.upsert("commitments", { id: known.id }, values) : await track.upsert("commitments", { source_ref: await refFor(d, ctx.userId) }, { ...values, status: "actif", source: "import" });
     return done === "cree" ? t("Engagement ajouté au budget.") : done === "modifie" ? t("Engagement mis à jour.") : t("Engagement déjà à jour.");
   },
 };

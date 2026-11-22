@@ -157,28 +157,113 @@ export function schemaStatements(text: string): string[] {
   return [...sqlStatements(head), ...blocks.map((b) => b.trim().replace(/;+$/, "")).filter(Boolean)];
 }
 
+/** Une valeur telle que `sqlValue` l'écrit : NULL, un nombre, des octets (0x…), une chaîne aux apostrophes échappées. */
+const LITERAL = String.raw`(?:NULL|-?\d+(?:\.\d+)?(?:e[+-]?\d+)?|0x[0-9a-f]+|'(?:[^'\\]|\\.)*')`;
+const TUPLE = new RegExp(String.raw`\(${LITERAL}(?:,${LITERAL})*\)`, "iy");
+
+/**
+ * Ce qui suit « VALUES » n'est fait que de lignes de valeurs écrites en clair : ni sous-requête, ni fonction
+ * (`load_file`), ni seconde instruction. Lecture en une passe, sans retour en arrière.
+ */
+function onlyLiteralTuples(sql: string, from: number): boolean {
+  let at = from;
+  for (;;) {
+    TUPLE.lastIndex = at;
+    if (!TUPLE.test(sql)) return false;
+    at = TUPLE.lastIndex;
+    if (at === sql.length) return true;
+    if (sql[at] !== ",") return false;
+    at++;
+  }
+}
+
+/**
+ * Une requête (le texte d'une vue, chaînes retirées) lit-elle hors de sa base ? Vrai dès qu'une table est nommée avec
+ * sa base (« `autre`.`t` ») là où une table est attendue : après FROM ou JOIN, après une virgule de la clause FROM,
+ * dans un groupe de jointures ou une sous-requête, à toute profondeur — ou qu'une fonction d'une autre base est appelée.
+ */
+function readsOtherDatabase(bare: string): boolean {
+  const tokens = bare.match(/`(?:[^`]|``)*`|[A-Za-z_$][\w$]*|\d+(?:\.\d+)?|\S/g) ?? [];
+  const ident = (tok: string | undefined) => !!tok && /^[`A-Za-z_$]/.test(tok);
+  // Par niveau de parenthèses : un « select » y a-t-il été lu, est-on dans sa clause FROM, une table est-elle attendue.
+  const stack = [{ select: false, from: false, expect: false }];
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    const c = stack[stack.length - 1];
+    // « base.fonction(…) » : une fonction rangée dans une autre base.
+    if (ident(tok) && tokens[i + 1] === "." && ident(tokens[i + 2]) && tokens[i + 3] === "(") return true;
+    if (tok === "(") {
+      // Là où une table est attendue : un groupe de jointures, ou une sous-requête (elle s'annoncera par son « select »).
+      stack.push({ select: false, from: c.from && c.expect, expect: c.from && c.expect });
+      c.expect = false;
+      continue;
+    }
+    if (tok === ")") {
+      if (stack.length > 1) stack.pop();
+      continue;
+    }
+    const word = /^[A-Za-z_$]/.test(tok) ? tok.toLowerCase() : null;
+    if (word === "select") {
+      c.select = true;
+      c.from = c.expect = false;
+      continue;
+    }
+    // « from » d'une requête (pas celui de « extract(year from …) », dans les parenthèses d'une fonction).
+    if (word === "from" && c.select) {
+      c.from = c.expect = true;
+      continue;
+    }
+    if (!c.from) continue;
+    if (word && ["where", "group", "having", "order", "limit", "union", "except", "intersect", "window", "for", "into"].includes(word)) c.from = c.expect = false;
+    else if (word === "join" || word === "straight_join" || tok === ",") c.expect = true;
+    else if (word === "on" || word === "using") c.expect = false;
+    else if (c.expect && ident(tok)) {
+      if (tokens[i + 1] === ".") return true;
+      c.expect = false;
+    }
+  }
+  return false;
+}
+
 /**
  * Une instruction d'une archive est-elle de celles qu'une sauvegarde de Pécule écrit ? La restauration n'exécute rien
  * d'autre : une archive reçue d'un tiers ne peut ni lire, ni supprimer, ni toucher une autre base. Structure : les
  * quatre réglages de l'en-tête, `CREATE TABLE` et `CREATE … VIEW … AS select` ; données : `INSERT INTO` la table
- * annoncée par le manifeste, et elle seule.
+ * annoncée par le manifeste, et elle seule, avec des valeurs écrites en clair.
  */
 export function allowedRestoreStatement(sql: string, kind: "structure" | "donnees", table?: string): boolean {
   const s = sql.trim().replace(/;+$/, "");
   // Les réglages de l'en-tête ouvrent chaque fichier de l'archive, structure comme données.
   if (SQL_PREAMBLE.some((p) => p.replace(/;$/, "") === s)) return true;
-  // Des lignes écrites une à une (« … VALUES (… ») : jamais un INSERT … SELECT, qui lirait ailleurs.
-  if (kind === "donnees") return !!table && /^[A-Za-z0-9_]+$/.test(table) && new RegExp(`^INSERT INTO \`${table}\` \\((\`[^\`]+\`)(, ?\`[^\`]+\`)*\\) VALUES \\(`).test(s);
+  // Des lignes écrites une à une (« … VALUES (…),(…) ») : jamais un INSERT … SELECT, ni une valeur calculée, qui liraient ailleurs.
+  if (kind === "donnees") {
+    if (!table || !/^[A-Za-z0-9_]+$/.test(table)) return false;
+    const head = new RegExp(`^INSERT INTO \`${table}\` \\((\`[^\`]+\`)(, ?\`[^\`]+\`)*\\) VALUES `).exec(s);
+    return !!head && onlyLiteralTuples(s, head[0].length);
+  }
   // Hors des textes entre apostrophes (valeurs par défaut, commentaires) : ce que l'instruction fait vraiment.
   const bare = s.replace(/'(?:[^'\\]|\\.|'')*'/g, "''");
-  // Une table se décrit, elle ne se remplit pas d'une lecture (CREATE TABLE … SELECT).
-  if (/^CREATE TABLE `[A-Za-z0-9_]+` \(/.test(s)) return !/\bselect\b/i.test(bare);
+  // Ni commentaire (il sépare deux mots sans espace : « from/**/autre.t »), ni seconde instruction, ni lecture de fichier.
+  if (/\/\*|\*\/|--|#|;/.test(bare) || /\bload_file\b/i.test(bare) || /\binto\s+(outfile|dumpfile)\b/i.test(bare)) return false;
+  // Une table se décrit, elle ne se remplit pas d'une lecture (CREATE TABLE … SELECT, … TABLE autre.t), ne vit pas
+  // ailleurs que dans sa base (moteur relié à un autre serveur, dossier choisi) et ne nomme aucune autre base.
+  if (/^CREATE TABLE `[A-Za-z0-9_]+` \(/.test(s))
+    return (
+      !/\bselect\b/i.test(bare) &&
+      !/\)\s*(ignore\s+|replace\s+)?(as\s+)?\(*\s*table\b/i.test(bare) &&
+      !/\b(data|index)\s+directory\b/i.test(bare) &&
+      !/\b(connection|union)\s*=/i.test(bare) &&
+      !/\bengine\s*=\s*(federated|federatedx|connect|spider|csv|mrg_myisam|merge|oqgraph|sequence|s3)\b/i.test(bare) &&
+      !/(`[^`]+`|\b[A-Za-z_$][\w$]*)\s*\.\s*[`A-Za-z_$]/.test(bare)
+    );
   // Une vue ne lit que les tables de sa base : ni fichier, ni table nommée avec sa base (« `autre`.`table` »).
   return (
     /^CREATE OR REPLACE (ALGORITHM=[A-Z]+ )?(SQL SECURITY (DEFINER|INVOKER) )?VIEW `[A-Za-z0-9_]+` AS select /i.test(s) &&
-    !/\binto\s+(outfile|dumpfile)\b/i.test(bare) &&
     !/`[^`]+`\.`[^`]+`\.`[^`]+`/.test(bare) &&
-    !/\b(from|join)\s*\(*\s*(`[^`]+`|[A-Za-z0-9_$]+)\s*\.\s*(`|[A-Za-z0-9_$])/i.test(bare)
+    !/\b(from|join)\s*\(*\s*(`[^`]+`|[A-Za-z0-9_$]+)\s*\.\s*(`|[A-Za-z0-9_$])/i.test(bare) &&
+    // « … union table autre.t » : une table lue en entier, sans « select ».
+    !/\b(union|except|intersect)\s+(all\s+|distinct\s+)?\(*\s*table\b/i.test(bare) &&
+    !readsOtherDatabase(bare)
   );
 }
 

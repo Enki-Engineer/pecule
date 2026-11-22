@@ -1,6 +1,6 @@
 import { householdTimeZone } from "./region.ts";
 import { exec, one, q } from "./db.ts";
-import { assistantEnabled, runUnattended, sendMessage, updateThread } from "./assistant.ts";
+import { assistantEnabled, sendMessage, updateThread } from "./assistant.ts";
 import { notify } from "./notify.ts";
 import { recordAlert } from "./journal.ts";
 import { memberLang, runInLang } from "./lang.ts";
@@ -51,7 +51,8 @@ export async function generateSummary(userId: number, force = false): Promise<Su
   const week = isoWeek(new Date());
   const prev = await one<{ value: string }>("SELECT value FROM app_kv WHERE `key` = ?", [`weekly:${userId}`]);
   if (prev && !force && (JSON.parse(prev.value) as Summary).week === week) return null;
-  const thread = await runUnattended(() => sendMessage(userId, undefined, PROMPT));
+  // Personne n'est devant l'écran : toute écriture (mémoire comprise) reste une proposition, à confirmer à l'ouverture.
+  const thread = await sendMessage(userId, undefined, PROMPT);
   const answer = [...thread.display].reverse().find((d) => d.role === "assistant" && d.text)?.text ?? "";
   // Aperçu de la notification : la première ligne après le titre, sans sa mise en forme.
   const preview = plainMarkdown(answer)

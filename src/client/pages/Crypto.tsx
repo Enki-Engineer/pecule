@@ -50,10 +50,13 @@ export function Crypto() {
   async function sync() {
     setSyncing(true);
     try {
-      const r = await api<{ sources: number; lines: number; totalEur: number; archived: number }>("/crypto/sync", { method: "POST" });
+      // Le détail n'est rendu qu'au titulaire des portefeuilles ; un autre membre apprend seulement que c'est fait.
+      const r = await api<{ sources?: number; lines?: number; archived?: number }>("/crypto/sync", { method: "POST" });
       await Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
       toast.success(
-        `${tn("{n} portefeuille", "{n} portefeuilles", r.sources)}, ${tn("{n} ligne", "{n} lignes", r.lines)}${r.archived ? ` · ${tn("{n} ligne manuelle archivée", "{n} lignes manuelles archivées", r.archived)}` : ""}`,
+        r.sources == null
+          ? t("Fait")
+          : `${tn("{n} portefeuille", "{n} portefeuilles", r.sources)}, ${tn("{n} ligne", "{n} lignes", r.lines ?? 0)}${r.archived ? ` · ${tn("{n} ligne manuelle archivée", "{n} lignes manuelles archivées", r.archived)}` : ""}`,
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Synchro impossible"));

@@ -85,6 +85,22 @@ avant, depuis l'appli.
 **Hébergement Node où l'on dépose les fichiers** : déposez le contenu de la nouvelle archive à la place de l'ancien
 (en gardant vos réglages), puis redémarrez l'appli depuis l'interface de l'hébergeur.
 
+## Vérifier d'où vient une version
+
+`SHA256SUMS` est téléchargé au même endroit que l'archive : il dit qu'elle est arrivée entière, pas qui l'a
+fabriquée. Depuis que le dépôt est public, chaque version porte en plus une **attestation de provenance** — une
+signature qui prouve que l'archive et l'image ont été fabriquées par le flux de publication du projet, à partir du
+commit de la version. Elle se vérifie avec l'outil `gh` de GitHub, avant d'installer :
+
+```sh
+gh attestation verify pecule.tar.gz --repo Enki-Engineer/pecule
+gh attestation verify oci://ghcr.io/enki-engineer/pecule:1.36.1 --repo Enki-Engineer/pecule
+```
+
+Une vérification qui échoue sur une version récente : n'installez pas, et signalez-le (voir `SECURITY.md`). Les
+étiquettes `latest`, `1` et `1.36` de l'image ne désignent jamais une version plus ancienne que celle qu'elles
+désignaient : republier une ancienne version ne fait pas reculer une installation qui suit `latest`.
+
 ## Les sauvegardes d'une mise à jour
 
 Deux sauvegardes complètes (toute la base, les factures, les documents du coffre, les logos) protègent une mise à

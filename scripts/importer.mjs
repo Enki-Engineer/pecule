@@ -27,6 +27,7 @@ const HELP = `Import massif d'un dossier de documents dans Pécule.
 Avec Docker, dans le conteneur (il a l'adresse et le jeton) :
   docker compose cp <dossier> pecule:/tmp/documents
   docker compose exec -u 0 pecule node scripts/importer.mjs /tmp/documents [options]
+  docker compose exec -u 0 pecule rm -rf /tmp/documents          à la fin : la copie n'a plus d'usage
 
 --a-blanc       liste ce qui serait envoyé, d'après le type et la taille des fichiers, sans contacter Pécule
 --valider-surs  valide ce qui peut l'être sans relecture ; le reste se relit dans l'appli

@@ -8,6 +8,17 @@ data
 .env
 .env.*
 !.env.example
+# Réglages et secrets posés ailleurs qu'à la racine, ou sous un autre nom (le guide fait écrire « pecule-reglages.env »).
+**/.env
+**/.env.*
+*.env
+*.pem
+*.key
+!**/.env.example
+# Restes d'une mise à jour, copies de travail d'un assistant de code.
+.maj
+.avant-maj
+.claude
 *.log
 coverage
 .DS_Store

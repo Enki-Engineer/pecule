@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { rateLimit } from "express-rate-limit";
 import { origin } from "./env.ts";
 import { listMembers } from "./members.ts";
 import { logAudit, runAs } from "./journal.ts";
@@ -49,7 +50,7 @@ const describeTool = (t: (typeof TOOLS)[number], member?: ReturnType<typeof memb
     name: t.name,
     description: t.description,
     inputSchema: member ? { ...schema, properties: { ...schema.properties, [MEMBER_PARAM]: member } } : schema,
-    annotations: { readOnlyHint: t.kind === "read" && !t.mutates, destructiveHint: t.kind === "write" && t.name.startsWith("delete_"), openWorldHint: false },
+    annotations: { readOnlyHint: t.kind === "read", destructiveHint: t.kind === "write" && t.name.startsWith("delete_"), openWorldHint: false },
   };
 };
 /** Jeton d'administration : tous les outils, avec le paramètre `membre` (les prénoms du moment). */
@@ -97,7 +98,7 @@ async function handle(req: Request, m: RpcRequest): Promise<RpcResponse | null> 
         // Vue d'un autre membre : l'outil s'exécute avec son identifiant, le journal garde l'auteur réel.
         let view: { userId: number; name: string } | null = null;
         if (oauth && member !== undefined) return ok({ content: [{ type: "text", text: "Le paramètre membre est réservé au jeton d'administration : cet accès ne donne que la vue du membre qui l'a accordé." }], isError: true });
-        if (oauth && (tool.kind === "write" || tool.mutates) && !req.user!.canWrite) return ok({ content: [{ type: "text", text: "Accès en lecture seule : les actions n'ont pas été autorisées pour cette application (Réglages de Pécule → Compte et sécurité pour reconnecter avec les actions)." }], isError: true });
+        if (oauth && tool.kind === "write" && !req.user!.canWrite) return ok({ content: [{ type: "text", text: "Accès en lecture seule : les actions n'ont pas été autorisées pour cette application (Réglages de Pécule → Compte et sécurité pour reconnecter avec les actions)." }], isError: true });
         if (member !== undefined) {
           const members = await listMembers();
           const u = typeof member === "string" ? members.find((x) => x.name.toLowerCase() === member.trim().toLowerCase()) : undefined;
@@ -121,9 +122,28 @@ async function handle(req: Request, m: RpcRequest): Promise<RpcResponse | null> 
   }
 }
 
+/** Messages JSON-RPC admis dans une même requête : au-delà, c'est refusé (un client MCP en envoie un, parfois quelques-uns). */
+const MAX_BATCH = 20;
+
+/**
+ * Débit par accès (le membre et sa voie : jeton d'administration ou application connectée) : un assistant qui
+ * s'emballe, ou un jeton volé, ne sature ni la base ni le quota de lectures bancaires. Large pour un usage normal
+ * (une séance de classement enchaîne les appels).
+ */
+const limiter = rateLimit({
+  windowMs: 60_000,
+  limit: 300,
+  keyGenerator: (req) => `${req.user?.via}:${req.user?.id ?? 0}`,
+  // Sans jeton valide, la requête reçoit son 401 plus bas : elle ne compte pour personne.
+  skip: (req) => req.user?.via !== "api" && req.user?.via !== "oauth",
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { jsonrpc: "2.0", id: null, error: { code: -32000, message: "Trop de demandes : réessayer dans une minute." } },
+});
+
 export const mcpRouter = Router();
 
-mcpRouter.post("/", async (req: Request, res: Response) => {
+mcpRouter.post("/", limiter, async (req: Request, res: Response) => {
   // Protection contre le rebinding DNS : un navigateur tiers ne doit pas pouvoir appeler le serveur.
   const o = req.get("origin");
   if (o && o !== origin) return res.status(403).json({ error: "Origine refusée" });
@@ -135,7 +155,13 @@ mcpRouter.post("/", async (req: Request, res: Response) => {
   const messages = batch ? body : [body];
   if (!messages.length || messages.some((m) => !m || m.jsonrpc !== "2.0" || typeof m.method !== "string"))
     return res.status(400).json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Requête JSON-RPC invalide" } });
-  const responses = (await Promise.all(messages.map((m) => handle(req, m)))).filter((r): r is RpcResponse => !!r);
+  if (messages.length > MAX_BATCH) return res.status(400).json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: `Trop de messages dans une même requête (${MAX_BATCH} au plus)` } });
+  // L'un après l'autre : un lot ne lance pas ses appels d'outils tous à la fois contre la base.
+  const responses: RpcResponse[] = [];
+  for (const m of messages) {
+    const r = await handle(req, m);
+    if (r) responses.push(r);
+  }
   if (!responses.length) return res.status(202).end();
   res.set("Cache-Control", "no-store").json(batch ? responses : responses[0]);
 });

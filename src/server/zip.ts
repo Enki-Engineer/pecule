@@ -165,6 +165,14 @@ export async function fileSource(file: string): Promise<ZipSource> {
 
 export class ZipError extends Error {}
 
+/**
+ * Bornes de lecture. Les tailles écrites dans une archive ne sont que ce qu'elle annonce : une archive piégée peut
+ * annoncer n'importe quoi, et chaque taille annoncée devient une réservation de mémoire. Une entrée d'une sauvegarde
+ * de Pécule pèse au plus quelques dizaines de Mo (un fichier du coffre, une tranche de table).
+ */
+const MAX_ENTRY = 256 * 1024 * 1024;
+const MAX_DIRECTORY = 64 * 1024 * 1024;
+
 /** Lit le répertoire central d'une archive ; `extract` rend le contenu d'un fichier, contrôle (CRC) compris. */
 export async function readZip(src: ZipSource): Promise<{ entries: ZipEntry[]; extract(entry: ZipEntry): Promise<Buffer> }> {
   const tailSize = Math.min(src.size, 22 + MAX16);
@@ -189,6 +197,9 @@ export async function readZip(src: ZipSource): Promise<{ entries: ZipEntry[]; ex
     dirSize = Number(end64.readBigUInt64LE(40));
     dirOffset = Number(end64.readBigUInt64LE(48));
   }
+  // Le répertoire tient dans le fichier, et chaque entrée y occupe au moins 46 octets.
+  if (!Number.isSafeInteger(dirSize) || !Number.isSafeInteger(dirOffset) || dirSize > MAX_DIRECTORY || dirOffset + dirSize > src.size || count > dirSize / 46)
+    throw new ZipError("Archive illisible (répertoire central incohérent)");
   const dir = await src.read(dirOffset, dirSize);
   if (dir.length < dirSize) throw new ZipError("Archive incomplète (répertoire central tronqué)");
   const entries: ZipEntry[] = [];
@@ -217,6 +228,9 @@ export async function readZip(src: ZipSource): Promise<{ entries: ZipEntry[]; ex
       }
       x += 4 + len;
     }
+    // Une entrée ne peut pas être plus longue que le fichier qui la porte, ni se décompresser sans borne.
+    if (!Number.isSafeInteger(size) || !Number.isSafeInteger(compressedSize) || !Number.isSafeInteger(offset) || compressedSize > src.size || offset > src.size || size > MAX_ENTRY)
+      throw new ZipError(`Archive illisible (taille incohérente : ${name.slice(0, 80)})`);
     entries.push({ name, size, compressedSize, crc: dir.readUInt32LE(p + 16), method, offset });
     p = extraEnd + commentLen;
   }

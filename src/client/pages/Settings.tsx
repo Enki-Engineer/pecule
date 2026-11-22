@@ -80,6 +80,19 @@ export function Settings() {
     }
   }
 
+  /** Administrateur : coupe d'un coup tout ce qui laisse entrer un autre membre (appareil perdu, départ du foyer). */
+  async function revokeAccess(u: { id: number; name: string }) {
+    if (!confirm(t("Couper tous les accès de {nom} ? Ses clés d'accès, ses sessions, ses liens et ses applications connectées cessent de fonctionner. Tu pourras lui envoyer un nouveau lien d'inscription.", { nom: u.name }))) return;
+    try {
+      await api(`/auth/users/${u.id}/revoke-access`, { method: "POST" });
+      setLinks(({ [u.id]: _old, ...rest }) => rest);
+      toast.success(t("Accès de {nom} coupés", { nom: u.name }));
+      qc.invalidateQueries({ queryKey: ["users"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("Suppression impossible"));
+    }
+  }
+
   async function removeKey(idHash: string) {
     if (!confirm(t("Supprimer cette clé d'accès ?"))) return;
     try {
@@ -125,9 +138,14 @@ export function Settings() {
                       <KeyRound size={15} /> {t("Ajouter cet appareil")}
                     </button>
                   ) : me.data?.user?.admin ? (
-                    <button type="button" onClick={() => invite.mutate(u.id)} className="press text-sm font-medium text-accent">
-                      {t("Lien d'inscription")}
-                    </button>
+                    <span className="flex items-center gap-4">
+                      <button type="button" onClick={() => revokeAccess(u)} className="press text-sm font-medium text-muted">
+                        {t("Couper ses accès")}
+                      </button>
+                      <button type="button" onClick={() => invite.mutate(u.id)} className="press text-sm font-medium text-accent">
+                        {t("Lien d'inscription")}
+                      </button>
+                    </span>
                   ) : null}
                 </div>
                 {!demo && u.passkeys.length === 0 && <div className="mt-1 text-sm text-warn">{t("Aucune clé d'accès : envoie-lui un lien d'inscription.")}</div>}

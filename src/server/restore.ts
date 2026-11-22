@@ -311,7 +311,7 @@ async function run(job: Job, file: string, uploaded: boolean, hooks: RestoreHook
     });
     if (problems.length) throw new Error(problems[0]);
     // Ce qui ouvrait une session ou une inscription sur le serveur d'origine ne vaut pas ici.
-    for (const table of ["sessions", "auth_challenges", "enrollment_tokens"]) await c.query(`DELETE FROM \`${table}\``);
+    for (const table of ["sessions", "auth_challenges", "enrollment_tokens", "oauth_codes", "oauth_requests"]) await c.query(`DELETE FROM \`${table}\``);
     // Cette installation est peut-être une copie d'essai : elle n'écrit pas de sauvegarde — et ne trie pas les copies du
     // stockage extérieur — à la place de celle d'origine tant que l'administrateur ne l'a pas redemandé.
     autoPaused = await pauseAutoBackups(c);
@@ -419,7 +419,7 @@ export function restoreApi(hooks: RestoreHooks) {
     if (!hooks.ready()) return res.status(503).json({ error: t(STARTING) });
     if (running()) return res.status(409).json({ error: t("Une restauration est déjà en cours.") });
     // Avant le code : une installation en service répond la même chose quel que soit le code, qui ne s'y essaie donc pas.
-    if (!(await freshInstall())) return res.status(409).json({ error: t("Cette installation a déjà des données : une sauvegarde ne se restaure que dans une installation neuve.") });
+    if (!(await freshInstall())) return res.status(409).json({ error: t(NOT_FRESH) });
     if (!safeEqual(code.trim(), env.SETUP_CODE ?? env.API_TOKEN)) return res.status(403).json({ error: t("Code d'installation incorrect.") });
     // Restes d'un envoi précédent, abandonné.
     rmSync(uploadDir(), { recursive: true, force: true });
@@ -428,14 +428,30 @@ export function restoreApi(hooks: RestoreHooks) {
     res.json({ jeton, archives: offered(), morceau: RESTORE_CHUNK });
   });
 
-  /** Un morceau de l'archive (corps brut), à la suite de ce qui est déjà reçu. */
+  /**
+   * Une session de restauration ne vaut que tant que l'installation est neuve : un foyer créé entre-temps la ferme.
+   * Sans cela, celui qui l'avait ouverte pouvait encore, six heures durant, remplir le disque d'une archive et faire
+   * passer le service en maintenance le temps qu'elle soit relue — sans rien écraser, mais sans y avoir plus droit.
+   */
+  const NOT_FRESH = tk("Cette installation a déjà des données : une sauvegarde ne se restaure que dans une installation neuve.");
+  const stillFresh = async (): Promise<boolean> => {
+    // Démarrage en cours : rien à lire encore — le lancement est refusé plus bas, et un morceau ne fait qu'attendre.
+    if (!hooks.ready() || (await freshInstall())) return true;
+    session = null;
+    rmSync(uploadDir(), { recursive: true, force: true });
+    return false;
+  };
+
   /** Sans session de restauration, le corps d'un morceau n'est même pas lu. */
   const known = (req: Request, res: Response, next: NextFunction) => (current(req) ? next() : res.status(401).json({ error: t(EXPIRED) }));
+
+  /** Un morceau de l'archive (corps brut), à la suite de ce qui est déjà reçu. */
 
   api.put("/upload", known, express.raw({ type: () => true, limit: RESTORE_CHUNK + 65_536 }), async (req, res) => {
     const s = current(req);
     if (!s) return res.status(401).json({ error: t(EXPIRED) });
     if (running()) return res.status(409).json({ error: t("Une restauration est déjà en cours.") });
+    if (!(await stillFresh())) return res.status(409).json({ error: t(NOT_FRESH) });
     const { offset, total } = z.object({ offset: z.coerce.number().int().min(0), total: z.coerce.number().int().min(1).max(MAX_ARCHIVE) }).parse(req.query);
     if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: t("Données invalides") });
     if (offset === 0 && (!s.upload || s.upload.size > 0 || s.upload.total !== total)) {
@@ -471,6 +487,8 @@ export function restoreApi(hooks: RestoreHooks) {
     const { archive, cle } = z.object({ archive: z.string().max(200).optional(), cle: z.string().max(200).optional() }).parse(req.body ?? {});
     if (!hooks.ready()) return res.status(503).json({ error: t(STARTING) });
     if (running()) return res.status(409).json({ error: t("Une restauration est déjà en cours.") });
+    // Avant de relire quoi que ce soit : une installation qui a désormais son foyer ne passe pas en maintenance pour une archive.
+    if (!(await stillFresh())) return res.status(409).json({ error: t(NOT_FRESH) });
     let file: string;
     if (archive !== undefined) {
       const found = archivePath(archive);

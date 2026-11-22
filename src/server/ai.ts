@@ -10,6 +10,7 @@ import { currentActor } from "./journal.ts";
 import { AI_PROVIDER_INFO, foundryResource, type AiConnector } from "../lib/ai-providers.ts";
 import { DEMO_SUFFIX, usageCostUsd, type Usage } from "../lib/ai-usage.ts";
 import { currentLang, t as tr } from "../lib/i18n.ts";
+import { resolvesPublic } from "./net.ts";
 
 /*
  * Claude : assistant, lecture des factures, des documents et des bulletins. Le fournisseur qui le sert
@@ -28,6 +29,18 @@ export type AiClient = { messages: Pick<Anthropic["messages"], "create" | "strea
 type ClientOptions = { maxRetries: number; timeout: number };
 const CLIENT: ClientOptions = { maxRetries: 2, timeout: 120_000 };
 
+/**
+ * `fetch` d'un fournisseur dont l'adresse a été saisie dans les réglages. Elle a été contrôlée à l'enregistrement, mais
+ * un nom public peut être repointé ensuite vers le réseau du serveur : la destination est recontrôlée à chaque appel
+ * (même règle qu'à la saisie : un nom de domaine doit mener à une adresse publique). Aucune redirection n'est suivie :
+ * elle emporterait la clé et les données du foyer vers une autre adresse que celle que l'administrateur a donnée.
+ */
+const guardedFetch: typeof fetch = async (input, init) => {
+  const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+  if (url.protocol !== "https:" || (url.hostname.includes(".") && !(await resolvesPublic(url.hostname)))) throw new Error("Adresse du fournisseur d'IA refusée : elle ne mène pas à un service public en https.");
+  return fetch(input, { ...init, redirect: "error" });
+};
+
 function buildClient(c: AiConnector, opts: ClientOptions = CLIENT): AiClient {
   if (!c.key) throw new Error("IA non configurée : aucune clé pour ce fournisseur");
   // Adresses et ressource toujours données en entier : le SDK lirait sinon ANTHROPIC_BASE_URL ou
@@ -39,10 +52,10 @@ function buildClient(c: AiConnector, opts: ClientOptions = CLIENT): AiClient {
     const resource = foundryResource(c.url);
     return resource && c.url === `https://${resource}.services.ai.azure.com/anthropic`
       ? new AnthropicFoundry({ apiKey: c.key, resource, baseURL: null, ...opts })
-      : new AnthropicFoundry({ apiKey: c.key, baseURL: c.url, resource: null, ...opts });
+      : new AnthropicFoundry({ apiKey: c.key, baseURL: c.url, resource: null, fetch: guardedFetch, ...opts });
   }
   // Passerelle : la clé part dans les deux en-têtes en usage (Authorization par défaut, X-Api-Key en plus).
-  return new Anthropic({ apiKey: c.key, baseURL: c.url, defaultHeaders: { "X-Api-Key": c.key }, ...opts });
+  return new Anthropic({ apiKey: c.key, baseURL: c.url, defaultHeaders: { "X-Api-Key": c.key }, fetch: guardedFetch, ...opts });
 }
 
 let built: { signature: string; client: AiClient } | null = null;

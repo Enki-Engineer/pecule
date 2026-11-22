@@ -30,9 +30,14 @@ pnpm lint && pnpm test && pnpm build
 - **Le mode démo ne touche jamais la vraie base** : `src/server/demo-context.ts` aiguille chaque requête ; toute route
   qui appelle un service extérieur ou donne un accès s'ajoute à `BLOCKED` (`src/server/demo.ts`) ou se garde par
   `isDemo()`.
-- **Rien n'est écrit sans confirmation par l'IA** : les actions de l'assistant attendent « Confirmer », les
-  propositions de l'import massif attendent la validation, et tout ce qu'une validation écrit passe par un journal
-  annulable (`src/server/imports/track.ts`).
+- **Rien n'est écrit sans confirmation par l'IA** : les actions de l'assistant attendent « Confirmer » — sa mémoire
+  comprise, aucun outil n'écrit hors d'un `writeTool` —, les propositions de l'import massif attendent la validation,
+  et tout ce qu'une validation écrit passe par un journal annulable (`src/server/imports/track.ts`). Une confirmation
+  montre ce qu'elle écrit : tout texte libre d'une action y figure (`unshownTexts`, `src/server/tools/registry.ts`).
+- **Privé veut dire privé par tous les chemins** : une donnée qui porte `owner_user_id` se lit et s'écrit avec
+  `(owner_user_id IS NULL OR owner_user_id = ?)` partout où elle passe — écran, outil de l'assistant, extracteur de
+  l'import massif (lecture de l'existant comme écriture), jointure depuis un objet commun. Un extracteur ne retient
+  comme propriétaire que « commun » ou le membre qui relit (`ctx.userId`), jamais un autre membre.
 - **Un montant vit dans la devise du foyer** : `transactions.amount`, `accounts.balance`, les historiques et tout
   agrégat sont dans la devise du foyer (`householdCurrency()`, `src/server/region.ts`), jamais « en euros ». Ce qu'une
   banque écrit dans une autre devise passe par `fxConverter` (`src/server/fx.ts`) à l'arrivée, qui garde l'original
@@ -97,7 +102,9 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   `.github/workflows/publication.yml` refuse une étiquette qui n'est pas la version du paquet, publie l'image
   (`ghcr.io/enki-engineer/pecule`), joint à la version ses formats (`compose.yaml`, `pecule.tar.gz`, `pecule.zip`,
   `SHA256SUMS`, fabriqués par `scripts/paquet.mjs`), crée la version sur GitHub et avance la branche `stable`. Une
-  étiquette publiée ne se déplace pas : un correctif est une nouvelle version.
+  étiquette publiée ne se déplace pas : un correctif est une nouvelle version. Dans un flux, une action s'écrit par
+  l'empreinte de son commit (version en commentaire, Dependabot la suit), jamais par une étiquette ; le flux de
+  publication n'a ni cache partagé, ni jeton laissé dans le dépôt cloné.
 - Le serveur ne s'installe jamais lui-même une mise à jour : il annonce la version publiée (`src/server/updates.ts`,
   réservé à l'administrateur, fermé en démo) et affiche la commande de son installation (`src/lib/install.ts` :
   `docker compose pull && docker compose up -d`, ou `scripts/maj.mjs`). La version en service ne se lit que par une

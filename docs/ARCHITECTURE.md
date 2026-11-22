@@ -147,9 +147,14 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
 
 Facultative, et toujours avec la clé du foyer (`src/lib/ai-providers.ts`, réglages chiffrés en base). Trois usages :
 lire un document (sortie JSON structurée), l'assistant (boucle d'outils : les lectures s'exécutent, les écritures
-attendent une confirmation), et les traductions des noms de catégories. Les outils sont déclarés une fois
+attendent une confirmation — sa mémoire comprise : un fait retenu est joint aux consignes de toutes les conversations
+suivantes, il ne s'écrit donc pas sur la foi d'un texte lu dans un libellé ou un document), et les traductions des
+noms de catégories. Les outils sont déclarés une fois
 (`src/server/tools/`) et servent à l'assistant comme au **serveur MCP** (`POST /api/mcp`, jeton d'administration ou
 OAuth 2.1 pour un assistant extérieur).
+
+Le serveur MCP borne ce qu'un accès peut lui demander : vingt messages au plus par requête, exécutés l'un après
+l'autre, et un débit par accès (`src/server/mcp.ts`).
 
 Un assistant extérieur se connecte au nom d'un membre, pour sa vue seulement (`src/server/oauth.ts`, règles pures dans
 `src/server/oauth-rules.ts`). Il fait revenir le membre soit à l'adresse d'un assistant reconnu
@@ -266,7 +271,10 @@ d'inscription.
   arm64 sur `ghcr.io`, pièces jointes (`compose.yaml`, `pecule.tar.gz`, `pecule.zip`, `SHA256SUMS`, sous des noms
   qui ne changent pas d'une version à l'autre : la dernière se télécharge toujours à la même adresse), version GitHub
   dont les notes sont le tableau « Installer ou mettre à jour » puis la section de `CHANGELOG.md`
-  (`scripts/notes-de-version.mjs`), branche `stable` avancée jusqu'à elle.
+  (`scripts/notes-de-version.mjs`), branche `stable` avancée jusqu'à elle. Les actions du flux sont épinglées par
+  l'empreinte de leur commit ; `latest`, `1` et `1.36` ne se posent que sur la version la plus haute de leur rang
+  (elles ne reculent jamais) ; l'archive et l'image reçoivent une attestation de provenance dès que le dépôt est
+  public — `SHA256SUMS`, téléchargé au même endroit que l'archive, ne dit que si elle est arrivée entière.
 - **Annonce** : une fois par jour, `src/server/updates.ts` demande à GitHub la dernière version publiée et la garde
   (`app_kv`, « maj:etat »). `GET /api/updates` (administrateur, fermé en démo) la donne à Réglages → Suivi technique
   (`components/UpdateSettings.tsx`), à `doctor` et à `maj` ; l'administrateur reçoit une notification (type `maj`)

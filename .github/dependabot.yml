@@ -28,3 +28,34 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # Actions des flux (épinglées par l'empreinte de leur commit) : une demande de fusion par semaine les met à jour,
+  # empreinte et commentaire de version ensemble.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Paris"
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dépendances"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Image de base du Dockerfile (épinglée par son empreinte) : remise à jour dès qu'elle reçoit ses correctifs.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Paris"
+    commit-message:
+      prefix: "deps"
+    labels:
+      - "dépendances"

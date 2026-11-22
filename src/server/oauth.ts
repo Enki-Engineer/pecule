@@ -13,8 +13,9 @@ import { DEFAULT_LANG, t, tk, translate } from "../lib/i18n.ts";
 import { MCP_CLIENTS, hostedRedirect } from "../lib/mcp-clients.ts";
 import {
   SCOPES,
-  SCOPE_WRITE,
+  actionsRequested,
   canWrite,
+  cleanClientName,
   clientDocumentUrl,
   clientIdentity,
   grantedScope,
@@ -165,7 +166,21 @@ async function findClient(clientId: string): Promise<Client | null> {
 export const oauthRouter = Router();
 
 const noStore = (res: Response) => res.set("Cache-Control", "no-store").set("Pragma", "no-cache");
-const limiter = rateLimit({ windowMs: 15 * 60_000, limit: 120, standardHeaders: "draft-8", legacyHeaders: false });
+// Un compteur par route : des enregistrements en rafale n'empêchent pas les renouvellements de jetons des clients honnêtes.
+const limited = (limit: number) => rateLimit({ windowMs: 15 * 60_000, limit, standardHeaders: "draft-8", legacyHeaders: false });
+const registerLimiter = limited(20);
+const authorizeLimiter = limited(60);
+const tokenLimiter = limited(120);
+/** Clients enregistrés d'eux-mêmes et sans accès en cours, gardés au plus : au-delà, les plus anciens partent. */
+const MAX_IDLE_CLIENTS = 300;
+const HAS_ACCESS = "client_id IN (SELECT client_id FROM oauth_grants WHERE revoked_at IS NULL AND refresh_expires_at > UTC_TIMESTAMP())";
+
+/** Ménage des clients enregistrés d'eux-mêmes : ceux de plus de 30 jours sans accès en cours, puis les plus anciens au-delà du plafond. */
+async function pruneClients() {
+  await exec(`DELETE FROM oauth_clients WHERE source = 'dcr' AND created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) AND NOT ${HAS_ACCESS}`);
+  const edge = await one<{ created_at: string }>(`SELECT created_at FROM oauth_clients WHERE source = 'dcr' AND NOT ${HAS_ACCESS} ORDER BY created_at DESC, client_id LIMIT 1 OFFSET ${MAX_IDLE_CLIENTS}`);
+  if (edge) await exec(`DELETE FROM oauth_clients WHERE source = 'dcr' AND created_at <= ? AND NOT ${HAS_ACCESS}`, [edge.created_at]);
+}
 
 oauthRouter.get(["/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/api/mcp"], (_req, res) => {
   res.set("Cache-Control", "public, max-age=300").json(protectedResource);
@@ -178,7 +193,7 @@ oauthRouter.get("/.well-known/oauth-authorization-server", (_req, res) => {
  * Enregistrement dynamique (RFC 7591) : client public. Seules ses adresses de retour admises sont gardées — celles
  * d'un assistant reconnu et les boucles locales ; s'il n'en a aucune, la demande est refusée.
  */
-oauthRouter.post("/oauth/register", limiter, express.json({ limit: "20kb" }), async (req, res) => {
+oauthRouter.post("/oauth/register", registerLimiter, express.json({ limit: "20kb" }), async (req, res) => {
   const b = z.object({ redirect_uris: z.array(z.string().max(512)).min(1).max(10), client_name: z.string().max(120).optional() }).safeParse(req.body);
   const redirectUris = b.success ? b.data.redirect_uris.filter(redirectAllowed) : [];
   const refused = b.success ? b.data.redirect_uris.filter((uri) => !redirectAllowed(uri)).map(redirectTarget) : [];
@@ -189,11 +204,12 @@ oauthRouter.post("/oauth/register", limiter, express.json({ limit: "20kb" }), as
       error: "invalid_redirect_uri",
       error_description: `Adresses de retour admises : celle d'un assistant reconnu (${MCP_CLIENTS.map((c) => c.name).join(", ")}) ou une boucle locale (http://127.0.0.1:<port>/…, http://localhost:<port>/…). Refusé : ${refused.join(", ") || "demande illisible"}`,
     });
-  // Ménage : clients connus depuis plus de 30 jours et sans accès en cours (un document d'identité se relira au besoin).
-  await exec("DELETE FROM oauth_clients WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY) AND client_id NOT IN (SELECT client_id FROM oauth_grants WHERE revoked_at IS NULL)");
+  // Ménage : un enregistrement ouvert à tous ne doit pas pouvoir remplir la base.
+  await pruneClients();
   const clientId = secret("pcl_");
-  // Le nom que le client se donne n'est gardé que pour un programme de l'ordinateur : un assistant reconnu porte le sien.
-  const name = clientIdentity(redirectUris[0], b.data.client_name).name ?? "";
+  // Le nom gardé est celui que le client se donne, rien de plus : à l'affichage, un assistant reconnu porte le sien
+  // d'après l'adresse où le membre retourne (`clientIdentity`), jamais d'après la première adresse enregistrée.
+  const name = cleanClientName(b.data.client_name) ?? "";
   await exec("INSERT INTO oauth_clients (client_id, name, redirect_uris, source) VALUES (?, ?, ?, 'dcr')", [clientId, name, JSON.stringify(redirectUris)]);
   noStore(res)
     .status(201)
@@ -223,7 +239,7 @@ async function page(req: Request, res: Response, status: number, message: string
 }
 
 /** Demande d'autorisation : contrôlée, rangée, puis confiée à l'écran de consentement. */
-oauthRouter.get("/oauth/authorize", limiter, async (req, res) => {
+oauthRouter.get("/oauth/authorize", authorizeLimiter, async (req, res) => {
   const p = z
     .object({
       response_type: z.string().optional(),
@@ -270,19 +286,24 @@ oauthRouter.get("/oauth/authorize", limiter, async (req, res) => {
 const tokenError = (res: Response, error: string, description: string, status = 400) => noStore(res).status(status).json({ error, error_description: description });
 
 /** Nouveaux jetons d'un accès ; au renouvellement, l'ancien jeton de renouvellement est gardé pour reconnaître un rejeu. */
-async function issue(grantId: number, scope: string, renewal: boolean) {
+/**
+ * `renewedFrom` : l'empreinte du jeton de renouvellement présenté. L'échange ne se fait que s'il est encore celui de
+ * l'accès : de deux renouvellements simultanés du même jeton, un seul aboutit (`null` pour l'autre).
+ */
+async function issue(grantId: number, scope: string, renewedFrom?: string) {
   const access = secret(ACCESS_PREFIX);
   const refresh = secret(REFRESH_PREFIX);
-  await exec(
-    `UPDATE oauth_grants SET prev_refresh_hash = ${renewal ? "refresh_hash" : "NULL"}, access_hash = ?, access_expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND),
-       refresh_hash = ?, refresh_expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY) WHERE id = ?`,
-    [sha256(access), ACCESS_TTL_S, sha256(refresh), REFRESH_TTL_DAYS, grantId],
+  const done = await exec(
+    `UPDATE oauth_grants SET prev_refresh_hash = ${renewedFrom ? "refresh_hash" : "NULL"}, access_hash = ?, access_expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND),
+       refresh_hash = ?, refresh_expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY) WHERE id = ?${renewedFrom ? " AND refresh_hash = ?" : ""}`,
+    [sha256(access), ACCESS_TTL_S, sha256(refresh), REFRESH_TTL_DAYS, grantId, ...(renewedFrom ? [renewedFrom] : [])],
   );
+  if (!done.affectedRows) return null;
   return { access_token: access, token_type: "Bearer", expires_in: ACCESS_TTL_S, refresh_token: refresh, scope };
 }
 
 /** Échange d'un code contre un accès, ou renouvellement (jeton de renouvellement tournant). */
-oauthRouter.post("/oauth/token", limiter, express.urlencoded({ extended: false, limit: "20kb" }), async (req, res) => {
+oauthRouter.post("/oauth/token", tokenLimiter, express.urlencoded({ extended: false, limit: "20kb" }), async (req, res) => {
   // Un paramètre répété arrive en tableau : il est ignoré, la demande est alors incomplète (jamais une erreur du serveur).
   const b: Record<string, string | undefined> = Object.fromEntries(Object.entries((req.body ?? {}) as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === "string"));
   if (b.grant_type === "authorization_code") {
@@ -313,7 +334,7 @@ oauthRouter.post("/oauth/token", limiter, express.urlencoded({ extended: false, 
       [code.user_id, code.client_id, clientIdentity(code.redirect_uri, client?.name).name ?? "", code.scope, sha256(secret()), sha256(secret())],
     );
     await exec("UPDATE oauth_codes SET grant_id = ? WHERE code_hash = ?", [grant.insertId, hash]);
-    return noStore(res).json(await issue(grant.insertId, code.scope, false));
+    return noStore(res).json(await issue(grant.insertId, code.scope));
   }
   if (b.grant_type === "refresh_token") {
     if (!b.refresh_token) return tokenError(res, "invalid_request", "refresh_token attendu");
@@ -329,7 +350,10 @@ oauthRouter.post("/oauth/token", limiter, express.urlencoded({ extended: false, 
     }
     if (grant.revoked_at || grant.expired) return tokenError(res, "invalid_grant", "Accès révoqué ou expiré");
     if (b.client_id && b.client_id !== grant.client_id) return tokenError(res, "invalid_grant", "Client différent");
-    return noStore(res).json(await issue(grant.id, grant.scope, true));
+    const renewed = await issue(grant.id, grant.scope, hash);
+    // Le même jeton vient d'être échangé par une autre demande : celle-ci n'en reçoit pas un second jeu.
+    if (!renewed) return tokenError(res, "invalid_grant", "Jeton de renouvellement déjà utilisé");
+    return noStore(res).json(renewed);
   }
   return tokenError(res, "unsupported_grant_type", "authorization_code ou refresh_token attendu");
 });
@@ -352,11 +376,15 @@ export async function verifyAccessToken(token: string): Promise<OAuthIdentity | 
 
 /* ---------- Écran de consentement et accès accordés (sous /api, session d'un membre) ---------- */
 
-/** Aucune des adresses de retour du client ne mène chez un éditeur reconnu : c'est un programme de l'ordinateur. */
-function localOnly(redirectUris: string | null): boolean {
+/**
+ * Une des adresses de retour du client ne mène pas chez un éditeur reconnu : il a pu revenir par un programme de
+ * l'ordinateur, et son nom n'est alors que celui qu'il se donne. (Un client qui enregistrerait l'adresse d'un
+ * assistant reconnu à côté d'une boucle locale ne s'affiche pas sous le nom de cet assistant.)
+ */
+function maybeLocal(redirectUris: string | null): boolean {
   if (!redirectUris) return false; // Client d'avant ce contrôle, ou retiré : on garde son nom tel quel.
   try {
-    return !(JSON.parse(redirectUris) as string[]).some(hostedRedirect);
+    return !(JSON.parse(redirectUris) as string[]).every(hostedRedirect);
   } catch {
     return false;
   }
@@ -390,7 +418,7 @@ oauthApi.get("/oauth/requests/:id", async (req, res) => {
     redirectHost: redirectTarget(r.redirect_uri),
     loopback: isLoopback(r.redirect_uri),
     member: user.name,
-    actionsRequested: !r.scope || r.scope.split(" ").includes(SCOPE_WRITE),
+    actionsRequested: actionsRequested(r.scope),
   });
 });
 
@@ -407,7 +435,8 @@ oauthApi.post("/oauth/requests/:id/decision", async (req, res) => {
     u.searchParams.set("error", "access_denied");
     return res.json({ redirect: u.toString() });
   }
-  const scope = grantedScope(b.actions === true);
+  // Jamais plus que ce que le client a demandé : les actions ne s'accordent que s'il les demandait.
+  const scope = grantedScope(b.actions === true && actionsRequested(r.scope));
   const code = secret();
   await exec("DELETE FROM oauth_codes WHERE expires_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)");
   await exec("INSERT INTO oauth_codes (code_hash, client_id, user_id, redirect_uri, code_challenge, scope, expires_at) VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND))", [
@@ -436,9 +465,9 @@ oauthApi.get("/oauth/grants", async (req, res) => {
   res.json({
     grants: rows.map((g) => ({
       id: g.id,
-      // `local` : un programme de l'ordinateur, dont le nom n'est que celui qu'il s'est donné (aucune de ses adresses ne mène chez un éditeur reconnu).
+      // `local` : peut-être un programme de l'ordinateur, dont le nom n'est que celui qu'il s'est donné (une de ses adresses ne mène pas chez un éditeur reconnu).
       client: g.client_name || null,
-      local: localOnly(g.redirect_uris),
+      local: maybeLocal(g.redirect_uris),
       actions: canWrite(g.scope),
       createdAt: g.created_at,
       lastUsedAt: g.last_used_at,

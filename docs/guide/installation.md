@@ -121,7 +121,9 @@ node dist/server.mjs
 
 `setup.mjs` essaie la base, écrit le fichier `.env` (jetons tirés au hasard, `SECRET_KEY` qui chiffre les clés
 gardées en base) et affiche le lien du premier démarrage ; `node scripts/lien.mjs` le redonne. Si la base ne répond
-pas, il le dit et donne la raison : corrigez l'adresse (`--base`, avec `--force`) avant de démarrer. Sans `--url`,
+pas, il le dit et donne la raison : corrigez l'adresse (`--base`, avec `--force`) avant de démarrer. Sur une
+machine partagée, donnez-la par la variable `PECULE_BASE` plutôt qu'en argument (les arguments d'une commande, mot
+de passe compris, se lisent depuis un autre compte par `ps`). Sans `--url`,
 l'adresse est `http://localhost:<port>` (essai sur sa propre machine) ; `--port 3322` choisit le port, 3000 sinon.
 Pour un essai, `nohup node dist/server.mjs > pecule.log 2>&1 &` laisse le serveur tourner en tâche de fond jusqu'à
 l'arrêt de la machine. La même archive existe en
@@ -151,6 +153,10 @@ WorkingDirectory=/home/alex/pecule
 ExecStart=/usr/bin/node dist/server.mjs
 Restart=on-failure
 RestartSec=5
+# Le service ne peut ni gagner de droits, ni écrire dans le système, ni lire le /tmp des autres.
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
@@ -158,6 +164,11 @@ WantedBy=multi-user.target
 
 Puis `sudo systemctl enable --now pecule`. Devant lui, un proxy https (Caddy, Nginx) renvoie l'adresse de Pécule
 vers `127.0.0.1:3000`.
+
+Sans Docker, le serveur écoute son port sur toutes les interfaces de la machine : **fermez ce port au pare-feu**
+(`ufw deny 3000`, ou la règle de votre hébergeur), pour que seul le proxy l'atteigne. Joint directement, il serait
+servi en clair, et la limite des tentatives de connexion — comptée par adresse de visiteur, lue dans l'en-tête que
+pose le proxy — pourrait être contournée. Avec Docker, le port n'est publié que sur `127.0.0.1`.
 
 ## Sources
 
@@ -255,7 +266,9 @@ Pour tout retirer après un `down -v` : `docker rmi ghcr.io/enki-engineer/pecule
   d'accès à recréer si l'adresse a changé, des clés à ressaisir si `SECRET_KEY` n'est pas celui de l'ancien serveur.
   Une copie chiffrée (`.zip.age`) demande la clé de récupération. Les sauvegardes automatiques de l'installation
   restaurée sont mises en pause, pour qu'une copie d'essai n'écrive pas à la place de l'installation d'origine :
-  l'administrateur les réactive. Rien n'est possible sur une installation qui a déjà des données. En ligne de
+  l'administrateur les réactive. Rien n'est possible sur une installation qui a déjà des données. **Ne restaurez que
+  vos propres archives** : une sauvegarde est la base tout entière, clés d'accès, jetons d'administration et
+  applications connectées compris — celui qui a fabriqué l'archive garde donc ses accès à l'installation restaurée. En ligne de
   commande, depuis les sources et dans une base sans aucune table :
   `pnpm restaurer <archive.zip> --base "mysql://…"`.
 - **Mise à jour** : l'appli prévient l'administrateur quand une version est publiée (Réglages → Suivi technique) et

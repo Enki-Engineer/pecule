@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { MCP_CLIENTS, RELAYS, knownClient } from "../lib/mcp-clients.ts";
-import { CLAUDE_CALLBACK, canWrite, cleanClientName, clientDocumentUrl, clientIdentity, grantedScope, isLoopback, pkceMatches, redirectAllowed, redirectMatches, resourceMatches, validChallenge, validateClientDocument } from "./oauth-rules.ts";
+import { CLAUDE_CALLBACK, actionsRequested, canWrite, cleanClientName, clientDocumentUrl, clientIdentity, grantedScope, isLoopback, pkceMatches, redirectAllowed, redirectMatches, resourceMatches, validChallenge, validateClientDocument } from "./oauth-rules.ts";
 
 describe("adresses de retour", () => {
   it("admet celles des assistants reconnus et les boucles locales, rien d'autre", () => {
@@ -133,6 +133,11 @@ describe("ressource et portées", () => {
   it("n'accorde les actions que sur accord explicite", () => {
     expect(canWrite(grantedScope(false))).toBe(false);
     expect(canWrite(grantedScope(true))).toBe(true);
+    // Les actions ne s'accordent que si le client les demande ; sans portée demandée, c'est au membre de choisir.
+    expect(actionsRequested(undefined)).toBe(true);
+    expect(actionsRequested("")).toBe(true);
+    expect(actionsRequested("pecule:lecture pecule:actions offline_access")).toBe(true);
+    expect(actionsRequested("pecule:lecture")).toBe(false);
   });
 });
 

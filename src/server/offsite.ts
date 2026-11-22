@@ -205,7 +205,9 @@ export async function copyOffsite(file: string, name: string, keep: Retention): 
 export function remoteProblemText(code: RemoteProblem, detail: string): string {
   switch (code) {
     case "adresse":
-      return t("Adresse du stockage invalide : elle commence par https://.");
+      return t("Adresse du stockage invalide : elle commence par https://, sans identifiant ni mot de passe dedans.");
+    case "clair":
+      return t("Une adresse en http:// n'est admise que vers un appareil de ton réseau (un NAS) : sur Internet, le mot de passe circulerait en clair. Donne une adresse en https://.");
     case "injoignable":
       return t("Stockage injoignable ({detail}) : vérifie son adresse.", { detail });
     case "muet":

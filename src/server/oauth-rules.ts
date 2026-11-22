@@ -90,6 +90,8 @@ export function resourceMatches(resource: string | undefined, mcpUrl: string): b
  */
 export const grantedScope = (allowActions: boolean) => (allowActions ? `${SCOPE_READ} ${SCOPE_WRITE}` : SCOPE_READ);
 export const canWrite = (scope: string) => scope.split(" ").includes(SCOPE_WRITE);
+/** Le client demande-t-il les actions ? Sans portée demandée, oui : c'est au membre de choisir. */
+export const actionsRequested = (scope: string | null | undefined) => !scope || scope.split(" ").includes(SCOPE_WRITE);
 
 /**
  * Un `client_id` qui est l'adresse d'un document d'identité (spécification MCP 2025-11-25) : https, avec un chemin,

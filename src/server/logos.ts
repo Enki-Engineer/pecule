@@ -3,7 +3,7 @@ import { exec, one, q } from "./db.ts";
 import { BRAND_DOMAINS } from "../lib/brands.ts";
 import { bankLogo, bankLogoKeyValid } from "./bank-logos.ts";
 import { customDomains } from "./brands.ts";
-import { publicFetch } from "./net.ts";
+import { publicFetch, readCapped } from "./net.ts";
 import { serviceKey } from "./service-keys.ts";
 
 /*
@@ -30,8 +30,8 @@ async function download(url: string, minBytes: number): Promise<Logo | null> {
     if (!res.ok) return null;
     const mime = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
     if (!OK_TYPES.test(mime)) return null;
-    const data = Buffer.from(await res.arrayBuffer());
-    if (data.length < minBytes || data.length > MAX_BYTES) return null;
+    const data = await readCapped(res, MAX_BYTES);
+    if (!data || data.length < minBytes) return null;
     return { mime, data };
   } catch {
     return null;
@@ -49,7 +49,10 @@ async function declaredIcons(domain: string): Promise<string[]> {
     try {
       const res = await publicFetch(base, { signal: AbortSignal.timeout(8000), headers: { "User-Agent": UA, Accept: "text/html" } });
       if (!res.ok) continue;
-      const html = (await res.text()).slice(0, 400_000);
+      // Le début de la page suffit (les icônes sont déclarées dans son en-tête) : au-delà de 2 Mo, elle est abandonnée.
+      const page = await readCapped(res, 2_000_000);
+      if (!page) continue;
+      const html = page.toString("utf8").slice(0, 400_000);
       const found: { url: string; size: number }[] = [];
       for (const tag of html.match(/<link\b[^>]*>/gi) ?? []) {
         const rel = /\brel\s*=\s*["']?([^"'>]+)/i.exec(tag)?.[1]?.toLowerCase() ?? "";
@@ -114,11 +117,18 @@ export function logoKeyValid(key: string): boolean {
 }
 
 /**
- * Clé dont le serveur accepte de chercher le logo : celles du référentiel, le site d'une enseigne du foyer
- * (« d:<domaine> ») et une banque reliée par Enable Banking (« bank:<pays>:<banque> »). En démo, le référentiel
+ * Clé dont le serveur accepte de chercher le logo : celles du référentiel, une crypto du foyer (« coin:<id> »), le site
+ * d'une enseigne du foyer (« d:<domaine> ») et une banque reliée par Enable Banking (« bank:<pays>:<banque> »). En démo, le référentiel
  * seulement : une session de démonstration ne fait chercher aucun site au serveur.
  */
 export async function logoKeyAllowed(key: string): Promise<boolean> {
+  // Une crypto : seulement celles que le foyer détient (ou a détenues), ou dont l'image est déjà là. Une clé inventée
+  // ne fait partir aucune demande vers le service de cours, et n'écrit rien.
+  if (key.startsWith("coin:")) {
+    if (!logoKeyValid(key)) return false;
+    if (await one("SELECT 1 AS x FROM crypto_positions WHERE coingecko_id = ? LIMIT 1", [key.slice(5)])) return true;
+    return !!(await runReal(() => one("SELECT 1 AS x FROM logos WHERE `key` = ? LIMIT 1", [key])));
+  }
   if (logoKeyValid(key)) return true;
   if (isDemo()) return false;
   if (key.startsWith("d:")) return (await customDomains()).has(key.slice(2));

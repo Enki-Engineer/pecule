@@ -166,8 +166,9 @@ const getSettings = readTool({
 /** Version en service et, pour l'administrateur, version plus récente publiée. Les notes de version, écrites ailleurs, ne sont pas données à lire. */
 async function peculeVersion(admin: boolean) {
   if (isDemo()) return { note: "Indisponible en mode démo." };
+  // La version en service ne se dit qu'à l'administrateur (comme `GET /api/updates`) : elle renseigne sur ce qui n'est pas corrigé.
+  if (!admin) return { where: "/reglages/suivi#version", note: "Seul l'administrateur voit la version en service et si une plus récente est publiée ; c'est lui qui met Pécule à jour." };
   const base = { version: VERSION, where: "/reglages/suivi#version" };
-  if (!admin) return { ...base, note: "Seul l'administrateur voit si une version plus récente est publiée, et c'est lui qui met Pécule à jour." };
   const u = await updateStatus();
   return {
     ...base,

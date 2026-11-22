@@ -11,8 +11,8 @@ import { pilotageTools } from "./pilotage.ts";
 import { importsTools } from "./imports.ts";
 import { contratsTools } from "./contrats.ts";
 import { reglagesTools } from "./reglages.ts";
-import { ToolError, inputError, jsonSchema, type Described, type Tool, type ToolCtx } from "./registry.ts";
-import { tk } from "../../lib/i18n.ts";
+import { ToolError, inputError, jsonSchema, unshownTexts, type Described, type Tool, type ToolCtx } from "./registry.ts";
+import { t as tr, tk, tn } from "../../lib/i18n.ts";
 import type { ClientEffect } from "../../lib/device-settings.ts";
 
 /*
@@ -23,8 +23,6 @@ import type { ClientEffect } from "../../lib/device-settings.ts";
 export const TOOLS: Tool[] = [...banqueTools, ...analyseTools, ...facturesTools, ...patrimoineTools, ...documentsTools, ...contratsTools, ...situationTools, ...editionTools, ...pilotageTools, ...reglagesTools, ...importsTools];
 const BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
 export const WRITE_NAMES = new Set(TOOLS.filter((t) => t.kind === "write").map((t) => t.name));
-/** Outils exécutés sans confirmation mais qui modifient des données (mémoire) : refusés quand personne n'est devant l'écran. */
-export const MUTATING_NAMES = new Set(TOOLS.filter((t) => t.mutates).map((t) => t.name));
 /** Outils offerts par le serveur MCP : tous, sauf ceux qui règlent l'appareil de celui qui est devant l'écran. */
 export const MCP_TOOLS: Tool[] = TOOLS.filter((t) => !t.screenOnly);
 
@@ -53,14 +51,31 @@ export async function runReadTool(ctx: ToolCtx, name: string, input: unknown): P
 
 export type PendingWrite = { id: string; name: string; input: unknown; label: string; details: string[]; invalid?: string };
 
+/** Textes libres montrés en entier jusqu'à cette longueur, et nombre de textes ajoutés à une confirmation. */
+const TEXT_SHOWN = 400;
+const TEXTS_SHOWN = 6;
+
+/** Les détails d'une confirmation, complétés des textes libres qu'elle ne montrait pas (`unshownTexts`). */
+function withUnshownTexts(d: Described, input: unknown): string[] {
+  const texts = unshownTexts(input, [d.label, ...d.details].join("\n"));
+  if (!texts.length) return d.details;
+  const more = texts.length - TEXTS_SHOWN;
+  return [
+    ...d.details,
+    ...texts.slice(0, TEXTS_SHOWN).map((text) => tr("Texte enregistré : « {texte} »", { texte: text.length > TEXT_SHOWN ? `${text.slice(0, TEXT_SHOWN)}…` : text })),
+    ...(more > 0 ? [tn("… et {n} autre texte", "… et {n} autres textes", more)] : []),
+  ];
+}
+
 /** Écriture proposée : texte de confirmation, ou motif de refus (invalid) renvoyé à Claude. */
 export async function describeWrite(ctx: ToolCtx, use: { id: string; name: string; input: unknown }): Promise<PendingWrite> {
   const base = { id: use.id, name: use.name, input: use.input };
   try {
     const t = get(use.name);
     if (t.kind !== "write") throw new ToolError(`${use.name} n'est pas une action`);
-    const d: Described = await t.describe(ctx, t.input.parse(use.input ?? {}));
-    return { ...base, ...d };
+    const input = t.input.parse(use.input ?? {});
+    const d: Described = await t.describe(ctx, input);
+    return { ...base, label: d.label, details: withUnshownTexts(d, input) };
   } catch (e) {
     return { ...base, label: "Demande invalide", details: [], invalid: inputError(e) };
   }

@@ -115,8 +115,11 @@ plus récent et une base MariaDB 10.6+ ou MySQL 8+ **vide**, que la personne cr�
 
 Toutes ces commandes se lancent dans le dossier `pecule`. Sans `--url`, l'adresse est `http://localhost:<port>`
 (essai sur la machine) ; `--port` choisit le port, 3000 sinon. Lancé par `nohup`, le serveur ne repart pas avec la
-machine : dis-le à la personne. Chez un hébergeur Node.js qui règle les variables dans son interface : recopie-y le
-contenu du `.env` produit, fichier d'entrée `dist/server.mjs`, aucune commande de build, aucun répertoire de sortie.
+machine : dis-le à la personne. Chez un hébergeur Node.js qui règle les variables dans son interface : c'est à la
+personne d'y recopier le contenu du `.env` produit — il porte tous les secrets, ne le lis pas et ne l'affiche pas —,
+fichier d'entrée `dist/server.mjs`, aucune commande de build, aucun répertoire de sortie. Sur une machine partagée,
+donne l'adresse de la base par la variable `PECULE_BASE` plutôt que par `--base` : les arguments d'une commande se
+lisent depuis un autre compte.
 Un modèle de service systemd est dans `docs/guide/installation.md`.
 
 ## 4. Remettre la main à la personne

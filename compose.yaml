@@ -23,6 +23,12 @@
 # qu'un réglage de Pécule (APP_URL, API_TOKEN, SECRET_KEY…).
 name: pecule
 
+# Aucun conteneur ne peut gagner de droits par un programme qui en donne (« no-new-privileges ») ; le serveur, qui ne
+# tourne pas en administrateur et n'écoute que le port 3000, n'en garde aucun (« cap_drop: ALL »).
+x-ferme: &ferme
+  security_opt:
+    - no-new-privileges:true
+
 x-pecule: &pecule
   # L'image publiée avec chaque version (amd64 et arm64). Si elle ne peut pas être récupérée et que ce dossier est le
   # dépôt, elle est construite sur place ; `docker compose up -d --build` la construit toujours depuis le dépôt.
@@ -33,11 +39,19 @@ services:
   # Passe une fois avant les autres : tire les secrets qui manquent (ou reprend ceux de .env) et les garde dans les
   # volumes. Il s'arrête aussitôt : c'est normal de le voir « Exited (0) ».
   reglages:
-    <<: *pecule
+    <<: [*pecule, *ferme]
     restart: "no"
     # En administrateur du conteneur, pour écrire dans des volumes neufs quel que soit leur propriétaire, et sans
     # réseau : il ne fait qu'écrire ces fichiers.
     user: "0:0"
+    # De ses droits d'administrateur, il ne garde que ceux qu'il lui faut pour écrire dans ces volumes et en donner
+    # les fichiers au compte du serveur.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
     network_mode: none
     command: ["node", "scripts/setup.mjs", "--conteneur"]
     environment:
@@ -62,8 +76,10 @@ services:
       - pecule-base:/app/data/base:ro
 
   pecule:
-    <<: *pecule
+    <<: [*pecule, *ferme]
     restart: unless-stopped
+    cap_drop:
+      - ALL
     environment:
       - APP_URL=${APP_URL:-http://localhost:${PECULE_PORT:-3000}}
       # Les sauvegardes du serveur vont dans le volume monté plus bas, quoi que dise `.env` : dans le conteneur
@@ -106,11 +122,16 @@ services:
       - pecule-sauvegardes:/app/data/sauvegardes
 
   base:
+    <<: *ferme
     image: mariadb:11.8
     restart: unless-stopped
     environment:
       MARIADB_DATABASE: pecule
       MARIADB_USER: pecule
+      # L'administrateur de la base ne se connecte que depuis son propre conteneur (`docker compose exec base mariadb
+      # -uroot -p`) : ni le serveur ni Caddy ne peuvent s'y présenter, même avec son mot de passe. Lu à la création de
+      # la base seulement : une installation déjà en service garde le compte qu'elle a.
+      MARIADB_ROOT_HOST: localhost
       # Mots de passe tirés par « reglages ». MariaDB ne les lit qu'une fois, à la création de sa base, avec ce que
       # porte ce même dossier : la base du mode démo et son utilisateur à part.
       MARIADB_PASSWORD_FILE: /docker-entrypoint-initdb.d/.mot-de-passe
@@ -130,6 +151,7 @@ services:
 
   # https avec certificat automatique (Let's Encrypt) : COMPOSE_PROFILES=https et APP_URL dans .env, ports 80 et 443 ouverts.
   caddy:
+    <<: *ferme
     profiles: ["https"]
     image: caddy:2
     restart: unless-stopped

@@ -3,6 +3,13 @@ dist/
 .env
 .env.*
 !.env.example
+# Réglages et secrets sous un autre nom (le guide fait écrire « pecule-reglages.env »), clés téléchargées.
+*.env
+*.pem
+*.key
+# Restes d'une mise à jour faite dans un clone.
+.maj/
+.avant-maj/
 *.log
 coverage/
 .DS_Store

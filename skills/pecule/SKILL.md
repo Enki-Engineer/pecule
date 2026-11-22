@@ -67,7 +67,8 @@ modifiée. En cas d'échec, lis le journal avant de retenter, et ne restaure rie
 accord (les documents partent chez son fournisseur d'IA, et leur lecture a un coût), le lot est lu. Rien n'est écrit
 sans validation : valide ce qui est « sûr » (`--lot <n> --valider-surs`) et présente le reste à la personne. Avec
 Docker : `docker compose cp <dossier> pecule:/tmp/documents`, puis
-`docker compose exec -T -u 0 pecule node scripts/importer.mjs /tmp/documents --a-blanc --json`.
+`docker compose exec -T -u 0 pecule node scripts/importer.mjs /tmp/documents --a-blanc --json` ; à la fin,
+`docker compose exec -T -u 0 pecule rm -rf /tmp/documents` (la copie n'a plus d'usage, et ce sont ses papiers).
 
 ## Ne jamais faire sans accord explicite
 

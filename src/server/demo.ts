@@ -34,7 +34,7 @@ const BLOCKED: [method: string, path: RegExp][] = [
   // Le classement en lot envoie les libellés au fournisseur d'IA du foyer.
   ["POST", /^\/transactions\/ai-classify/],
   ["*", /^\/auth\/register\//],
-  ["*", /^\/auth\/users\/\d+\/enrollment/],
+  ["*", /^\/auth\/users\/\d+\/(enrollment|revoke-access)/],
   ["*", /^\/auth\/passkeys\//],
   ["*", /^\/admin\//],
   ["*", /^\/mcp/],
@@ -51,7 +51,8 @@ const BLOCKED: [method: string, path: RegExp][] = [
 ];
 
 /** Routes d'identification : toujours sur la vraie base (sessions, défis, clés d'accès). */
-const REAL_AUTH = /^\/auth\/(me|login\/|logout|token-login|demo)/;
+// Ancrées : « logout-others » fermerait les vraies sessions du membre depuis une session de démo.
+const REAL_AUTH = /^\/auth\/(me|login\/.*|logout|token-login|demo)$/;
 
 let migrated: Promise<void> | null = null;
 

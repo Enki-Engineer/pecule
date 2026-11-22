@@ -78,6 +78,12 @@ export const salaryReturn = (userId: number, owners: readonly number[]): number 
 const firstName = (name: string) => name.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
 
 /**
+ * Déclarant qu'un membre peut retenir pour un avis qu'il relit : la déclaration commune, ou la sienne. Jamais celle
+ * d'un autre membre — il en lirait les chiffres et les remplacerait. `null` : ce déclarant ne lui est pas permis.
+ */
+export const allowedOwner = (candidate: number, userId: number): number | null => (candidate === JOINT || candidate === userId ? candidate : null);
+
+/**
  * Déclarant proposé pour un avis lu : un membre quand l'avis ne nomme que lui et que sa situation n'est pas une
  * imposition commune (marié, pacsé), dans un foyer de plusieurs membres ; sinon la déclaration commune. Ce n'est
  * qu'une proposition : elle se corrige à la relecture, puis à l'écran.

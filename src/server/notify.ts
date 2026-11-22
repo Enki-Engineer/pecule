@@ -5,7 +5,7 @@ import * as webpush from "web-push";
 import { env, origin, sealingSecret } from "./env.ts";
 import { createSealer } from "./secret.ts";
 import { exec, one, q } from "./db.ts";
-import { userAccountsSql } from "./actions.ts";
+import { ActionError, userAccountsSql } from "./actions.ts";
 import { agenda } from "./agenda.ts";
 import { balanceForecast } from "./balance.ts";
 import { budgetStatus } from "./ai-cost.ts";
@@ -110,16 +110,21 @@ export async function vapidKeys() {
   return vapid!;
 }
 
-export async function subscribe(userId: number, sub: { endpoint: string; keys: { p256dh: string; auth: string } }, device: string | null, prefs?: NotifPrefs) {
-  // Adresse du service de notification du navigateur : https, et un hôte public (jamais le réseau du serveur).
-  let host = "";
+/**
+ * Adresse du service de notification d'un navigateur : https, sur son port habituel, et un hôte public — jamais le
+ * réseau du serveur. Contrôlée à l'abonnement, puis avant chaque envoi : un nom peut changer d'adresse entre-temps.
+ */
+async function pushEndpointAllowed(endpoint: string): Promise<boolean> {
   try {
-    const u = new URL(sub.endpoint);
-    host = u.protocol === "https:" ? u.hostname : "";
+    const u = new URL(endpoint);
+    return u.protocol === "https:" && !u.port && !u.username && !u.password && (await resolvesPublic(u.hostname));
   } catch {
-    host = "";
+    return false;
   }
-  if (!host || !(await resolvesPublic(host))) throw new Error("Abonnement invalide");
+}
+
+export async function subscribe(userId: number, sub: { endpoint: string; keys: { p256dh: string; auth: string } }, device: string | null, prefs?: NotifPrefs) {
+  if (!(await pushEndpointAllowed(sub.endpoint))) throw new ActionError(400, t("Notifications impossibles sur cet appareil : son service de notification n'est pas reconnu."));
   await exec(
     `INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth, device, prefs) VALUES (?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth), device = VALUES(device)`,
@@ -176,6 +181,10 @@ export async function notify(userId: number, type: NotifType | "test", key: stri
     const prefs = { ...DEFAULT_PREFS, ...(s.prefs ? JSON.parse(s.prefs) : {}) } as NotifPrefs;
     if (type !== "test" && prefs[type] === false) continue;
     try {
+      if (!(await pushEndpointAllowed(s.endpoint))) {
+        console.error("[push] envoi refusé : l'adresse de l'abonnement ne mène plus à un service public");
+        continue;
+      }
       await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ ...msg, url: msg.url ?? "/" }), { TTL: 6 * 3600, urgency: "normal" });
       await exec("UPDATE push_subscriptions SET last_sent_at = UTC_TIMESTAMP() WHERE id = ?", [s.id]);
       sent++;

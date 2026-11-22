@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import { pipeline } from "node:stream/promises";
+import { resolvesPrivate } from "./net.ts";
 
 /*
  * Stockages extérieurs où Pécule dépose une copie chiffrée de ses sauvegardes : un stockage compatible S3 (Amazon S3,
@@ -28,7 +29,7 @@ export type S3Config = { endpoint: string; region: string; bucket: string; prefi
 export type DavConfig = { url: string; user: string; password: string };
 
 /** Ce qui peut manquer avec un stockage extérieur ; l'écran en fait une phrase dans la langue du membre (`src/server/offsite.ts`). */
-export type RemoteProblem = "adresse" | "injoignable" | "muet" | "envoi" | "lecture" | "suppression" | "dossier" | "identifiants" | "redirection" | "trop-gros" | "invisible";
+export type RemoteProblem = "adresse" | "clair" | "injoignable" | "muet" | "envoi" | "lecture" | "suppression" | "dossier" | "identifiants" | "redirection" | "trop-gros" | "invisible";
 
 /** Refus ou panne du stockage extérieur. `detail` : ce que le service a répondu (code, message), tel quel. */
 export class RemoteError extends Error {
@@ -43,8 +44,19 @@ export class RemoteError extends Error {
 type Body = Buffer | { file: string; octets: number } | undefined;
 type Reply = { status: number; headers: http.IncomingHttpHeaders; body: Buffer };
 
+/**
+ * Où une requête a le droit de partir. En clair (http), seulement vers un appareil du réseau du serveur — un NAS : sur
+ * Internet, le mot de passe WebDAV et le contenu des listes circuleraient lisibles. Jamais d'identifiants dans
+ * l'adresse : ils seraient gardés en clair avec elle, et montrés à l'écran.
+ */
+async function checkTarget(url: URL): Promise<void> {
+  if (url.username || url.password) throw new RemoteError("adresse");
+  if (url.protocol === "http:" && !(await resolvesPrivate(url.hostname))) throw new RemoteError("clair");
+}
+
 /** Une requête http(s), corps en mémoire ou lu dans un fichier ; s'arrête si rien ne circule pendant deux minutes. */
-function send(method: string, url: URL, headers: Record<string, string>, body?: Body): Promise<Reply> {
+async function send(method: string, url: URL, headers: Record<string, string>, body?: Body): Promise<Reply> {
+  await checkTarget(url);
   return new Promise((resolve, reject) => {
     if (url.protocol !== "https:" && url.protocol !== "http:") return reject(new RemoteError("adresse"));
     const length = body === undefined ? 0 : Buffer.isBuffer(body) ? body.length : body.octets;

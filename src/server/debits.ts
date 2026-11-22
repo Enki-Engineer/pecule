@@ -54,7 +54,9 @@ export async function debitSeries(userId: number): Promise<DebitSeries[]> {
      ORDER BY t.date`,
   );
   const commitments = await q<{ id: number; label: string; label_regex: string | null; monthly: number | null; annual: number | null }>(
-    "SELECT id, label, label_regex, monthly, annual FROM commitments WHERE label_regex IS NOT NULL",
+    // Engagements communs ou à ce membre : l'engagement privé d'un autre ne nomme pas sa série.
+    "SELECT id, label, label_regex, monthly, annual FROM commitments WHERE label_regex IS NOT NULL AND (owner_user_id IS NULL OR owner_user_id = ?)",
+    [userId],
   );
   const byShape = new Map<string, Debit[]>();
   for (const r of rows) byShape.set(labelShape(r.label), [...(byShape.get(labelShape(r.label)) ?? []), r]);
@@ -148,10 +150,14 @@ export async function nameDebits(): Promise<number> {
   for (const c of commitments) byRegex.set(c.label_regex, [...(byRegex.get(c.label_regex) ?? []), c]);
   let named = 0;
   for (const [regex, list] of byRegex) {
+    // Un motif que la base refuse (admis à la saisie par une ancienne version) n'empêche pas de nommer les autres.
     const txs = await q<{ id: string; label: string; amount: number; merchant: string | null; category_id: string | null }>(
       "SELECT id, label, amount, merchant, category_id FROM transactions WHERE amount < 0 AND LOWER(TRIM(label)) REGEXP ?",
       [regex],
-    );
+    ).catch((e) => {
+      console.error("[prélèvements] motif de libellé refusé par la base", e);
+      return [];
+    });
     for (const t of txs) {
       if (t.merchant && !labels.has(t.merchant)) continue;
       const c = pickCommitment(list, -t.amount)!;

@@ -10,6 +10,8 @@ describe("adresses privées", () => {
   });
   it("lit l'IPv4 qu'une IPv6 porte, quelle que soit son écriture", () => {
     // La même boucle locale ou le même réseau privé, écrits en groupes hexadécimaux : c'est ce que rend un analyseur d'adresses.
+    // IPv4 traduite (« ::ffff:0:a.b.c.d ») : jamais l'adresse d'un service public, quelle que soit l'IPv4 portée.
+    for (const ip of ["::ffff:0:127.0.0.1", "::ffff:0:8.8.8.8", "0:0:0:0:ffff:0:a00:1"]) expect(isPrivateAddress(ip), ip).toBe(true);
     for (const ip of ["::ffff:7f00:1", "0:0:0:0:0:ffff:7f00:1", "::ffff:a9fe:a9fe", "::ffff:a00:5", "::ffff:c0a8:101", "::7f00:1", "::127.0.0.1", "64:ff9b::7f00:1", "2002:7f00:1::1", "2001:0:1::1", "2001:db8::1", "fec0::1", "ff02::1", "fe80::1%en0"])
       expect(isPrivateAddress(ip), ip).toBe(true);
     for (const ip of ["::ffff:808:808", "0:0:0:0:0:ffff:5db8:d822", "2a00:1450:4007:80e::200e", "2001:4860:4860::8888"]) expect(isPrivateAddress(ip), ip).toBe(false);

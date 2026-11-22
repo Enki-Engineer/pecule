@@ -9,9 +9,14 @@ on:
   push:
     tags: ["v*.*.*"]
 
+# Les actions sont épinglées par l'empreinte de leur commit (la version est en commentaire, Dependabot les tient à
+# jour) : une étiquette d'action déplacée ne fait pas tourner un autre code dans un flux qui peut publier.
 permissions:
   contents: write
   packages: write
+  # Attestation de provenance des pièces jointes et de l'image (signée par l'identité de ce flux, pas par un secret).
+  id-token: write
+  attestations: write
 
 concurrency:
   group: publication-${{ github.ref }}
@@ -27,16 +32,20 @@ jobs:
     steps:
       # Tout l'historique, et toutes les branches : l'étape « Branche stable » doit savoir si cette version descend de
       # la pointe actuelle de « stable ». Avec un seul commit, git refuse de l'avancer (« fetch first »).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+          # Le jeton du flux n'est pas laissé dans le dépôt cloné : le build, qui exécute le code des dépendances de
+          # développement, n'a rien à y lire. Les étapes qui publient le reçoivent une à une.
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
-          version: 12
-      - uses: actions/setup-node@v4
+          version: 12.6.0
+      # Aucun cache partagé (ni pnpm, ni couches Docker) dans ce flux : ce qui est publié vient du fichier de
+      # verrouillage, pas d'un cache qu'un autre flux aurait rempli.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
-          cache: pnpm
       - name: Notes de la version (étiquette et journal contrôlés)
         run: node scripts/notes-de-version.mjs --etiquette "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
 
@@ -48,32 +57,47 @@ jobs:
           node scripts/paquet.mjs
           ( cd dist/paquet && sha256sum --check SHA256SUMS )
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Rang de la version (les étiquettes flottantes ne reculent jamais)
+        id: rang
+        # « latest », « 1 » et « 1.22 » ne se posent que sur la version la plus haute — de toutes, de sa version majeure,
+        # de sa série. Republier une ancienne étiquette, ou corriger une série passée, ne ramène donc pas en arrière
+        # les installations qui suivent « latest » par `docker compose pull`.
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          case "$v" in *-*) echo "Préversion : aucune étiquette flottante."; { echo "derniere=false"; echo "majeure=false"; echo "serie=false"; } >> "$GITHUB_OUTPUT"; exit 0 ;; esac
+          publiees="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' | grep -v -- '-' | sed 's/^v//')"
+          haute() { printf '%s\n' "$publiees" | grep -E "^$1" | sort -V | tail -n 1; }
+          majeure="${v%%.*}"; serie="${v%.*}"
+          rang() { if [ "$(haute "$2")" = "$v" ]; then echo "$1=true"; else echo "$1=false"; fi; }
+          { rang derniere '[0-9]'; rang majeure "${majeure}\\."; rang serie "${serie//./\\.}\\."; } | tee -a "$GITHUB_OUTPUT"
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ghcr.io/${{ github.repository }}
-          # 1.22.0, 1.22 et 1 ; « latest » suit la dernière version qui n'est pas une préversion.
+          # « latest » n'est jamais posée d'office : seulement par la ligne qui la donne à la version la plus haute.
+          flavor: latest=false
+          # 1.22.0 toujours ; 1.22, 1 et « latest » seulement si cette version est la plus haute de son rang.
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.rang.outputs.serie == 'true' }}
+            type=semver,pattern={{major}},enable=${{ steps.rang.outputs.majeure == 'true' }}
+            type=raw,value=latest,enable=${{ steps.rang.outputs.derniere == 'true' }}
       - name: Image Docker
-        uses: docker/build-push-action@v6
+        id: image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Version sur GitHub
         env:
@@ -81,6 +105,9 @@ jobs:
         run: |
           pre=""
           case "$GITHUB_REF_NAME" in *-*) pre="--prerelease" ;; esac
+          # « Dernière version » sur GitHub (celle que télécharge l'adresse stable des pièces jointes) : jamais une
+          # version plus ancienne que celle qui l'est déjà.
+          derniere="--latest=${{ steps.rang.outputs.derniere }}"
           fichiers=(dist/paquet/compose.yaml dist/paquet/pecule.tar.gz dist/paquet/pecule.zip dist/paquet/SHA256SUMS)
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             # Version créée à la main sur GitHub : ses notes sont gardées, sauf si elle n'en a pas.
@@ -89,10 +116,12 @@ jobs:
             fi
             gh release upload "$GITHUB_REF_NAME" "${fichiers[@]}" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "${fichiers[@]}" --verify-tag --title "Pécule ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" $pre
+            gh release create "$GITHUB_REF_NAME" "${fichiers[@]}" --verify-tag --title "Pécule ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" $pre $derniere
           fi
 
       - name: Branche stable
+        env:
+          GH_TOKEN: ${{ github.token }}
         # Les installations qui suivent une branche, et les consignes que lit un agent IA (AGENTS.md à l'adresse de
         # « stable »), ne reçoivent que des versions publiées. Jamais de retour en arrière : une version plus ancienne
         # que « stable » (correctif d'une série passée) la laisse où elle est. Un envoi refusé arrête le flux : il
@@ -111,4 +140,28 @@ jobs:
           else
             echo "::error::La branche stable et cette version ont divergé : elle n'a pas été avancée."; exit 1
           fi
-          git push origin "$GITHUB_SHA:refs/heads/stable"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$GITHUB_SHA:refs/heads/stable"
+
+      # Provenance : une attestation signée (Sigstore, identité de ce flux) dit que l'archive et l'image ont été
+      # fabriquées ici, à partir de ce commit. Elle se vérifie par `gh attestation verify` (docs/guide/mise-a-jour.md) ;
+      # SHA256SUMS, téléchargé au même endroit que l'archive, ne protège lui que d'un téléchargement abîmé.
+      # Dépôt public seulement : GitHub n'atteste pas un dépôt privé hors de ses offres Entreprise.
+      - name: Attestation de provenance des pièces jointes
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: |
+            dist/paquet/pecule.tar.gz
+            dist/paquet/pecule.zip
+            dist/paquet/compose.yaml
+      - name: Nom de l'image (en minuscules)
+        id: nom
+        if: ${{ !github.event.repository.private }}
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - name: Attestation de provenance de l'image
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ steps.nom.outputs.image }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true

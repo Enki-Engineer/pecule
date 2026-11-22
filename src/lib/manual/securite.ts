@@ -40,9 +40,10 @@ export const securite: ManualTheme = {
           ],
         },
         { note: tk("Ces gestes ne se font qu'à l'écran, et sont coupés en mode démo. L'administrateur peut supprimer la clé d'un autre membre.") },
+        tk("Appareil perdu, ou membre qui quitte le foyer : sur la ligne de ce membre, l'administrateur touche [[Couper ses accès]]. Ses clés d'accès, ses sessions, son lien de calendrier, ses jetons de dépôt, ses applications connectées et les notifications de ses appareils cessent d'un coup. Ses données restent ; un nouveau [[Lien d'inscription]] le fait revenir."),
       ],
       links: [{ to: "/reglages/compte#membres", label: ["Réglages", "Compte et sécurité"] }],
-      words: tk("nouvel appareil nouveau téléphone déconnexion appareil perdu volé supprimer une clé session"),
+      words: tk("nouvel appareil nouveau téléphone déconnexion appareil perdu volé supprimer une clé session couper les accès révoquer membre parti"),
     },
     {
       id: "sauvegarde",

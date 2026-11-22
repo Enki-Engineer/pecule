@@ -365,7 +365,9 @@ export async function createDocumentFromFile(
     }));
   const title = c?.title ?? file.name.replace(/\.[a-z0-9]+$/i, "");
   const { id, created } = await saveDocument({
-    ownerUserId: c && PRIVATE_DOMAINS.has(c.domain) ? userId : null,
+    // Privé tant qu'il n'est pas reconnu (IA absente ou en panne) : seul un domaine lu peut dire qu'il est commun au
+    // foyer — un bulletin de paie resté sans classement ne doit pas s'ouvrir à tous. Le membre le partage dans sa fiche.
+    ownerUserId: !c || PRIVATE_DOMAINS.has(c.domain) ? userId : null,
     title,
     kind: c?.kind,
     domain: c?.domain,

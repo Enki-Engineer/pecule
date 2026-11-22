@@ -41,6 +41,8 @@ export function isPrivateAddress(ip: string): boolean {
   if (!g) return true; // ni IPv4 ni IPv6 lisible : on refuse
   // Une IPv4 portée par une IPv6 (« ::ffff:7f00:1 » est la boucle locale, écrite autrement) : c'est elle qui compte.
   if (g.slice(0, 5).every((x) => x === 0)) return g[5] === 0xffff ? privateV4(g[6] >> 8, g[6] & 0xff) : true; // « :: », « ::1 », IPv4 « compatibles »
+  // « ::ffff:0:a.b.c.d », IPv4 traduite (RFC 2765) : jamais l'adresse d'un service public.
+  if (g.slice(0, 4).every((x) => x === 0) && g[4] === 0xffff && g[5] === 0) return true;
   return (
     (g[0] & 0xfe00) === 0xfc00 || // fc00::/7, réseau privé
     (g[0] & 0xff80) === 0xfe80 || // fe80::/9 : lien local et anciennes adresses de site

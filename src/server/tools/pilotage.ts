@@ -62,13 +62,23 @@ const setGoal = writeTool({
     current_manual: z.number().min(0).nullable().optional(),
     status: z.enum(["actif", "atteint", "archive"]).optional(),
   }),
-  async describe(_ctx, i) {
+  async describe({ userId }, i) {
     if (!i.goal_id && (!i.name || i.target == null)) throw new ToolError("Pour créer : name et target");
+    // Objectif modifié : nommé (pas un simple numéro), et chaque champ fourni est montré — statut et placement lié compris.
+    const goal = i.goal_id ? await one<{ name: string }>("SELECT name FROM goals WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)", [i.goal_id, userId]) : null;
+    if (i.goal_id && !goal) throw new ToolError(`Objectif n° ${i.goal_id} introuvable`);
+    const status = { actif: tr("En cours##objectif"), atteint: tr("Atteint"), archive: tr("Archivé") };
     return {
-      label: i.goal_id ? tr("Modifier l'objectif n° {id}", { id: i.goal_id }) : tr("Créer l'objectif « {nom} »", { nom: i.name ?? "" }),
-      details: [i.target != null ? field(tr("Montant visé"), money(i.target)) : null, i.target_date ? tr("Pour le {date}", { date: i.target_date }) : null, i.current_manual != null ? field(tr("Déjà de côté"), money(i.current_manual)) : null].filter(
-        (x): x is string => !!x,
-      ),
+      label: goal ? tr("Modifier l'objectif « {nom} »", { nom: goal.name }) : tr("Créer l'objectif « {nom} »", { nom: i.name ?? "" }),
+      details: [
+        goal && i.name !== undefined ? change(tr("Nom"), goal.name, i.name) : null,
+        i.emoji !== undefined ? field(tr("Emoji"), i.emoji ?? "—") : null,
+        i.target != null ? field(tr("Montant visé"), money(i.target)) : null,
+        i.target_date !== undefined ? (i.target_date ? tr("Pour le {date}", { date: i.target_date }) : field(tr("Date visée"), "—")) : null,
+        i.asset_id !== undefined ? field(tr("Placement lié"), i.asset_id == null ? "—" : `n° ${i.asset_id}`) : null,
+        i.current_manual !== undefined ? field(tr("Déjà de côté"), i.current_manual == null ? "—" : money(i.current_manual)) : null,
+        i.status !== undefined ? field(tr("Statut"), status[i.status]) : null,
+      ].filter((x): x is string => !!x),
     };
   },
   async run({ userId }, i) {

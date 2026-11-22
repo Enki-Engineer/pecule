@@ -50,7 +50,8 @@ async function finta<T>(path: string, params: Record<string, string | number | u
   const url = new URL(BASE + path);
   for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, String(v));
   for (let attempt = 0; attempt < 4; attempt++) {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${env.FINTA_API_KEY}` } });
+    // Délai : une réponse qui ne vient jamais ne garde pas le verrou de synchronisation.
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${env.FINTA_API_KEY}` }, signal: AbortSignal.timeout(60_000) });
     if (res.status === 429) {
       const wait = Math.min(120, Number(res.headers.get("retry-after") ?? 30));
       await new Promise((r) => setTimeout(r, wait * 1000));
@@ -239,7 +240,8 @@ export async function syncFromFinta(source: string): Promise<SyncResult | null> 
 
 /** Connexions bancaires Finta (état, reconnexion nécessaire). */
 export async function fintaConnections() {
-  if (!fintaEnabled()) return { bankConnections: [] };
+  // Jamais depuis une session de démo : ce sont les vraies connexions du foyer, lues avec sa clé.
+  if (!fintaEnabled() || isDemo()) return { bankConnections: [] };
   return finta<{ bankConnections?: unknown[] }>("/bank-connections", { status: "all" });
 }
 

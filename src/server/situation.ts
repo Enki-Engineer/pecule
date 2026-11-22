@@ -101,7 +101,8 @@ async function loanSummaries(userId: number, ids: string[]) {
 
 /** Indicateurs d'un bien : valeur (placement lié), capital restant dû, équité, rendement brut (locatif). */
 async function propertyFigures(userId: number, p: PropertyRow) {
-  const asset = p.asset_id ? await one<{ value: number | null; share: number; value_date: string | null }>("SELECT value, share, value_date FROM assets WHERE id = ?", [p.asset_id]) : undefined;
+  // Placement commun ou à ce membre : la valeur du placement privé d'un autre, rattaché à un bien commun, ne lui est pas montrée.
+  const asset = p.asset_id ? await one<{ value: number | null; share: number; value_date: string | null }>("SELECT value, share, value_date FROM assets WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)", [p.asset_id, userId]) : undefined;
   const loans = await loanSummaries(userId, (p.loan_ids ?? "").split(",").map((s) => s.trim()).filter(Boolean));
   const value = n(asset?.value);
   const debt = r2(loans.reduce((s, l) => s + l.remaining, 0));
@@ -286,6 +287,15 @@ export async function saveCommitment(userId: number, id: number | null, b: Commi
     .filter(([k]) => (b as Record<string, unknown>)[k] !== undefined)
     .map(([k, col]) => [col, (b as Record<string, unknown>)[k]] as const);
   if (b.private !== undefined) cols.push(["owner_user_id", b.private ? userId : null] as const);
+  // Le motif est exécuté par la base, dont les expressions ne sont pas celles de JavaScript : il lui est soumis avant
+  // d'être écrit (un motif qu'elle refuse ferait échouer chaque enregistrement suivant).
+  if (b.labelRegex) {
+    const accepted = await one("SELECT '' REGEXP ? AS ok", [b.labelRegex]).then(
+      () => true,
+      () => false,
+    );
+    if (!accepted) throw new ActionError(400, tr("Ce motif de libellé n'est pas une expression valide."));
+  }
   if (id == null) {
     if (!b.label) throw new ActionError(400, tr("Intitulé requis"));
     const all = [...cols, ["source", b.source ?? "manuel"] as const, ["source_ref", b.sourceRef ?? null] as const];

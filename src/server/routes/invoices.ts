@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Router, raw, type Request } from "express";
 import { z } from "zod";
 import { exec, one, q } from "../db.ts";
@@ -125,6 +126,10 @@ invoicesApi.post("/invoices", hourly(240), raw({ type: () => true, limit: MAX_FI
   if (!Buffer.isBuffer(content) || !content.length) throw new ActionError(400, tr("Fichier vide"));
   const mime = (req.get("content-type") ?? "application/octet-stream").split(";")[0].trim().toLowerCase();
   if (!ACCEPTED.has(mime)) throw new ActionError(400, tr("Formats acceptés : PDF ou photo (JPEG, PNG, HEIC)"));
+  // Même fichier que la facture privée d'un autre membre : elle n'est ni rendue, ni reliée à une opération de celui-ci
+  // (sa ventilation en livrerait les montants par catégorie).
+  const hash = createHash("sha256").update(content).digest("hex");
+  if (await one(`SELECT 1 AS x FROM invoices i WHERE i.file_sha256 = ? AND NOT ${invoiceVisible(req.user!.id)} LIMIT 1`, [hash])) throw new ActionError(409, tr("Facture déjà connue"));
   res.json(await createInvoiceFromFile({ name: meta.name, mime, content }, { accountsSql: userAccounts(req), transactionId: meta.transaction }));
 });
 

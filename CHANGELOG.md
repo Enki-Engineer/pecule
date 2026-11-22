@@ -3,6 +3,71 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.36.1
+
+Version de sécurité, issue d'une revue complète avant diffusion : aucune faille joignable sans être membre du foyer,
+mais plusieurs défauts entre membres, dans l'assistant et dans la chaîne de publication. Aucune migration ; un seul
+changement de valeur par défaut (`NODE_ENV`, ci-dessous).
+
+- **La déclaration d'impôt d'un membre reste la sienne.** À la relecture d'un avis dans l'import massif, le choix
+  « Déclaration » proposait tous les membres : un membre pouvait ainsi lire les chiffres de la déclaration
+  personnelle d'un autre (dans les écarts affichés), puis l'écraser en validant. Celui qui relit ne retient plus que
+  la déclaration commune ou la sienne ; un avis au nom d'un autre membre lui est renvoyé.
+- **Un document que l'IA n'a pas reconnu reste privé.** Déposé alors que l'IA est absente ou en panne, un bulletin de
+  paie devenait commun au foyer. Il appartient désormais à celui qui le dépose, qui le partage depuis sa fiche.
+- **Couper d'un coup les accès d'un membre.** Réglages → Compte et sécurité : sur la ligne d'un autre membre,
+  l'administrateur a « Couper ses accès » (appareil perdu, départ du foyer). Retirer ses clés d'accès fermait ses
+  sessions, mais son lien de calendrier, ses jetons de dépôt et ses applications connectées restaient valides.
+- **La mémoire de l'assistant passe par « Confirmer ».** Il retenait un fait sans rien demander : un texte venu
+  d'ailleurs — le libellé d'un virement, un document déposé — pouvait s'y faire inscrire et orienter toutes les
+  conversations suivantes. Il propose maintenant la phrase exacte, que tu confirmes ; oublier un fait aussi.
+- **Une confirmation montre tout ce qu'elle écrit.** Notes, résumé, hypothèses : tout texte libre d'une action
+  s'affiche dans sa confirmation (au lieu de « notes réécrites »), et un objectif modifié y est nommé, statut et
+  placement lié compris.
+- **Entre membres, ce qui est privé le reste aussi par les détours** : libellés d'articles d'une facture privée
+  (outil `get_transaction`), nom et montants d'un engagement privé (prélèvements, import d'un contrat), valeur d'un
+  placement privé rattaché à un bien ou à un objectif commun, facture privée reliée à une opération par le dépôt du
+  même fichier, résultat de la synchro crypto (rendu au seul titulaire), comptages de l'assistant.
+- **Mode démo** : il ne lit plus les connexions bancaires réelles (Finta), ne ferme plus les vraies sessions par
+  « Déconnecter mes autres appareils », ne fait plus chercher le logo d'une crypto inventée, et une annulation
+  enregistrée en démo ne se rejoue plus sur la vraie base.
+- **Applications connectées (OAuth) et serveur MCP** : une application ne reçoit jamais plus que ce qu'elle demande
+  (les actions ne se proposent que si elle les demande, et l'écran dit qu'elles comprennent des suppressions et des
+  réglages) ; un programme de l'ordinateur ne s'affiche plus sous le nom d'un assistant reconnu ; les lots de
+  messages sont bornés (20, exécutés un à un) et le débit limité par accès ; deux renouvellements simultanés d'un
+  jeton n'aboutissent plus tous deux ; l'enregistrement ouvert ne peut plus remplir la base ; la version en service
+  n'est dite qu'à l'administrateur ; une erreur inattendue d'un outil ne cite plus la requête.
+- **Restauration d'une sauvegarde** : la session ouverte avec le code d'installation se ferme dès qu'un foyer existe
+  (elle valait six heures, et pouvait encore faire passer le service en maintenance) ; les tailles qu'annonce une
+  archive sont bornées avant toute réservation de mémoire ; les instructions d'une archive n'admettent que des
+  valeurs écrites en clair et une structure qui ne lit aucune autre base. Ne restaure que tes propres archives : une
+  sauvegarde porte aussi les accès (clés, jetons, applications connectées).
+- **Requêtes sortantes** : le stockage extérieur n'admet `http://` que vers un appareil du réseau du serveur (un
+  NAS), jamais d'identifiants dans l'adresse ; l'adresse d'un fournisseur d'IA saisie à la main est recontrôlée à
+  chaque appel, sans suivre de redirection ; celle d'un abonnement aux notifications avant chaque envoi ; les
+  téléchargements de logos s'arrêtent à leur taille maximale ; la lecture Finta a un délai.
+- **Un motif de libellé que la base refuse** n'est plus enregistré (il faisait échouer chaque enregistrement
+  d'engagement suivant).
+
+Pour celui qui héberge :
+
+- **`NODE_ENV` vaut « production » sans rien dire** (c'était « development ») : une installation dont le `.env`,
+  écrit à la main, n'avait pas cette ligne ne tourne plus en mode développement. Rien ne change pour une
+  installation réglée par `setup.mjs` ou par Docker ; le développement (`pnpm dev`) le demande déjà.
+- **Docker** : conteneurs sans droits superflus (`no-new-privileges` partout, aucune capacité pour le serveur, trois
+  pour le service « reglages »), administrateur de la base joignable depuis son seul conteneur (installations
+  neuves), image de base épinglée par son empreinte. Essayé sur une installation neuve, puis à un second démarrage.
+- **Publication** : actions des flux épinglées par l'empreinte de leur commit et suivies par Dependabot ;
+  `latest`, `1` et `1.36` ne reculent plus quand une ancienne version est republiée ; attestation de provenance de
+  l'archive et de l'image dès que le dépôt est public (`gh attestation verify`, guide de mise à jour) ; plus de cache
+  partagé ni de jeton laissé dans le dépôt cloné pendant le build.
+- **Installation** : `setup.mjs` lit l'adresse de la base dans `PECULE_BASE` (hors des arguments de la commande) et
+  écrit `.env` d'un seul geste, déjà fermé ; l'installateur refuse un miroir en `http://` ; le guide dit de fermer le
+  port du serveur au pare-feu hors Docker ; `AGENTS.md` ne fait plus lire le `.env` à l'agent.
+
+Essais : 739 tests ; 34 scénarios rejoués contre une instance locale (membre contre membre, démo, OAuth, serveur
+MCP, restauration) ; installation Docker neuve ; écrans contrôlés sur téléphone et ordinateur.
+
 ## 1.36.0
 
 Une présentation de bienvenue accueille chaque nouveau membre à sa première connexion, et le mène jusqu'à sa banque

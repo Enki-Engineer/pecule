@@ -29,6 +29,8 @@ const HELP = `Prépare une installation de Pécule : écrit le fichier de régla
   node scripts/setup.mjs --base "mysql://utilisateur:motdepasse@hote:3306/pecule" [--url …] [--port 3000] [--base-demo "mysql://…"]
       hébergement Node, avec une base MySQL ou MariaDB déjà créée. Sans --url : http://localhost:<port>.
       La base est essayée avant d'écrire quoi que ce soit : si elle ne répond pas, la commande le dit.
+      Sur une machine partagée, donne plutôt l'adresse par la variable PECULE_BASE (et PECULE_BASE_DEMO) : les
+      arguments d'une commande, mot de passe compris, se lisent par « ps » depuis un autre compte.
 
 Options : --fichier <chemin> (défaut .env) · --force (remplace un fichier existant) · --json (résultat pour un outil)
 Le lien du premier démarrage se redemande à tout moment : node scripts/lien.mjs`;
@@ -154,7 +156,9 @@ async function keepSettings() {
 
 // ---------- Sur la machine : le fichier .env ----------
 const docker = flag("docker");
-const base = value("base");
+// L'adresse de la base porte son mot de passe : la variable PECULE_BASE la donne sans l'écrire parmi les arguments
+// de la commande, que tout compte de la machine peut lire (« ps »).
+const base = value("base") ?? (process.env.PECULE_BASE?.trim() || undefined);
 const file = value("fichier") ?? ".env";
 const port = Number(value("port") ?? 3000);
 const url = (value("url") ?? `http://localhost:${port}`).replace(/\/+$/, "");
@@ -212,7 +216,7 @@ if (docker) {
   if (caddy) lines.push("COMPOSE_PROFILES=https");
 } else {
   lines.push(`PORT=${port}`, `DATABASE_URL=${base}`);
-  const demo = value("base-demo");
+  const demo = value("base-demo") ?? (process.env.PECULE_BASE_DEMO?.trim() || undefined);
   if (demo) lines.push(`DEMO_DATABASE_URL=${demo}`);
 }
 // Port déjà pris sur cette machine ? On prévient avant le démarrage (rien n'empêche d'écrire les réglages).
@@ -222,8 +226,12 @@ const busy = await new Promise((resolve) => {
   probe.once("listening", () => probe.close(() => resolve(false)));
   probe.listen(port, "127.0.0.1");
 });
-writeFileSync(file, `${lines.join("\n")}\n`, { mode: 0o600 });
-chmodSync(file, 0o600); // un fichier déjà là (--force) garde sinon ses anciens droits
+// Écrit à côté, déjà fermé (0600), puis mis à sa place : les secrets ne passent jamais par un fichier aux droits de
+// celui qu'il remplace (--force), et une écriture interrompue ne laisse pas un fichier à moitié écrit.
+const draft = `${file}.${randomBytes(6).toString("hex")}.partiel`;
+writeFileSync(draft, `${lines.join("\n")}\n`, { mode: 0o600 });
+chmodSync(draft, 0o600);
+renameSync(draft, file);
 
 // Le lien du premier démarrage porte le code : il n'y a plus qu'un prénom à donner à l'écran.
 const link = `${url}/#code=${setupCode}`;

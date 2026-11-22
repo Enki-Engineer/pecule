@@ -201,6 +201,43 @@ describe("instructions admises à la restauration", () => {
     expect(allowedRestoreStatement("CREATE OR REPLACE VIEW `v` AS select `autre`.`secrets`.`cle` AS `cle` from `a`", "structure")).toBe(false);
     expect(allowedRestoreStatement("INSERT INTO `users` (`id`) VALUES (1)", "donnees", "users; drop")).toBe(false);
   });
+  it("n'admet dans les données que des valeurs écrites en clair", async () => {
+    const { allowedRestoreStatement, InsertBuilder, sqlValue } = await import("./backup-format.ts");
+    const b = new InsertBuilder("INSERT INTO `t` (`a`, `b`, `c`, `d`) VALUES ");
+    b.add([sqlValue(Buffer.from("-12.50"), "nombre"), sqlValue(Buffer.from("l'été\n(select 1), 'x'\\"), "texte"), sqlValue(Buffer.from([0, 255]), "binaire"), sqlValue(null, "texte")]);
+    b.add([sqlValue(Buffer.from("1e5"), "nombre"), sqlValue(Buffer.alloc(0), "texte"), sqlValue(Buffer.alloc(0), "binaire"), sqlValue(Buffer.from("x"), "nombre")]);
+    for (const line of b.end() ?? []) expect(allowedRestoreStatement(line, "donnees", "t"), line).toBe(true);
+    for (const values of ["((select `cle` from `autre`.`secrets` limit 1))", "(load_file('/etc/passwd'))", "(1); DROP TABLE `users`", "(1),(sleep(5))", "('a''b')", "(1) ON DUPLICATE KEY UPDATE `id` = 2", "(1),", "(@@version)", "(1 + 1)"])
+      expect(allowedRestoreStatement(`INSERT INTO \`t\` (\`a\`) VALUES ${values}`, "donnees", "t"), values).toBe(false);
+  });
+  it("refuse une structure qui lirait ailleurs par un détour", async () => {
+    const { allowedRestoreStatement } = await import("./backup-format.ts");
+    for (const s of [
+      // Jointure par virgule, commentaire à la place de l'espace, sous-requête, groupe de jointures, fonction d'une autre base.
+      "CREATE OR REPLACE VIEW `v` AS select `x`.`cle` AS `cle` from `users` `u`,`autre`.`secrets` `x`",
+      "CREATE OR REPLACE VIEW `v` AS select `autre`.`cle` AS `cle` from `users` `autre`,`autre`.`secrets`",
+      "CREATE OR REPLACE VIEW `v` AS select 1 AS `a` from/**/autre.secrets",
+      "CREATE OR REPLACE VIEW `v` AS select (select max(`s`.`cle`) from `users` `u`, autre.secrets `s`) AS `a` from `users`",
+      "CREATE OR REPLACE VIEW `v` AS select 1 AS `a` from (`users` `u` join (`a` `b`, `autre`.`secrets` `s`))",
+      "CREATE OR REPLACE VIEW `v` AS select `autre`.`f`(1) AS `a` from `users`",
+      "CREATE OR REPLACE VIEW `v` AS select load_file('/etc/passwd') AS `a`",
+      "CREATE OR REPLACE VIEW `v` AS select 1 AS `a` union table autre.secrets",
+      "CREATE TABLE `t` (`d` int) TABLE autre.secrets",
+      "CREATE TABLE `t` (`d` text DEFAULT (load_file('/etc/passwd')))",
+      "CREATE TABLE `t` (`d` int) ENGINE=InnoDB DATA DIRECTORY='/tmp'",
+      "CREATE TABLE `t` (`d` int) ENGINE=FEDERATED CONNECTION='mysql://u@h/b/t'",
+      "CREATE TABLE `t` (`d` int, CONSTRAINT `fk` FOREIGN KEY (`d`) REFERENCES `autre`.`t` (`id`))",
+      "CREATE TABLE `t` (`d` int); DROP TABLE `users`",
+    ])
+      expect(allowedRestoreStatement(s, "structure"), s).toBe(false);
+  });
+  it("admet toute la structure d'une installation neuve", async () => {
+    const { allowedRestoreStatement, schemaStatements } = await import("./backup-format.ts");
+    const { readFileSync } = await import("node:fs");
+    const all = schemaStatements(readFileSync(new URL("../../drizzle/initial/schema.sql", import.meta.url), "utf8"));
+    expect(all.length).toBeGreaterThan(40);
+    for (const s of all) expect(allowedRestoreStatement(s, "structure"), s.slice(0, 120)).toBe(true);
+  });
 });
 
 describe("sauvegarde d'avant migration", () => {

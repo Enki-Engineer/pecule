@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { JOINT, proposedOwner, salaryReturn, taxYears, type ReturnFigures } from "./taxes.ts";
+import { JOINT, allowedOwner, proposedOwner, salaryReturn, taxYears, type ReturnFigures } from "./taxes.ts";
 
 const ret = (income_year: number, owner_user_id: number, taxable_income: number | null, net_tax: number | null, more: Partial<ReturnFigures> = {}): ReturnFigures => ({
   income_year,
@@ -43,6 +43,16 @@ describe("salaryReturn", () => {
     expect(salaryReturn(1, [JOINT])).toBe(JOINT);
     expect(salaryReturn(1, [1, 2])).toBe(1);
     expect(salaryReturn(2, [JOINT, 1])).toBe(JOINT);
+  });
+});
+
+describe("allowedOwner", () => {
+  it("n'admet que la déclaration commune ou celle de celui qui relit", () => {
+    expect(allowedOwner(JOINT, 2)).toBe(JOINT);
+    expect(allowedOwner(2, 2)).toBe(2);
+    // La déclaration personnelle d'un autre membre ne se lit ni ne s'écrit par la relecture d'un avis.
+    expect(allowedOwner(1, 2)).toBeNull();
+    expect(allowedOwner(Number("abc"), 2)).toBeNull();
   });
 });
 

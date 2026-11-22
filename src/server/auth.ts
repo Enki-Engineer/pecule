@@ -434,6 +434,36 @@ authRouter.post("/users/:id/enrollment", requireAuth, async (req, res) => {
   res.json({ link: await createEnrollmentLink(id) });
 });
 
+/**
+ * Tout ce qui laisse entrer un membre, coupé d'un coup : clés d'accès, sessions, liens d'inscription, jetons (dépôt,
+ * calendrier, administration), accords donnés à des applications, notifications de ses appareils. Le membre et ses
+ * données restent ; il revient par un nouveau lien d'inscription.
+ */
+export async function revokeMemberAccess(userId: number): Promise<void> {
+  await exec("DELETE FROM sessions WHERE user_id = ?", [userId]);
+  await exec("DELETE FROM passkeys WHERE user_id = ?", [userId]);
+  await exec("DELETE FROM auth_challenges WHERE user_id = ?", [userId]);
+  await exec("UPDATE enrollment_tokens SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND used_at IS NULL", [userId]);
+  await exec("UPDATE api_tokens SET revoked_at = UTC_TIMESTAMP() WHERE user_id = ? AND revoked_at IS NULL", [userId]);
+  await exec("UPDATE oauth_grants SET revoked_at = UTC_TIMESTAMP() WHERE user_id = ? AND revoked_at IS NULL", [userId]);
+  await exec("DELETE FROM oauth_codes WHERE user_id = ?", [userId]);
+  await exec("DELETE FROM push_subscriptions WHERE user_id = ?", [userId]);
+}
+
+/**
+ * Couper tous les accès d'un autre membre (appareil perdu, membre qui quitte le foyer) : par l'administrateur
+ * seulement. Retirer ses clés d'accès une à une fermait ses sessions, mais laissait valides son lien de calendrier,
+ * ses jetons de dépôt et les applications qu'il avait connectées.
+ */
+authRouter.post("/users/:id/revoke-access", requireAdmin, async (req, res) => {
+  const id = z.coerce.number().int().parse(req.params.id);
+  // Ses propres accès : un par un, pour ne pas s'enfermer dehors.
+  if (id === req.user!.id) return res.status(400).json({ error: tr("Tes propres accès se retirent un par un, dans cette liste.") });
+  if (!(await one("SELECT id FROM users WHERE id = ?", [id]))) return res.status(404).json({ error: tr("Utilisateur introuvable") });
+  await revokeMemberAccess(id);
+  res.json({ ok: true });
+});
+
 authRouter.delete("/passkeys/:idHash", requireAuth, async (req, res) => {
   const key = await one<{ user_id: number }>("SELECT user_id FROM passkeys WHERE id_hash = ?", [req.params.idHash]);
   if (!key) return res.status(404).json({ error: tr("Clé introuvable") });

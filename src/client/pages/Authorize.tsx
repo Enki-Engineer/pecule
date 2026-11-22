@@ -13,7 +13,7 @@ type Pending = { client: string | null; known: boolean; redirectHost: string; lo
 
 const OPTIONS = [
   { actions: false, icon: Eye, title: t("Lecture seule"), text: t("Consulter tes opérations, ton budget, ton patrimoine, tes factures et tes documents.") },
-  { actions: true, icon: PencilLine, title: t("Lecture et actions"), text: t("En plus : classer des opérations, relier des factures, modifier un placement… C'est l'assistant qui te demande ton accord avant chaque action, pas Pécule.") },
+  { actions: true, icon: PencilLine, title: t("Lecture et actions"), text: t("En plus : classer des opérations, relier ou supprimer des factures, modifier un placement, changer des réglages… C'est l'assistant qui te demande ton accord avant chaque action, pas Pécule.") },
 ];
 
 /**
@@ -89,7 +89,8 @@ export function Authorize() {
             )}
           </div>
           <div className="mt-4 space-y-2" role="radiogroup" aria-label={t("Étendue de l'accès")}>
-            {OPTIONS.map((o) => (
+            {/* Les actions ne se proposent que si l'application les demande : jamais plus que sa demande. */}
+            {OPTIONS.filter((o) => !o.actions || d.actionsRequested).map((o) => (
               <button
                 key={o.title}
                 type="button"

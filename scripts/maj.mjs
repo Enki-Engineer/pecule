@@ -275,7 +275,9 @@ async function installArchive() {
   if (sums && !wanted) giveUp(`SHA256SUMS ne connaît pas ${path.basename(archive)} : rien n'a été remplacé.`);
   if (wanted) {
     if ((await sha256(archive)) !== wanted) giveUp("L'empreinte de l'archive n'est pas celle de SHA256SUMS (téléchargement abîmé, ou fichier remplacé) : rien n'a été remplacé.");
-    say("✓ Empreinte de l'archive contrôlée");
+    // Dit ce que le contrôle prouve : l'archive est arrivée entière. Les empreintes viennent du même endroit qu'elle ;
+  // son origine se vérifie par l'attestation de provenance de la version (docs/guide/mise-a-jour.md).
+  say("✓ Archive arrivée intacte (empreinte contrôlée)");
   } else say("! Pas de fichier SHA256SUMS à côté de l'archive : son empreinte n'est pas contrôlée.");
 
   if (!untar(archive, work)) giveUp("L'archive n'a pas pu être dépliée : rien n'a été remplacé.");

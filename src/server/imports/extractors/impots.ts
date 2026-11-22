@@ -3,7 +3,7 @@ import { ActionError } from "../../actions.ts";
 import { one, q } from "../../db.ts";
 import { listMembers } from "../../members.ts";
 import { near } from "../../../lib/imports.ts";
-import { JOINT, proposedOwner, salaryReturn } from "../../../lib/taxes.ts";
+import { allowedOwner, JOINT, proposedOwner, salaryReturn } from "../../../lib/taxes.ts";
 import { t, tk } from "../../../lib/i18n.ts";
 import { diffs, money, num, str, type Extractor } from "../registry.ts";
 
@@ -38,14 +38,29 @@ type Avis = z.infer<typeof avisParse>;
  * Déclarant retenu pour cet avis : le choix fait à la relecture, sinon celui que l'avis laisse deviner
  * (`proposedOwner`). Une année déjà enregistrée comme déclaration du foyer, sans déclaration du membre, reste
  * proposée commune : relire un ancien avis met à jour la ligne en place au lieu d'en créer une seconde.
+ *
+ * Celui qui relit ne retient que la déclaration commune ou la sienne (`allowedOwner`) : la déclaration personnelle
+ * d'un autre membre ne se lit ni ne s'écrit par là. `null` : l'avis est au nom d'un autre membre, et rien de permis
+ * n'a été choisi — il n'est alors comparé à rien, et sa validation est refusée.
  */
-async function ownerOf(d: Avis, members: { id: number; name: string }[]): Promise<number> {
-  const chosen = d.owner == null ? null : Number(d.owner);
-  if (chosen != null && (chosen === JOINT || members.some((m) => m.id === chosen))) return chosen;
+async function ownerOf(d: Avis, members: { id: number; name: string }[], userId: number): Promise<number | null> {
+  const chosen = d.owner == null ? null : allowedOwner(Number(d.owner), userId);
+  if (chosen != null) return chosen;
   const proposed = proposedOwner({ situation: d.situation, declarants: d.salaries.map((x) => x.first_name) }, members);
   if (proposed === JOINT) return JOINT;
   const owners = (await q<{ owner_user_id: number }>("SELECT owner_user_id FROM tax_returns WHERE income_year = ?", [d.income_year])).map((r) => r.owner_user_id);
-  return owners.includes(JOINT) && !owners.includes(proposed) ? JOINT : proposed;
+  return allowedOwner(owners.includes(JOINT) && !owners.includes(proposed) ? JOINT : proposed, userId);
+}
+
+/** Refus d'un avis au nom d'un autre membre : c'est à lui de l'enregistrer comme sa déclaration. */
+function notYours(d: Avis, members: { id: number; name: string }[]): ActionError {
+  const other = members.find((m) => m.id === proposedOwner({ situation: d.situation, declarants: d.salaries.map((x) => x.first_name) }, members))?.name;
+  return new ActionError(
+    400,
+    other
+      ? t("Cet avis est au nom de {nom} : c'est à {nom} de l'enregistrer comme sa déclaration. S'il s'agit de celle du foyer, choisis « Commune (foyer) ».", { nom: other })
+      : t("Choisis à qui est cette déclaration : commune au foyer, ou la tienne."),
+  );
 }
 
 const AVIS_LABELS = {
@@ -95,13 +110,24 @@ export const avisImpot: Extractor<Avis> = {
   parse: avisParse,
   rejected: (d) => !d.is_income_tax_notice,
   title: (d) => t("Avis d'impôt — revenus {annee}", { annee: d.income_year }),
-  async fields(d) {
+  async fields(d, ctx) {
     const members = await listMembers();
+    const owner = await ownerOf(d, members, ctx.userId);
     return [
     { key: "income_year", label: tk("Année des revenus"), type: "annee", value: d.income_year, required: true },
     // Un foyer de plusieurs membres : l'avis est celui du foyer (imposition commune) ou celui d'un seul membre.
     ...(members.length > 1
-      ? [{ key: "owner", label: tk("Déclaration"), type: "choix" as const, value: String(await ownerOf(d, members)), options: [{ value: String(JOINT), label: t("Commune (foyer)") }, ...members.map((m) => ({ value: String(m.id), label: t("Personnelle : {nom}", { nom: m.name }) }))], required: true }]
+      ? [
+          {
+            key: "owner",
+            label: tk("Déclaration"),
+            type: "choix" as const,
+            value: owner == null ? null : String(owner),
+            // La déclaration commune ou celle de celui qui relit : jamais celle d'un autre membre.
+            options: [{ value: String(JOINT), label: t("Commune (foyer)") }, ...members.filter((m) => m.id === ctx.userId).map((m) => ({ value: String(m.id), label: t("Personnelle : {nom}", { nom: m.name }) }))],
+            required: true,
+          },
+        ]
       : []),
     ...(Object.keys(AVIS_LABELS) as (keyof typeof AVIS_LABELS)[]).map((k) => ({
       key: k,
@@ -120,9 +146,10 @@ export const avisImpot: Extractor<Avis> = {
     if (d.taxable_income != null && d.rfr != null) out.push({ ok: d.rfr >= d.taxable_income - 1, label: t("Revenu fiscal de référence au moins égal au revenu imposable") });
     return out;
   },
-  async existing(d) {
+  async existing(d, ctx) {
     const members = await listMembers();
-    const owner = await ownerOf(d, members);
+    const owner = await ownerOf(d, members, ctx.userId);
+    if (owner == null) return null;
     const row = await one<Record<string, unknown>>("SELECT * FROM tax_returns WHERE income_year = ? AND owner_user_id = ?", [d.income_year, owner]);
     if (!row) return null;
     const out = diffs(row, d, AVIS_LABELS);
@@ -140,7 +167,8 @@ export const avisImpot: Extractor<Avis> = {
   async apply(d, ctx, track) {
     const { is_income_tax_notice: _, income_year, salaries, owner: _owner, ...values } = d;
     const members = await listMembers();
-    const owner = await ownerOf(d, members);
+    const owner = await ownerOf(d, members, ctx.userId);
+    if (owner == null) throw notYours(d, members);
     const done = await track.upsert("tax_returns", { income_year, owner_user_id: owner }, { ...values, document_id: ctx.documentId });
     // Salaires : rattachés aux membres du foyer par leur prénom ; un déclarant inconnu n'est pas inventé. Sur une
     // déclaration personnelle, seul le salaire de son déclarant est écrit.

@@ -778,9 +778,9 @@ admin.post("/import/accounts", async (req, res) => {
     .parse(req.body);
   let created = 0;
   for (const a of list) {
-    // Comptes connus seulement de Notion (cartes remplacées) : masqués mais comptés dans les statistiques.
+    // Comptes connus seulement de l'outil repris (cartes remplacées) : masqués mais comptés dans les statistiques.
     const r = await exec(
-      "INSERT IGNORE INTO accounts (id, name, institution, owner, kind, hidden, source) VALUES (?, ?, ?, ?, ?, 1, 'notion')",
+      "INSERT IGNORE INTO accounts (id, name, institution, owner, kind, hidden, source) VALUES (?, ?, ?, ?, ?, 1, 'reprise')",
       [a.id, a.name, a.institution, a.owner, a.kind],
     );
     created += r.affectedRows;
@@ -808,11 +808,11 @@ admin.post("/import/transactions", async (req, res) => {
     const key = labelKey(t.label, t.merchant);
     const r = await exec(
       `INSERT INTO transactions (id, account_id, date, amount, label, merchant, label_key, status, category_id, category_source, origin)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'posted', ?, ?, 'notion')
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'posted', ?, ?, 'reprise')
        ON DUPLICATE KEY UPDATE
          category_id = IF(category_source IS NULL OR category_source IN ('auto', 'regle'), COALESCE(VALUES(category_id), category_id), category_id),
-         category_source = IF(category_source IS NULL OR category_source IN ('auto', 'regle'), IF(VALUES(category_id) IS NULL, category_source, 'notion'), category_source)`,
-      [t.id, t.accountId, t.date, t.amount, t.label.slice(0, 512), t.merchant, key, t.categoryId, t.categoryId ? "notion" : null],
+         category_source = IF(category_source IS NULL OR category_source IN ('auto', 'regle'), IF(VALUES(category_id) IS NULL, category_source, 'reprise'), category_source)`,
+      [t.id, t.accountId, t.date, t.amount, t.label.slice(0, 512), t.merchant, key, t.categoryId, t.categoryId ? "reprise" : null],
     );
     if (r.affectedRows === 1) inserted++;
     if (t.categoryId) categorized++;
@@ -949,7 +949,7 @@ admin.post("/import/loans", async (req, res) => {
 });
 
 
-/** Reprise du patrimoine (Notion) : placements, positions crypto, instantanés historiques. Idempotent. */
+/** Reprise du patrimoine depuis un autre outil : placements, positions crypto, instantanés historiques. Idempotent. */
 admin.post("/import/wealth", async (req, res) => {
   const body = z
     .object({
@@ -1018,8 +1018,8 @@ admin.post("/import/wealth", async (req, res) => {
   }
   for (const s of body.snapshots) {
     await exec(
-      `INSERT INTO wealth_snapshots (user_id, date, gross, debts, net, source) VALUES (?, ?, ?, ?, ?, 'notion')
-       ON DUPLICATE KEY UPDATE gross = IF(source = 'notion', VALUES(gross), gross), debts = IF(source = 'notion', VALUES(debts), debts), net = IF(source = 'notion', VALUES(net), net)`,
+      `INSERT INTO wealth_snapshots (user_id, date, gross, debts, net, source) VALUES (?, ?, ?, ?, ?, 'reprise')
+       ON DUPLICATE KEY UPDATE gross = IF(source = 'reprise', VALUES(gross), gross), debts = IF(source = 'reprise', VALUES(debts), debts), net = IF(source = 'reprise', VALUES(net), net)`,
       [await userId(s.owner), s.date, s.gross, s.debts, s.net],
     );
   }
@@ -1033,7 +1033,7 @@ admin.get("/wealth/:name", async (req, res) => {
   res.json(await computeWealth(user.id));
 });
 
-/** Contrôle : totaux mensuels par catégorie (comparaison avec Notion après import). */
+/** Contrôle : totaux mensuels par catégorie (comparaison avec l'outil d'origine après une reprise). */
 admin.get("/check/monthly", async (req, res) => {
   res.json({
     rows: await q(

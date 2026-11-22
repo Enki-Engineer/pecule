@@ -407,7 +407,7 @@ export async function unlinkInvoice(invoiceId: number, txId: string) {
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Les catégories venues des factures ne remplacent ni un choix manuel ni l'historique Notion (sauf « Divers »). */
+/** Les catégories venues des factures ne remplacent ni un choix manuel ni l'historique repris d'un autre outil (sauf « Divers »). */
 const OVERRIDABLE = "(category_id IS NULL OR category_source IN ('auto', 'regle', 'facture') OR category_id = 'B12-02')";
 
 /**

@@ -47,7 +47,7 @@ export function factValue(value: string, unit?: string | null) {
   return `${value} ${unit}`;
 }
 
-/** Faits clés (libellé → valeur), repris de Notion ou saisis. */
+/** Faits clés (libellé → valeur), repris d'un autre outil ou saisis. */
 export function FactsCard({ facts }: { facts: { label: string; value: string; unit?: string | null; as_of?: string | null }[] }) {
   if (!facts.length) return null;
   return (

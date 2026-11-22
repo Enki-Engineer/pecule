@@ -203,7 +203,7 @@ documentsApi.delete("/tokens/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-/* ---------- Administration (jeton d'API) : reprise Notion ---------- */
+/* ---------- Administration (jeton d'API) : reprise depuis un autre outil ---------- */
 
 export const documentsAdmin = Router();
 
@@ -223,7 +223,7 @@ documentsAdmin.post("/documents", async (req, res) => {
       facts: z.array(z.object({ label: z.string(), value: z.string() })).max(30).nullable().optional(),
       text: z.string().nullable().optional(),
       file: z.object({ name: z.string().min(1).max(255), mime: z.string().max(80), base64: z.string().min(1) }).nullable().optional(),
-      source: z.string().max(16).default("notion"),
+      source: z.string().max(16).default("reprise"),
       sourceRef: z.string().max(191).nullable().optional(),
       /** Faire reconnaître le document par Claude (type, titre, dates, résumé, faits) ; ce qui est fourni l'emporte. */
       classify: z.boolean().optional(),
@@ -281,7 +281,7 @@ documentsAdmin.post("/agenda", async (req, res) => {
   const list = z.array(task.extend({ owner: z.string().min(1).max(80).nullable().optional(), sourceRef: z.string().max(191), status: z.enum(["a_faire", "fait"]).optional() })).max(500).parse(req.body);
   for (const t of list) {
     const owner = t.owner ? await memberByName(t.owner) : undefined;
-    await createTask(owner?.id ?? null, { ...t, private: !!owner, source: "notion" });
+    await createTask(owner?.id ?? null, { ...t, private: !!owner, source: "reprise" });
   }
   res.json({ imported: list.length });
 });

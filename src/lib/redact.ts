@@ -1,5 +1,5 @@
 /*
- * Masquage des identifiants sensibles dans le texte indexé (documents, fiches reprises de Notion) :
+ * Masquage des identifiants sensibles dans le texte indexé (documents, fiches reprises d'un autre outil) :
  * n° de Sécurité sociale, IBAN, numéros longs (comptes, contrats, n° fiscaux, SIRET), adresses
  * de portefeuilles crypto. Le fichier d'origine, lui, reste intact dans le coffre.
  */

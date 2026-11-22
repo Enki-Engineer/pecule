@@ -24,7 +24,7 @@ import { audience, setIncomeShared } from "../sharing.ts";
 import { JOINT } from "../../lib/taxes.ts";
 import { t as tr } from "../../lib/i18n.ts";
 
-/** Domaines repris de Notion (biens, budget, impôts, retraite, projections, mouvements crypto) : sous /api. */
+/** Situation du foyer (biens, budget, impôts, retraite, projections, mouvements crypto) : sous /api. */
 export const situationApi = Router();
 
 /** Périmètre choisi dans la barre du haut : « Foyer » par défaut, « Moi » = mes seuls revenus et déclarations. */
@@ -148,7 +148,7 @@ situationApi.get("/crypto/events", async (req, res) => {
   res.json({ events: await cryptoEvents(req.user!.id) });
 });
 
-/* ---------- Administration (jeton d'API) : reprise Notion, idempotente ---------- */
+/* ---------- Administration (jeton d'API) : reprise depuis un autre outil, idempotente ---------- */
 
 export const situationAdmin = Router();
 
@@ -228,7 +228,7 @@ situationAdmin.post("/import/commitments", async (req, res) => {
   const list = z.array(commitmentBody.extend({ label: z.string().min(1).max(160), sourceRef: z.string().max(191), owner: z.string().min(1).max(80).nullable().optional() })).max(300).parse(req.body);
   for (const [i, c] of list.entries()) {
     const owner = await ownerId(c.owner);
-    const id = await saveCommitment(owner ?? req.user!.id, null, { ...c, private: !!owner, source: "notion", sourceRef: c.sourceRef });
+    const id = await saveCommitment(owner ?? req.user!.id, null, { ...c, private: !!owner, source: "reprise", sourceRef: c.sourceRef });
     await exec("UPDATE commitments SET sort_order = ? WHERE source_ref = ? OR id = ?", [i, c.sourceRef, id]);
   }
   res.json({ imported: list.length });
@@ -419,8 +419,8 @@ situationAdmin.post("/import/crypto-events", async (req, res) => {
   res.json({ imported: b.events.length });
 });
 
-/** Règles marchands reprises de Notion : n'écrase jamais une règle déjà créée dans Pécule. */
-situationAdmin.post("/import/notion-rules", async (req, res) => {
+/** Règles de classement reprises d'un autre outil : n'écrase jamais une règle déjà créée dans Pécule. */
+situationAdmin.post("/import/merchant-rules", async (req, res) => {
   const list = z.array(z.object({ pattern: z.string().min(3).max(255), categoryId: z.string().max(16) })).max(500).parse(req.body);
   let added = 0;
   for (const r of list) {

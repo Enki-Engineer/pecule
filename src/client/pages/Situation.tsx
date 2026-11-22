@@ -17,7 +17,7 @@ import { payslipMonths } from "../../lib/payslips.ts";
 import { taxYears } from "../../lib/taxes.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
 
-/* Situation : impôts, retraite, projections (repris de Notion, chiffres recalculés). */
+/* Situation : impôts, retraite, projections (chiffres recalculés). */
 
 const pct = (v: number | null | undefined) => (v == null ? "—" : `${Number(v).toLocaleString(locale(), { maximumFractionDigits: 2 })} %`);
 const docLink = (id: number | null, label: string) => (id ? <Link to={`/documents?id=${id}`} className="text-accent">{label}</Link> : "—");

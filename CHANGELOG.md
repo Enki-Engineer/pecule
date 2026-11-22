@@ -3,6 +3,27 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.37.4
+
+Plus rien dans le code ne nomme l'outil d'où une installation en particulier avait repris son historique. Rien ne
+change à l'écran ; une migration, sans changement de structure ; aucun réglage nouveau.
+
+- **Ce qu'une reprise d'historique écrit porte la valeur « reprise »**, la même pour tout foyer : origine et
+  provenance du classement d'une opération, provenance d'un compte, d'un instantané du patrimoine, d'un document,
+  d'une tâche de l'échéancier et d'un engagement. Ces valeurs ne s'affichent nulle part ; l'assistant, lui, les lit.
+- La consigne de l'assistant ne renvoie plus à des fiches propres à une installation ; les commentaires du code
+  décrivent une reprise « depuis un autre outil ».
+
+Migration `0034_reprise_source` : elle renomme la valeur dans les lignes déjà en base (sept mises à jour, aucune
+structure touchée, rejouable sans effet ; la date de modification des opérations est gardée). Une base qui n'a jamais
+rien repris n'a aucune ligne concernée.
+
+Pour celui qui pilote une reprise par l'API d'administration : la route des règles de classement s'appelle désormais
+`POST /api/admin/import/merchant-rules`, et un document repris sans provenance indiquée reçoit « reprise ».
+
+Essais : migration appliquée à une copie d'une base en service (2 180 lignes renommées dans six colonnes, aucune
+laissée, second passage sans effet) ; schéma de départ régénéré et comparé.
+
 ## 1.37.3
 
 Deux suites de la revue de sécurité. Aucune migration, aucun réglage nouveau.

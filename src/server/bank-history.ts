@@ -57,7 +57,7 @@ export type HistoryReport = {
 /** Jours récents laissés à Finta : la synchro les apporte, avec ses propres identifiants. */
 const RECENT_DAYS = 45;
 /** Catégories choisies par quelqu'un (ou une règle) : les seules dont on apprend. */
-const TRUSTED = new Set(["notion", "manuel", "regle"]);
+const TRUSTED = new Set(["reprise", "manuel", "regle"]);
 
 const daysBefore = (day: string, n: number) => new Date(Date.parse(day) - n * 86400_000).toISOString().slice(0, 10);
 const r2 = (n: number) => Math.round(n * 100) / 100;

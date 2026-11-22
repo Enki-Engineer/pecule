@@ -367,7 +367,7 @@ function ManualEdit({ p, onDone }: { p: CryptoPosition; onDone: () => void }) {
   );
 }
 
-/** Journal des mouvements (achats, ventes, transferts, staking…) repris de Notion. */
+/** Journal des mouvements (achats, ventes, transferts, staking…). */
 function Journal() {
   const [open, setOpen] = useState(false);
   const events = useCryptoEvents();

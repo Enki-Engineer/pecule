@@ -18,7 +18,7 @@ coverage/
 .playwright-mcp/
 # Copies de travail posées par un assistant de code
 .claude/worktrees/
-# Données financières privées (exports Notion, tableaux d'amortissement, dumps) — jamais dans le repo.
+# Données financières privées (exports d'autres outils, tableaux d'amortissement, dumps) — jamais dans le repo.
 data/
 # Marque d'un arbre écrit par scripts/publier.mjs
 .export-pecule

@@ -61,7 +61,7 @@ export const accountPrefs = mysqlTable(
   ],
 );
 
-/** Opérations (id = providerId Finta = colonne ID de l'ancienne base Notion). Statistiques : passer par `tx_lines`. */
+/** Opérations (id = providerId Finta, ou l'identifiant donné par une reprise d'historique). Statistiques : passer par `tx_lines`. */
 export const transactions = mysqlTable(
   "transactions",
   {

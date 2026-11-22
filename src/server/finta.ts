@@ -113,8 +113,8 @@ async function upsertAccounts(): Promise<Map<string, string>> {
       `INSERT INTO accounts (id, name, institution, owner, kind, currency, balance, balance_original, balance_at, hidden, excluded, source)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'finta')
        ON DUPLICATE KEY UPDATE
-         -- Un compte repris de Notion (masqué) et toujours connu de Finta redevient visible.
-         hidden = IF(source = 'notion', VALUES(hidden), hidden), excluded = IF(source = 'notion', VALUES(excluded), excluded),
+         -- Un compte créé par une reprise d'historique (masqué) et toujours connu de Finta redevient visible.
+         hidden = IF(source = 'reprise', VALUES(hidden), hidden), excluded = IF(source = 'reprise', VALUES(excluded), excluded),
          name = VALUES(name), institution = VALUES(institution), currency = VALUES(currency),
          balance_original = IF(VALUES(balance) IS NULL, balance_original, VALUES(balance_original)),
          balance = COALESCE(VALUES(balance), balance), balance_at = COALESCE(VALUES(balance_at), balance_at), source = 'finta'`,

@@ -37,7 +37,7 @@ export type BankImportResult = {
   to: string;
 };
 
-/** Faux noms hérités de la reprise Notion ou de Finta : à traiter comme une absence de nom. */
+/** Faux noms hérités d'une reprise d'historique ou de Finta : à traiter comme une absence de nom. */
 const PLACEHOLDERS = ["Inconnu", "Unknown"];
 const NAMELESS = `(merchant IS NULL OR merchant IN (${PLACEHOLDERS.map((p) => `'${p}'`).join(", ")}))`;
 const nameless = (merchant: string | null) => !merchant || PLACEHOLDERS.includes(merchant);

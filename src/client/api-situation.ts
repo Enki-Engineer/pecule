@@ -4,7 +4,7 @@ import { currentScopeKey } from "./shell.ts";
 import { t } from "../lib/i18n.ts";
 import type { PayslipYear } from "../lib/payslips.ts";
 
-/* Domaines repris de Notion (phase 14) : types et requêtes des écrans. */
+/* Situation du foyer : types et requêtes des écrans. */
 
 export type LoanLine = { id: string; name: string; rate: number | null; endDate: string; remaining: number; monthly: number | null; progress: number };
 export type PropertyFigures = {

@@ -20,7 +20,7 @@ import { ToolError, change, day, money, field, longDate, readTool, today, writeT
 import { t as tr, tk, tn } from "../../lib/i18n.ts";
 import { JOINT, taxYears } from "../../lib/taxes.ts";
 
-/* Domaines repris de Notion : immobilier, budget, impôts, retraite, projections, mouvements crypto. */
+/* Situation du foyer : immobilier, budget, impôts, retraite, projections, mouvements crypto. */
 
 const getProperty = readTool({
   name: "get_property",

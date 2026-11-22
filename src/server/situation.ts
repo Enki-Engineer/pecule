@@ -11,7 +11,7 @@ import { JOINT, salaryReturn, type ReturnFigures } from "../lib/taxes.ts";
 import { audience, type Scope } from "./sharing.ts";
 
 /*
- * Domaines repris de Notion : biens immobiliers, budget (engagements + revenus), impôts, retraite,
+ * Situation du foyer : biens immobiliers, budget (engagements + revenus), impôts, retraite,
  * projections, mouvements crypto. Les écrans, l'assistant et le serveur MCP lisent ces fonctions.
  * Les indicateurs (reste à vivre, équité, rendement…) sont recalculés ici, jamais saisis.
  */

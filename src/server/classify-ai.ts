@@ -78,7 +78,7 @@ export async function proposeClassification(userId: number): Promise<{ proposals
   // Ce que le foyer a classé lui-même : ses libellés les plus fréquents, avec leur catégorie.
   const examples = await q<{ label: string; category_id: string }>(
     `SELECT MAX(t.label) AS label, t.category_id FROM transactions t JOIN ${userAccountsSql(userId)} a ON a.id = t.account_id
-     WHERE t.category_id IS NOT NULL AND t.label_key <> '' AND t.category_source IN ('manuel', 'regle', 'notion') GROUP BY t.label_key, t.category_id ORDER BY COUNT(*) DESC LIMIT 80`,
+     WHERE t.category_id IS NOT NULL AND t.label_key <> '' AND t.category_source IN ('manuel', 'regle', 'reprise') GROUP BY t.label_key, t.category_id ORDER BY COUNT(*) DESC LIMIT 80`,
   );
   const text = [
     await householdSummary(userId).catch(() => ""),

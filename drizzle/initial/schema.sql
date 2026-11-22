@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0033_actif_versements.sql
+-- inclut-jusqu-a: drizzle/0034_reprise_source.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;

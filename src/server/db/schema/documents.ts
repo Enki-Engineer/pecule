@@ -4,7 +4,7 @@ import { users } from "./auth.ts";
 
 /*
  * Coffre de documents (phase 13) : tout fichier qui n'est pas une facture d'achat (avis d'impôt,
- * contrats, actes, baux, diagnostics, relevés, fiches reprises de Notion…). Type et domaine
+ * contrats, actes, baux, diagnostics, relevés, fiches reprises d'un autre outil…). Type et domaine
  * reconnus par Claude, texte extrait pour la recherche plein texte (index FULLTEXT ajouté à la
  * main dans la migration : Drizzle ne sait pas le décrire). Échéancier : tâches et jalons saisis,
  * complétés à la volée par les échéances calculées (prêts, garanties, documents, impôts).
@@ -34,7 +34,7 @@ export const documents = mysqlTable(
     fileMime: varchar("file_mime", { length: 80 }),
     fileSize: int("file_size"),
     fileSha256: char("file_sha256", { length: 64 }),
-    /** appli | assistant | raccourci | notion | dossier */
+    /** appli | assistant | raccourci | reprise | dossier */
     source: varchar("source", { length: 16 }).notNull().default("appli"),
     sourceRef: varchar("source_ref", { length: 191 }),
     createdAt: createdAt(),

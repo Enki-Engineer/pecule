@@ -57,7 +57,7 @@ const CATEGORIES: readonly Cat[] = [
   ["C2", "Mouvements internes", "Retraits / dépôts espèces"],
 ];
 
-/** Nature d'une catégorie, comme la reprise Notion (`kindOf` de scripts/import-notion.ts). */
+/** Nature d'une catégorie, d'après son code dans le référentiel. */
 export const kindOf = (id: string) => (id.startsWith("A") ? "revenu" : id === "B8" ? "epargne" : id.startsWith("C") ? "interne" : "depense");
 const GROUPS: Record<string, string> = { revenu: "Revenus", depense: "Dépenses", epargne: "Épargne", interne: "Mouvements internes" };
 

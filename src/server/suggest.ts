@@ -43,7 +43,7 @@ export async function suggestCategories(userId: number, txId: string, limit = 3)
   if (tx.label_key) {
     const same = await q<{ category_id: string; n: number }>(
       `SELECT t.category_id, COUNT(*) AS n FROM transactions t JOIN ${A} a ON a.id = t.account_id
-       WHERE t.label_key = ? AND t.id <> ? AND t.category_id IS NOT NULL AND t.category_source IN ('manuel', 'regle', 'notion', 'facture')
+       WHERE t.label_key = ? AND t.id <> ? AND t.category_id IS NOT NULL AND t.category_source IN ('manuel', 'regle', 'reprise', 'facture')
        GROUP BY t.category_id ORDER BY n DESC LIMIT 3`,
       [tx.label_key, tx.id],
     );
@@ -54,7 +54,7 @@ export async function suggestCategories(userId: number, txId: string, limit = 3)
   if (name.length >= 3) {
     const recent = await q<Row>(
       `SELECT t.id, t.label, t.merchant, t.amount, t.label_key, t.category_id, t.category_source FROM transactions t JOIN ${A} a ON a.id = t.account_id
-       WHERE t.category_id IS NOT NULL AND t.id <> ? AND t.category_source IN ('manuel', 'regle', 'notion', 'facture') ORDER BY t.date DESC LIMIT 3000`,
+       WHERE t.category_id IS NOT NULL AND t.id <> ? AND t.category_source IN ('manuel', 'regle', 'reprise', 'facture') ORDER BY t.date DESC LIMIT 3000`,
       [tx.id],
     );
     const counts = new Map<string, number>();

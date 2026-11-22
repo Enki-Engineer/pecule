@@ -4,7 +4,7 @@ import { users } from "./auth.ts";
 import { updatedAt } from "./common.ts";
 
 /*
- * Patrimoine : crédits (échéanciers repris de Notion), placements, crypto, cours, instantanés.
+ * Patrimoine : crédits (échéanciers), placements, crypto, cours, instantanés.
  * owner_user_id NULL = bien commun de la famille ; share = quote-part retenue pour chaque membre.
  */
 
@@ -168,7 +168,7 @@ export const fxRates = mysqlTable(
   (t) => [primaryKey({ columns: [t.currency, t.date] })],
 );
 
-/** Un instantané du patrimoine par membre et par jour (`source` : auto | notion). */
+/** Un instantané du patrimoine par membre et par jour (`source` : auto | reprise). */
 export const wealthSnapshots = mysqlTable(
   "wealth_snapshots",
   {

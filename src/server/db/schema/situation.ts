@@ -3,7 +3,7 @@ import { createdAt, updatedAt } from "./common.ts";
 import { users } from "./auth.ts";
 
 /*
- * Domaines repris de Notion (phase 14) : biens immobiliers, engagements récurrents (frais fixes,
+ * Situation du foyer : biens immobiliers, engagements récurrents (frais fixes,
  * contrats, abonnements), revenus du foyer, impôts (IR par année, taxes foncières par bien),
  * retraite (simulations officielles, carrière), projections de patrimoine, mouvements crypto et
  * faits clés (champ libre par entité). Visibilité : owner_user_id NULL = commun, sinon le seul

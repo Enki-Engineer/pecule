@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountShare, assetValue, historyRangeStart, historyRangeUseful, valueCrypto, netBefore } from "./wealth.ts";
+import { accountShare, assetValue, cryptoSeries, historyRangeStart, historyRangeUseful, valueCrypto, netBefore } from "./wealth.ts";
 import { cumulative, monthTotals } from "./month.ts";
 
 describe("assetValue", () => {
@@ -99,5 +99,31 @@ describe("netBefore", () => {
   it("à défaut de relevé assez ancien, prend le plus ancien ; sans historique, rien", () => {
     expect(netBefore(history, 400, now)).toBe(100);
     expect(netBefore([], 30, now)).toBeNull();
+  });
+});
+
+describe("cryptoSeries", () => {
+  const snapshots = [
+    { date: "2026-03-01", breakdown: null },
+    { date: "2026-03-02", breakdown: { comptes: 1200, crypto: 800 } },
+    { date: "2026-03-03T00:00:00.000Z", breakdown: { comptes: 1250, crypto: 830.5 } },
+    { date: "2026-03-04", breakdown: { comptes: 1250, crypto: 790 } },
+  ];
+
+  it("rend la poche crypto de chaque instantané et finit sur la valeur à l'instant", () => {
+    expect(cryptoSeries(snapshots, "2026-03-04", 812.346)).toEqual([
+      { date: "2026-03-02", value: 800 },
+      { date: "2026-03-03", value: 830.5 },
+      { date: "2026-03-04", value: 812.35 },
+    ]);
+    // Pas encore d'instantané aujourd'hui : le point du jour s'ajoute.
+    expect(cryptoSeries(snapshots, "2026-03-05", 900).at(-1)).toEqual({ date: "2026-03-05", value: 900 });
+  });
+
+  it("ne trace rien pour un foyer sans crypto", () => {
+    expect(cryptoSeries([{ date: "2026-03-02", breakdown: { comptes: 1200, crypto: 0 } }], "2026-03-04", 0)).toEqual([]);
+    expect(cryptoSeries([], "2026-03-04", 0)).toEqual([]);
+    // Tout vendu : la courbe retombe à zéro, elle ne disparaît pas.
+    expect(cryptoSeries(snapshots, "2026-03-05", 0).at(-1)).toEqual({ date: "2026-03-05", value: 0 });
   });
 });

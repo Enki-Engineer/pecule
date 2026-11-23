@@ -3718,4 +3718,6 @@ export const es: Dict = {
   "Dépôts, retraits, achats, ventes et versements de rendement. La monnaie (euros, francs) n'est pas suivie.": "Depósitos, retiradas, compras, ventas y pagos de rendimiento. El dinero (euros, francos) no se sigue.",
   "Ce fichier n'est pas un relevé de compte SwissBorg (« Account Statement », au format Excel).": "Este archivo no es un extracto de cuenta de SwissBorg («Account Statement», en formato Excel).",
   "Ligne introuvable": "Posición no encontrada",
+  "depuis le {date}": "desde el {date}",
+  "La valeur de tes cryptos relevée chaque jour ; le dernier point est la valeur à l'instant. Un portefeuille ajouté ou retiré fait bouger la courbe comme un achat ou une vente.": "El valor de tus criptos anotado cada día; el último punto es el valor en este momento. Una cartera añadida o retirada mueve la curva como una compra o una venta.",
 };

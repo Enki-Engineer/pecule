@@ -12,6 +12,7 @@ import { brandOf } from "../../lib/brands.ts";
 import { EXCHANGES, type ExchangeId } from "../../lib/crypto-exchanges.ts";
 import { FILE_APPS, type FileAppId } from "../../lib/crypto-files.ts";
 import { AddWalletSheet, DuplicateNotices, ObservedSheet } from "../components/CryptoWallet.tsx";
+import { CryptoEvolution } from "../components/CryptoEvolution.tsx";
 import { useMedia } from "../useMedia.ts";
 import { Stat, StatGrid } from "../components/blocks.tsx";
 import { DataTable, type Column } from "../components/DataTable.tsx";
@@ -200,6 +201,8 @@ export function Crypto() {
           )}
 
           <Archived st={st} />
+
+          <CryptoEvolution history={data.history} />
 
           <Journal />
 
@@ -667,6 +670,8 @@ function CryptoDesktop({
   const top = groups.slice(0, 8);
   const rest = groups.slice(8).reduce((s, g) => s + g.value, 0);
   const max = Math.max(1, ...top.map((g) => g.value));
+  // Part d'une crypto dans le total ; rien n'a de cours (total nul) : zéro, pas une division par zéro.
+  const weight = (g: Group) => (data.total > 0 ? (g.value / data.total) * 100 : 0);
   const columns: Column<Group>[] = [
     {
       key: "name",
@@ -712,9 +717,9 @@ function CryptoDesktop({
       cell: (g) => (
         <div className="flex items-center justify-end gap-2">
           <div className="h-1 w-12 overflow-hidden rounded-full bg-bg">
-            <div className="h-full rounded-full bg-[var(--series-2)]" style={{ width: `${Math.min(100, (g.value / data.total) * 100)}%` }} />
+            <div className="h-full rounded-full bg-[var(--series-2)]" style={{ width: `${Math.min(100, weight(g))}%` }} />
           </div>
-          <span className="w-9 text-[12px] text-muted">{pct((g.value / data.total) * 100, 0)}</span>
+          <span className="w-9 text-[12px] text-muted">{pct(weight(g), 0)}</span>
         </div>
       ),
     },
@@ -784,7 +789,7 @@ function CryptoDesktop({
                       {g.symbol.toUpperCase()}
                     </span>
                     <span className="tnum">
-                      {money(g.value, true)} <span className="text-muted">· {pct((g.value / data.total) * 100, 0)}</span>
+                      {money(g.value, true)} <span className="text-muted">· {pct(weight(g), 0)}</span>
                     </span>
                   </div>
                   <div className="mt-1 h-1 overflow-hidden rounded-full bg-bg">
@@ -806,6 +811,9 @@ function CryptoDesktop({
             <Portfolios positions={data.positions} st={st} onAdd={onAdd} focus={focus} onFocus={onFocus} />
           </div>
           <Archived st={st} />
+        </div>
+        <div className="col-span-12">
+          <CryptoEvolution history={data.history} />
         </div>
         <div className="col-span-12">
           <JournalTable />

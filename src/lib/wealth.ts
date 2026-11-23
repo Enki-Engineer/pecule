@@ -48,6 +48,20 @@ export function netBefore(history: readonly { date: string; net: number | string
   return found ? Number(found.net) : null;
 }
 
+/**
+ * Valeur des cryptos jour après jour, tirée des instantanés du patrimoine (leur poche « crypto »). Le point du jour
+ * est la valeur à l'instant, celle que l'écran affiche en tête : la courbe finit sur le même chiffre. `snapshots` :
+ * du plus ancien au plus récent ; un instantané sans répartition (les tout premiers) n'a pas de point.
+ */
+export function cryptoSeries(snapshots: readonly { date: string; breakdown: Record<string, number> | null }[], today: string, total: number): { date: string; value: number }[] {
+  const points = snapshots
+    .map((s) => ({ date: s.date.slice(0, 10), value: Number(s.breakdown?.crypto) }))
+    .filter((p) => Number.isFinite(p.value) && p.date < today);
+  // Un foyer sans crypto n'a pas de courbe : rien que des zéros ne dit rien.
+  if (!(total > 0) && points.every((p) => p.value === 0)) return [];
+  return [...points, { date: today, value: r2(total) }];
+}
+
 export const HISTORY_RANGES = { "1m": 31, "3m": 92, "6m": 183 } as const;
 export type HistoryRange = keyof typeof HISTORY_RANGES | "tout";
 

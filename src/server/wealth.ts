@@ -3,7 +3,7 @@ import { isDemo } from "./demo-context.ts";
 import { exec, one, q } from "./db.ts";
 import { recordAlert } from "./journal.ts";
 import { summarizeLoan, type ScheduleRow } from "../lib/loans.ts";
-import { accountShare, assetValue, r2, valueCrypto } from "../lib/wealth.ts";
+import { accountShare, assetValue, cryptoSeries, r2, valueCrypto } from "../lib/wealth.ts";
 import { serviceKey } from "./service-keys.ts";
 import { fxRate } from "./fx.ts";
 import { isCurrency } from "../lib/currencies.ts";
@@ -253,6 +253,11 @@ export async function refreshWealth() {
   await refreshPayoutValues().catch((e) => console.error("[patrimoine] versements non relus", e));
   for (const u of await q<{ id: number }>("SELECT id FROM users")) await snapshotWealth(u.id);
   return prices;
+}
+
+/** Valeur des cryptos du membre jour après jour (ses instantanés), jusqu'à la valeur à l'instant `total`. */
+export async function cryptoHistory(userId: number, total: number) {
+  return cryptoSeries(await wealthHistory(userId), today(), total);
 }
 
 export async function wealthHistory(userId: number) {

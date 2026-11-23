@@ -22,7 +22,7 @@ import { labelShape, merchantName, natureSql, shapeRegex } from "../../lib/natur
 import { summarizeLoan, type ScheduleRow } from "../../lib/loans.ts";
 import { summarizePayouts } from "../../lib/payouts.ts";
 import { payouts } from "../payouts.ts";
-import { computeWealth, cryptoPositions, ensureFreshPrices, refreshWealth, snapshotWealth, wealthHistory } from "../wealth.ts";
+import { computeWealth, cryptoHistory, cryptoPositions, ensureFreshPrices, refreshWealth, snapshotWealth, wealthHistory } from "../wealth.ts";
 import { assistantEnabled, confirmPending, deleteThread, getThread, listThreads, sendMessage, updateThread, type AssistantEvent, type PublicThread } from "../assistant.ts";
 import { listMemories } from "../tools/analyse.ts";
 import { getLogo, logoKeyAllowed, logoStatus, refreshWeakLogos, resetLogo } from "../logos.ts";
@@ -507,7 +507,8 @@ api.get("/wealth", async (req, res) => {
 
 api.get("/crypto", async (req, res) => {
   await ensureFreshPrices();
-  res.json({ ...(await cryptoPositions(req.user!.id)), status: await cryptoStatus(req.user!.id) });
+  const crypto = await cryptoPositions(req.user!.id);
+  res.json({ ...crypto, status: await cryptoStatus(req.user!.id), history: await cryptoHistory(req.user!.id, crypto.total) });
 });
 
 /** Synchro à la demande : portefeuilles lus sur la blockchain, et compte CoinStats du foyer s'il y en a un. */

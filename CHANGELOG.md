@@ -3,6 +3,19 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.46.0
+
+Crypto : la valeur du portefeuille dans le temps.
+
+- **« Évolution », en bas de l'écran Crypto** (téléphone et ordinateur) : une courbe de la valeur de tes cryptos,
+  un point par jour, sur un mois, trois mois, six mois ou depuis le début, avec l'écart sur la période. Les points
+  viennent des instantanés quotidiens du patrimoine : la courbe remonte donc aussi loin qu'eux, sans rien à
+  régler. Le dernier point est la valeur à l'instant, celle affichée en tête d'écran. Un portefeuille ajouté ou
+  retiré fait bouger la courbe comme un achat ou une vente.
+- Répartition : plus de « NaN % » quand aucune crypto n'a encore de cours.
+
+Aucune migration, aucun réglage nouveau.
+
 ## 1.45.0
 
 Crypto : SwissBorg par son relevé, des logos partout, les lignes archivées se suppriment.

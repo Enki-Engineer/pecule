@@ -388,7 +388,15 @@ export type CryptoStatus = {
 /** Deux sources du membre qui semblent décrire les mêmes avoirs : l'une reliée par lui, l'autre suivie par un agrégateur. */
 export type CryptoDuplicate = { directId: string; directName: string; otherId: string; otherName: string; symbols: string[] };
 
-export type CryptoSummary = { positions: CryptoPosition[]; total: number; change24h: number | null; pricesAt: string | null; status: CryptoStatus };
+export type CryptoSummary = {
+  positions: CryptoPosition[];
+  total: number;
+  change24h: number | null;
+  pricesAt: string | null;
+  status: CryptoStatus;
+  /** Valeur des cryptos jour après jour ; le dernier point est la valeur à l'instant. */
+  history: { date: string; value: number }[];
+};
 
 export type Wealth = {
   date: string;

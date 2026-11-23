@@ -107,7 +107,7 @@ plus récent et une base MariaDB 10.6+ ou MySQL 8+ **vide**, que la personne cr�
 
 | Étape | Commande | Réussite |
 | --- | --- | --- |
-| Archive | `curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule.tar.gz && tar -xzf pecule.tar.gz && cd pecule` (ou `pecule.zip`) | `dist/server.mjs` existe ; l'archive peut ensuite être supprimée |
+| Archive | `npm create pecule && cd pecule` (empreinte contrôlée) ; sans npm : `curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule.tar.gz && tar -xzf pecule.tar.gz && cd pecule` | `dist/server.mjs` existe |
 | Réglages | `node scripts/setup.mjs --base "mysql://utilisateur:motdepasse@127.0.0.1:3306/pecule" --url https://pecule.exemple.fr --json` | `"ok":true` et `"database":{"reachable":true,…}` (la base est essayée) ; `portBusy: true` → ajoute `--port <autre> --force` |
 | Démarrage | sur un serveur : un service (systemd, pm2, gestionnaire de l'hébergeur) qui lance `node dist/server.mjs` ; pour un essai : `nohup node dist/server.mjs > pecule.log 2>&1 &` | la commande rend la main ; l'étape suivante dit si le serveur est prêt |
 | Lien | `node scripts/lien.mjs --json` | attend que Pécule soit prêt, puis `{"ok":true,"setup":true,"link":"…"}` |

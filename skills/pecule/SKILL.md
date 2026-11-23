@@ -35,8 +35,7 @@ Réponds à la personne dans sa langue. Ce qui suit est l'essentiel, si le fichi
    `COMPOSE_PROFILES=https` pour que Caddy obtienne le certificat (à omettre s'il y a déjà un proxy https).
 3. Pas de Docker, mais Node 24 et une base MariaDB ou MySQL vide : l'archive prête à l'emploi.
    ```sh
-   curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule.tar.gz
-   tar -xzf pecule.tar.gz && cd pecule
+   npm create pecule && cd pecule      # ou : curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule.tar.gz && tar -xzf pecule.tar.gz && cd pecule
    node scripts/setup.mjs --base "mysql://utilisateur:motdepasse@127.0.0.1:3306/pecule" --url https://… --json
    nohup node dist/server.mjs > pecule.log 2>&1 &      # essai ; sur un serveur : un service (systemd, pm2, hébergeur)
    node scripts/lien.mjs --json

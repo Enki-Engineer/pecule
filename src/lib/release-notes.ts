@@ -30,7 +30,8 @@ export function installBlock(version: string, repo: string = DEFAULT_REPO): stri
     "| Format | Pour qui | Installer | Mettre à jour |",
     "| --- | --- | --- | --- |",
     `| **Docker** | Un ordinateur, un serveur, un NAS : le plus simple | ${file(RELEASE_FILES.compose)}, puis \`docker compose up -d\` | \`docker compose pull && docker compose up -d\` |`,
-    `| **Archive prête à l'emploi** | Un hébergement Node.js, sans Docker ni build | ${file(RELEASE_FILES.tar)} ou ${file(RELEASE_FILES.zip)} | \`node scripts/maj.mjs\` |`,
+    // L'installateur npm est celui du projet d'origine : une copie du projet n'annonce que ses propres fichiers.
+    `| **Archive prête à l'emploi** | Un hébergement Node.js, sans Docker ni build | ${repo === DEFAULT_REPO ? "\`npm create pecule\`, ou " : ""}${file(RELEASE_FILES.tar)} ou ${file(RELEASE_FILES.zip)} | \`node scripts/maj.mjs\` |`,
     `| **Sources** | Contribuer, construire soi-même | \`git clone -b ${tag} ${site}.git\` | \`node scripts/maj.mjs\` |`,
     "",
     `Image : \`${imageOf(repo)}:${version}\` (amd64 et arm64) · empreintes des fichiers : ${file(RELEASE_FILES.sums)}`,

@@ -15,7 +15,7 @@ Chaque version publiée de Pécule est livrée sous ces formats, joints à
 | Format | Pour qui | Ce qu'il faut sur la machine |
 | --- | --- | --- |
 | **Docker** — le fichier `compose.yaml` | Un ordinateur, un serveur, un NAS. Le plus simple : l'appli et sa base ensemble. | Docker avec Compose 2 (essayé de la version 2.9 à la 5.5) |
-| **Archive prête à l'emploi** — `pecule.tar.gz` ou `pecule.zip` | Un hébergement Node.js (offre mutualisée, serveur sans Docker). Le serveur est déjà construit. | Node.js 24, une base MariaDB 10.6+ ou MySQL 8+ |
+| **Archive prête à l'emploi** — `npm create pecule`, ou `pecule.tar.gz` / `pecule.zip` à la main | Un hébergement Node.js (offre mutualisée, serveur sans Docker). Le serveur est déjà construit. | Node.js 24, une base MariaDB 10.6+ ou MySQL 8+ |
 | **Sources** — le dépôt git, branche `stable` | Contribuer, modifier le code, ou un hébergeur qui construit depuis GitHub. | Node.js 24, pnpm, une base |
 
 Une fois le serveur en place, Pécule s'installe sur chaque appareil comme une appli : « Sur l'écran d'accueil » du
@@ -119,11 +119,15 @@ Le serveur est livré construit, avec ses dépendances : ni build, ni gestionnai
 plus récent, et une base MariaDB ou MySQL **vide** avec son utilisateur.
 
 ```sh
-curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule.tar.gz
-tar -xzf pecule.tar.gz && cd pecule
+npm create pecule && cd pecule
 node scripts/setup.mjs --base "mysql://utilisateur:motdepasse@127.0.0.1:3306/pecule" --url https://pecule.exemple.fr
 node dist/server.mjs
 ```
+
+`npm create pecule` télécharge l'archive de la dernière version, contrôle son empreinte et la déplie dans `./pecule`
+(`npm create pecule mon-dossier` pour un autre dossier ; `npx create-pecule --help` pour ses options). Sans npm, la
+même archive se prend à la main :
+`curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule.tar.gz && tar -xzf pecule.tar.gz`.
 
 `setup.mjs` essaie la base, écrit le fichier `.env` (jetons tirés au hasard, `SECRET_KEY` qui chiffre les clés
 gardées en base) et affiche le lien du premier démarrage ; `node scripts/lien.mjs` le redonne. Si la base ne répond

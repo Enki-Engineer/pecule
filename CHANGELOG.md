@@ -3,6 +3,19 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.38.2
+
+Une commande pour installer Pécule sans Docker. Rien ne change dans l'appli ; aucune migration, aucun réglage
+nouveau.
+
+- **`npm create pecule`** télécharge l'archive prête à l'emploi de la dernière version, contrôle son empreinte et la
+  déplie dans `./pecule`, puis affiche les trois commandes qui suivent (réglages, serveur, lien du premier
+  démarrage). Il faut Node.js 24 et une base MariaDB ou MySQL vide. Le paquet npm `create-pecule` ne contient que cet
+  installateur : l'appli vient toujours de la version publiée sur GitHub.
+- Les README, le guide d'installation, la marche à suivre des agents (`AGENTS.md`), la compétence et le tableau
+  « Installer ou mettre à jour » des notes de version annoncent cette commande. L'archive se prend toujours à la
+  main (`pecule.tar.gz`, `pecule.zip`) pour qui n'a pas npm.
+
 ## 1.38.1
 
 Pécule est public. Rien ne change dans l'appli ; aucune migration, aucun réglage nouveau.

@@ -59,7 +59,7 @@ Every release ships in three formats, attached to [its page](https://github.com/
 | Format | For | You need |
 | --- | --- | --- |
 | **Docker** — one file, `compose.yaml` | A computer, a server, a NAS. The simplest: the app and its database together. | Docker with Compose 2 (tested from 2.9 to 5.5) |
-| **Ready-to-run archive** — `pecule.tar.gz` or `pecule.zip` | Node.js hosting without Docker. The server is already built. | Node.js 24, MariaDB 10.6+ or MySQL 8+ |
+| **Ready-to-run archive** — `npm create pecule`, or `pecule.tar.gz` / `pecule.zip` by hand | Node.js hosting without Docker. The server is already built. | Node.js 24, MariaDB 10.6+ or MySQL 8+ |
 | **Source** — `git clone -b stable` | Contributing, or a host that builds from GitHub. | Node.js 24, pnpm, a database |
 
 With Docker, three commands — nothing to clone, no Node, no settings file to write:
@@ -68,6 +68,14 @@ With Docker, three commands — nothing to clone, no Node, no settings file to w
 curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/compose.yaml
 docker compose up -d                                 # http://localhost:3000
 docker compose exec pecule node scripts/lien.mjs     # the link to open to create your household
+```
+
+Without Docker — Node.js 24 and an empty MariaDB or MySQL database — one command fetches the ready-to-run archive of
+the latest release, checks it and unpacks it into `./pecule`, then prints the three commands that follow (settings,
+server, first link):
+
+```sh
+npm create pecule
 ```
 
 **Or let your AI assistant do it** — Claude Code, Codex, Gemini CLI, Cursor, Copilot, any agent that can run

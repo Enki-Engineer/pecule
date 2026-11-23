@@ -126,8 +126,7 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   `node scripts/paquet.mjs --npm` ; commande `npm create pecule` — npm refuse le nom « pecule », trop proche d'un
   autre paquet) : il télécharge l'archive de la dernière version et contrôle son empreinte, par les mêmes fonctions
   que `maj.mjs` (`scripts/lib/archive.mjs`). Rien de l'appli n'est sur npm, et il ne se republie que lorsqu'il
-  change. Le nom est réservé sur npm par un paquet d'attente (0.0.1) ; aucun guide n'annonce « npm create pecule »
-  tant que le vrai installateur n'y est pas publié (à l'ouverture du dépôt : `npm publish dist/paquet/npm --access public`).
+  change (`npm publish dist/paquet/npm --access public`, que le titulaire du compte npm valide dans son navigateur).
 - **Avec Docker, rien à écrire** : les secrets sont tirés par le service « reglages » et gardés dans un volume
   (`src/lib/settings-file.ts`). Ce que donne l'environnement l'emporte ; on ne tire jamais un secret à la
   place d'un secret que l'installation a déjà, et l'environnement n'en remplace aucun en silence (`refusals` : une

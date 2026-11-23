@@ -9,6 +9,7 @@ describe("notes d'une version", () => {
     for (const name of Object.values(RELEASE_FILES)) expect(block).toContain(`https://github.com/Enki-Engineer/pecule/releases/download/v1.33.0/${name}`);
     expect(block).toContain("ghcr.io/enki-engineer/pecule:1.33.0");
     expect(block).toContain("git clone -b v1.33.0 https://github.com/Enki-Engineer/pecule.git");
+    expect(block).toContain("`npm create pecule`, ou ");
     // Les guides sont ceux de la version, pas ceux du travail en cours.
     expect(block).toContain("https://github.com/Enki-Engineer/pecule/blob/v1.33.0/docs/guide/installation.md");
     expect(block.startsWith(INSTALL_START)).toBe(true);
@@ -24,6 +25,8 @@ describe("notes d'une version", () => {
     expect(block).toContain("https://github.com/Alex/Mon-Pecule/releases/download/v2.0.0/compose.yaml");
     expect(block).toContain("ghcr.io/alex/mon-pecule:2.0.0");
     expect(block).not.toContain("Enki-Engineer");
+    // L'installateur npm télécharge les versions du projet d'origine : une copie ne l'annonce pas.
+    expect(block).not.toContain("npm create");
   });
 
   it("l'appli n'en garde que ce qui change", () => {

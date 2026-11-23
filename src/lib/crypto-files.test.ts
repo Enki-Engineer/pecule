@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balancesOf, isCryptocomExport, OBSERVED, parseCryptocomExport } from "./crypto-files.ts";
+import { balancesOf, isCryptocomExport, isSwissborgStatement, OBSERVED, parseCryptocomExport, parseSwissborgRows } from "./crypto-files.ts";
 
 const HEADER = "Timestamp (UTC),Transaction Description,Currency,Amount,To Currency,To Amount,Native Currency,Native Amount,Native Amount (in USD),Transaction Kind,Transaction Hash";
 const file = (...rows: string[]) => `﻿${[HEADER, ...rows].join("\n")}\n`;
@@ -105,5 +105,51 @@ describe("export de l'appli Crypto.com", () => {
     expect(balancesOf(later).get("BTC")).toBe(0.02);
     // Constaté à zéro : la crypto ne compte plus rien, jusqu'au prochain mouvement.
     expect(balancesOf([...moves, { symbol: "CRO", amount: 0, at: "2026-02-01 00:00:00", kind: OBSERVED }]).get("CRO")).toBe(0);
+  });
+});
+
+describe("relevé de compte SwissBorg", () => {
+  const HEAD = ["Local time", "Time in UTC", "Type", "Currency", "Gross amount", "Gross amount (EUR)", "Fee", "Fee (EUR)", "Net amount", "Net amount (EUR)", "Note"];
+  /** Les premières lignes d'un relevé décrivent le compte ; les colonnes viennent ensuite. */
+  const sheet = (...rows: string[][]) => [["Société", "", "", "Name", "Alex"], ["", "", "", "Local Currency", "EUR"], [], HEAD, ...rows];
+  const row = (utc: string, type: string, currency: string, gross: string, fee: string, net: string, note = "") => [utc, utc, type, currency, gross, "1", fee, "0", net, "1", note];
+
+  it("se reconnaît à ses colonnes, où qu'elles soient dans la feuille", () => {
+    expect(isSwissborgStatement(sheet())).toBe(true);
+    expect(isSwissborgStatement([["Date", "Libellé", "Montant"]])).toBe(false);
+    expect(parseSwissborgRows([["Local time", "Autre chose"]])).toBeNull();
+  });
+
+  it("fait entrer dépôts, achats et versements pour leur net, sortir ventes et retraits pour leur brut", () => {
+    const parsed = parseSwissborgRows(
+      sheet(
+        row("2026-01-02 09:00:00", "Deposit", "EUR", "500.0", "0.0", "500.0"),
+        row("2026-01-03 09:00:00", "Buy", "BTC", "0.0101", "0.0001", "0.01"),
+        row("2026-01-04 02:00:00", "Payouts", "BTC", "1.2E-7", "0.0", "1.2E-7", "Yield payouts"),
+        row("2026-01-04 02:00:00", "Payouts", "BTC", "1.2E-7", "0.0", "1.2E-7", "Yield payouts"),
+        row("2026-02-01 09:00:00", "Withdrawal", "BTC", "0.004", "0.0005", "0.0035"),
+        row("2026-03-01 09:00:00", "Sell", "AAA", "30.0", "0.0", "30.0", "Migration to 3.0 BBB"),
+        row("2026-03-01 09:00:00", "Buy", "BBB", "3.0", "0.0", "3.0", "Migration from 30.0 AAA"),
+        row("2026-02-20 09:00:00", "Payouts", "AAA", "30.0", "0.0", "30.0"),
+      ),
+    )!;
+    expect(parsed.rows).toBe(8);
+    expect(parsed.from).toBe("2026-01-02 09:00:00");
+    expect(parsed.to).toBe("2026-03-01 09:00:00");
+    expect(parsed.unknown).toEqual([]);
+    const balances = balancesOf(parsed.moves);
+    // 0,01 acheté (net) + deux versements égaux à la seconde près − 0,004 sorti (brut, frais compris).
+    expect(balances.get("BTC")).toBeCloseTo(0.01 + 2.4e-7 - 0.004, 12);
+    expect(balances.get("AAA")).toBe(0);
+    expect(balances.get("BBB")).toBe(3);
+    // La monnaie déposée n'est pas suivie.
+    expect(balances.has("EUR")).toBe(false);
+    expect(new Set(parsed.moves.map((m) => m.key)).size).toBe(parsed.moves.length);
+  });
+
+  it("laisse de côté un genre de ligne inconnu, et le dit", () => {
+    const parsed = parseSwissborgRows(sheet(row("2026-01-02 09:00:00", "Payouts", "BTC", "0.001", "0.0", "0.001"), row("2026-01-03 09:00:00", "Mystère", "BTC", "5", "0", "5")))!;
+    expect(parsed.unknown).toEqual(["Mystère"]);
+    expect(balancesOf(parsed.moves).get("BTC")).toBe(0.001);
   });
 });

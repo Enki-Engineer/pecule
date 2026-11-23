@@ -127,7 +127,7 @@ export const patrimoine: ManualTheme = {
           list: [
             tk("[[Un portefeuille, par son adresse publique]] : colle l'adresse, Pécule reconnaît la blockchain, montre ce qu'il a trouvé, puis relit le portefeuille chaque jour. Aucun compte à ouvrir, aucune clé à créer ; chaque membre ajoute les siens."),
             tk("[[Un exchange, par une clé en lecture seule]] : Kraken, Binance, Coinbase, Bitpanda, Bitvavo, OKX, Bybit, KuCoin, Bitget, Bitfinex ou Crypto.com Exchange. Choisis l'exchange et suis ses trois étapes ; Pécule lit le compte tout de suite, puis chaque jour ; chaque membre relie les siens."),
-            tk("[[L'appli Crypto.com, par son export]] : l'appli n'a pas de clé d'API. Dépose les fichiers de son historique (« Crypto Wallet », au format CSV) ; Pécule en tire le solde de chaque crypto, et un mouvement déjà connu n'est jamais compté deux fois. À refaire de temps en temps, avec l'export de la période écoulée."),
+            tk("[[Une appli, par son export]] : l'appli Crypto.com (historique « Crypto Wallet », au format CSV) et SwissBorg (relevé « Account Statement », au format Excel) n'ont pas de clé d'API. Dépose leur fichier ; Pécule en tire le solde de chaque crypto, et un mouvement déjà connu n'est jamais compté deux fois. À refaire de temps en temps, avec l'export de la période écoulée."),
             tk("[[Un compte CoinStats]] : un agrégateur, utile pour ce que Pécule ne lit pas lui-même (une blockchain ou un exchange absents de la liste, un jeton rare, un dépôt dans un protocole). Un compte par foyer ; l'administrateur saisit sa clé dans [[Réglages]] → [[Comptes et connexions]]."),
             tk("À la main : demande à l'assistant d'ajouter une position, puis touche une crypto pour corriger sa quantité."),
           ],
@@ -160,13 +160,13 @@ export const patrimoine: ManualTheme = {
             tk("Un portefeuille que CoinStats rend vide, ou bien plus bas qu'à la lecture d'avant, est marqué « [[à vérifier]] » et garde ses positions : sa connexion est peut-être cassée. S'il a vraiment été vidé ou vendu, [[C'est exact]] confirme la nouvelle valeur."),
           ],
         },
-        { note: tk("Une ligne saisie à la main que CoinStats couvre ensuite est archivée d'elle-même, pour ne pas compter deux fois.") },
+        { note: tk("Une ligne saisie à la main que CoinStats couvre ensuite est archivée d'elle-même, pour ne pas compter deux fois. Une ligne archivée se remet en compte ([[Remettre en compte]]) ou se supprime pour de bon par sa corbeille ([[Supprimer la ligne archivée]]).") },
       ],
       links: [
         { to: "/patrimoine/crypto", label: ["Crypto"] },
         { to: "/reglages/connexions?c=coinstats", label: ["Réglages", "Comptes et connexions"] },
       ],
-      words: tk("bitcoin ethereum solana cryptomonnaie wallet portefeuille adresse publique xpub ledger trezor metamask phantom coinstats coingecko cardano vechain multiversx exchange kraken binance coinbase bitpanda bitvavo okx bybit kucoin bitget bitfinex crypto.com export csv fichier clé api lecture seule staking blockchain"),
+      words: tk("bitcoin ethereum solana cryptomonnaie wallet portefeuille adresse publique xpub ledger trezor metamask phantom coinstats coingecko cardano vechain multiversx exchange kraken binance coinbase bitpanda bitvavo okx bybit kucoin bitget bitfinex crypto.com swissborg export csv excel xlsx relevé fichier clé api lecture seule staking blockchain"),
     },
     {
       id: "projections",

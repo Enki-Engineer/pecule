@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, PencilLine, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { Building2, ChevronDown, FileUp, Layers, PencilLine, Plus, RefreshCw, Trash2, Wallet, X, type LucideIcon } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, useCrypto, type CryptoPosition, type CryptoSource, type CryptoStatus } from "../api.ts";
 import { Card, ErrorBox, Field, PageHeader, Segmented, Sheet, Spinner } from "../components/ui.tsx";
 import { dateFr, money, moneySymbol, pct, timeAgo } from "../format.ts";
 import { useCryptoEvents, type CryptoEvent } from "../api-situation.ts";
-import { BrandLogo, CoinLogo } from "../components/Logo.tsx";
+import { BrandLogo, CoinLogo, Tile } from "../components/Logo.tsx";
+import { brandOf } from "../../lib/brands.ts";
+import { EXCHANGES, type ExchangeId } from "../../lib/crypto-exchanges.ts";
+import { FILE_APPS, type FileAppId } from "../../lib/crypto-files.ts";
 import { AddWalletSheet, DuplicateNotices, ObservedSheet } from "../components/CryptoWallet.tsx";
 import { useMedia } from "../useMedia.ts";
 import { Stat, StatGrid } from "../components/blocks.tsx";
@@ -276,12 +279,49 @@ const STATUS: Record<CryptoSource["status"], string> = { ok: "", vide: t("vide")
 /** D'où vient un portefeuille : c'est ce qui range la liste, pour qu'on voie d'un coup d'œil ce qui dépend de quoi. */
 type Origin = "adresse" | "exchange" | "fichier" | "agregateur";
 const originOf = (s: CryptoSource): Origin => (s.exchange ? "exchange" : s.file ? "fichier" : s.direct ? "adresse" : "agregateur");
-const ORIGINS: { id: Origin; title: string; hint: string }[] = [
-  { id: "adresse", title: t("Par leur adresse"), hint: t("Lus sur la blockchain, sans intermédiaire") },
-  { id: "exchange", title: t("Exchanges"), hint: t("Lus chez l'exchange, par ta clé en lecture seule") },
-  { id: "fichier", title: t("Par leurs exports"), hint: t("Mis à jour quand tu déposes un fichier") },
-  { id: "agregateur", title: t("Via CoinStats"), hint: t("Ce que réunit le compte CoinStats du foyer") },
+/** Chaque provenance a son pictogramme, le même que dans « Ajouter un portefeuille » ; un outil tiers a son logo. */
+const ORIGINS: { id: Origin; title: string; hint: string; icon: LucideIcon; brand?: string }[] = [
+  { id: "adresse", title: t("Par leur adresse"), hint: t("Lus sur la blockchain, sans intermédiaire"), icon: Wallet },
+  { id: "exchange", title: t("Exchanges"), hint: t("Lus chez l'exchange, par ta clé en lecture seule"), icon: Building2 },
+  { id: "fichier", title: t("Par leurs exports"), hint: t("Mis à jour quand tu déposes un fichier"), icon: FileUp },
+  { id: "agregateur", title: t("Via CoinStats"), hint: t("Ce que réunit le compte CoinStats du foyer"), icon: Layers, brand: "CoinStats" },
 ];
+
+/** Pictogramme d'un compartiment : le logo de l'outil s'il en a un, sinon l'icône de la provenance. */
+function OriginIcon({ icon: Icon, brand }: { icon: LucideIcon; brand?: string }) {
+  if (brand) return <BrandLogo texts={[brand]} size="sm" tone="neutral" icon={Icon} />;
+  return (
+    <Tile size="sm" tone="accent">
+      <Icon size={15} />
+    </Tile>
+  );
+}
+
+/** Crypto dont le logo dit la blockchain d'un portefeuille lu par son adresse. */
+const KIND_COIN: Record<string, string> = { btc: "bitcoin", "btc-xpub": "bitcoin", evm: "ethereum", "eth-validator": "ethereum", sol: "solana", ada: "cardano", mvx: "elrond-erd-2", "mvx-staking": "elrond-erd-2" };
+/** Blockchain nommée dans un portefeuille venu d'un agrégateur (« Cardano Wallet ») : son logo, faute de marque. */
+const NAME_COIN: [RegExp, string][] = [
+  [/bitcoin|\bbtc\b/i, "bitcoin"],
+  [/ethereum|\beth\b/i, "ethereum"],
+  [/bnb|\bbsc\b/i, "binancecoin"],
+  [/solana/i, "solana"],
+  [/cardano/i, "cardano"],
+  [/vechain/i, "vechain"],
+  [/polygon/i, "polygon-ecosystem-token"],
+  [/avalanche/i, "avalanche-2"],
+  [/tezos/i, "tezos"],
+];
+
+/**
+ * Logo d'un portefeuille : la marque que son nom cite (Ledger, Kraken…), sinon celle de son exchange ou de son
+ * appli, sinon la blockchain où il est lu — jamais de simples initiales quand on sait d'où il vient.
+ */
+function SourceLogo({ s }: { s: CryptoSource }) {
+  const known = s.exchange ? EXCHANGES[s.exchange as ExchangeId]?.name : s.file ? FILE_APPS[s.type.slice(2) as FileAppId]?.name : null;
+  const coin = KIND_COIN[s.type] ?? NAME_COIN.find(([re]) => re.test(s.name))?.[1];
+  if (brandOf(s.name, known) || !coin) return <BrandLogo texts={[s.name, known]} size="md" tone="neutral" />;
+  return <CoinLogo coingeckoId={coin} symbol={s.name.slice(0, 3)} size="md" />;
+}
 
 type RowActions = {
   toggle: (s: CryptoSource) => void;
@@ -302,7 +342,7 @@ function SourceRow({ s, value, actions }: { s: CryptoSource; value: number; acti
     <div className={clsx("px-4 py-3", chosen && FOCUSED)}>
       <div className="flex items-center gap-3">
         <button type="button" onClick={() => actions.pick(s.portfolioId)} aria-pressed={chosen} title={chosen ? t("Tout afficher") : t("Voir ses cryptos")} className="press flex min-w-0 flex-1 items-center gap-3 text-left">
-          <BrandLogo texts={[s.name, s.type]} size="md" tone="neutral" />
+          <SourceLogo s={s} />
           <span className="block min-w-0 flex-1">
             <span className={clsx("block truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</span>
             <span className="block truncate text-xs text-muted" title={s.note ?? undefined}>
@@ -345,7 +385,7 @@ function SourceRow({ s, value, actions }: { s: CryptoSource; value: number; acti
 }
 
 /** Un compartiment de la liste : une provenance, son total, ses portefeuilles. Ceux qui ne comptent rien se replient. */
-function OriginCard({ title, hint, rows, positions, actions }: { title: string; hint: string; rows: CryptoSource[]; positions: CryptoPosition[]; actions: RowActions }) {
+function OriginCard({ title, hint, icon, brand, rows, positions, actions }: { title: string; hint: string; icon: LucideIcon; brand?: string; rows: CryptoSource[]; positions: CryptoPosition[]; actions: RowActions }) {
   const [showIdle, setShowIdle] = useState(false);
   const valued = rows.map((s) => ({ s, value: valueOf(positions, s) })).sort((a, b) => b.value - a.value);
   // « Sans rien de compté » : vide, en double, ou dont tout est déjà compté par une lecture directe.
@@ -354,8 +394,9 @@ function OriginCard({ title, hint, rows, positions, actions }: { title: string; 
   const hidden = valued.length - shown.length;
   return (
     <Card className="divide-y divide-line">
-      <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
-        <div className="min-w-0">
+      <div className="flex items-center gap-3 px-4 py-2.5">
+        <OriginIcon icon={icon} brand={brand} />
+        <div className="min-w-0 flex-1">
           <div className="text-[13px] font-semibold">{title}</div>
           <div className="truncate text-xs text-muted">{hint}</div>
         </div>
@@ -413,7 +454,7 @@ function Portfolios({ positions, st, onAdd, focus, onFocus }: { positions: Crypt
     <div className="space-y-3">
       {ORIGINS.map((o) => {
         const rows = st.sources.filter((s) => originOf(s) === o.id);
-        return rows.length ? <OriginCard key={o.id} title={o.title} hint={o.hint} rows={rows} positions={positions} actions={actions} /> : null;
+        return rows.length ? <OriginCard key={o.id} title={o.title} hint={o.hint} icon={o.icon} brand={o.brand} rows={rows} positions={positions} actions={actions} /> : null;
       })}
       {manual.length > 0 && (
         <Card className="divide-y divide-line overflow-hidden">
@@ -422,9 +463,10 @@ function Portfolios({ positions, st, onAdd, focus, onFocus }: { positions: Crypt
             onClick={() => onFocus(MANUAL)}
             aria-pressed={focus === MANUAL}
             title={focus === MANUAL ? t("Tout afficher") : t("Voir ses cryptos")}
-            className={clsx("press flex w-full items-baseline justify-between gap-3 px-4 py-2.5 text-left", focus === MANUAL && FOCUSED)}
+            className={clsx("press flex w-full items-center gap-3 px-4 py-2.5 text-left", focus === MANUAL && FOCUSED)}
           >
-            <span className="block min-w-0">
+            <OriginIcon icon={PencilLine} />
+            <span className="block min-w-0 flex-1">
               <span className="block text-[13px] font-semibold">{t("Saisis à la main")}</span>
               <span className="block truncate text-xs text-muted">{manual.map((m) => m.symbol).join(", ")}</span>
             </span>
@@ -451,6 +493,17 @@ function Archived({ st }: { st: CryptoStatus }) {
     api(`/crypto/${id}/restore`, { method: "POST" })
       .then(() => Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]))
       .then(() => toast.success(t("Ligne remise en compte")));
+  // Une ligne archivée ne compte plus : la supprimer ne change aucun total, mais ne se rattrape pas.
+  const remove = async (id: number, symbol: string) => {
+    if (!confirm(t("Supprimer pour de bon la ligne « {nom} » ? Elle ne pourra plus être remise en compte.", { nom: symbol }))) return;
+    try {
+      await api(`/crypto/${id}`, { method: "DELETE" });
+      await qc.invalidateQueries({ queryKey: ["crypto"] });
+      toast.success(t("Ligne supprimée"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("Enregistrement impossible"));
+    }
+  };
   return (
     <Card>
       <button type="button" onClick={() => setShow(!show)} className="press flex w-full items-center justify-between px-4 py-3 text-sm">
@@ -471,6 +524,9 @@ function Archived({ st }: { st: CryptoStatus }) {
               </div>
               <button type="button" onClick={() => restore(a.id)} className="press shrink-0 text-xs font-medium text-accent">
                 {t("Remettre en compte")}
+              </button>
+              <button type="button" onClick={() => remove(a.id, a.symbol)} className="press -mr-1 grid size-8 shrink-0 place-items-center rounded-full text-muted hover:text-ink" aria-label={t("Supprimer la ligne archivée")} title={t("Supprimer la ligne archivée")}>
+                <Trash2 size={16} />
               </button>
             </div>
           ))}

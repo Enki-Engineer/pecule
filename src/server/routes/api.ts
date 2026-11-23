@@ -11,7 +11,8 @@ import { db, exec, one, q } from "../db.ts";
 import { desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { alerts, auditLog, users } from "../db/schema/index.ts";
 import { EXCHANGE_IDS } from "../../lib/crypto-exchanges.ts";
-import { acceptSourceValue, addExchange, addWallet, archiveManualLine, countOnce, importCryptocomFile, cryptoStatus, observeFileBalance, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
+import { FILE_APP_IDS } from "../../lib/crypto-files.ts";
+import { acceptSourceValue, addExchange, addWallet, archiveManualLine, countOnce, deleteArchivedLine, importCryptoFile, cryptoStatus, observeFileBalance, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
 import { requireAdmin, requireApiToken, requireAuth, requireSyncAccess, createEnrollmentLink } from "../auth.ts";
 import { guessCategory, lastSyncRuns, markCardDuplicates, fintaConnections, fintaEnabled } from "../finta.ts";
 import { syncBanks } from "../bank-sync.ts";
@@ -571,14 +572,15 @@ api.post("/crypto/sources/:id/once", async (req, res) => {
 });
 
 /**
- * Déposer un export de l'appli Crypto.com (corps brut, CSV) : ses mouvements s'ajoutent à ceux déjà gardés, les
- * soldes en sont recalculés. L'appli n'a pas de clé d'API : c'est sa seule façon d'entrer.
+ * Déposer le fichier qu'exporte une appli sans clé d'API (corps brut : CSV de l'appli Crypto.com, classeur de
+ * SwissBorg) : ses mouvements s'ajoutent à ceux déjà gardés, les soldes en sont recalculés. C'est sa seule façon d'entrer.
  */
-api.post("/crypto/files/cryptocom", hourly(60), raw({ type: () => true, limit: "8mb" }), async (req, res) => {
+api.post("/crypto/files/:app", hourly(60), raw({ type: () => true, limit: "8mb" }), async (req, res) => {
+  const app = z.enum(FILE_APP_IDS).parse(req.params.app);
   // Corps en tampon : le journal des écritures n'en garde que la taille, jamais le contenu.
   if (!Buffer.isBuffer(req.body) || !req.body.length) throw new ActionError(400, tr("Fichier vide"));
   res.json(
-    await importCryptocomFile(req.user!.id, req.body.toString("utf8")).catch((e) => {
+    await importCryptoFile(req.user!.id, app, req.body).catch((e) => {
       throw new ActionError(400, e instanceof Error ? e.message : String(e));
     }),
   );
@@ -600,6 +602,12 @@ api.post("/crypto/sources/:id/balance", hourly(120), async (req, res) => {
 /** Retirer un portefeuille lu par son adresse ou un compte d'exchange (ceux de CoinStats se décochent : ils reviendraient à la synchro). */
 api.delete("/crypto/sources/:id", async (req, res) => {
   if (!(await removeWallet(req.user!.id, z.string().max(96).parse(req.params.id)))) throw new ActionError(404, tr("Portefeuille introuvable"));
+  res.json({ ok: true });
+});
+
+/** Supprimer pour de bon une ligne saisie à la main déjà archivée. */
+api.delete("/crypto/:id", async (req, res) => {
+  if (!(await deleteArchivedLine(req.user!.id, z.coerce.number().int().positive().parse(req.params.id)))) throw new ActionError(404, tr("Ligne introuvable"));
   res.json({ ok: true });
 });
 

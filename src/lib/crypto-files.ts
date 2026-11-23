@@ -1,16 +1,50 @@
 /*
- * Historique d'une appli crypto sans clé d'API, lu dans le fichier qu'elle exporte : pour l'instant l'export
- * « Crypto Wallet » de l'appli Crypto.com. Le solde de chaque crypto est la somme de ses mouvements ; sans base ni
- * réseau (testé dans crypto-files.test.ts).
+ * Historique d'une appli crypto sans clé d'API, lu dans le fichier qu'elle exporte : l'export « Crypto Wallet » de
+ * l'appli Crypto.com (CSV), le relevé de compte de SwissBorg (classeur Excel, dont les lignes sont données ici en
+ * texte). Le solde de chaque crypto est la somme de ses mouvements ; sans base ni réseau (testé dans
+ * crypto-files.test.ts).
  */
 
 import { splitCsv } from "./bank-files.ts";
 import { isCurrency } from "./currencies.ts";
+import { tk } from "./i18n.ts";
+
+/**
+ * Applis suivies par leurs exports : nom, format du fichier, marche à suivre, ce qui est lu. Une source de ce genre
+ * porte le type « f-<appli> » ; son lecteur est dans `FILE_READERS` (src/server/crypto.ts).
+ */
+export const FILE_APP_IDS = ["cryptocom", "swissborg"] as const;
+export type FileAppId = (typeof FILE_APP_IDS)[number];
+export const FILE_APPS: Record<FileAppId, { name: string; accept: string; why: string; steps: string[]; covers: string }> = {
+  cryptocom: {
+    name: "Crypto.com",
+    accept: ".csv,text/csv",
+    why: tk("L'appli Crypto.com ne donne pas de clé d'API. Pécule lit le fichier de son historique : le solde de chaque crypto est la somme de ses mouvements. Un mouvement déjà connu n'est jamais compté deux fois."),
+    steps: [
+      tk("Dans l'appli Crypto.com : Comptes → historique des transactions → exporter."),
+      tk("Choisis « Crypto Wallet », puis une période. L'appli limite la durée d'un export : fais-en plusieurs pour couvrir tout l'historique, depuis le premier jour."),
+      tk("Dépose ici tous les fichiers CSV obtenus. La fois suivante, un export de la période écoulée suffit."),
+    ],
+    covers: tk("Ce qui est immobilisé dans l'appli (staking, carte, « Earn ») reste compté. L'export du portefeuille en monnaie n'est pas lu."),
+  },
+  swissborg: {
+    name: "SwissBorg",
+    accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    why: tk("SwissBorg ne donne pas de clé d'API. Pécule lit son relevé de compte : le solde de chaque crypto est la somme de ses mouvements. Un mouvement déjà connu n'est jamais compté deux fois."),
+    steps: [
+      tk("Dans l'appli SwissBorg : Profil → « Account Statement »."),
+      tk("Choisis une période qui part de l'ouverture du compte, et le format Excel."),
+      tk("Dépose ici le classeur reçu. La fois suivante, un relevé de la période écoulée suffit."),
+    ],
+    covers: tk("Dépôts, retraits, achats, ventes et versements de rendement. La monnaie (euros, francs) n'est pas suivie."),
+  },
+};
 
 /** Un mouvement qui change le solde d'une crypto. `key` : ce qui le distingue, pour ne pas le compter deux fois. */
 export type FileMove = { at: string; kind: string; symbol: string; amount: number; key: string };
 /** `fiat` : c'est l'export du portefeuille en monnaie de l'appli (euros déposés et dépensés), qui n'a rien à suivre ici. */
-export type FileParse = { moves: FileMove[]; internal: number; rows: number; from: string | null; to: string | null; fiat: boolean };
+/** `unknown` : genres de ligne que Pécule ne connaît pas, laissés de côté (on ne sait pas s'ils ajoutent ou retirent). */
+export type FileParse = { moves: FileMove[]; internal: number; rows: number; from: string | null; to: string | null; fiat: boolean; unknown?: string[] };
 
 const COLUMNS = ["Timestamp (UTC)", "Transaction Description", "Currency", "Amount", "To Currency", "To Amount", "Native Currency", "Native Amount", "Native Amount (in USD)", "Transaction Kind"];
 /**
@@ -67,6 +101,48 @@ export function parseCryptocomExport(text: string): FileParse | null {
   }
   const dates = lines.map((r) => r[0].trim()).sort();
   return { moves, internal, rows: lines.length, from: dates[0] ?? null, to: dates.at(-1) ?? null, fiat };
+}
+
+const SWISSBORG_COLUMNS = ["Local time", "Time in UTC", "Type", "Currency", "Gross amount", "", "Fee", "", "Net amount", "", "Note"];
+/** Ce qui entre dans le compte (pour son montant net de frais) et ce qui en sort (pour son montant brut). */
+const SWISSBORG_IN = new Set(["deposit", "payouts", "buy"]);
+const SWISSBORG_OUT = new Set(["withdrawal", "sell"]);
+
+/** Rang de la ligne d'en-têtes d'un relevé SwissBorg dans une feuille, ou -1 (ses premières lignes décrivent le compte). */
+const swissborgHeader = (rows: string[][]) => rows.slice(0, 40).findIndex((r) => SWISSBORG_COLUMNS.every((c, i) => !c || (r[i] ?? "").trim() === c));
+
+/** Vrai si ces lignes sont celles d'un relevé de compte SwissBorg (ses colonnes, dans l'ordre). */
+export const isSwissborgStatement = (rows: string[][]) => swissborgHeader(rows) >= 0;
+
+/**
+ * Mouvements d'un relevé de compte SwissBorg, d'après les lignes de sa feuille. Les montants y sont tous positifs :
+ * c'est le genre de la ligne qui dit le sens. Un échange donne deux lignes (une vente, un achat). La monnaie n'est
+ * pas suivie. Rend `null` si ce n'est pas un tel relevé.
+ */
+export function parseSwissborgRows(rows: string[][]): FileParse | null {
+  const head = swissborgHeader(rows);
+  if (head < 0) return null;
+  const lines = rows.slice(head + 1).filter((r) => (r[1] ?? "").trim() && (r[2] ?? "").trim());
+  const moves: FileMove[] = [];
+  const seen = new Map<string, number>();
+  const unknown = new Set<string>();
+  for (const r of lines) {
+    const [, at, type, currency, gross, , , , net, , note] = Array.from({ length: 11 }, (_, i) => (r[i] ?? "").trim());
+    const kind = type.toLowerCase();
+    const symbol = symbolOf(currency);
+    const base = [at, kind, symbol, gross, net, note].join("|");
+    const rank = seen.get(base) ?? 0;
+    seen.set(base, rank + 1);
+    if (!symbol || isCurrency(symbol)) continue;
+    const amount = SWISSBORG_IN.has(kind) ? number(net) : SWISSBORG_OUT.has(kind) ? -number(gross) : null;
+    if (amount === null) {
+      unknown.add(type);
+      continue;
+    }
+    if (amount !== 0) moves.push({ at, kind: kind.slice(0, 96), symbol: symbol.slice(0, 24), amount, key: `swissborg|${base}|${rank}` });
+  }
+  const dates = lines.map((r) => r[1].trim()).sort();
+  return { moves, internal: 0, rows: lines.length, from: dates[0] ?? null, to: dates.at(-1) ?? null, fiat: lines.length > 0 && lines.every((r) => isCurrency(symbolOf(r[3]))), unknown: [...unknown] };
 }
 
 /**

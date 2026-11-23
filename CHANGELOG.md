@@ -3,6 +3,25 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.45.0
+
+Crypto : SwissBorg par son relevé, des logos partout, les lignes archivées se suppriment.
+
+- **SwissBorg, par son relevé de compte** : « Ajouter un portefeuille → Une appli, par son export » propose
+  désormais Crypto.com et SwissBorg. Le relevé « Account Statement » de SwissBorg (classeur Excel) se dépose tel
+  quel : dépôts, retraits, achats, ventes et versements de rendement donnent le solde de chaque crypto, un
+  mouvement déjà connu n'est jamais compté deux fois. Un genre de ligne que Pécule ne connaît pas n'est pas
+  deviné : il est laissé de côté et signalé. Pécule lit le classeur lui-même, sans paquet nouveau.
+- **Un logo pour chaque provenance** : Bitpanda, Bitvavo, OKX, Bybit, KuCoin, Bitget, SwissBorg, Trezor et
+  Phantom rejoignent les marques reconnues ; un portefeuille lu par son adresse et nommé librement prend le logo
+  de sa blockchain plutôt que des initiales ; chaque compartiment de la liste (« Par leur adresse »,
+  « Exchanges », « Par leurs exports », « Via CoinStats », « Saisis à la main ») porte son pictogramme, le même
+  que dans « Ajouter un portefeuille ».
+- **Lignes saisies à la main archivées** : chacune se supprime pour de bon par sa corbeille. Après un dépôt de
+  fichier, Pécule signale la ligne saisie à la main qui ferait doublon, comme il le fait pour une adresse.
+
+Aucune migration, aucun réglage nouveau.
+
 ## 1.44.0
 
 Crypto : voir ce que porte chaque portefeuille, lire un jeton rare, corriger un export incomplet.

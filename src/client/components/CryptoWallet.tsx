@@ -9,11 +9,25 @@ import { Card, Field, Sheet } from "./ui.tsx";
 import { BrandLogo } from "./Logo.tsx";
 import { detectWallet, looksSecret, WALLET_LABELS, type WalletKind } from "../../lib/crypto-chains.ts";
 import { EXCHANGE_IDS, EXCHANGES, type ExchangeId } from "../../lib/crypto-exchanges.ts";
+import { FILE_APP_IDS, FILE_APPS, type FileAppId } from "../../lib/crypto-files.ts";
 import { locale, t, tk, tn } from "../../lib/i18n.ts";
 import { dateFr } from "../format.ts";
 
 /** Ce qu'un dépôt de fichiers a donné : mouvements ajoutés, période couverte, soldes recalculés. */
-type Imported = { added: number; known: number; from: string; to: string; holdings: { symbol: string; quantity: number }[]; negative: string[]; unpriced: string[] };
+type Imported = {
+  portfolioId: string;
+  added: number;
+  known: number;
+  from: string;
+  to: string;
+  holdings: { symbol: string; quantity: number }[];
+  negative: string[];
+  unpriced: string[];
+  /** Genres de ligne que Pécule ne connaît pas, laissés de côté. */
+  unknown: string[];
+  /** Les mêmes cryptos saisies à la main : peut-être ce compte. */
+  manual: { id: number; symbol: string; quantity: number; location: string | null }[];
+};
 
 type Added = {
   portfolioId: string;
@@ -110,8 +124,8 @@ const INPUT = "w-full bg-transparent text-[15px] font-medium outline-none placeh
 const CHOICES = [
   { mode: "adresse", icon: Wallet, title: tk("Un portefeuille, par son adresse publique"), hint: tk("Ledger, Trezor, MetaMask, Phantom… Bitcoin, Ethereum et ses chaînes, Solana, Cardano, MultiversX, VeChain.") },
   { mode: "exchange", icon: Building2, title: tk("Un exchange, par une clé en lecture seule"), hint: tk("Kraken, Binance, Coinbase, Bitpanda, Bitvavo, OKX, Bybit, KuCoin, Bitget, Bitfinex, Crypto.com Exchange.") },
-  { mode: "fichier", icon: FileUp, title: tk("L'appli Crypto.com, par son export"), hint: tk("L'appli n'a pas de clé d'API : dépose le fichier de son historique, de temps en temps.") },
-  { mode: "coinstats", icon: Layers, title: tk("Un compte CoinStats"), hint: tk("Un agrégateur : tout ce que tu y as relié, y compris ce que Pécule ne lit pas lui-même.") },
+  { mode: "fichier", icon: FileUp, title: tk("Une appli, par son export"), hint: tk("Crypto.com, SwissBorg : l'appli n'a pas de clé d'API, dépose le fichier de son historique de temps en temps.") },
+  { mode: "coinstats", icon: Layers, brand: "CoinStats", title: tk("Un compte CoinStats"), hint: tk("Un agrégateur : tout ce que tu y as relié, y compris ce que Pécule ne lit pas lui-même.") },
 ] as const;
 
 /**
@@ -126,6 +140,7 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
   const fileInput = useRef<HTMLInputElement>(null);
   const [passphrase, setPassphrase] = useState("");
   const [exchange, setExchange] = useState<ExchangeId>("kraken");
+  const [app, setApp] = useState<FileAppId>("cryptocom");
   const [key, setKey] = useState("");
   const [secretKey, setSecretKey] = useState("");
   const [address, setAddress] = useState("");
@@ -184,7 +199,7 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
       let known = 0;
       let last: Imported | undefined;
       for (const f of Array.from(files)) {
-        last = await api<Imported>("/crypto/files/cryptocom", { method: "POST", body: await f.arrayBuffer(), headers: { "Content-Type": "application/octet-stream" } });
+        last = await api<Imported>(`/crypto/files/${app}`, { method: "POST", body: await f.arrayBuffer(), headers: { "Content-Type": "application/octet-stream" } });
         added += last.added;
         known += last.known;
       }
@@ -200,9 +215,10 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
   }
 
   async function archive(id: number) {
-    if (!added) return;
+    const portfolioId = added?.portfolioId ?? imported?.portfolioId;
+    if (!portfolioId) return;
     try {
-      await api(`/crypto/${id}/archive`, { method: "POST", json: { portfolioId: added.portfolioId } });
+      await api(`/crypto/${id}/archive`, { method: "POST", json: { portfolioId } });
       setArchived((a) => [...a, id]);
       await refresh();
     } catch (e) {
@@ -258,7 +274,7 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
           <p className="mb-3 px-1 text-sm leading-relaxed text-muted">{t("Pécule relit chaque jour ce que tu relies ici, et ne peut jamais rien dépenser ni vendre. Choisis ce qui correspond à ce que tu as.")}</p>
           {CHOICES.map((c) => (
             <button key={c.mode} type="button" onClick={() => setMode(c.mode)} className="press card flex w-full items-center gap-3 px-4 py-3 text-left">
-              <c.icon size={22} className="shrink-0 text-accent" />
+              {"brand" in c ? <BrandLogo texts={[c.brand]} size="sm" tone="neutral" icon={c.icon} /> : <c.icon size={22} className="shrink-0 text-accent" />}
               <span className="min-w-0 flex-1">
                 <span className="block text-[15px] font-medium">{t(c.title)}</span>
                 <span className="block text-xs leading-relaxed text-muted">{t(c.hint)}</span>
@@ -270,18 +286,33 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
         </div>
       ) : mode === "fichier" ? (
         <div className="space-y-3">
-          <p className="px-1 text-sm leading-relaxed text-muted">
-            {t("L'appli Crypto.com ne donne pas de clé d'API. Pécule lit le fichier de son historique : le solde de chaque crypto est la somme de ses mouvements. Un mouvement déjà connu n'est jamais compté deux fois.")}
-          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {FILE_APP_IDS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setApp(id);
+                  setImported(null);
+                }}
+                aria-pressed={app === id}
+                className={clsx("press card flex items-center gap-2 px-3 py-2.5 text-left text-sm font-medium", app === id ? "outline outline-2 -outline-offset-2 outline-[var(--color-accent)]" : "opacity-70")}
+              >
+                <BrandLogo texts={[FILE_APPS[id].name]} size="sm" tone="neutral" />
+                {FILE_APPS[id].name}
+              </button>
+            ))}
+          </div>
+          <p className="px-1 text-sm leading-relaxed text-muted">{t(FILE_APPS[app].why)}</p>
           <Card className="px-4 py-3 text-sm">
             <ol className="list-decimal space-y-1.5 pl-5 leading-relaxed">
-              <li>{t("Dans l'appli Crypto.com : Comptes → historique des transactions → exporter.")}</li>
-              <li>{t("Choisis « Crypto Wallet », puis une période. L'appli limite la durée d'un export : fais-en plusieurs pour couvrir tout l'historique, depuis le premier jour.")}</li>
-              <li>{t("Dépose ici tous les fichiers CSV obtenus. La fois suivante, un export de la période écoulée suffit.")}</li>
+              {FILE_APPS[app].steps.map((step) => (
+                <li key={step}>{t(step)}</li>
+              ))}
             </ol>
-            <div className="mt-2 text-xs leading-relaxed text-muted">{t("Ce qui est immobilisé dans l'appli (staking, carte, « Earn ») reste compté. L'export du portefeuille en monnaie n'est pas lu.")}</div>
+            <div className="mt-2 text-xs leading-relaxed text-muted">{t(FILE_APPS[app].covers)}</div>
           </Card>
-          <input ref={fileInput} type="file" accept=".csv,text/csv" multiple className="hidden" onChange={(e) => upload(e.target.files)} />
+          <input ref={fileInput} type="file" accept={FILE_APPS[app].accept} multiple className="hidden" onChange={(e) => upload(e.target.files)} />
           <button type="button" onClick={() => fileInput.current?.click()} disabled={busy} className="press w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50">
             {busy ? t("Lecture en cours…") : t("Choisir les fichiers")}
           </button>
@@ -306,8 +337,27 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
               {imported.negative.length > 0 && (
                 <div className="px-4 py-3 text-xs leading-relaxed text-warn">{t("Solde négatif pour {cryptos} : il manque des mouvements plus anciens. Dépose aussi l'export des premières années.", { cryptos: imported.negative.join(", ") })}</div>
               )}
+              {imported.unknown.length > 0 && (
+                <div className="px-4 py-3 text-xs leading-relaxed text-warn">{t("Lignes laissées de côté, d'un genre que Pécule ne connaît pas : {genres}. Compare les soldes à ceux de l'appli.", { genres: imported.unknown.join(", ") })}</div>
+              )}
             </Card>
           )}
+          {imported?.manual
+            .filter((m) => !archived.includes(m.id))
+            .map((m) => (
+              <Card key={m.id} className="px-4 py-3 text-sm">
+                <div>
+                  {t("Tu as aussi {quantite} {symbole} saisis à la main{lieu}. Si c'est ce portefeuille, archive cette ligne pour ne pas le compter deux fois.", {
+                    quantite: qty(m.quantity),
+                    symbole: m.symbol,
+                    lieu: m.location ? ` (${m.location})` : "",
+                  })}
+                </div>
+                <button type="button" onClick={() => archive(m.id)} className="press mt-2 text-sm font-medium text-accent">
+                  {t("Archiver la ligne saisie à la main")}
+                </button>
+              </Card>
+            ))}
         </div>
       ) : mode === "coinstats" ? (
         <div className="space-y-3">

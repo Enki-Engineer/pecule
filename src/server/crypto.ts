@@ -5,7 +5,8 @@ import { env, sealingSecret } from "./env.ts";
 import { db, exec, one, q, withLock } from "./db.ts";
 import { adminMember, memberByName } from "./members.ts";
 import { cryptoFileMoves, cryptoPositions, cryptoSources, cryptoSyncRuns, prices } from "./db/schema/index.ts";
-import { balancesOf, OBSERVED, parseCryptocomExport } from "../lib/crypto-files.ts";
+import { balancesOf, FILE_APP_IDS, FILE_APPS, OBSERVED, parseCryptocomExport, parseSwissborgRows, type FileAppId, type FileParse } from "../lib/crypto-files.ts";
+import { readXlsxRows } from "./xlsx.ts";
 import { SYMBOLS } from "../lib/crypto-tokens.ts";
 import { coinstatsEnabled, creditsUsed, eurRate, listPortfolios, portfolioCoins, type CsCoinLine, type CsPortfolio } from "./coinstats.ts";
 import { coingeckoCandidate, decideManualLines, findDuplicates, portfolioSignature, replacedIds, suspiciousDrop, withoutChainCovered, type SyncedLine } from "../lib/crypto-sync.ts";
@@ -47,7 +48,7 @@ const isDirect = (type: string) => isWalletKind(type) || isExchangeKind(type);
 /** `source` des lignes écrites pour une source lue sans intermédiaire. */
 const lineSource = (type: string) => (isExchangeKind(type) ? "exchange" : "onchain");
 /** Source tenue par les fichiers qu'exporte une appli sans clé d'API : relue quand le membre en dépose un, pas chaque jour. */
-const FILE_KINDS = ["f-cryptocom"];
+const FILE_KINDS: string[] = FILE_APP_IDS.map((app) => `f-${app}`);
 const isFileKind = (type: string) => FILE_KINDS.includes(type);
 const DIRECT_LINES = ["onchain", "exchange", "fichier"];
 /** Ce qui suit le préfixe de l'identifiant d'une source : son adresse (« btc:bc1… », « evm:0x… », « eth-val:12 »). */
@@ -756,18 +757,40 @@ export async function observeFileBalance(userId: number, portfolioId: string, ra
 }
 
 /**
- * Dépôt d'un export « Crypto Wallet » de l'appli Crypto.com, qui n'a pas de clé d'API : ses mouvements s'ajoutent à
- * ceux déjà gardés (un mouvement déjà connu n'est pas recompté), et les soldes en sont recalculés. Le fichier
- * lui-même n'est pas gardé.
+ * Lecteur du fichier de chaque appli suivie par ses exports : ses mouvements, ou une erreur dite au membre quand le
+ * fichier n'est pas celui qu'on attend.
  */
-export async function importCryptocomFile(userId: number, content: string) {
-  const parsed = parseCryptocomExport(content);
-  if (!parsed) throw new Error(t("Ce fichier n'est pas un export de l'appli Crypto.com (historique « Crypto Wallet », au format CSV)."));
-  if (parsed.fiat) throw new Error(t("C'est l'export du portefeuille en monnaie de l'appli : il n'y a rien à en tirer. Dépose l'export « Crypto Wallet »."));
+const FILE_READERS: Record<FileAppId, (content: Buffer) => FileParse> = {
+  cryptocom: (content) => {
+    const parsed = parseCryptocomExport(content.toString("utf8"));
+    if (!parsed) throw new Error(t("Ce fichier n'est pas un export de l'appli Crypto.com (historique « Crypto Wallet », au format CSV)."));
+    if (parsed.fiat) throw new Error(t("C'est l'export du portefeuille en monnaie de l'appli : il n'y a rien à en tirer. Dépose l'export « Crypto Wallet »."));
+    return parsed;
+  },
+  swissborg: (content) => {
+    let rows: string[][];
+    try {
+      rows = readXlsxRows(content);
+    } catch {
+      throw new Error(t("Ce fichier n'est pas un relevé de compte SwissBorg (« Account Statement », au format Excel)."));
+    }
+    const parsed = parseSwissborgRows(rows);
+    if (!parsed) throw new Error(t("Ce fichier n'est pas un relevé de compte SwissBorg (« Account Statement », au format Excel)."));
+    return parsed;
+  },
+};
+
+/**
+ * Dépôt du fichier qu'exporte une appli sans clé d'API (export « Crypto Wallet » de l'appli Crypto.com, relevé de
+ * compte de SwissBorg) : ses mouvements s'ajoutent à ceux déjà gardés (un mouvement déjà connu n'est pas recompté),
+ * et les soldes en sont recalculés. Le fichier lui-même n'est pas gardé.
+ */
+export async function importCryptoFile(userId: number, app: FileAppId, content: Buffer) {
+  const parsed = FILE_READERS[app](content);
   if (!parsed.moves.length) throw new Error(t("Aucun mouvement dans ce fichier."));
-  const portfolioId = `f-cryptocom:${userId}`;
+  const portfolioId = `f-${app}:${userId}`;
   const [existing] = await db.select({ id: cryptoSources.portfolioId }).from(cryptoSources).where(eq(cryptoSources.portfolioId, portfolioId));
-  if (!existing) await db.insert(cryptoSources).values({ portfolioId, ownerUserId: userId, name: "Crypto.com", type: "f-cryptocom" });
+  if (!existing) await db.insert(cryptoSources).values({ portfolioId, ownerUserId: userId, name: FILE_APPS[app].name, type: `f-${app}` });
   else await db.update(cryptoSources).set({ enabled: 1 }).where(eq(cryptoSources.portfolioId, portfolioId));
 
   let added = 0;
@@ -780,7 +803,33 @@ export async function importCryptocomFile(userId: number, content: string) {
     added += Number((result as { affectedRows?: number }).affectedRows ?? 0);
   }
   const { holdings, negative, span } = await closeFileChange(userId, portfolioId);
-  return { portfolioId, moves: parsed.moves.length, added, known: parsed.moves.length - added, from: String(span?.first ?? "").slice(0, 10), to: String(span?.last ?? "").slice(0, 10), holdings, negative, unpriced: holdings.filter((h) => !SYMBOLS[h.symbol]).map((h) => h.symbol) };
+  // Les mêmes cryptos saisies à la main : peut-être ce compte, que le membre comptait jusque-là lui-même.
+  const manual = holdings.length
+    ? await q<{ id: number; symbol: string; quantity: number; location: string | null }>(
+        `SELECT id, symbol, quantity, location FROM crypto_positions
+         WHERE owner_user_id = ? AND source = 'manuel' AND archived_at IS NULL AND UPPER(symbol) IN (${holdings.map(() => "?").join(", ")})`,
+        [userId, ...holdings.map((h) => h.symbol.toUpperCase())],
+      )
+    : [];
+  return {
+    portfolioId,
+    moves: parsed.moves.length,
+    added,
+    known: parsed.moves.length - added,
+    from: String(span?.first ?? "").slice(0, 10),
+    to: String(span?.last ?? "").slice(0, 10),
+    holdings,
+    negative,
+    unpriced: holdings.filter((h) => !SYMBOLS[h.symbol]).map((h) => h.symbol),
+    unknown: parsed.unknown ?? [],
+    manual: manual.map((m) => ({ ...m, quantity: Number(m.quantity) })),
+  };
+}
+
+/** Supprime pour de bon une ligne saisie à la main déjà archivée (elle ne comptait plus) ; une ligne en compte ne se supprime pas ainsi. */
+export async function deleteArchivedLine(userId: number, id: number) {
+  const result = await exec("DELETE FROM crypto_positions WHERE id = ? AND owner_user_id = ? AND source = 'manuel' AND archived_at IS NOT NULL", [id, userId]);
+  return Number((result as { affectedRows?: number }).affectedRows ?? 0) > 0;
 }
 
 /** Archive une ligne saisie à la main que le portefeuille `portfolioId` du membre remplace (elle se remet en compte). */

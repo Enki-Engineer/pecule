@@ -59,3 +59,9 @@ updates:
       prefix: "deps"
     labels:
       - "dépendances"
+    ignore:
+      # L'image reste sur le Node que demande le projet et que testent les contrôles automatiques (Node 24, maintenu
+      # jusqu'au 30 avril 2028) : une image en Node 26 tournerait sur une version que rien d'autre n'exerce.
+      # À retirer, avec la règle de @types/node ci-dessus, quand le projet passera à Node 26.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]

@@ -3,6 +3,36 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.41.0
+
+Crypto : plus de voie privilégiée. CoinStats devient une façon parmi d'autres de relier ce qu'on a, sept exchanges
+s'ajoutent, et l'appli Crypto.com entre par ses exports.
+
+- **« Ajouter un portefeuille » commence par un choix** : un portefeuille par son adresse publique, un exchange par
+  une clé en lecture seule, l'appli Crypto.com par son export, ou un compte CoinStats. Aucune n'est la voie
+  « normale » ; elles se combinent.
+- **Le bouton s'appelle « Synchroniser »** et relit tout ce qui est relié, d'où que cela vienne. L'écran ne parle
+  plus de CoinStats que là où il sert : une source parmi les autres, avec sa mention « Powered by CoinStats ».
+- **Sept exchanges de plus** par clé en lecture seule : Bitvavo, OKX, Bybit, KuCoin, Bitget, Bitfinex et Crypto.com
+  Exchange — onze en tout. OKX, KuCoin et Bitget demandent aussi la phrase de passe de la clé. Bybit et Bitfinex
+  disent les droits d'une clé : celle qui peut faire plus que lire est refusée. OKX et Bybit ont un site par
+  région : Pécule essaie chacun tant que la clé y est inconnue.
+- **L'appli Crypto.com, qui n'a pas de clé d'API**, se suit par les fichiers de son historique (« Crypto Wallet »,
+  CSV) : le solde de chaque crypto est la somme de ses mouvements. Les fichiers se déposent dans n'importe quel
+  ordre, un mouvement déjà connu n'est jamais recompté, ce qui est immobilisé dans l'appli (staking, carte,
+  « Earn ») reste compté, et un solde négatif signale un fichier manquant. L'export du portefeuille en monnaie est
+  reconnu et refusé (ses achats figurent déjà dans l'autre). Le fichier lui-même n'est pas gardé.
+- Les cryptos reconnues par leur symbole passent des cinq cents aux mille mieux capitalisées.
+
+À savoir : comme pour la 1.40.0, les connecteurs d'exchange sont écrits d'après les documentations et le code
+d'outils libres qui les lisent déjà ; chacun refuse bien une fausse clé, aucun n'a encore été lu sur un vrai compte.
+Pour l'appli Crypto.com, le calcul a été rejoué sur de vrais exports : il s'accorde avec un autre outil pour une
+partie des cryptos et s'en écarte pour d'autres, sans qu'on sache encore lequel a raison — compare les soldes à
+ceux de l'appli après un dépôt.
+
+Pour celui qui héberge : migration `0038_mouvements_crypto_par_fichier` (une table). Aucun réglage nouveau, aucun
+paquet nouveau. Le serveur interroge l'API de chaque exchange relié, et rien d'autre de nouveau.
+
 ## 1.40.0
 
 Un compte chez un exchange se relie par une clé d'API en lecture seule : Kraken, Binance, Coinbase, Bitpanda.

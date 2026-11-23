@@ -1,14 +1,19 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, ShieldAlert } from "lucide-react";
+import { Building2, Check, ChevronLeft, ChevronRight, FileUp, Layers, ShieldAlert, Wallet } from "lucide-react";
+import { Link } from "react-router";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, type CryptoStatus } from "../api.ts";
-import { Card, Field, Segmented, Sheet } from "./ui.tsx";
+import { Card, Field, Sheet } from "./ui.tsx";
 import { BrandLogo } from "./Logo.tsx";
 import { detectWallet, looksSecret, WALLET_LABELS, type WalletKind } from "../../lib/crypto-chains.ts";
 import { EXCHANGE_IDS, EXCHANGES, type ExchangeId } from "../../lib/crypto-exchanges.ts";
-import { locale, t } from "../../lib/i18n.ts";
+import { locale, t, tk, tn } from "../../lib/i18n.ts";
+import { dateFr } from "../format.ts";
+
+/** Ce qu'un dépôt de fichiers a donné : mouvements ajoutés, période couverte, soldes recalculés. */
+type Imported = { added: number; known: number; from: string; to: string; holdings: { symbol: string; quantity: number }[]; negative: string[]; unpriced: string[] };
 
 type Added = {
   portfolioId: string;
@@ -32,6 +37,14 @@ function kindHint(kind: WalletKind): string {
 
 const INPUT = "w-full bg-transparent text-[15px] font-medium outline-none placeholder:text-muted/60";
 
+/** Les façons de relier ce qu'on a : aucune n'est la voie « normale », chacune couvre un cas. */
+const CHOICES = [
+  { mode: "adresse", icon: Wallet, title: tk("Un portefeuille, par son adresse publique"), hint: tk("Ledger, Trezor, MetaMask, Phantom… Bitcoin, Ethereum et ses chaînes, Solana, MultiversX.") },
+  { mode: "exchange", icon: Building2, title: tk("Un exchange, par une clé en lecture seule"), hint: tk("Kraken, Binance, Coinbase, Bitpanda, Bitvavo, OKX, Bybit, KuCoin, Bitget, Bitfinex, Crypto.com Exchange.") },
+  { mode: "fichier", icon: FileUp, title: tk("L'appli Crypto.com, par son export"), hint: tk("L'appli n'a pas de clé d'API : dépose le fichier de son historique, de temps en temps.") },
+  { mode: "coinstats", icon: Layers, title: tk("Un compte CoinStats"), hint: tk("Un agrégateur : tout ce que tu y as relié, y compris ce que Pécule ne lit pas lui-même.") },
+] as const;
+
 /**
  * Ajout d'un portefeuille : par son adresse publique (le membre colle, Pécule reconnaît la blockchain) ou, pour un
  * exchange, par une clé d'API en lecture seule, avec la marche à suivre de cet exchange. Dans les deux cas Pécule
@@ -39,7 +52,10 @@ const INPUT = "w-full bg-transparent text-[15px] font-medium outline-none placeh
  */
 export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: () => void; st: CryptoStatus }) {
   const qc = useQueryClient();
-  const [mode, setMode] = useState<"adresse" | "exchange">("adresse");
+  const [mode, setMode] = useState<"choix" | "adresse" | "exchange" | "fichier" | "coinstats">("choix");
+  const [imported, setImported] = useState<Imported | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [passphrase, setPassphrase] = useState("");
   const [exchange, setExchange] = useState<ExchangeId>("kraken");
   const [key, setKey] = useState("");
   const [secretKey, setSecretKey] = useState("");
@@ -57,9 +73,11 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
 
   function close() {
-    setMode("adresse");
+    setMode("choix");
+    setImported(null);
     setKey("");
     setSecretKey("");
+    setPassphrase("");
     setAddress("");
     setName("");
     setReplaces("");
@@ -69,7 +87,7 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
   }
 
   const info = EXCHANGES[exchange];
-  const ready = mode === "adresse" ? !!kind : key.trim().length > 0 && (!info.secretLabel || secretKey.trim().length > 0);
+  const ready = mode === "adresse" ? !!kind : key.trim().length > 0 && (!info.secretLabel || secretKey.trim().length > 0) && (!info.passLabel || passphrase.trim().length > 0);
 
   async function add() {
     setBusy(true);
@@ -77,16 +95,41 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
       const r =
         mode === "adresse"
           ? await api<Added>("/crypto/sources", { method: "POST", json: { address: text, name: name.trim() || null, replaces: replaces || null } })
-          : await api<Added>("/crypto/exchanges", { method: "POST", json: { exchange, key: key.trim(), secret: secretKey.trim() || null, name: name.trim() || null, replaces: replaces || null } });
+          : await api<Added>("/crypto/exchanges", { method: "POST", json: { exchange, key: key.trim(), secret: secretKey.trim() || null, passphrase: passphrase.trim() || null, name: name.trim() || null, replaces: replaces || null } });
       // La clé ne reste pas dans la page une fois envoyée.
       setKey("");
       setSecretKey("");
+      setPassphrase("");
       await refresh();
       setAdded(r);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Ajout impossible"));
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** Dépose les fichiers choisis l'un après l'autre : chacun ajoute ses mouvements à ceux déjà gardés. */
+  async function upload(files: FileList | null) {
+    if (!files?.length) return;
+    setBusy(true);
+    try {
+      let added = 0;
+      let known = 0;
+      let last: Imported | undefined;
+      for (const f of Array.from(files)) {
+        last = await api<Imported>("/crypto/files/cryptocom", { method: "POST", body: await f.arrayBuffer(), headers: { "Content-Type": "application/octet-stream" } });
+        added += last.added;
+        known += last.known;
+      }
+      await refresh();
+      // Le dernier dépôt rend les soldes de tout l'historique ; les compteurs sont ceux de tous les fichiers.
+      if (last) setImported({ ...last, added, known });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("Import impossible"));
+    } finally {
+      setBusy(false);
+      if (fileInput.current) fileInput.current.value = "";
     }
   }
 
@@ -153,17 +196,88 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
 
   return (
     <Sheet open onClose={close} title={t("Ajouter un portefeuille")}>
-      <div className="mb-3">
-        <Segmented
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: "adresse", label: t("Par son adresse") },
-            { value: "exchange", label: t("Compte d'exchange") },
-          ]}
-        />
-      </div>
-      {mode === "adresse" ? (
+      {mode !== "choix" && (
+        <button type="button" onClick={() => setMode("choix")} className="press -ml-1 mb-2 flex items-center gap-0.5 text-sm font-medium text-accent">
+          <ChevronLeft size={16} /> {t("Autres façons d'ajouter")}
+        </button>
+      )}
+      {mode === "choix" ? (
+        <div className="space-y-2">
+          <p className="mb-3 px-1 text-sm leading-relaxed text-muted">{t("Pécule relit chaque jour ce que tu relies ici, et ne peut jamais rien dépenser ni vendre. Choisis ce qui correspond à ce que tu as.")}</p>
+          {CHOICES.map((c) => (
+            <button key={c.mode} type="button" onClick={() => setMode(c.mode)} className="press card flex w-full items-center gap-3 px-4 py-3 text-left">
+              <c.icon size={22} className="shrink-0 text-accent" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-medium">{t(c.title)}</span>
+                <span className="block text-xs leading-relaxed text-muted">{t(c.hint)}</span>
+              </span>
+              <ChevronRight size={16} className="shrink-0 text-muted" />
+            </button>
+          ))}
+          <p className="px-1 pt-2 text-xs leading-relaxed text-muted">{t("Rien de tout cela ? Demande à l'assistant d'ajouter une position à la main : tu en corriges ensuite la quantité ici.")}</p>
+        </div>
+      ) : mode === "fichier" ? (
+        <div className="space-y-3">
+          <p className="px-1 text-sm leading-relaxed text-muted">
+            {t("L'appli Crypto.com ne donne pas de clé d'API. Pécule lit le fichier de son historique : le solde de chaque crypto est la somme de ses mouvements. Un mouvement déjà connu n'est jamais compté deux fois.")}
+          </p>
+          <Card className="px-4 py-3 text-sm">
+            <ol className="list-decimal space-y-1.5 pl-5 leading-relaxed">
+              <li>{t("Dans l'appli Crypto.com : Comptes → historique des transactions → exporter.")}</li>
+              <li>{t("Choisis « Crypto Wallet », puis une période. L'appli limite la durée d'un export : fais-en plusieurs pour couvrir tout l'historique, depuis le premier jour.")}</li>
+              <li>{t("Dépose ici tous les fichiers CSV obtenus. La fois suivante, un export de la période écoulée suffit.")}</li>
+            </ol>
+            <div className="mt-2 text-xs leading-relaxed text-muted">{t("Ce qui est immobilisé dans l'appli (staking, carte, « Earn ») reste compté. L'export du portefeuille en monnaie n'est pas lu.")}</div>
+          </Card>
+          <input ref={fileInput} type="file" accept=".csv,text/csv" multiple className="hidden" onChange={(e) => upload(e.target.files)} />
+          <button type="button" onClick={() => fileInput.current?.click()} disabled={busy} className="press w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50">
+            {busy ? t("Lecture en cours…") : t("Choisir les fichiers")}
+          </button>
+          {imported && (
+            <Card className="divide-y divide-line text-sm">
+              <div className="px-4 py-3">
+                <div className="font-medium">{tn("{n} mouvement ajouté", "{n} mouvements ajoutés", imported.added)}</div>
+                <div className="mt-0.5 text-xs leading-relaxed text-muted">
+                  {imported.known > 0 && <>{tn("{n} déjà connu.", "{n} déjà connus.", imported.known)} </>}
+                  {t("Historique du {debut} au {fin}.", { debut: dateFr(imported.from), fin: dateFr(imported.to) })} {t("Compare ces soldes à ceux de l'appli : un écart dit qu'il manque un fichier.")}
+                </div>
+              </div>
+              {imported.holdings.map((h) => (
+                <div key={h.symbol} className="flex justify-between gap-3 px-4 py-2.5">
+                  <span className="font-medium">
+                    {h.symbol}
+                    {imported.unpriced.includes(h.symbol) && <span className="ml-1.5 text-xs font-normal text-muted">{t("sans cours")}</span>}
+                  </span>
+                  <span className="tnum">{qty(h.quantity)}</span>
+                </div>
+              ))}
+              {imported.negative.length > 0 && (
+                <div className="px-4 py-3 text-xs leading-relaxed text-warn">{t("Solde négatif pour {cryptos} : il manque des mouvements plus anciens. Dépose aussi l'export des premières années.", { cryptos: imported.negative.join(", ") })}</div>
+              )}
+            </Card>
+          )}
+          {st.enabled && <p className="px-1 text-xs leading-relaxed text-muted">{t("Si ce compte est aussi suivi dans CoinStats, décoche-le dans la liste des portefeuilles pour ne pas le compter deux fois.")}</p>}
+        </div>
+      ) : mode === "coinstats" ? (
+        <div className="space-y-3">
+          <p className="px-1 text-sm leading-relaxed text-muted">
+            {t("CoinStats est un agrégateur : un compte chez lui réunit des portefeuilles et des exchanges, y compris ceux que Pécule ne lit pas lui-même. Pécule relit alors tout le compte une fois par jour.")}
+          </p>
+          <Card className="px-4 py-3 text-sm">
+            <ol className="list-decimal space-y-1.5 pl-5 leading-relaxed">
+              <li>{t("Relie tes portefeuilles et tes exchanges dans ton compte CoinStats.")}</li>
+              <li>{t("Crée une clé d'API sur openapi.coinstats.app.")}</li>
+              <li>{t("L'administrateur du foyer la saisit dans Réglages → Comptes et connexions.")}</li>
+            </ol>
+            <div className="mt-2 text-xs leading-relaxed text-muted">{t("Un seul compte CoinStats par foyer : ses portefeuilles sont ceux de l'administrateur. Ce que tu relies aussi directement ici n'est compté qu'une fois si tu le dis à l'ajout.")}</div>
+          </Card>
+          <div className="px-1 text-sm">{st.enabled ? t("CoinStats est relié à ce foyer.") : t("CoinStats n'est pas relié à ce foyer.")}</div>
+          <Link to="/reglages/connexions?c=coinstats" onClick={close} className="press block w-full rounded-xl bg-accent py-3 text-center font-semibold text-white">
+            {t("Ouvrir Comptes et connexions")}
+          </Link>
+        </div>
+      ) : mode === "adresse" ? (
+
         <div className="space-y-3">
           <p className="px-1 text-sm leading-relaxed text-muted">
             {t("Colle l'adresse publique de ton portefeuille : Pécule reconnaît la blockchain et lit ce qu'il contient, chaque jour. Une adresse publique permet de lire, jamais de dépenser.")}
@@ -193,7 +307,7 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
           <button type="button" onClick={add} disabled={!ready || busy} className="press w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50">
             {busy ? t("Lecture en cours…") : t("Ajouter le portefeuille")}
           </button>
-          <p className="px-1 text-xs leading-relaxed text-muted">{t("Pour un exchange (Kraken, Binance, Coinbase, Bitpanda), une adresse ne suffit pas : ses comptes ne sont pas sur une adresse à toi. Relie-le par l'onglet « Compte d'exchange ».")}</p>
+          <p className="px-1 text-xs leading-relaxed text-muted">{t("Pour un exchange, une adresse ne suffit pas : ses comptes ne sont pas sur une adresse à toi. Relie-le par sa clé en lecture seule.")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -209,6 +323,7 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
                   setExchange(id);
                   setKey("");
                   setSecretKey("");
+                  setPassphrase("");
                 }}
                 aria-pressed={exchange === id}
                 className={clsx("press card flex items-center gap-2 px-3 py-2.5 text-left text-sm font-medium", exchange === id ? "outline outline-2 -outline-offset-2 outline-[var(--color-accent)]" : "opacity-70")}
@@ -240,12 +355,18 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
               )}
             </label>
           )}
+          {info.passLabel && (
+            <label className="card block px-4 py-3">
+              <span className="block text-xs text-muted">{t(info.passLabel)}</span>
+              <input type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} autoComplete="new-password" className={INPUT} />
+            </label>
+          )}
           <Field label={t("Nom du portefeuille (facultatif)")} value={name} onChange={setName} text placeholder={info.name} />
           {coinstatsChoice}
           <button type="button" onClick={add} disabled={!ready || busy} className="press w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50">
             {busy ? t("Lecture en cours…") : t("Relier {exchange}", { exchange: info.name })}
           </button>
-          <p className="px-1 text-xs leading-relaxed text-muted">{t("Un autre exchange ? Saisis la position à la main, ou passe par CoinStats.")}</p>
+          <p className="px-1 text-xs leading-relaxed text-muted">{t("Un autre exchange ? Passe par un compte CoinStats, ou demande à l'assistant d'ajouter la position à la main.")}</p>
         </div>
       )}
     </Sheet>

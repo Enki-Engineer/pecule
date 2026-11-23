@@ -138,6 +138,29 @@ export const cryptoSources = mysqlTable("crypto_sources", {
   secret: text("secret"),
 });
 
+/**
+ * Mouvements lus dans le fichier qu'exporte une appli sans clé d'API (source « f-… »). Le solde d'une crypto est la
+ * somme de ses mouvements ; `row_key` (empreinte de la ligne du fichier) fait qu'un fichier déposé deux fois, ou
+ * deux exports qui se recouvrent, ne comptent qu'une fois.
+ */
+export const cryptoFileMoves = mysqlTable(
+  "crypto_file_moves",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    portfolioId: varchar("portfolio_id", { length: 96 }).notNull(),
+    ownerUserId: int("owner_user_id").notNull(),
+    at: datetime("at", { mode: "string" }).notNull(),
+    kind: varchar("kind", { length: 96 }).notNull(),
+    symbol: varchar("symbol", { length: 24 }).notNull(),
+    amount: decimal("amount", { precision: 30, scale: 10, mode: "number" }).notNull(),
+    rowKey: char("row_key", { length: 40 }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("uq_crypto_file_move").on(t.portfolioId, t.rowKey),
+    foreignKey({ name: "fk_crypto_file_owner", columns: [t.ownerUserId], foreignColumns: [users.id] }).onDelete("cascade"),
+  ],
+);
+
 /** Journal des synchros CoinStats (crédits consommés, total, erreurs). */
 export const cryptoSyncRuns = mysqlTable("crypto_sync_runs", {
   id: int("id").autoincrement().primaryKey(),

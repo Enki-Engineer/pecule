@@ -3,7 +3,8 @@ import { amountOf, EXCHANGE_IDS, EXCHANGE_KINDS, EXCHANGES, exchangeOf, holdings
 
 describe("exchanges reliés", () => {
   it("donne à chacun son genre, son guide et ses champs", () => {
-    expect(EXCHANGE_KINDS).toEqual(["x-kraken", "x-binance", "x-coinbase", "x-bitpanda"]);
+    expect(EXCHANGE_KINDS.slice(0, 4)).toEqual(["x-kraken", "x-binance", "x-coinbase", "x-bitpanda"]);
+    expect(EXCHANGE_KINDS).toHaveLength(11);
     expect(isExchangeKind("x-kraken")).toBe(true);
     expect(isExchangeKind("evm")).toBe(false);
     expect(exchangeOf("x-bitpanda")).toBe("bitpanda");

@@ -80,9 +80,10 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   `src/server/crypto.ts`) : un portefeuille lu par son adresse publique, sans intermédiaire ni clé
   (`src/server/chains/` : Bitcoin, Ethereum et chaînes compatibles, Solana ; genres et reconnaissance d'une adresse
   dans `src/lib/crypto-chains.ts`, jetons lus dans `src/lib/crypto-tokens.ts`), un compte d'exchange relié par une
-  clé d'API en lecture seule, gardée chiffrée (`src/server/exchanges/` : Kraken, Binance, Coinbase, Bitpanda ; une
+  clé d'API en lecture seule, gardée chiffrée (`src/server/exchanges/` : onze exchanges ; une
   liste blanche de chemins de lecture par exchange, et le refus d'une clé qui peut faire plus que lire quand
-  l'exchange dit ses droits ; guides et codes d'actifs dans `src/lib/crypto-exchanges.ts`), le compte CoinStats du
+  l'exchange dit ses droits ; guides et codes d'actifs dans `src/lib/crypto-exchanges.ts`), les exports d'une appli sans clé d'API (appli
+  Crypto.com : mouvements gardés dans `crypto_file_moves`, lus par `src/lib/crypto-files.ts`), le compte CoinStats du
   foyer s'il en a un, ou la saisie à la main. Le capital restant dû d'un crédit est celui de la dernière échéance passée
   de son échéancier (`src/lib/loans.ts`). Un placement peut suivre les versements qu'il rapporte
   (`assets.payout_match`, `src/server/payouts.ts`, `src/lib/payouts.ts`) : ce sont les entrées d'argent dont le

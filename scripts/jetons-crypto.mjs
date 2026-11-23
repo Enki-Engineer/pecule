@@ -50,8 +50,10 @@ async function get(url) {
   }
 }
 
+/** Les symboles sont pris plus loin dans le classement que les contrats : un exchange ou un export cite aussi de petites cryptos. */
+const SYMBOL_RANKS = RANKS * 2;
 const ranked = [];
-for (let page = 1; ranked.length < RANKS; page++) {
+for (let page = 1; ranked.length < SYMBOL_RANKS; page++) {
   const rows = await get(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&order=market_cap_desc&per_page=250&page=${page}`);
   if (!rows.length) break;
   ranked.push(...rows);
@@ -75,7 +77,7 @@ for (const [chain, platform] of Object.entries(PLATFORMS)) {
 // Symbole → cours : pour un exchange, qui ne donne qu'un symbole. Le mieux capitalisé l'emporte quand deux cryptos
 // portent le même symbole ; c'est presque toujours celle que les exchanges cotent.
 const symbols = new Map();
-for (const c of ranked.slice(0, RANKS)) {
+for (const c of ranked.slice(0, SYMBOL_RANKS)) {
   const symbol = String(c.symbol ?? "").toUpperCase();
   if (!/^[A-Z0-9]{1,24}$/.test(symbol) || EXCLUS.has(c.id) || !/^[a-z0-9-]+$/.test(c.id) || symbols.has(symbol)) continue;
   symbols.set(symbol, [c.id, String(c.name).slice(0, 80)]);

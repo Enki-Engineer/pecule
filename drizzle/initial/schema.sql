@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0037_journal_sans_adresse_crypto.sql
+-- inclut-jusqu-a: drizzle/0038_mouvements_crypto_par_fichier.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -303,6 +303,21 @@ CREATE TABLE `crypto_events` (
   KEY `fk_crypto_events_owner` (`owner_user_id`),
   KEY `idx_crypto_events_date` (`date`),
   CONSTRAINT `fk_crypto_events_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- § table crypto_file_moves
+CREATE TABLE `crypto_file_moves` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `portfolio_id` varchar(96) NOT NULL,
+  `owner_user_id` int(11) NOT NULL,
+  `at` datetime NOT NULL,
+  `kind` varchar(96) NOT NULL,
+  `symbol` varchar(24) NOT NULL,
+  `amount` decimal(30,10) NOT NULL,
+  `row_key` char(40) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_crypto_file_move` (`portfolio_id`,`row_key`),
+  KEY `fk_crypto_file_owner` (`owner_user_id`),
+  CONSTRAINT `fk_crypto_file_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table crypto_positions
 CREATE TABLE `crypto_positions` (

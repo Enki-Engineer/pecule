@@ -87,7 +87,7 @@ export function Crypto() {
                 <Plus size={20} />
               </button>
               {canSync(st) && (
-                <button type="button" onClick={sync} disabled={syncing} className="press grid size-10 place-items-center rounded-full bg-card text-accent ring-1 ring-line" aria-label={syncLabel(st)}>
+                <button type="button" onClick={sync} disabled={syncing} className="press grid size-10 place-items-center rounded-full bg-card text-accent ring-1 ring-line" aria-label={syncLabel()}>
                   <RefreshCw size={18} className={clsx(syncing && "animate-spin")} />
                 </button>
               )}
@@ -159,51 +159,32 @@ export function Crypto() {
 
 /** Il y a quelque chose à relire : le compte CoinStats du foyer, ou un portefeuille ajouté par son adresse. */
 const canSync = (st: CryptoStatus) => st.enabled || st.sources.some((s) => s.direct && s.enabled);
-const syncLabel = (st: CryptoStatus) => (st.enabled ? t("Synchroniser CoinStats") : t("Relire les portefeuilles"));
+const syncLabel = () => t("Synchroniser");
 
 function SyncLine({ st }: { st: CryptoStatus }) {
+  // Tout ce qui est relié se relit ensemble, d'où que cela vienne : adresse, exchange ou compte CoinStats.
+  const read = st.sources.filter((s) => s.enabled && !s.file && (s.direct || st.enabled));
+  if (!read.length && st.sources.some((s) => s.file && s.enabled)) return <div className="mt-2 text-xs text-muted">{t("Tenu par les fichiers déposés : dépose un nouvel export pour mettre à jour.")}</div>;
+  if (!read.length) return <div className="mt-2 text-xs text-muted">{t("Rien n'est relié pour le moment : ajoute un portefeuille, ou saisis tes positions à la main.")}</div>;
   const r = st.lastRun;
-  if (!st.enabled) {
-    // Sans CoinStats : les portefeuilles ajoutés par leur adresse sont relus chaque jour, le reste est saisi.
-    const read = st.sources.filter((s) => s.direct && s.enabled);
-    if (!read.length) return <div className="mt-2 text-xs text-muted">{t("Aucun portefeuille relié : ajoute-en un par son adresse ou relie un exchange, ou saisis tes positions à la main.")}</div>;
-    const last = read.map((s) => s.lastSyncedAt).filter(Boolean).sort().at(-1);
-    return <div className="mt-2 text-xs text-muted">{tn("{n} portefeuille relu {quand}", "{n} portefeuilles relus {quand}", read.length, { quand: timeAgo(last ?? null) })}</div>;
-  }
-  if (!r) return <div className="mt-2 text-xs text-muted">{t("Quantités CoinStats : jamais synchronisées.")}</div>;
-  return (
-    <div className={clsx("mt-2 text-xs", r.status === "error" ? "text-neg" : "text-muted")}>
-      {r.status === "error"
-        ? t("Quantités CoinStats : échec {quand}", { quand: timeAgo(r.startedAt) })
-        : r.status === "running"
-          ? t("Quantités CoinStats : synchro en cours…")
-          : tn("Quantités CoinStats : {quand} · {n} portefeuille", "Quantités CoinStats : {quand} · {n} portefeuilles", r.sources, { quand: timeAgo(r.finishedAt) })}
-    </div>
-  );
+  if (st.enabled && r?.status === "error") return <div className="mt-2 text-xs text-neg">{t("Dernière synchro en échec {quand}", { quand: timeAgo(r.startedAt) })}</div>;
+  if (r?.status === "running") return <div className="mt-2 text-xs text-muted">{t("Synchro en cours…")}</div>;
+  const last = read.map((s) => s.lastSyncedAt).filter(Boolean).sort().at(-1);
+  return <div className="mt-2 text-xs text-muted">{tn("{n} portefeuille relu {quand}", "{n} portefeuilles relus {quand}", read.length, { quand: timeAgo(last ?? null) })}</div>;
 }
 
 /** D'où viennent les quantités et les cours : dit en bas de l'écran, selon ce que le foyer a relié. */
 function Sources({ st, className }: { st: CryptoStatus; className: string }) {
-  const direct = st.sources.some((s) => s.direct);
-  const exchange = st.sources.some((s) => s.exchange);
+  const linked = st.enabled || st.sources.some((s) => s.direct);
   return (
     <p className={className}>
+      {linked && <>{t("Ce que tu as relié est relu une fois par jour ; rien ici ne peut dépenser ni vendre.")} </>}
       {st.enabled && (
         <>
-          {t("Quantités :")} <b>Powered by CoinStats</b> {t("(synchro quotidienne de tous les portefeuilles du compte).")}{" "}
+          <b>Powered by CoinStats</b> {t("pour les portefeuilles de ce compte.")}{" "}
         </>
       )}
-      {direct && (
-        <>
-          {exchange
-            ? t("Les portefeuilles ajoutés par leur adresse et les comptes d'exchange reliés par leur clé sont lus une fois par jour, sans intermédiaire.")
-            : t("Les portefeuilles ajoutés par leur adresse sont lus sur la blockchain une fois par jour, sans intermédiaire.")}{" "}
-        </>
-      )}
-      {t("Cours :")} <b>Data provided by CoinGecko</b>, {t("toutes les heures.")}{" "}
-      {st.enabled
-        ? t("Cours CoinStats du jour pour les petites lignes. Les lignes saisies à la main restent modifiables ; celles que CoinStats couvre sont archivées automatiquement.")
-        : t("Les lignes saisies à la main restent modifiables.")}
+      {t("Cours :")} <b>Data provided by CoinGecko</b>, {t("toutes les heures.")} {t("Les lignes saisies à la main restent modifiables.")}
     </p>
   );
 }
@@ -237,9 +218,9 @@ function GroupRow({ g, onClick }: { g: Group; onClick: () => void }) {
 }
 
 const TYPES: Record<string, string> = {
-  manual: t("saisi dans CoinStats"),
-  wallet: t("wallet"),
-  exchange: t("exchange"),
+  manual: t("via CoinStats, saisi à la main"),
+  wallet: t("via CoinStats"),
+  exchange: t("via CoinStats"),
   btc: t("lu sur la blockchain"),
   "btc-xpub": t("compte entier, lu sur la blockchain"),
   evm: t("lu sur la blockchain"),
@@ -293,7 +274,7 @@ function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st:
               <div className="min-w-0 flex-1">
                 <div className={clsx("truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</div>
                 <div className="truncate text-xs text-muted" title={s.note ?? undefined}>
-                  {s.exchange ? t("compte lu par sa clé") : (TYPES[s.type] ?? s.type)}
+                  {s.exchange ? t("compte lu par sa clé") : s.file ? t("tenu par ses exports") : (TYPES[s.type] ?? s.type)}
                   {s.address && ` · ${s.address}`}
                   {s.lines ? ` · ${tn("{n} ligne", "{n} lignes", s.lines)}` : ""}
                   {STATUS[s.status] && <span className={clsx("ml-1 font-medium", s.status === "a_verifier" || s.status === "erreur" || s.status === "refus" ? "text-warn" : "")}> · {STATUS[s.status]}</span>}
@@ -303,7 +284,7 @@ function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st:
               <label className="flex items-center gap-1 text-xs text-muted">
                 <input type="checkbox" checked={!!s.enabled} onChange={() => toggle(s)} className="size-[18px] accent-[var(--color-accent)]" aria-label={t("Compter « {nom} »", { nom: s.name })} />
               </label>
-              {s.direct && (
+              {(s.direct || s.file) && (
                 <button type="button" onClick={() => remove(s)} className="press -mr-1 grid size-8 place-items-center rounded-full text-muted hover:text-ink" aria-label={t("Retirer ce portefeuille")} title={t("Retirer ce portefeuille")}>
                   <Trash2 size={16} />
                 </button>
@@ -330,7 +311,7 @@ function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st:
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-medium">{t("Saisies à la main")}</div>
-            <div className="truncate text-xs text-muted">{st.enabled ? t("{cryptos} — non vues par CoinStats", { cryptos: manual.map((m) => m.symbol).join(", ") }) : manual.map((m) => m.symbol).join(", ")}</div>
+            <div className="truncate text-xs text-muted">{manual.map((m) => m.symbol).join(", ")}</div>
           </div>
           <span className="tnum text-sm font-semibold">{money(manual.reduce((s, m) => s + (m.value ?? 0), 0))}</span>
         </div>
@@ -402,6 +383,8 @@ function GroupSheet({ g, onClose }: { g: Group | null; onClose: () => void }) {
                   ? ` · ${t("lu sur la blockchain {quand}", { quand: timeAgo(p.synced_at) })}`
                   : p.source === "exchange"
                     ? ` · ${t("lu chez l'exchange {quand}", { quand: timeAgo(p.synced_at) })}`
+                    : p.source === "fichier"
+                      ? ` · ${t("d'après le fichier déposé {quand}", { quand: timeAgo(p.synced_at) })}`
                   : p.updated_at
                     ? ` · ${t("saisie le {date}", { date: dateFr(p.updated_at) })}`
                     : ""}
@@ -561,7 +544,7 @@ function CryptoDesktop({
     <>
       <PageHeader
         title={t("Crypto")}
-        subtitle={`${t("Cours {quand}", { quand: timeAgo(data.pricesAt) })}${st.enabled ? " · Powered by CoinStats" : ""} · Data provided by CoinGecko`}
+        subtitle={`${t("Cours {quand}", { quand: timeAgo(data.pricesAt) })} · Data provided by CoinGecko`}
         right={
           <div className="flex items-center gap-2">
             <button type="button" onClick={onAdd} className="flex items-center gap-1.5 rounded-md border border-line bg-card px-3 py-1.5 text-[13px] font-medium hover:bg-bg">
@@ -569,7 +552,7 @@ function CryptoDesktop({
             </button>
             {canSync(st) && (
               <button type="button" onClick={onSync} disabled={syncing} className="flex items-center gap-1.5 rounded-md border border-line bg-card px-3 py-1.5 text-[13px] font-medium hover:bg-bg">
-                <RefreshCw size={14} className={clsx(syncing && "animate-spin")} /> {syncLabel(st)}
+                <RefreshCw size={14} className={clsx(syncing && "animate-spin")} /> {syncLabel()}
               </button>
             )}
           </div>

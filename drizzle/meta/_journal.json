@@ -92,6 +92,13 @@
       "when": 1795435421949,
       "tag": "0037_journal_sans_adresse_crypto",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "5",
+      "when": 1795438366658,
+      "tag": "0038_mouvements_crypto_par_fichier",
+      "breakpoints": true
     }
   ]
 }

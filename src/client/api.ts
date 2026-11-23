@@ -348,7 +348,7 @@ export type CryptoPosition = {
   price: number | null;
   change_24h: number | null;
   value: number | null;
-  source: "manuel" | "coinstats" | "onchain" | "exchange";
+  source: "manuel" | "coinstats" | "onchain" | "exchange" | "fichier";
   portfolio_id: string | null;
   synced_at: string | null;
   price_source: "coingecko" | "coinstats" | null;
@@ -367,6 +367,8 @@ export type CryptoSource = {
   note: string | null;
   /** Lu par son adresse publique, sans intermédiaire (sinon : un portefeuille du compte CoinStats). */
   direct: boolean;
+  /** Tenu par les fichiers qu'exporte une appli sans clé d'API : relu quand on en dépose un. */
+  file: boolean;
   /** Compte d'exchange relié par une clé en lecture seule : l'exchange. */
   exchange: string | null;
   /** Adresse abrégée d'un portefeuille lu directement, quand il en a une seule. */

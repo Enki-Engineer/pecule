@@ -7,7 +7,7 @@
 import { tk } from "./i18n.ts";
 import type { Holding } from "./crypto-chains.ts";
 
-export const EXCHANGE_IDS = ["kraken", "binance", "coinbase", "bitpanda"] as const;
+export const EXCHANGE_IDS = ["kraken", "binance", "coinbase", "bitpanda", "bitvavo", "okx", "bybit", "kucoin", "bitget", "bitfinex", "cryptocom"] as const;
 export type ExchangeId = (typeof EXCHANGE_IDS)[number];
 /** Genre d'une source d'exchange (colonne `crypto_sources.type`) : « x-kraken », « x-binance »… */
 export type ExchangeKind = `x-${ExchangeId}`;
@@ -22,6 +22,8 @@ export type ExchangeInfo = {
   secretLabel: string | null;
   /** Le second champ est long (une clé privée sur plusieurs lignes). */
   longSecret?: boolean;
+  /** Troisième valeur que certains exchanges font choisir à la création de la clé. */
+  passLabel?: string;
   /** Où créer la clé, quoi cocher, quoi laisser décoché : dit pas à pas. */
   steps: string[];
   /** Ce que la lecture couvre, et ce qu'elle ne voit pas. */
@@ -73,6 +75,86 @@ export const EXCHANGES: Record<ExchangeId, ExchangeInfo> = {
       tk("Une clé Bitpanda vaut un an au plus : Pécule te le dira quand elle ne sera plus acceptée."),
     ],
     covers: tk("Cryptos et monnaie du compte, staking compris. Les actions, ETF et métaux n'entrent pas dans l'écran Crypto."),
+  },
+  bitvavo: {
+    name: "Bitvavo",
+    keyLabel: tk("Clé d'API"),
+    secretLabel: tk("Clé secrète"),
+    steps: [
+      tk("Dans Bitvavo : Réglages → API → nouvelle clé."),
+      tk("Coche seulement « View information » (consulter). Ni « Trade digital assets », ni « Withdraw digital assets »."),
+      tk("Copie la clé d'API et la clé secrète : la clé secrète ne se montre qu'une fois."),
+    ],
+    covers: tk("Soldes du compte et cryptos mises en staking."),
+  },
+  okx: {
+    name: "OKX",
+    keyLabel: tk("Clé d'API"),
+    secretLabel: tk("Clé secrète"),
+    passLabel: tk("Phrase de passe de la clé"),
+    steps: [
+      tk("Dans OKX : profil → API → créer une clé d'API."),
+      tk("Garde le seul droit « Read » (lecture), et choisis une phrase de passe : elle fait partie de la clé."),
+      tk("Copie la clé d'API, la clé secrète et la phrase de passe."),
+    ],
+    covers: tk("Compte de trading, compte de financement et épargne souple (Simple Earn)."),
+  },
+  bybit: {
+    name: "Bybit",
+    keyLabel: tk("Clé d'API"),
+    secretLabel: tk("Clé secrète"),
+    steps: [
+      tk("Dans Bybit : compte → API → créer une clé générée par le système."),
+      tk("Choisis « Read-Only » (lecture seule) : Pécule refuse une clé qui peut faire plus que lire."),
+      tk("Sans adresse IP déclarée, Bybit fait expirer la clé au bout de trois mois : Pécule te le dira quand elle ne sera plus acceptée."),
+    ],
+    covers: tk("Compte unifié (ou spot) et compte de financement."),
+  },
+  kucoin: {
+    name: "KuCoin",
+    keyLabel: tk("Clé d'API"),
+    secretLabel: tk("Clé secrète"),
+    passLabel: tk("Phrase de passe de la clé"),
+    steps: [
+      tk("Dans KuCoin : Gestion des API → créer une clé."),
+      tk("Garde le seul droit « General » (lecture), et choisis une phrase de passe : elle fait partie de la clé."),
+      tk("Copie la clé d'API, la clé secrète et la phrase de passe."),
+    ],
+    covers: tk("Tous les comptes : principal, trading, marge."),
+  },
+  bitget: {
+    name: "Bitget",
+    keyLabel: tk("Clé d'API"),
+    secretLabel: tk("Clé secrète"),
+    passLabel: tk("Phrase de passe de la clé"),
+    steps: [
+      tk("Dans Bitget : Gestion des API → créer une clé."),
+      tk("Mets chaque droit en lecture seule (« Read-only »), et choisis une phrase de passe : elle fait partie de la clé."),
+      tk("Copie la clé d'API, la clé secrète et la phrase de passe."),
+    ],
+    covers: tk("Compte spot. Les contrats à terme et l'épargne ne sont pas lus."),
+  },
+  bitfinex: {
+    name: "Bitfinex",
+    keyLabel: tk("Clé d'API"),
+    secretLabel: tk("Clé secrète"),
+    steps: [
+      tk("Dans Bitfinex : compte → API keys → créer une clé."),
+      tk("Laisse seulement les droits de lecture (« Read ») ; aucun droit d'écriture (« Write ») : Pécule refuse une clé qui peut écrire."),
+      tk("Copie la clé d'API et la clé secrète : la clé secrète ne se montre qu'une fois."),
+    ],
+    covers: tk("Tous les portefeuilles du compte : exchange, marge, financement."),
+  },
+  cryptocom: {
+    name: "Crypto.com Exchange",
+    keyLabel: tk("Clé d'API"),
+    secretLabel: tk("Clé secrète"),
+    steps: [
+      tk("Sur le site de Crypto.com Exchange (pas dans l'appli) : Réglages → API Keys → créer une clé."),
+      tk("Laisse la clé telle qu'elle est créée : en lecture (« Can Read »), sans trading ni retrait."),
+      tk("L'appli Crypto.com, elle, n'a pas de clé : son historique s'importe par un fichier."),
+    ],
+    covers: tk("Soldes du compte Exchange. L'appli Crypto.com est un autre compte."),
   },
 };
 
@@ -126,7 +208,7 @@ export function sumBySymbol(rows: { symbol: string | null; quantity: number }[])
 export const sameCoin = (exchangePrice: number, coingeckoPrice: number) => exchangePrice > 0 && coingeckoPrice > 0 && exchangePrice / coingeckoPrice > 0.66 && exchangePrice / coingeckoPrice < 1.5;
 
 /** Partie d'un compte dite à côté du nom de l'exchange (le compte courant ne se dit pas). */
-const WALLET_PLACES: Record<string, string> = { financement: "financement", epargne: "épargne" };
+const WALLET_PLACES: Record<string, string> = { financement: "financement", epargne: "épargne", staking: "staking" };
 
 /**
  * Avoirs d'un compte d'exchange, prêts à être valorisés : une crypto reconnue par son symbole (`symbols` : la table

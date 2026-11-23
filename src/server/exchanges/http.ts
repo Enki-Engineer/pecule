@@ -48,7 +48,18 @@ export type ExchangeReading = {
   unread: string[];
   note: string;
 };
-export type Credentials = { key: string; secret?: string };
+export type Credentials = { key: string; secret?: string; passphrase?: string };
+
+/** Lit une partie facultative d'un compte : une panne la laisse « non lue » (ses lignes d'avant sont gardées), un refus de la clé remonte. */
+export async function optional<T>(unread: string[], wallet: string, read: () => Promise<T>): Promise<T | null> {
+  try {
+    return await read();
+  } catch (e) {
+    if (e instanceof ExchangeError && e.refused) throw e;
+    unread.push(`${wallet}:`);
+    return null;
+  }
+}
 
 const record = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 export const obj = record;

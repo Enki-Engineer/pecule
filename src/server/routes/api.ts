@@ -11,7 +11,7 @@ import { db, exec, one, q } from "../db.ts";
 import { desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { alerts, auditLog, users } from "../db/schema/index.ts";
 import { EXCHANGE_IDS } from "../../lib/crypto-exchanges.ts";
-import { acceptSourceValue, addExchange, addWallet, archiveManualLine, cryptoStatus, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
+import { acceptSourceValue, addExchange, addWallet, archiveManualLine, importCryptocomFile, cryptoStatus, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
 import { requireAdmin, requireApiToken, requireAuth, requireSyncAccess, createEnrollmentLink } from "../auth.ts";
 import { guessCategory, lastSyncRuns, markCardDuplicates, fintaConnections, fintaEnabled } from "../finta.ts";
 import { syncBanks } from "../bank-sync.ts";
@@ -551,10 +551,24 @@ api.post("/crypto/sources", hourly(30), async (req, res) => {
  */
 api.post("/crypto/exchanges", hourly(20), async (req, res) => {
   const b = z
-    .object({ exchange: z.enum(EXCHANGE_IDS), key: z.string().min(1).max(400), secret: z.string().max(4000).nullish(), name: z.string().max(160).nullish(), replaces: z.string().max(96).nullish() })
+    .object({ exchange: z.enum(EXCHANGE_IDS), key: z.string().min(1).max(400), secret: z.string().max(4000).nullish(), passphrase: z.string().max(200).nullish(), name: z.string().max(160).nullish(), replaces: z.string().max(96).nullish() })
     .parse(req.body);
   res.json(
     await addExchange(req.user!.id, b).catch((e) => {
+      throw new ActionError(400, e instanceof Error ? e.message : String(e));
+    }),
+  );
+});
+
+/**
+ * Déposer un export de l'appli Crypto.com (corps brut, CSV) : ses mouvements s'ajoutent à ceux déjà gardés, les
+ * soldes en sont recalculés. L'appli n'a pas de clé d'API : c'est sa seule façon d'entrer.
+ */
+api.post("/crypto/files/cryptocom", hourly(60), raw({ type: () => true, limit: "8mb" }), async (req, res) => {
+  // Corps en tampon : le journal des écritures n'en garde que la taille, jamais le contenu.
+  if (!Buffer.isBuffer(req.body) || !req.body.length) throw new ActionError(400, tr("Fichier vide"));
+  res.json(
+    await importCryptocomFile(req.user!.id, req.body.toString("utf8")).catch((e) => {
       throw new ActionError(400, e instanceof Error ? e.message : String(e));
     }),
   );

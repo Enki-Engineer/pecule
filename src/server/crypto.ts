@@ -4,7 +4,9 @@ import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { env, sealingSecret } from "./env.ts";
 import { db, exec, one, q, withLock } from "./db.ts";
 import { adminMember, memberByName } from "./members.ts";
-import { cryptoPositions, cryptoSources, cryptoSyncRuns, prices } from "./db/schema/index.ts";
+import { cryptoFileMoves, cryptoPositions, cryptoSources, cryptoSyncRuns, prices } from "./db/schema/index.ts";
+import { parseCryptocomExport } from "../lib/crypto-files.ts";
+import { SYMBOLS } from "../lib/crypto-tokens.ts";
 import { coinstatsEnabled, creditsUsed, eurRate, listPortfolios, portfolioCoins, type CsCoinLine, type CsPortfolio } from "./coinstats.ts";
 import { coingeckoCandidate, decideManualLines, portfolioSignature, suspiciousDrop, withoutChainCovered, type SyncedLine } from "../lib/crypto-sync.ts";
 import { detectWallet, isWalletKind, shortAddress, WALLET_KINDS, WALLET_NAMES, type Holding, type WalletKind } from "../lib/crypto-chains.ts";
@@ -41,7 +43,10 @@ const DIRECT_KINDS: string[] = [...WALLET_KINDS, ...EXCHANGE_KINDS];
 const isDirect = (type: string) => isWalletKind(type) || isExchangeKind(type);
 /** `source` des lignes écrites pour une source lue sans intermédiaire. */
 const lineSource = (type: string) => (isExchangeKind(type) ? "exchange" : "onchain");
-const DIRECT_LINES = ["onchain", "exchange"];
+/** Source tenue par les fichiers qu'exporte une appli sans clé d'API : relue quand le membre en dépose un, pas chaque jour. */
+const FILE_KINDS = ["f-cryptocom"];
+const isFileKind = (type: string) => FILE_KINDS.includes(type);
+const DIRECT_LINES = ["onchain", "exchange", "fichier"];
 /** Ce qui suit le préfixe de l'identifiant d'une source : son adresse (« btc:bc1… », « evm:0x… », « eth-val:12 »). */
 const addressOf = (src: { portfolioId: string }) => src.portfolioId.slice(src.portfolioId.indexOf(":") + 1);
 
@@ -424,7 +429,7 @@ export async function maybeSyncCrypto() {
 export async function cryptoStatus(userId: number) {
   const rows = await db.select().from(cryptoSources).where(eq(cryptoSources.ownerUserId, userId)).orderBy(desc(cryptoSources.lastTotalEur));
   // Le secret d'une source (clé étendue, chiffrée) ne quitte jamais le serveur.
-  const sources = rows.map(({ secret: _secret, ...s }) => ({ ...s, direct: isDirect(s.type), exchange: isExchangeKind(s.type) ? exchangeOf(s.type) : null, address: s.type === "btc" || s.type === "evm" || s.type === "sol" ? shortAddress(addressOf(s)) : null }));
+  const sources = rows.map(({ secret: _secret, ...s }) => ({ ...s, direct: isDirect(s.type), file: isFileKind(s.type), exchange: isExchangeKind(s.type) ? exchangeOf(s.type) : null, address: s.type === "btc" || s.type === "evm" || s.type === "sol" ? shortAddress(addressOf(s)) : null }));
   const [run] = await db.select().from(cryptoSyncRuns).orderBy(desc(cryptoSyncRuns.id)).limit(1);
   // Le journal des synchros est commun au foyer : un membre n'y lit que la date et l'état, et le compte de ses
   // propres portefeuilles — la valeur de ceux d'un autre ne le regarde pas.
@@ -442,6 +447,13 @@ export async function setSourceEnabled(userId: number, portfolioId: string, enab
   const own = await db.select({ id: cryptoSources.portfolioId, status: cryptoSources.status }).from(cryptoSources).where(mine);
   if (!own.length) return;
   await db.update(cryptoSources).set({ enabled: enabled ? 1 : 0 }).where(mine);
+  // Une source tenue par fichier n'attend pas de synchro : ses lignes se recalculent de ses mouvements.
+  const [kind] = await db.select({ type: cryptoSources.type }).from(cryptoSources).where(mine);
+  if (enabled && kind && isFileKind(kind.type)) {
+    await writeFileBalances(userId, portfolioId);
+    await refreshPrices().catch(() => undefined);
+    await snapshotWealth(userId);
+  }
   if (enabled) return;
   await db.delete(cryptoPositions).where(and(inArray(cryptoPositions.source, ["coinstats", ...DIRECT_LINES]), eq(cryptoPositions.portfolioId, portfolioId)));
   // Plus aucune position n'est gardée : le garde-fou n'a plus de valeur d'avant à défendre si le portefeuille revient.
@@ -523,16 +535,17 @@ export async function addWallet(userId: number, input: { address: string; name?:
  * l'écran, et ne sert qu'aux lectures écrites dans src/server/exchanges/ ; un exchange qui sait dire les droits d'une
  * clé voit refuser celle qui peut vendre ou retirer. Rien n'est gardé si la première lecture échoue.
  */
-export async function addExchange(userId: number, input: { exchange: ExchangeId; key: string; secret?: string | null; name?: string | null; replaces?: string | null }) {
+export async function addExchange(userId: number, input: { exchange: ExchangeId; key: string; secret?: string | null; passphrase?: string | null; name?: string | null; replaces?: string | null }) {
   if (isDemo()) throw new Error(t("Indisponible en mode démo"));
   const info = EXCHANGES[input.exchange];
   const key = input.key.trim();
   const secret = input.secret?.trim() ?? "";
-  if (!key || (info.secretLabel && !secret)) throw new Error(t("Il manque une partie de la clé : colle les deux valeurs que {exchange} t'a données.", { exchange: info.name }));
+  const passphrase = input.passphrase?.trim() ?? "";
+  if (!key || (info.secretLabel && !secret) || (info.passLabel && !passphrase)) throw new Error(t("Il manque une partie de la clé : colle toutes les valeurs que {exchange} t'a données.", { exchange: info.name }));
   const kind = `x-${input.exchange}` as const;
   // La source se nomme par l'empreinte de sa clé : la même clé ajoutée deux fois reste un seul compte.
   const portfolioId = `${kind}:${createHash("sha256").update(key).digest("hex").slice(0, 24)}`;
-  return adopt(userId, { portfolioId, kind, name: (input.name?.trim() || info.name).slice(0, 160), secret: sealer.seal(JSON.stringify({ key, secret: secret || undefined })), replaces: input.replaces || null });
+  return adopt(userId, { portfolioId, kind, name: (input.name?.trim() || info.name).slice(0, 160), secret: sealer.seal(JSON.stringify({ key, secret: secret || undefined, passphrase: passphrase || undefined })), replaces: input.replaces || null });
 }
 
 /** Enregistre une source lue sans intermédiaire et la lit tout de suite ; une source jamais lue n'est pas gardée. */
@@ -579,11 +592,76 @@ async function adopt(userId: number, input: { portfolioId: string; kind: string;
 export async function removeWallet(userId: number, portfolioId: string) {
   const mine = and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId));
   const [src] = await db.select({ type: cryptoSources.type }).from(cryptoSources).where(mine);
-  if (!src || !isDirect(src.type)) return false;
+  if (!src || !(isDirect(src.type) || isFileKind(src.type))) return false;
+  await db.delete(cryptoFileMoves).where(and(eq(cryptoFileMoves.portfolioId, portfolioId), eq(cryptoFileMoves.ownerUserId, userId)));
   await db.delete(cryptoPositions).where(and(inArray(cryptoPositions.source, DIRECT_LINES), eq(cryptoPositions.portfolioId, portfolioId), eq(cryptoPositions.ownerUserId, userId)));
   await db.delete(cryptoSources).where(mine);
   await snapshotWealth(userId);
   return true;
+}
+
+/** Lignes d'une source tenue par fichier : le solde de chaque crypto, somme de ses mouvements gardés. */
+async function writeFileBalances(userId: number, portfolioId: string) {
+  const [src] = await db.select().from(cryptoSources).where(and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId)));
+  if (!src) return { holdings: [], negative: [] };
+  const sums = await q<{ symbol: string; quantity: number }>("SELECT symbol, SUM(amount) AS quantity FROM crypto_file_moves WHERE portfolio_id = ? AND owner_user_id = ? GROUP BY symbol ORDER BY symbol", [portfolioId, userId]);
+  // Un solde négatif dit qu'il manque des mouvements plus anciens (un fichier pas encore déposé) : il n'est pas compté.
+  const negative = sums.filter((r) => Number(r.quantity) < -1e-9).map((r) => r.symbol);
+  const holdings = sums.filter((r) => Number(r.quantity) > 1e-9).map((r) => ({ symbol: r.symbol, quantity: Number(r.quantity) }));
+  const keys: string[] = [];
+  for (const h of holdings) {
+    const lineKey = `${portfolioId}:${h.symbol}`.slice(0, 160);
+    keys.push(lineKey);
+    const row = { name: (SYMBOLS[h.symbol]?.[1] ?? h.symbol).slice(0, 80), symbol: h.symbol, quantity: h.quantity, coingeckoId: SYMBOLS[h.symbol]?.[0] ?? null, coinstatsId: null, location: src.name.slice(0, 255), portfolioId, syncedAt: sql`CURRENT_TIMESTAMP`, updatedAt: sql`CURDATE()` };
+    await db
+      .insert(cryptoPositions)
+      .values({ ownerUserId: userId, source: "fichier", lineKey, ...row })
+      .onDuplicateKeyUpdate({ set: row });
+  }
+  await db.delete(cryptoPositions).where(and(eq(cryptoPositions.source, "fichier"), eq(cryptoPositions.portfolioId, portfolioId), keys.length ? notInArray(cryptoPositions.lineKey, keys) : sql`1 = 1`));
+  return { holdings, negative };
+}
+
+/**
+ * Dépôt d'un export « Crypto Wallet » de l'appli Crypto.com, qui n'a pas de clé d'API : ses mouvements s'ajoutent à
+ * ceux déjà gardés (un mouvement déjà connu n'est pas recompté), et les soldes en sont recalculés. Le fichier
+ * lui-même n'est pas gardé.
+ */
+export async function importCryptocomFile(userId: number, content: string) {
+  const parsed = parseCryptocomExport(content);
+  if (!parsed) throw new Error(t("Ce fichier n'est pas un export de l'appli Crypto.com (historique « Crypto Wallet », au format CSV)."));
+  if (parsed.fiat) throw new Error(t("C'est l'export du portefeuille en monnaie de l'appli : il n'y a rien à en tirer. Dépose l'export « Crypto Wallet »."));
+  if (!parsed.moves.length) throw new Error(t("Aucun mouvement dans ce fichier."));
+  const portfolioId = `f-cryptocom:${userId}`;
+  const [existing] = await db.select({ id: cryptoSources.portfolioId }).from(cryptoSources).where(eq(cryptoSources.portfolioId, portfolioId));
+  if (!existing) await db.insert(cryptoSources).values({ portfolioId, ownerUserId: userId, name: "Crypto.com", type: "f-cryptocom" });
+  else await db.update(cryptoSources).set({ enabled: 1 }).where(eq(cryptoSources.portfolioId, portfolioId));
+
+  let added = 0;
+  for (let i = 0; i < parsed.moves.length; i += 200) {
+    const chunk = parsed.moves.slice(i, i + 200);
+    const result = await exec(
+      `INSERT IGNORE INTO crypto_file_moves (portfolio_id, owner_user_id, at, kind, symbol, amount, row_key) VALUES ${chunk.map(() => "(?, ?, ?, ?, ?, ?, ?)").join(", ")}`,
+      chunk.flatMap((m) => [portfolioId, userId, m.at, m.kind, m.symbol, m.amount, createHash("sha1").update(m.key).digest("hex")]),
+    );
+    added += Number((result as { affectedRows?: number }).affectedRows ?? 0);
+  }
+  const { holdings, negative } = await writeFileBalances(userId, portfolioId);
+  const span = await one<{ n: number; first: string | null; last: string | null }>("SELECT COUNT(*) AS n, DATE(MIN(at)) AS first, DATE(MAX(at)) AS last FROM crypto_file_moves WHERE portfolio_id = ? AND owner_user_id = ?", [portfolioId, userId]);
+  await db
+    .update(cryptoSources)
+    .set({ status: holdings.length ? "ok" : "vide", lines: holdings.length, lastSyncedAt: sql`CURRENT_TIMESTAMP`, note: `${span?.n ?? 0} mouvements, du ${String(span?.first ?? "?").slice(0, 10)} au ${String(span?.last ?? "?").slice(0, 10)}`.slice(0, 255) })
+    .where(eq(cryptoSources.portfolioId, portfolioId));
+  if (!isDemo()) await refreshPrices().catch(() => undefined);
+  await exec(
+    `UPDATE crypto_sources s SET s.last_total_eur = (
+       SELECT ROUND(SUM(c.quantity * pg.price_eur), 2) FROM crypto_positions c LEFT JOIN prices pg ON pg.id = CONCAT('cg:', c.coingecko_id)
+       WHERE c.portfolio_id = s.portfolio_id AND c.source = 'fichier' AND c.archived_at IS NULL)
+     WHERE s.portfolio_id = ?`,
+    [portfolioId],
+  );
+  await snapshotWealth(userId);
+  return { portfolioId, moves: parsed.moves.length, added, known: parsed.moves.length - added, from: String(span?.first ?? "").slice(0, 10), to: String(span?.last ?? "").slice(0, 10), holdings, negative, unpriced: holdings.filter((h) => !SYMBOLS[h.symbol]).map((h) => h.symbol) };
 }
 
 /** Archive une ligne saisie à la main que le portefeuille `portfolioId` du membre remplace (elle se remet en compte). */

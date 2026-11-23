@@ -9,6 +9,13 @@ import { SYMBOLS } from "../../lib/crypto-tokens.ts";
 import { isCurrency } from "../../lib/currencies.ts";
 import { fxRate } from "../fx.ts";
 import { readBinance } from "./binance.ts";
+import { readBitfinex } from "./bitfinex.ts";
+import { readBitget } from "./bitget.ts";
+import { readBitvavo } from "./bitvavo.ts";
+import { readBybit } from "./bybit.ts";
+import { readCryptocom } from "./cryptocom.ts";
+import { readKucoin } from "./kucoin.ts";
+import { readOkx } from "./okx.ts";
 import { readBitpanda } from "./bitpanda.ts";
 import { readCoinbase } from "./coinbase.ts";
 import { readKraken } from "./kraken.ts";
@@ -17,7 +24,19 @@ import type { Credentials, ExchangeReading } from "./http.ts";
 export { ExchangeError } from "./http.ts";
 export type { Credentials } from "./http.ts";
 
-const READERS: Record<ExchangeId, (creds: Credentials) => Promise<ExchangeReading>> = { kraken: readKraken, binance: readBinance, coinbase: readCoinbase, bitpanda: readBitpanda };
+const READERS: Record<ExchangeId, (creds: Credentials) => Promise<ExchangeReading>> = {
+  kraken: readKraken,
+  binance: readBinance,
+  coinbase: readCoinbase,
+  bitpanda: readBitpanda,
+  bitvavo: readBitvavo,
+  okx: readOkx,
+  bybit: readBybit,
+  kucoin: readKucoin,
+  bitget: readBitget,
+  bitfinex: readBitfinex,
+  cryptocom: readCryptocom,
+};
 /** Cours en euros des monnaies du compte (euro, dollar…) ; une monnaie dont le cours manque reste sans valeur. */
 async function fiatRates(symbols: string[]): Promise<Record<string, number>> {
   const out: Record<string, number> = {};

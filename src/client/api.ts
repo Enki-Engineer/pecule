@@ -394,8 +394,8 @@ export type CryptoSummary = {
   change24h: number | null;
   pricesAt: string | null;
   status: CryptoStatus;
-  /** Valeur des cryptos jour après jour ; le dernier point est la valeur à l'instant. */
-  history: { date: string; value: number }[];
+  /** Valeur des cryptos jour après jour ; le dernier point est la valeur à l'instant. Absent d'une réponse gardée sur l'appareil par une version d'avant. */
+  history?: { date: string; value: number }[];
 };
 
 export type Wealth = {

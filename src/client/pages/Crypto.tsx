@@ -165,6 +165,8 @@ export function Crypto() {
 
           <DuplicateNotices st={st} />
 
+          <CryptoEvolution history={data.history} />
+
           <Segmented
             value={view}
             onChange={setView}
@@ -201,8 +203,6 @@ export function Crypto() {
           )}
 
           <Archived st={st} />
-
-          <CryptoEvolution history={data.history} />
 
           <Journal />
 
@@ -753,6 +753,9 @@ function CryptoDesktop({
         <Stat label={t("Cryptos")} value={groups.filter((g) => g.value >= SMALL).length} hint={hiddenCount ? tn("+ {n} ligne de moins de {seuil}", "+ {n} lignes de moins de {seuil}", hiddenCount, { seuil: money(SMALL, true) }) : undefined} />
         <Stat label={t("Portefeuilles")} value={st.sources.filter((s) => s.enabled && s.lines > 0).length} hint={<SyncLine st={st} />} />
       </StatGrid>
+      <div className="mb-4">
+        <CryptoEvolution history={data.history} />
+      </div>
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 xl:col-span-8">
           <div className="mb-2 flex items-center justify-between">
@@ -811,9 +814,6 @@ function CryptoDesktop({
             <Portfolios positions={data.positions} st={st} onAdd={onAdd} focus={focus} onFocus={onFocus} />
           </div>
           <Archived st={st} />
-        </div>
-        <div className="col-span-12">
-          <CryptoEvolution history={data.history} />
         </div>
         <div className="col-span-12">
           <JournalTable />

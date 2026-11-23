@@ -7,7 +7,7 @@ import { locale, t } from "../../lib/i18n.ts";
 import { HISTORY_RANGES, historyRangeStart, historyRangeUseful, type HistoryRange } from "../../lib/wealth.ts";
 
 /*
- * Évolution de la valeur des cryptos, en bas de l'écran Crypto : un point par jour (les instantanés du patrimoine),
+ * Évolution de la valeur des cryptos, en tête de l'écran Crypto : un point par jour (les instantanés du patrimoine),
  * le dernier étant la valeur à l'instant. Mêmes durées que la courbe du patrimoine.
  */
 
@@ -45,9 +45,10 @@ function Tip({ active, payload }: Partial<TooltipContentProps<number, string>>) 
   );
 }
 
-export function CryptoEvolution({ history }: { history: { date: string; value: number }[] }) {
+/** `history` peut manquer : une réponse gardée sur l'appareil par une version d'avant ne le porte pas encore. */
+export function CryptoEvolution({ history }: { history: { date: string; value: number }[] | undefined }) {
   const [range, setRange] = useState<HistoryRange>("tout");
-  const points: Point[] = history.map((h) => ({ ...h, t: Date.parse(`${h.date}T12:00:00Z`) }));
+  const points: Point[] = (history ?? []).map((h) => ({ ...h, t: Date.parse(`${h.date}T12:00:00Z`) }));
   // Deux points au moins pour une courbe : le premier jour, il n'y a encore rien à tracer.
   if (points.length < 2) return null;
   const ranges = RANGES.filter((r) => historyRangeUseful(r, points[0].t));

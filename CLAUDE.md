@@ -165,6 +165,9 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   `plainMoney()`. Un chiffre calculé s'explique par `info` sur `Stat` ou par `<InfoTip>`. Les marges et hauteurs
   restent en rem (classes Tailwind) : c'est ce que la densité « compacte » resserre.
 - Un `useEffect(() => expr)` qui renvoie une valeur casse l'écran : toujours des accolades.
+- Une réponse gardée sur l'appareil (requêtes de `KEEP`, `src/client/offline.tsx`) peut dater de la version d'avant :
+  un champ ajouté à l'une d'elles se lit avec un repli (`data.history ?? []`) et se déclare facultatif — sans quoi
+  l'écran ne s'ouvre plus chez qui avait l'ancienne réponse. « Recharger », sur l'écran d'erreur, oublie ces données.
 
 ## Étendre Pécule
 

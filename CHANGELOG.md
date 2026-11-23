@@ -3,6 +3,20 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.46.1
+
+Crypto : l'écran s'ouvre de nouveau partout, et la courbe monte en tête.
+
+- **Correctif** : après la mise à jour 1.46.0, l'écran Crypto pouvait rester sur « Cet écran n'a pas pu
+  s'afficher ». L'appareil gardait la réponse de la version d'avant, sans l'historique que la courbe lit, et
+  « Recharger » la relisait. La courbe s'en passe désormais, le temps que la réponse soit rafraîchie.
+- **« Recharger » répare** : sur l'écran d'erreur, le bouton oublie d'abord les données gardées sur l'appareil
+  (elles sont rechargées depuis le serveur) : une donnée gardée sous une ancienne forme ne peut plus enfermer un
+  écran dans son message d'erreur.
+- **« Évolution » en tête de l'écran Crypto**, sous le total et avant la liste « Par crypto » et la répartition.
+
+Aucune migration, aucun réglage nouveau.
+
 ## 1.46.0
 
 Crypto : la valeur du portefeuille dans le temps.

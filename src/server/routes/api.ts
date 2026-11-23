@@ -10,7 +10,8 @@ import { z } from "zod";
 import { db, exec, one, q } from "../db.ts";
 import { desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { alerts, auditLog, users } from "../db/schema/index.ts";
-import { acceptSourceValue, addWallet, archiveManualLine, cryptoStatus, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
+import { EXCHANGE_IDS } from "../../lib/crypto-exchanges.ts";
+import { acceptSourceValue, addExchange, addWallet, archiveManualLine, cryptoStatus, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
 import { requireAdmin, requireApiToken, requireAuth, requireSyncAccess, createEnrollmentLink } from "../auth.ts";
 import { guessCategory, lastSyncRuns, markCardDuplicates, fintaConnections, fintaEnabled } from "../finta.ts";
 import { syncBanks } from "../bank-sync.ts";
@@ -544,7 +545,22 @@ api.post("/crypto/sources", hourly(30), async (req, res) => {
   );
 });
 
-/** Retirer un portefeuille lu par son adresse (ceux de CoinStats se décochent : ils reviendraient à la synchro). */
+/**
+ * Relier un compte d'exchange par une clé d'API en lecture seule : lue tout de suite, gardée chiffrée, jamais rendue.
+ * Une clé qui peut faire plus que lire est refusée quand l'exchange sait le dire.
+ */
+api.post("/crypto/exchanges", hourly(20), async (req, res) => {
+  const b = z
+    .object({ exchange: z.enum(EXCHANGE_IDS), key: z.string().min(1).max(400), secret: z.string().max(4000).nullish(), name: z.string().max(160).nullish(), replaces: z.string().max(96).nullish() })
+    .parse(req.body);
+  res.json(
+    await addExchange(req.user!.id, b).catch((e) => {
+      throw new ActionError(400, e instanceof Error ? e.message : String(e));
+    }),
+  );
+});
+
+/** Retirer un portefeuille lu par son adresse ou un compte d'exchange (ceux de CoinStats se décochent : ils reviendraient à la synchro). */
 api.delete("/crypto/sources/:id", async (req, res) => {
   if (!(await removeWallet(req.user!.id, z.string().max(96).parse(req.params.id)))) throw new ActionError(404, tr("Portefeuille introuvable"));
   res.json({ ok: true });

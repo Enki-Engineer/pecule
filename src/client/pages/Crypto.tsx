@@ -166,9 +166,9 @@ function SyncLine({ st }: { st: CryptoStatus }) {
   if (!st.enabled) {
     // Sans CoinStats : les portefeuilles ajoutés par leur adresse sont relus chaque jour, le reste est saisi.
     const read = st.sources.filter((s) => s.direct && s.enabled);
-    if (!read.length) return <div className="mt-2 text-xs text-muted">{t("Aucun portefeuille relié : ajoute-en un par son adresse, ou saisis tes positions à la main.")}</div>;
+    if (!read.length) return <div className="mt-2 text-xs text-muted">{t("Aucun portefeuille relié : ajoute-en un par son adresse ou relie un exchange, ou saisis tes positions à la main.")}</div>;
     const last = read.map((s) => s.lastSyncedAt).filter(Boolean).sort().at(-1);
-    return <div className="mt-2 text-xs text-muted">{tn("{n} portefeuille lu sur la blockchain {quand}", "{n} portefeuilles lus sur la blockchain {quand}", read.length, { quand: timeAgo(last ?? null) })}</div>;
+    return <div className="mt-2 text-xs text-muted">{tn("{n} portefeuille relu {quand}", "{n} portefeuilles relus {quand}", read.length, { quand: timeAgo(last ?? null) })}</div>;
   }
   if (!r) return <div className="mt-2 text-xs text-muted">{t("Quantités CoinStats : jamais synchronisées.")}</div>;
   return (
@@ -185,6 +185,7 @@ function SyncLine({ st }: { st: CryptoStatus }) {
 /** D'où viennent les quantités et les cours : dit en bas de l'écran, selon ce que le foyer a relié. */
 function Sources({ st, className }: { st: CryptoStatus; className: string }) {
   const direct = st.sources.some((s) => s.direct);
+  const exchange = st.sources.some((s) => s.exchange);
   return (
     <p className={className}>
       {st.enabled && (
@@ -192,7 +193,13 @@ function Sources({ st, className }: { st: CryptoStatus; className: string }) {
           {t("Quantités :")} <b>Powered by CoinStats</b> {t("(synchro quotidienne de tous les portefeuilles du compte).")}{" "}
         </>
       )}
-      {direct && <>{t("Les portefeuilles ajoutés par leur adresse sont lus sur la blockchain une fois par jour, sans intermédiaire.")} </>}
+      {direct && (
+        <>
+          {exchange
+            ? t("Les portefeuilles ajoutés par leur adresse et les comptes d'exchange reliés par leur clé sont lus une fois par jour, sans intermédiaire.")
+            : t("Les portefeuilles ajoutés par leur adresse sont lus sur la blockchain une fois par jour, sans intermédiaire.")}{" "}
+        </>
+      )}
       {t("Cours :")} <b>Data provided by CoinGecko</b>, {t("toutes les heures.")}{" "}
       {st.enabled
         ? t("Cours CoinStats du jour pour les petites lignes. Les lignes saisies à la main restent modifiables ; celles que CoinStats couvre sont archivées automatiquement.")
@@ -240,7 +247,7 @@ const TYPES: Record<string, string> = {
   "mvx-staking": t("lu sur la blockchain"),
   "eth-validator": t("validateur, lu sur la blockchain"),
 };
-const STATUS: Record<CryptoSource["status"], string> = { ok: "", vide: t("vide"), doublon: t("doublon ignoré"), a_verifier: t("à vérifier"), erreur: t("erreur") };
+const STATUS: Record<CryptoSource["status"], string> = { ok: "", vide: t("vide"), doublon: t("doublon ignoré"), a_verifier: t("à vérifier"), erreur: t("erreur"), refus: t("clé refusée") };
 
 function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st: CryptoStatus; onAdd: () => void }) {
   const qc = useQueryClient();
@@ -286,10 +293,10 @@ function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st:
               <div className="min-w-0 flex-1">
                 <div className={clsx("truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</div>
                 <div className="truncate text-xs text-muted" title={s.note ?? undefined}>
-                  {TYPES[s.type] ?? s.type}
+                  {s.exchange ? t("compte lu par sa clé") : (TYPES[s.type] ?? s.type)}
                   {s.address && ` · ${s.address}`}
                   {s.lines ? ` · ${tn("{n} ligne", "{n} lignes", s.lines)}` : ""}
-                  {STATUS[s.status] && <span className={clsx("ml-1 font-medium", s.status === "a_verifier" || s.status === "erreur" ? "text-warn" : "")}> · {STATUS[s.status]}</span>}
+                  {STATUS[s.status] && <span className={clsx("ml-1 font-medium", s.status === "a_verifier" || s.status === "erreur" || s.status === "refus" ? "text-warn" : "")}> · {STATUS[s.status]}</span>}
                 </div>
               </div>
               <span className="tnum text-sm font-semibold">{money(v, v >= 1000)}</span>
@@ -304,6 +311,9 @@ function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st:
             </div>
             {s.direct && s.status === "erreur" && !!s.enabled && (
               <div className="mt-2 text-xs text-muted">{t("Lecture impossible à la dernière synchro : Pécule garde les quantités d'avant et réessaiera.")}</div>
+            )}
+            {s.status === "refus" && !!s.enabled && (
+              <div className="mt-2 text-xs text-muted">{t("L'exchange n'accepte plus cette clé (expirée, retirée ou droits changés). Pécule garde les quantités d'avant : retire ce compte et relie-le avec une nouvelle clé.")}</div>
             )}
             {s.status === "a_verifier" && !!s.enabled && (
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
@@ -385,11 +395,13 @@ function GroupSheet({ g, onClose }: { g: Group | null; onClose: () => void }) {
             </div>
             <div className="mt-0.5 text-xs text-muted">
               {p.manual_value != null ? t("Valeur saisie") : `${qty(p.quantity)} ${p.symbol}`}
-              {p.price != null && ` × ${money(p.price)} (${p.price_source === "coingecko" ? "CoinGecko" : "CoinStats"})`}
+              {p.price != null && ` × ${money(p.price)} (${p.price_source === "coingecko" ? "CoinGecko" : p.source === "exchange" ? t("cours de l'exchange") : "CoinStats"})`}
               {p.source === "coinstats"
                 ? ` · ${t("synchro {quand}", { quand: timeAgo(p.synced_at) })}`
                 : p.source === "onchain"
                   ? ` · ${t("lu sur la blockchain {quand}", { quand: timeAgo(p.synced_at) })}`
+                  : p.source === "exchange"
+                    ? ` · ${t("lu chez l'exchange {quand}", { quand: timeAgo(p.synced_at) })}`
                   : p.updated_at
                     ? ` · ${t("saisie le {date}", { date: dateFr(p.updated_at) })}`
                     : ""}

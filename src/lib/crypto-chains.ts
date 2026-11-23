@@ -82,8 +82,12 @@ export const EVM_CHAINS = [
 ] as const;
 export type EvmChainKey = (typeof EVM_CHAINS)[number]["key"];
 
-/** Un avoir lu à une adresse : `key` le distingue dans son portefeuille (chaîne et contrat), `place` dit où il est. */
-export type Holding = { key: string; symbol: string; name: string; coingeckoId: string; quantity: number; place?: string };
+/**
+ * Un avoir lu à une adresse ou dans un compte d'exchange : `key` le distingue dans son portefeuille (chaîne et
+ * contrat, partie du compte), `place` dit où il est. `coingeckoId` donne son cours ; à défaut, ou pour le contrôler,
+ * `priceEur` est le cours que la source donne elle-même.
+ */
+export type Holding = { key: string; symbol: string; name: string; coingeckoId: string | null; quantity: number; place?: string; priceEur?: number };
 
 /**
  * Montant entier d'une blockchain (wei, satoshis, lamports) ramené à ses unités, sans passer par un nombre trop

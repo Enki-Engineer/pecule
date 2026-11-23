@@ -183,7 +183,7 @@ const addCrypto = writeTool({
   description:
     "Ajoute (ou remplace) une position crypto saisie à la main dans le patrimoine de l'utilisateur, pour une plateforme sans synchronisation (ex. SwissBorg). " +
     "coingecko_id (ex. « bitcoin », « ethereum ») donne le cours ; sans lui, fournir manual_value. Une seule ligne à la main par symbole : la redonner remplace sa quantité." +
-    " Un portefeuille dont le membre connaît l'adresse publique (Bitcoin, Ethereum, Solana, clé xpub d'un Ledger) ne se saisit pas à la main : il l'ajoute lui-même à l'écran Crypto, où il est relu chaque jour (manuel : article « crypto »).",
+    " Un portefeuille dont le membre connaît l'adresse publique (Bitcoin, Ethereum, Solana, clé xpub d'un Ledger) ou un compte Kraken, Binance, Coinbase ou Bitpanda ne se saisit pas à la main : il l'ajoute lui-même à l'écran Crypto (par l'adresse, ou par une clé d'API en lecture seule), où il est relu chaque jour (manuel : article « crypto »). Ne demande jamais une clé d'API dans la conversation.",
   input: z.object({
     symbol: z.string().min(1).max(24),
     name: z.string().min(1).max(80),

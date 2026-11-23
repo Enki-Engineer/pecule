@@ -3,6 +3,37 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.40.0
+
+Un compte chez un exchange se relie par une clé d'API en lecture seule : Kraken, Binance, Coinbase, Bitpanda.
+
+- **« Ajouter un portefeuille » a un second onglet, « Compte d'exchange »** (téléphone et ordinateur) : on choisit
+  l'exchange, Pécule dit en trois étapes où créer la clé et quoi cocher, lit le compte tout de suite, puis chaque
+  jour, sans intermédiaire. Chaque membre relie les siens ; ils n'apparaissent que chez lui.
+- **Lecture seule, et contrôlée** : la clé montre les soldes, elle ne peut ni vendre ni retirer. Binance, Coinbase et
+  Bitpanda disent les droits d'une clé : Pécule refuse celle qui peut faire plus que lire. Kraken ne les dit pas : le
+  guide fait cocher la seule consultation des fonds. La clé est gardée chiffrée, n'est plus jamais affichée, et
+  n'entre ni dans le journal ni dans un message d'erreur.
+- **Ce qui est lu** : Kraken — les soldes, staking et récompenses compris ; Binance — compte spot, portefeuille de
+  financement, épargne souple et bloquée ; Coinbase — tous les comptes de l'appli ; Bitpanda — cryptos et monnaie,
+  par sa nouvelle API (l'ancienne ferme le 31 janvier 2027). Les contrats à terme ne sont pas lus.
+- **Valorisation** : une crypto reconnue par son symbole suit le cours CoinGecko ; le cours de l'exchange lui-même
+  vaut pour ce que CoinGecko ne suit pas, et dément la table quand deux cryptos portent le même symbole ; l'euro ou
+  le dollar laissés sur le compte comptent à leur cours de change.
+- **Clé refusée** : si l'exchange n'accepte plus la clé (expirée — une clé Bitpanda vaut un an —, retirée, droits
+  changés), le compte le dit et garde ses quantités ; on le retire et on le relie avec une nouvelle clé.
+- Comme pour une adresse : « déjà suivi dans CoinStats » évite le double compte, et la ligne saisie à la main du
+  même symbole est signalée.
+
+À savoir : les quatre connecteurs sont écrits d'après les documentations officielles. Les signatures sont
+vérifiées contre les exemples chiffrés de Kraken et de Binance, le jeton de Coinbase par sa clé publique, les
+réponses contre les exemples publiés, et chaque exchange refuse bien une fausse clé ; aucun n'a encore été lu sur
+un vrai compte. Un écart se signale sur le dépôt.
+
+Pour celui qui héberge : aucune migration, aucun réglage nouveau, aucun paquet nouveau. Le serveur interroge
+api.kraken.com, api.binance.com, api.coinbase.com et api.public.bitpanda.com pour les seuls comptes reliés. Binance
+ne répond pas aux serveurs de certains pays (États-Unis notamment).
+
 ## 1.39.1
 
 Correctif de confidentialité, à installer si la 1.39.0 l'a été.

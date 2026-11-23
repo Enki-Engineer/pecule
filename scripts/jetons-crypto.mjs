@@ -1,4 +1,5 @@
-// Table des jetons que Pécule sait lire à une adresse publique (src/lib/crypto-tokens.ts).
+// Table des jetons que Pécule sait lire à une adresse publique, et des symboles qu'il sait valoriser dans un compte
+// d'exchange (src/lib/crypto-tokens.ts).
 // Pour chaque blockchain suivie, les jetons les mieux capitalisés qui y ont un contrat, avec leur identifiant
 // CoinGecko : un jeton lu est donc toujours valorisé, et un jeton indésirable déposé sans demande n'est jamais vu.
 // Source : CoinGecko (liste des contrats par plateforme, classement par capitalisation). Aucune clé n'est demandée.
@@ -71,9 +72,19 @@ for (const [chain, platform] of Object.entries(PLATFORMS)) {
     .slice(0, PER_CHAIN);
 }
 
+// Symbole → cours : pour un exchange, qui ne donne qu'un symbole. Le mieux capitalisé l'emporte quand deux cryptos
+// portent le même symbole ; c'est presque toujours celle que les exchanges cotent.
+const symbols = new Map();
+for (const c of ranked.slice(0, RANKS)) {
+  const symbol = String(c.symbol ?? "").toUpperCase();
+  if (!/^[A-Z0-9]{1,24}$/.test(symbol) || EXCLUS.has(c.id) || !/^[a-z0-9-]+$/.test(c.id) || symbols.has(symbol)) continue;
+  symbols.set(symbol, [c.id, String(c.name).slice(0, 80)]);
+}
+
 const lines = [
   "/*",
-  " * Jetons lus à une adresse publique, par blockchain : contrat, identifiant CoinGecko, symbole, nom.",
+  " * Jetons lus à une adresse publique, par blockchain : contrat, identifiant CoinGecko, symbole, nom ;",
+  " * et cryptos reconnues par leur symbole dans un compte d'exchange.",
   " * Fichier fabriqué par `node scripts/jetons-crypto.mjs` (source : CoinGecko) — ne pas le retoucher à la main.",
   " */",
   "",
@@ -87,6 +98,10 @@ for (const [chain, rows] of Object.entries(out)) {
   lines.push("  ],");
 }
 lines.push("};", "");
+lines.push("/** Cryptos les mieux capitalisées, par symbole : identifiant CoinGecko et nom (lecture d'un compte d'exchange). */");
+lines.push("export const SYMBOLS: Record<string, readonly [coingeckoId: string, name: string]> = {");
+for (const [symbol, [id, name]] of symbols) lines.push(`  ${JSON.stringify(symbol)}: [${JSON.stringify(id)}, ${JSON.stringify(name)}],`);
+lines.push("};", "");
 const file = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "src", "lib", "crypto-tokens.ts");
 writeFileSync(file, lines.join("\n"));
-console.log(Object.entries(out).map(([k, v]) => `${k} : ${v.length}`).join(" · "));
+console.log(`${Object.entries(out).map(([k, v]) => `${k} : ${v.length}`).join(" · ")} · symboles : ${symbols.size}`);

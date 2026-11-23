@@ -25,8 +25,8 @@ const OTHER_PERSONAS = ["Léo", "Zoé", "Noa"];
 /** Ce qui ne doit jamais partir d'une session de démo (vraies données ou vrais accès). */
 const BLOCKED: [method: string, path: RegExp][] = [
   ["*", /^\/sync$/],
-  // Lire une adresse ou relancer une synchro interroge des services extérieurs.
-  ["POST", /^\/crypto\/(sync|sources)/],
+  // Lire une adresse, relier un exchange ou relancer une synchro interroge des services extérieurs.
+  ["POST", /^\/crypto\/(sync|sources|exchanges)/],
   ["*", /^\/push\//],
   ["POST", /^\/tokens/],
   ["DELETE", /^\/tokens/],

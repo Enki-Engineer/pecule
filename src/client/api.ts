@@ -348,7 +348,7 @@ export type CryptoPosition = {
   price: number | null;
   change_24h: number | null;
   value: number | null;
-  source: "manuel" | "coinstats" | "onchain";
+  source: "manuel" | "coinstats" | "onchain" | "exchange";
   portfolio_id: string | null;
   synced_at: string | null;
   price_source: "coingecko" | "coinstats" | null;
@@ -360,13 +360,15 @@ export type CryptoSource = {
   name: string;
   type: string;
   enabled: number;
-  status: "ok" | "vide" | "doublon" | "a_verifier" | "erreur";
+  status: "ok" | "vide" | "doublon" | "a_verifier" | "erreur" | "refus";
   lines: number;
   lastTotalEur: number | null;
   lastSyncedAt: string | null;
   note: string | null;
   /** Lu par son adresse publique, sans intermédiaire (sinon : un portefeuille du compte CoinStats). */
   direct: boolean;
+  /** Compte d'exchange relié par une clé en lecture seule : l'exchange. */
+  exchange: string | null;
   /** Adresse abrégée d'un portefeuille lu directement, quand il en a une seule. */
   address: string | null;
 };

@@ -13,6 +13,8 @@ import { ethValidator, isValidatorId } from "./beacon.ts";
 import { isBitcoinAddress, parseXpub, readBitcoinAddress, readBitcoinXpub } from "./chains/bitcoin.ts";
 import { isEvmAddress, readEvmAddress } from "./chains/evm.ts";
 import { isSolanaAddress, readSolanaAddress } from "./chains/solana.ts";
+import { EXCHANGE_KINDS, EXCHANGES, exchangeOf, isExchangeKind, sameCoin, type ExchangeId } from "../lib/crypto-exchanges.ts";
+import { ExchangeError, readExchange, type Credentials } from "./exchanges/index.ts";
 import { logAudit, recordAlert } from "./journal.ts";
 import { refreshPrices, snapshotWealth } from "./wealth.ts";
 import { t } from "../lib/i18n.ts";
@@ -22,7 +24,8 @@ import { createSealer } from "./secret.ts";
 /*
  * Quantités crypto, relues une fois par jour ou sur demande, par deux voies qui se complètent :
  * - les portefeuilles qu'un membre ajoute par leur adresse publique, lus sur la blockchain sans intermédiaire
- *   (src/server/chains/) — chacun a les siens ;
+ *   (src/server/chains/), et les comptes d'exchange qu'il relie par une clé d'API en lecture seule
+ *   (src/server/exchanges/) — chacun a les siens ;
  * - le compte CoinStats du foyer, s'il en a un : portefeuilles « feuilles » uniquement (un parent ne fait que
  *   regrouper), doublons écartés, garde-fou contre une connexion cassée, lignes manuelles couvertes archivées.
  */
@@ -33,6 +36,12 @@ type Source = typeof cryptoSources.$inferSelect;
 type Reading = { holdings: Holding[]; note: string; alert?: string; unread?: string[] };
 
 const sealer = createSealer(sealingSecret);
+/** Genres lus sans intermédiaire : par une adresse publique, ou par la clé d'un compte d'exchange. */
+const DIRECT_KINDS: string[] = [...WALLET_KINDS, ...EXCHANGE_KINDS];
+const isDirect = (type: string) => isWalletKind(type) || isExchangeKind(type);
+/** `source` des lignes écrites pour une source lue sans intermédiaire. */
+const lineSource = (type: string) => (isExchangeKind(type) ? "exchange" : "onchain");
+const DIRECT_LINES = ["onchain", "exchange"];
 /** Ce qui suit le préfixe de l'identifiant d'une source : son adresse (« btc:bc1… », « evm:0x… », « eth-val:12 »). */
 const addressOf = (src: { portfolioId: string }) => src.portfolioId.slice(src.portfolioId.indexOf(":") + 1);
 
@@ -62,6 +71,21 @@ const READERS: Record<WalletKind, (src: Source) => Promise<Reading>> = {
     };
   },
 };
+/** Lit une source selon son genre : une adresse sur sa blockchain, un compte chez son exchange. */
+function read(src: Source): Promise<Reading> {
+  if (isWalletKind(src.type)) return READERS[src.type](src);
+  if (!isExchangeKind(src.type)) throw new Error(`source de genre inconnu : ${src.type}`);
+  const opened = src.secret ? sealer.open(src.secret) : null;
+  let creds: Credentials | null = null;
+  try {
+    creds = opened ? (JSON.parse(opened) as Credentials) : null;
+  } catch {
+    creds = null;
+  }
+  if (!creds?.key) throw new ExchangeError("clé illisible : retirer ce compte et l'ajouter de nouveau", true);
+  return readExchange(exchangeOf(src.type), creds);
+}
+
 type Fetched = { leaf: Leaf; lines: CsCoinLine[]; totalEur: number };
 
 const MIN_EUR_FOR_COINGECKO = 20;
@@ -89,16 +113,31 @@ async function validCoingeckoIds(ids: string[]): Promise<Set<string>> {
 
 /** Écrit ce qu'une lecture a rendu : les lignes du portefeuille, et l'état de la source. */
 async function writeReading(src: Source, r: Reading) {
+  const source = lineSource(src.type);
+  const exchange = isExchangeKind(src.type) ? exchangeOf(src.type) : null;
   const keys: string[] = [];
   for (const h of r.holdings) {
     const lineKey = `${src.portfolioId}:${h.key}`.slice(0, 160);
     keys.push(lineKey);
+    // Le cours que la source donne elle-même est gardé sous sa propre clé : il vaut pour ce que CoinGecko ne suit
+    // pas, et il dément la table quand deux cryptos portent le même symbole.
+    const ownPrice = exchange ? `x:${exchange}:${h.symbol}`.slice(0, 90) : null;
+    let coingeckoId = h.coingeckoId;
+    if (coingeckoId && h.priceEur) {
+      const known = await one<{ p: number }>("SELECT price_eur AS p FROM prices WHERE id = ?", [`cg:${coingeckoId}`]);
+      if (known?.p && !sameCoin(h.priceEur, Number(known.p))) coingeckoId = null;
+    }
+    if (ownPrice && h.priceEur)
+      await db
+        .insert(prices)
+        .values({ id: `cs:${ownPrice}`, priceEur: h.priceEur })
+        .onDuplicateKeyUpdate({ set: { priceEur: h.priceEur, updatedAt: sql`CURRENT_TIMESTAMP` } });
     const row = {
       name: h.name.slice(0, 80),
       symbol: h.symbol.slice(0, 24),
       quantity: h.quantity,
-      coingeckoId: h.coingeckoId,
-      coinstatsId: h.coingeckoId,
+      coingeckoId,
+      coinstatsId: ownPrice ?? h.coingeckoId,
       location: (h.place ? `${src.name} · ${h.place}` : src.name).slice(0, 255),
       portfolioId: src.portfolioId,
       syncedAt: sql`CURRENT_TIMESTAMP`,
@@ -106,7 +145,7 @@ async function writeReading(src: Source, r: Reading) {
     };
     await db
       .insert(cryptoPositions)
-      .values({ ownerUserId: src.ownerUserId, source: "onchain", lineKey, ...row })
+      .values({ ownerUserId: src.ownerUserId, source, lineKey, ...row })
       .onDuplicateKeyUpdate({ set: row });
   }
   // Ce qui n'est plus détenu part ; ce qui n'a pas pu être lu cette fois garde sa ligne d'avant.
@@ -114,32 +153,36 @@ async function writeReading(src: Source, r: Reading) {
   const before = await db
     .select({ id: cryptoPositions.id, lineKey: cryptoPositions.lineKey })
     .from(cryptoPositions)
-    .where(and(eq(cryptoPositions.source, "onchain"), eq(cryptoPositions.portfolioId, src.portfolioId)));
+    .where(and(eq(cryptoPositions.source, source), eq(cryptoPositions.portfolioId, src.portfolioId)));
   const gone = before.filter((p) => !keys.includes(p.lineKey) && !kept.some((prefix) => p.lineKey.startsWith(prefix)));
   if (gone.length) await db.delete(cryptoPositions).where(inArray(cryptoPositions.id, gone.map((p) => p.id)));
   const lines = before.length - gone.length + keys.filter((k) => !before.some((p) => p.lineKey === k)).length;
   await db
     .update(cryptoSources)
-    .set({ status: lines ? "ok" : "vide", lines, lastSyncedAt: sql`CURRENT_TIMESTAMP`, note: `${r.note} (lu sur la blockchain)`.slice(0, 255) })
+    .set({ status: lines ? "ok" : "vide", lines, lastSyncedAt: sql`CURRENT_TIMESTAMP`, note: (exchange ? r.note : `${r.note} (lu sur la blockchain)`).slice(0, 255) })
     .where(eq(cryptoSources.portfolioId, src.portfolioId));
 }
 
-/** Relit une source sur la blockchain. Une lecture qui échoue garde les lignes d'avant et le dit dans l'état. */
-async function readSource(src: Source): Promise<boolean> {
+/**
+ * Relit une source. Une lecture qui échoue garde les lignes d'avant et le dit dans l'état : « erreur » pour une
+ * panne, « refus » quand c'est la clé d'un exchange qui n'est plus acceptée (expirée, retirée, droits changés).
+ */
+async function readSource(src: Source): Promise<{ ok: true } | { ok: false; message: string; refused: boolean }> {
   try {
-    const reading = await READERS[src.type as WalletKind](src);
+    const reading = await read(src);
     await writeReading(src, reading);
     if (reading.alert) await recordAlert("crypto", `${src.name} : ${reading.alert}`, undefined, "alerte");
-    return true;
+    return { ok: true };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await db.update(cryptoSources).set({ status: "erreur", note: message.slice(0, 255) }).where(eq(cryptoSources.portfolioId, src.portfolioId));
-    await recordAlert("crypto", `Lecture sur la blockchain impossible (${src.name}) : ${message}`, undefined, "alerte");
-    return false;
+    const refused = e instanceof ExchangeError && e.refused;
+    await db.update(cryptoSources).set({ status: refused ? "refus" : "erreur", note: message.slice(0, 255) }).where(eq(cryptoSources.portfolioId, src.portfolioId));
+    await recordAlert("crypto", `${isExchangeKind(src.type) ? "Lecture du compte impossible" : "Lecture sur la blockchain impossible"} (${src.name}) : ${message}`, undefined, "alerte");
+    return { ok: false, message, refused };
   }
 }
 
-/** Valeur de chaque source lue sur la blockchain, aux cours du moment (en euros, le pivot des cours). */
+/** Valeur de chaque source lue sans intermédiaire, aux cours du moment (en euros, le pivot des cours). */
 async function refreshDirectTotals() {
   await exec(
     `UPDATE crypto_sources s SET s.last_total_eur = (
@@ -147,9 +190,9 @@ async function refreshDirectTotals() {
        FROM crypto_positions c
        LEFT JOIN prices pg ON pg.id = CONCAT('cg:', c.coingecko_id)
        LEFT JOIN prices ps ON ps.id = CONCAT('cs:', c.coinstats_id)
-       WHERE c.portfolio_id = s.portfolio_id AND c.source = 'onchain' AND c.archived_at IS NULL)
-     WHERE s.type IN (${WALLET_KINDS.map(() => "?").join(", ")})`,
-    [...WALLET_KINDS],
+       WHERE c.portfolio_id = s.portfolio_id AND c.source IN ('onchain', 'exchange') AND c.archived_at IS NULL)
+     WHERE s.type IN (${DIRECT_KINDS.map(() => "?").join(", ")})`,
+    DIRECT_KINDS,
   );
 }
 
@@ -158,7 +201,7 @@ const directSources = (onlyEnabled = true) =>
   db
     .select()
     .from(cryptoSources)
-    .where(and(inArray(cryptoSources.type, [...WALLET_KINDS]), onlyEnabled ? eq(cryptoSources.enabled, 1) : sql`1 = 1`));
+    .where(and(inArray(cryptoSources.type, DIRECT_KINDS), onlyEnabled ? eq(cryptoSources.enabled, 1) : sql`1 = 1`));
 
 /**
  * Synchro des quantités : les portefeuilles lus sur la blockchain, puis le compte CoinStats s'il y en a un.
@@ -173,7 +216,7 @@ export async function syncCrypto(trigger: "auto" | "manuel" | "assistant") {
     try {
       const direct = await directSources();
       let read = 0;
-      for (const src of direct) if (await readSource(src)) read++;
+      for (const src of direct) if ((await readSource(src)).ok) read++;
       // CoinStats en panne n'empêche pas de garder ce que la blockchain vient de rendre : l'échec est levé à la fin.
       let failure: unknown = null;
       const cs = coinstats
@@ -188,7 +231,7 @@ export async function syncCrypto(trigger: "auto" | "manuel" | "assistant") {
       if (cs) owners.add(cs.owner);
       for (const id of owners) await snapshotWealth(id);
       if (failure) throw failure;
-      const lines = await one<{ n: number }>("SELECT COUNT(*) AS n FROM crypto_positions WHERE source IN ('coinstats', 'onchain') AND archived_at IS NULL");
+      const lines = await one<{ n: number }>("SELECT COUNT(*) AS n FROM crypto_positions WHERE source IN ('coinstats', 'onchain', 'exchange') AND archived_at IS NULL");
       await db
         .update(cryptoSyncRuns)
         .set({ status: "ok", finishedAt: sql`CURRENT_TIMESTAMP`, sources: read + (cs?.sources ?? 0), lines: Number(lines?.n ?? 0), totalEur: cs?.totalEur ?? null, creditsUsed: cs?.creditsUsed ?? null })
@@ -209,7 +252,7 @@ export async function syncCrypto(trigger: "auto" | "manuel" | "assistant") {
 export async function syncSummary(userId: number, r: { archived: number; archivedFor: number | null }) {
   const mine = await one<{ sources: number; n: number }>(
     `SELECT (SELECT COUNT(*) FROM crypto_sources WHERE owner_user_id = ? AND enabled = 1 AND status IN ('ok', 'vide')) AS sources,
-            (SELECT COUNT(*) FROM crypto_positions WHERE owner_user_id = ? AND source IN ('coinstats', 'onchain') AND archived_at IS NULL) AS n`,
+            (SELECT COUNT(*) FROM crypto_positions WHERE owner_user_id = ? AND source IN ('coinstats', 'onchain', 'exchange') AND archived_at IS NULL) AS n`,
     [userId, userId],
   );
   const any = await one("SELECT 1 AS x FROM crypto_sources WHERE owner_user_id = ? LIMIT 1", [userId]);
@@ -272,13 +315,14 @@ async function syncCoinstats() {
 
   // Un actif lu sur la blockchain (staking, validateur) l'emporte sur sa saisie dans CoinStats : la source dit quel
   // portefeuille CoinStats elle remplace, et l'actif n'y est écarté que si la blockchain a déjà rendu une ligne.
-  const chainLines = await q<{ portfolio_id: string; symbol: string; identifier: string; quantity: number; replaces_id: string | null }>(
+  const chainLines = await q<{ portfolio_id: string; symbol: string; identifier: string | null; quantity: number; replaces_id: string | null }>(
     `SELECT c.portfolio_id, c.symbol, c.coingecko_id AS identifier, c.quantity, s.replaces_id
      FROM crypto_positions c JOIN crypto_sources s ON s.portfolio_id = c.portfolio_id
-     WHERE c.source = 'onchain' AND c.owner_user_id = ? AND s.enabled = 1 AND c.archived_at IS NULL`,
+     WHERE c.source IN ('onchain', 'exchange') AND c.owner_user_id = ? AND s.enabled = 1 AND c.archived_at IS NULL`,
     [owner],
   );
   const skipKeys = new Set(chainLines.filter((c) => c.replaces_id).map((c) => `${c.replaces_id}:${c.symbol.toUpperCase()}`));
+  // Seul ce qui a un identifiant de cours compte ensuite pour juger les lignes saisies à la main.
   for (const f of fetched) {
     const { kept, skipped } = withoutChainCovered(f.lines, f.leaf.portfolioId, skipKeys);
     if (!skipped.length) continue;
@@ -344,7 +388,7 @@ async function syncCoinstats() {
       .where(and(eq(cryptoPositions.source, "coinstats"), eq(cryptoPositions.portfolioId, f.leaf.portfolioId), keys.length ? notInArray(cryptoPositions.lineKey, keys) : sql`1 = 1`));
   }
   // Ce que la blockchain a rendu compte aussi pour juger les lignes saisies à la main.
-  for (const c of chainLines) synced.push({ symbol: c.symbol, identifier: c.identifier, count: Number(c.quantity), valueEur: Number(c.quantity) * (usd.get(c.identifier) ?? 0) * rate });
+  for (const c of chainLines) synced.push({ symbol: c.symbol, identifier: c.identifier ?? c.symbol, count: Number(c.quantity), valueEur: Number(c.quantity) * (usd.get(c.identifier ?? "") ?? 0) * rate });
 
   // Portefeuilles disparus de CoinStats : leurs lignes partent aussi.
   const leafIds = leaves.map((l) => l.portfolioId);
@@ -380,7 +424,7 @@ export async function maybeSyncCrypto() {
 export async function cryptoStatus(userId: number) {
   const rows = await db.select().from(cryptoSources).where(eq(cryptoSources.ownerUserId, userId)).orderBy(desc(cryptoSources.lastTotalEur));
   // Le secret d'une source (clé étendue, chiffrée) ne quitte jamais le serveur.
-  const sources = rows.map(({ secret: _secret, ...s }) => ({ ...s, direct: isWalletKind(s.type), address: s.type === "btc" || s.type === "evm" || s.type === "sol" ? shortAddress(addressOf(s)) : null }));
+  const sources = rows.map(({ secret: _secret, ...s }) => ({ ...s, direct: isDirect(s.type), exchange: isExchangeKind(s.type) ? exchangeOf(s.type) : null, address: s.type === "btc" || s.type === "evm" || s.type === "sol" ? shortAddress(addressOf(s)) : null }));
   const [run] = await db.select().from(cryptoSyncRuns).orderBy(desc(cryptoSyncRuns.id)).limit(1);
   // Le journal des synchros est commun au foyer : un membre n'y lit que la date et l'état, et le compte de ses
   // propres portefeuilles — la valeur de ceux d'un autre ne le regarde pas.
@@ -399,7 +443,7 @@ export async function setSourceEnabled(userId: number, portfolioId: string, enab
   if (!own.length) return;
   await db.update(cryptoSources).set({ enabled: enabled ? 1 : 0 }).where(mine);
   if (enabled) return;
-  await db.delete(cryptoPositions).where(and(inArray(cryptoPositions.source, ["coinstats", "onchain"]), eq(cryptoPositions.portfolioId, portfolioId)));
+  await db.delete(cryptoPositions).where(and(inArray(cryptoPositions.source, ["coinstats", ...DIRECT_LINES]), eq(cryptoPositions.portfolioId, portfolioId)));
   // Plus aucune position n'est gardée : le garde-fou n'a plus de valeur d'avant à défendre si le portefeuille revient.
   await db
     .update(cryptoSources)
@@ -471,22 +515,44 @@ export async function addWallet(userId: number, input: { address: string; name?:
     label = `${WALLET_NAMES[kind]} n° ${v.index}`;
   }
 
-  const name = (input.name?.trim() || label).slice(0, 160);
-  const replaces = input.replaces || null;
+  return adopt(userId, { portfolioId, kind, name: (input.name?.trim() || label).slice(0, 160), secret, replaces: input.replaces || null });
+}
+
+/**
+ * Relie un compte d'exchange par une clé d'API en lecture seule. La clé est gardée chiffrée, n'est jamais rendue à
+ * l'écran, et ne sert qu'aux lectures écrites dans src/server/exchanges/ ; un exchange qui sait dire les droits d'une
+ * clé voit refuser celle qui peut vendre ou retirer. Rien n'est gardé si la première lecture échoue.
+ */
+export async function addExchange(userId: number, input: { exchange: ExchangeId; key: string; secret?: string | null; name?: string | null; replaces?: string | null }) {
+  if (isDemo()) throw new Error(t("Indisponible en mode démo"));
+  const info = EXCHANGES[input.exchange];
+  const key = input.key.trim();
+  const secret = input.secret?.trim() ?? "";
+  if (!key || (info.secretLabel && !secret)) throw new Error(t("Il manque une partie de la clé : colle les deux valeurs que {exchange} t'a données.", { exchange: info.name }));
+  const kind = `x-${input.exchange}` as const;
+  // La source se nomme par l'empreinte de sa clé : la même clé ajoutée deux fois reste un seul compte.
+  const portfolioId = `${kind}:${createHash("sha256").update(key).digest("hex").slice(0, 24)}`;
+  return adopt(userId, { portfolioId, kind, name: (input.name?.trim() || info.name).slice(0, 160), secret: sealer.seal(JSON.stringify({ key, secret: secret || undefined })), replaces: input.replaces || null });
+}
+
+/** Enregistre une source lue sans intermédiaire et la lit tout de suite ; une source jamais lue n'est pas gardée. */
+async function adopt(userId: number, input: { portfolioId: string; kind: string; name: string; secret: string | null; replaces: string | null }) {
+  const { portfolioId, kind, name, secret, replaces } = input;
   if (replaces && !(await db.select({ id: cryptoSources.portfolioId }).from(cryptoSources).where(and(eq(cryptoSources.portfolioId, replaces), eq(cryptoSources.ownerUserId, userId)))).length)
     throw new Error(t("Portefeuille CoinStats à remplacer introuvable"));
   const [existing] = await db.select().from(cryptoSources).where(eq(cryptoSources.portfolioId, portfolioId));
-  // Une adresse déjà suivie par un autre membre reste la sienne.
-  if (existing && existing.ownerUserId !== userId) throw new Error(t("Cette adresse est déjà suivie par un autre membre du foyer."));
+  // Une adresse ou un compte déjà suivi par un autre membre reste le sien.
+  if (existing && existing.ownerUserId !== userId) throw new Error(isExchangeKind(kind) ? t("Ce compte est déjà suivi par un autre membre du foyer.") : t("Cette adresse est déjà suivie par un autre membre du foyer."));
   if (existing) await db.update(cryptoSources).set({ name, enabled: 1, replacesId: replaces, secret: secret ?? existing.secret }).where(eq(cryptoSources.portfolioId, portfolioId));
   else await db.insert(cryptoSources).values({ portfolioId, ownerUserId: userId, name, type: kind, replacesId: replaces, secret });
 
   const [src] = await db.select().from(cryptoSources).where(eq(cryptoSources.portfolioId, portfolioId));
-  if (!(await readSource(src))) {
-    const [failed] = await db.select({ note: cryptoSources.note }).from(cryptoSources).where(eq(cryptoSources.portfolioId, portfolioId));
-    // Un portefeuille jamais lu n'est pas gardé : le membre réessaie plus tard, sans ligne en erreur à l'écran.
+  const outcome = await readSource(src);
+  if (!outcome.ok) {
+    // Une source jamais lue n'est pas gardée : le membre réessaie, sans ligne en erreur à l'écran ni clé inutile en base.
     if (!existing) await db.delete(cryptoSources).where(eq(cryptoSources.portfolioId, portfolioId));
-    throw new Error(t("Lecture impossible pour le moment ({raison}). Réessaie dans quelques minutes.", { raison: failed?.note ?? "?" }));
+    if (outcome.refused) throw new Error(t("La clé est refusée ({raison}). Vérifie qu'elle est complète, encore valable, et qu'elle a bien le droit de lecture demandé.", { raison: outcome.message }));
+    throw new Error(t("Lecture impossible pour le moment ({raison}). Réessaie dans quelques minutes.", { raison: outcome.message }));
   }
   // Tracé ici plutôt que par le journal automatique des écritures : ni l'adresse collée ni la clé n'y figurent.
   await logAudit("crypto : source ajoutée", portfolioId, { genre: kind, nom: name });
@@ -495,7 +561,7 @@ export async function addWallet(userId: number, input: { address: string; name?:
   await snapshotWealth(userId);
 
   const found = await q<{ symbol: string; quantity: number }>(
-    "SELECT symbol, SUM(quantity) AS quantity FROM crypto_positions WHERE source = 'onchain' AND portfolio_id = ? AND owner_user_id = ? GROUP BY symbol ORDER BY symbol",
+    "SELECT symbol, SUM(quantity) AS quantity FROM crypto_positions WHERE source IN ('onchain', 'exchange') AND portfolio_id = ? AND owner_user_id = ? GROUP BY symbol ORDER BY symbol",
     [portfolioId, userId],
   );
   // Les mêmes cryptos saisies à la main : peut-être ce portefeuille, que le membre comptait jusque-là lui-même.
@@ -509,12 +575,12 @@ export async function addWallet(userId: number, input: { address: string; name?:
   return { portfolioId, kind, name, holdings: found.map((f) => ({ symbol: f.symbol, quantity: Number(f.quantity) })), manual: manual.map((m) => ({ ...m, quantity: Number(m.quantity) })) };
 }
 
-/** Retire un portefeuille lu par son adresse, et ses lignes. Faux si ce n'en est pas un du membre. */
+/** Retire un portefeuille lu par son adresse ou un compte d'exchange, ses lignes et sa clé. Faux si ce n'en est pas un du membre. */
 export async function removeWallet(userId: number, portfolioId: string) {
   const mine = and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId));
   const [src] = await db.select({ type: cryptoSources.type }).from(cryptoSources).where(mine);
-  if (!src || !isWalletKind(src.type)) return false;
-  await db.delete(cryptoPositions).where(and(eq(cryptoPositions.source, "onchain"), eq(cryptoPositions.portfolioId, portfolioId), eq(cryptoPositions.ownerUserId, userId)));
+  if (!src || !isDirect(src.type)) return false;
+  await db.delete(cryptoPositions).where(and(inArray(cryptoPositions.source, DIRECT_LINES), eq(cryptoPositions.portfolioId, portfolioId), eq(cryptoPositions.ownerUserId, userId)));
   await db.delete(cryptoSources).where(mine);
   await snapshotWealth(userId);
   return true;

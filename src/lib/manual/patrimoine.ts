@@ -119,13 +119,14 @@ export const patrimoine: ManualTheme = {
     {
       id: "crypto",
       title: tk("Suivre ses cryptomonnaies"),
-      summary: tk("Portefeuilles lus par leur adresse, compte CoinStats ou positions saisies à la main."),
+      summary: tk("Portefeuilles lus par leur adresse, exchanges reliés par une clé en lecture seule, compte CoinStats ou positions saisies à la main."),
       module: "crypto",
       body: [
-        tk("L'écran [[Crypto]] donne la valeur totale, la variation sur 24 heures, les positions par crypto et par portefeuille, et le journal des mouvements. Les quantités arrivent par trois voies, qui se combinent."),
+        tk("L'écran [[Crypto]] donne la valeur totale, la variation sur 24 heures, les positions par crypto et par portefeuille, et le journal des mouvements. Les quantités arrivent par quatre voies, qui se combinent."),
         {
           list: [
             tk("Par l'adresse publique du portefeuille : [[Ajouter un portefeuille]], colle l'adresse, Pécule reconnaît la blockchain, montre ce qu'il a trouvé, puis relit le portefeuille chaque jour. Aucun compte à ouvrir, aucune clé à créer ; chaque membre ajoute les siens."),
+            tk("Par une clé d'API en lecture seule, pour un compte chez Kraken, Binance, Coinbase ou Bitpanda : [[Ajouter un portefeuille]], onglet [[Compte d'exchange]], choisis l'exchange et suis ses trois étapes. Pécule lit le compte tout de suite, puis chaque jour ; chaque membre relie les siens."),
             tk("Par CoinStats, si le foyer y a un compte : les quantités de tous ses portefeuilles sont lues une fois par jour ; [[Synchroniser CoinStats]] les relit tout de suite."),
             tk("À la main : demande à l'assistant d'ajouter une position, puis touche une crypto pour corriger sa quantité."),
           ],
@@ -140,9 +141,12 @@ export const patrimoine: ManualTheme = {
           ],
         },
         { warning: tk("Une adresse publique permet de lire, jamais de dépenser. Ne saisis jamais ta phrase de récupération ni une clé privée : Pécule ne les demande pas, et te le dit si tu en colles une.") },
+        { warning: tk("La clé d'un exchange doit être en lecture seule : elle montre les soldes, elle ne peut ni vendre ni retirer. Pécule refuse une clé Binance, Coinbase ou Bitpanda qui peut faire plus ; chez Kraken, qui ne dit pas les droits d'une clé, ne coche que la consultation des fonds. La clé est gardée chiffrée et n'est plus jamais affichée.") },
         {
           list: [
-            tk("Un exchange (Binance, Coinbase, Kraken…) ne se lit pas par une adresse : ses comptes ne sont pas sur une adresse à toi. Passe par CoinStats, ou saisis la position à la main."),
+            tk("Un exchange ne se lit pas par une adresse : ses comptes ne sont pas sur une adresse à toi. Relie-le par sa clé ; pour un exchange que Pécule ne connaît pas, passe par CoinStats ou saisis la position à la main."),
+            tk("Chez un exchange, Pécule lit les soldes du compte, épargne et staking compris quand l'exchange les donne. Les contrats à terme ne sont pas lus, ni les actions et métaux de Bitpanda."),
+            tk("Si l'exchange n'accepte plus la clé (une clé Bitpanda vaut un an au plus, une clé peut être retirée), le compte est marqué « [[clé refusée]] » et garde ses quantités : retire-le, puis relie-le avec une nouvelle clé."),
             tk("Les cours viennent de CoinGecko et se rafraîchissent d'eux-mêmes."),
             tk("Décoche un portefeuille pour l'écarter du total. Un portefeuille ajouté par son adresse se retire par la corbeille ([[Retirer ce portefeuille]]) ; [[Relire les portefeuilles]] les relit tous sans attendre le lendemain."),
             tk("Un même portefeuille suivi deux fois compterait double. À l'ajout, dis s'il est déjà suivi dans CoinStats, et archive la ligne saisie à la main que Pécule te signale ([[Archiver la ligne saisie à la main]])."),
@@ -150,14 +154,14 @@ export const patrimoine: ManualTheme = {
             tk("Un portefeuille que CoinStats rend vide, ou bien plus bas qu'à la lecture d'avant, est marqué « [[à vérifier]] » et garde ses positions : sa connexion est peut-être cassée. S'il a vraiment été vidé ou vendu, [[C'est exact]] confirme la nouvelle valeur."),
           ],
         },
-        tk("Les clés de CoinStats et de CoinGecko se saisissent dans [[Réglages]] → [[Comptes et connexions]] ; elles sont réservées à l'administrateur du foyer. Aucune n'est nécessaire pour un portefeuille ajouté par son adresse."),
+        tk("Les clés de CoinStats et de CoinGecko se saisissent dans [[Réglages]] → [[Comptes et connexions]] ; elles sont réservées à l'administrateur du foyer. Aucune n'est nécessaire pour un portefeuille ajouté par son adresse ni pour un exchange relié par sa clé."),
         { note: tk("Une ligne saisie à la main que CoinStats couvre ensuite est archivée d'elle-même, pour ne pas compter deux fois.") },
       ],
       links: [
         { to: "/patrimoine/crypto", label: ["Crypto"] },
         { to: "/reglages/connexions?c=coinstats", label: ["Réglages", "Comptes et connexions"] },
       ],
-      words: tk("bitcoin ethereum solana cryptomonnaie wallet portefeuille adresse publique xpub ledger trezor metamask phantom coinstats coingecko exchange staking blockchain"),
+      words: tk("bitcoin ethereum solana cryptomonnaie wallet portefeuille adresse publique xpub ledger trezor metamask phantom coinstats coingecko exchange kraken binance coinbase bitpanda clé api lecture seule staking blockchain"),
     },
     {
       id: "projections",

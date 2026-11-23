@@ -118,7 +118,7 @@ const searchTransactions = readTool({
       `SELECT COUNT(*) AS n, SUM(t.amount) AS s FROM transactions t JOIN ${A} a ON a.id = t.account_id ${STAT_DATE_JOIN} WHERE ${where.join(" AND ")}`,
       params,
     );
-    const order = { date_desc: `${day} DESC, t.id`, date_asc: `${day}, t.id`, amount_asc: `t.amount, ${day} DESC`, amount_desc: `t.amount DESC, ${day} DESC` }[f.sort ?? "date_desc"];
+    const order = { date_desc: `${day} DESC, t.id`, date_asc: `${day}, t.id`, amount_asc: `t.amount, ${day} DESC, t.id`, amount_desc: `t.amount DESC, ${day} DESC, t.id` }[f.sort ?? "date_desc"];
     const rows = await q<{ id: string; invoice_count: number } & Record<string, unknown>>(
       `SELECT t.id, ${day} AS date, IF(t.date <> ${day}, t.date, NULL) AS debit_date, t.amount, t.label, t.merchant, t.bank_label, t.category_id, c.name AS category, ${natureSql("t")} AS nature,
               COALESCE(a.display_name, a.name) AS account, t.note, IF(a.excluded = 0, ${transferKey(A)}, NULL) AS transfer,

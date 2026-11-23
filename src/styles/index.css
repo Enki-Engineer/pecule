@@ -114,6 +114,11 @@ input:is([type="date"], [type="month"], [type="time"]) {
   letter-spacing: -0.025em;
   line-height: 1.05;
 }
+/* Zone qui défile au-dessus d'un pied fixe (les familles du menu) : son bas s'estompe, pour dire qu'elle continue. */
+.fade-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 0.75rem), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 0.75rem), transparent);
+}
 /* Étiquettes d'un montant : pastille pâle (entrée, sortie, neutre) ou pleine (ce qu'on met en avant). */
 .chip {
   display: inline-flex;

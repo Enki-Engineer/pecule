@@ -74,6 +74,7 @@ export const premiersPas: ManualTheme = {
       summary: tk("Le menu, la barre du haut, les fiches et le clic droit."),
       body: [
         tk("À gauche, le menu range les écrans par groupes : [[Au quotidien]], [[Patrimoine]], [[Situation]], [[Documents]]. En bas du menu : [[Assistant]], [[Visite guidée]] (le tour de l'appli, une bulle après l'autre), [[Manuel]], [[Réglages]], puis [[Replier]], qui ne garde que les icônes."),
+        tk("Sur un écran peu haut, le bas du menu se resserre pour laisser la place aux écrans : [[Visite guidée]], [[Manuel]], [[Réglages]] et [[Replier]] deviennent une rangée d'icônes (leur nom s'affiche au survol), et les groupes d'écrans défilent au-dessus."),
         tk("Un nombre à droite d'une ligne du menu compte ce qui t'attend (opérations à classer, comptes signalés, factures à rapprocher, tâches en retard). Clique sur le nombre : l'écran s'ouvre déjà filtré."),
         tk("La barre du haut porte, de gauche à droite : le chemin de l'écran ouvert, la période (sur [[Analyse]] et [[Opérations]]), le choix [[Foyer]] ou [[Moi]], la recherche, l'œil qui masque les montants, le « ? » qui ouvre la page du manuel de l'écran affiché, la synchronisation des banques et l'assistant."),
         {

@@ -366,10 +366,12 @@ export async function coloredPostes(accountsSql: string) {
 /** Dépenses par poste, revenus et épargne de deux périodes (b divisée pour une moyenne). */
 export async function comparePeriods(accountsSql: string, a: { from: string; to: string }, b: { from: string; to: string; divisor: number }) {
   const sums = async (s: { from: string; to: string }) => {
+    // Regroupement par position : « poste » et « kind » sont aussi des colonnes de `categories`, et un GROUP BY par nom
+    // prend la colonne avant l'alias — MySQL 8 refuse alors la requête (only_full_group_by), MariaDB la laisse passer.
     const rows = await q<{ poste: string; kind: string; peer: string | null; total: number }>(
       `SELECT COALESCE(c.poste, IF(t.amount < 0, 'À classer', 'Revenus non classés')) AS poste, ${lineKind(accountsSql)} AS kind, ${peerOwner(accountsSql)} AS peer, SUM(t.amount) AS total
        FROM tx_lines t JOIN ${accountsSql} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
-       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date <= ? GROUP BY poste, kind, peer`,
+       WHERE ${STAT_SCOPE} AND t.date >= ? AND t.date <= ? GROUP BY 1, 2, 3`,
       [s.from, s.to],
     );
     // Un versement vers un compte hors de la vue fait son propre poste de dépense.

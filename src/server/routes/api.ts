@@ -38,6 +38,7 @@ import { recordAlert } from "../journal.ts";
 import { agenda } from "../agenda.ts";
 import { dashLayout, saveDashLayout } from "../dashboard.ts";
 import { cleanLayout } from "../../lib/dashboard.ts";
+import { pastBalances, SERIES_LEAD_DAYS, type BalanceRow } from "../../lib/balance.ts";
 import { searchDocuments } from "../documents.ts";
 import { day } from "../tools/registry.ts";
 import { coloredPostes, comparePeriods, comparisonSpan, forecast, listMonths, monthDebits, monthFlows, monthlyTrend, monthMerchants, monthTimeline, natureTrend, yearDebits } from "../flows.ts";
@@ -291,7 +292,7 @@ api.get("/transactions", async (req, res) => {
             (SELECT COUNT(*) FROM transaction_splits s WHERE s.transaction_id = t.id) AS split_count
      FROM transactions t JOIN ${userAccounts(req)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id ${STAT_DATE_JOIN}
      WHERE ${where.map((w) => `(${w})`).join(" AND ")}
-     ORDER BY ${day} DESC, t.amount ASC LIMIT ? OFFSET ?`,
+     ORDER BY ${day} DESC, t.amount ASC, t.id LIMIT ? OFFSET ?`,
     [...params, f.merchant ? 2000 : f.limit + 1, f.merchant ? 0 : f.offset],
   );
   // Le nom affiché d'un marchand se calcule depuis le libellé : filtre fait ici (volumes d'un mois).
@@ -615,7 +616,7 @@ api.delete("/crypto/:id", async (req, res) => {
 /** Archiver une ligne saisie à la main qu'un portefeuille ajouté vient remplacer. */
 api.post("/crypto/:id/archive", async (req, res) => {
   const { portfolioId } = z.object({ portfolioId: z.string().max(96) }).parse(req.body);
-  if (!(await archiveManualLine(req.user!.id, Number(req.params.id), portfolioId))) throw new ActionError(404, tr("Portefeuille introuvable"));
+  if (!(await archiveManualLine(req.user!.id, z.coerce.number().int().parse(req.params.id), portfolioId))) throw new ActionError(404, tr("Portefeuille introuvable"));
   res.json({ ok: true });
 });
 
@@ -638,7 +639,7 @@ api.patch("/assets/:id", async (req, res) => {
       followPayouts: z.boolean().optional(),
     })
     .parse(req.body);
-  await updateAsset(req.user!.id, Number(req.params.id), body);
+  await updateAsset(req.user!.id, z.coerce.number().int().parse(req.params.id), body);
   res.json({ ok: true });
 });
 
@@ -646,7 +647,7 @@ api.patch("/assets/:id", async (req, res) => {
 // Foyer / Moi n'y change rien : un versement arrivé sur le compte commun reste celui du placement.
 api.get("/assets/:id/payouts", async (req, res) => {
   const asset = await one<{ payout_match: string | null; valuation: string }>("SELECT payout_match, valuation FROM assets WHERE id = ? AND (owner_user_id IS NULL OR owner_user_id = ?)", [
-    Number(req.params.id),
+    z.coerce.number().int().parse(req.params.id),
     req.user!.id,
   ]);
   if (!asset) throw new ActionError(404, tr("Élément introuvable"));
@@ -676,7 +677,7 @@ api.post("/assets", async (req, res) => {
 
 api.patch("/crypto/:id", async (req, res) => {
   const body = z.object({ quantity: z.number().min(0).optional(), manualValue: z.number().nullable().optional() }).parse(req.body);
-  await updateCryptoPosition(req.user!.id, Number(req.params.id), body);
+  await updateCryptoPosition(req.user!.id, z.coerce.number().int().parse(req.params.id), body);
   res.json({ ok: true });
 });
 
@@ -694,29 +695,15 @@ api.get("/trend", async (req, res) => {
 /** Solde disponible jour par jour (comptes visibles, hors cartes), sur N jours. */
 api.get("/balance-series", async (req, res) => {
   const days = z.coerce.number().int().min(7).max(366).default(90).parse(req.query.days);
-  const rows = await q<{ account_id: string; date: string; balance: number }>(
+  const day = today();
+  const rows = await q<BalanceRow>(
     `SELECT b.account_id, b.date, b.balance FROM balances b JOIN ${userAccounts(req)} a ON a.id = b.account_id
-     WHERE a.hidden = 0 AND a.excluded = 0 AND a.kind <> 'carte' AND b.date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+     WHERE a.hidden = 0 AND a.excluded = 0 AND a.kind <> 'carte' AND b.date BETWEEN DATE_SUB(?, INTERVAL ? DAY) AND ?
      ORDER BY b.date`,
-    [days + 40],
+    [day, days + SERIES_LEAD_DAYS, day],
   );
-  const byAccount = new Map<string, Map<string, number>>();
-  for (const r of rows) {
-    if (!byAccount.has(r.account_id)) byAccount.set(r.account_id, new Map());
-    byAccount.get(r.account_id)!.set(r.date.slice(0, 10), Number(r.balance));
-  }
-  const series: { date: string; balance: number }[] = [];
-  const last = new Map<string, number>();
-  const start = new Date(Date.now() - (days + 40) * 86400_000);
-  for (let d = new Date(start); d <= new Date(); d.setUTCDate(d.getUTCDate() + 1)) {
-    const key = d.toISOString().slice(0, 10);
-    for (const [acc, m] of byAccount) if (m.has(key)) last.set(acc, m.get(key)!);
-    if (d.getTime() >= Date.now() - days * 86400_000 && last.size)
-      series.push({ date: key, balance: Math.round([...last.values()].reduce((s, v) => s + v, 0) * 100) / 100 });
-  }
-  res.json({ series });
+  res.json({ series: pastBalances(rows, day, days) });
 });
-
 
 /* ---------- Assistant IA ---------- */
 
@@ -748,7 +735,7 @@ api.get("/assistant/memories", async (req, res) => {
 });
 
 api.delete("/assistant/memories/:id", async (req, res) => {
-  const r = await exec("DELETE FROM assistant_memories WHERE id = ? AND user_id = ?", [Number(req.params.id), req.user!.id]);
+  const r = await exec("DELETE FROM assistant_memories WHERE id = ? AND user_id = ?", [z.coerce.number().int().parse(req.params.id), req.user!.id]);
   if (!r.affectedRows) throw new ActionError(404, tr("Fait introuvable"));
   res.json({ ok: true });
 });
@@ -1228,12 +1215,15 @@ api.get("/search", async (req, res) => {
   const text = z.string().trim().min(2).max(80).parse(req.query.q);
   const like = `%${text.replace(/[%_]/g, (c) => `\\${c}`)}%`;
   const uid = req.user!.id;
+  // Le jour d'une opération est celui de la liste des opérations (jour d'achat ou jour de la banque, selon le foyer).
+  // Chaque liste a un dernier critère qui départage : à égalité, la même recherche rend toujours les mêmes lignes.
+  const day = statDate("t");
   const [transactions, invoices, accounts, assets, crypto, documents] = await Promise.all([
     q(
-      `SELECT t.id, t.date, t.amount, t.label, t.merchant, t.bank_label, c.name AS category_name, COALESCE(a.display_name, a.name) AS account_name
-       FROM transactions t JOIN ${userAccounts(req)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id
+      `SELECT t.id, ${day} AS date, t.amount, t.label, t.merchant, t.bank_label, c.name AS category_name, COALESCE(a.display_name, a.name) AS account_name
+       FROM transactions t JOIN ${userAccounts(req)} a ON a.id = t.account_id LEFT JOIN categories c ON c.id = t.category_id ${STAT_DATE_JOIN}
        WHERE t.status IN ('posted', 'pending') AND (t.label LIKE ? OR t.merchant LIKE ? OR t.bank_label LIKE ? OR t.note LIKE ? OR c.name LIKE ?)
-       ORDER BY t.date DESC LIMIT 8`,
+       ORDER BY ${day} DESC, t.id DESC LIMIT 8`,
       [like, like, like, like, like],
     ),
     q(
@@ -1241,18 +1231,18 @@ api.get("/search", async (req, res) => {
        WHERE (i.owner_user_id IS NULL OR i.owner_user_id = ?)
          AND (i.merchant LIKE ? OR i.title LIKE ? OR i.invoice_number LIKE ? OR i.order_ref LIKE ?
               OR EXISTS (SELECT 1 FROM invoice_items it WHERE it.invoice_id = i.id AND it.label LIKE ?))
-       ORDER BY i.invoice_date DESC LIMIT 6`,
+       ORDER BY i.invoice_date IS NULL, i.invoice_date DESC, i.id DESC LIMIT 6`,
       [uid, like, like, like, like, like],
     ),
     q(
       `SELECT a.id, COALESCE(a.display_name, a.name) AS name, a.kind, a0.balance FROM ${userAccounts(req)} a JOIN accounts a0 ON a0.id = a.id
-       WHERE a.hidden = 0 AND (a.name LIKE ? OR a.display_name LIKE ?) LIMIT 5`,
+       WHERE a.hidden = 0 AND (a.name LIKE ? OR a.display_name LIKE ?) ORDER BY COALESCE(a.display_name, a.name), a.id LIMIT 5`,
       [like, like],
     ),
-    q(`SELECT id, name, category, value FROM assets WHERE closed = 0 AND (owner_user_id IS NULL OR owner_user_id = ?) AND (name LIKE ? OR institution LIKE ?) LIMIT 5`, [uid, like, like]),
+    q(`SELECT id, name, category, value FROM assets WHERE closed = 0 AND (owner_user_id IS NULL OR owner_user_id = ?) AND (name LIKE ? OR institution LIKE ?) ORDER BY name, id LIMIT 5`, [uid, like, like]),
     q(
       `SELECT symbol, MIN(name) AS name, SUM(quantity) AS quantity FROM crypto_positions
-       WHERE owner_user_id = ? AND archived_at IS NULL AND (symbol LIKE ? OR name LIKE ? OR location LIKE ?) GROUP BY symbol LIMIT 5`,
+       WHERE owner_user_id = ? AND archived_at IS NULL AND (symbol LIKE ? OR name LIKE ? OR location LIKE ?) GROUP BY symbol ORDER BY symbol LIMIT 5`,
       [uid, like, like, like],
     ),
     searchDocuments(uid, { q: text, limit: 6 }).then((r) => r.documents),
@@ -1335,10 +1325,10 @@ api.post("/envelopes", async (req, res) => {
   res.json({ id: await saveEnvelope(req.user!.id, null, envelopeBody.parse(req.body)) });
 });
 api.patch("/envelopes/:id", async (req, res) => {
-  res.json({ id: await saveEnvelope(req.user!.id, Number(req.params.id), envelopeBody.parse(req.body)) });
+  res.json({ id: await saveEnvelope(req.user!.id, z.coerce.number().int().parse(req.params.id), envelopeBody.parse(req.body)) });
 });
 api.delete("/envelopes/:id", async (req, res) => {
-  await deleteEnvelope(req.user!.id, Number(req.params.id));
+  await deleteEnvelope(req.user!.id, z.coerce.number().int().parse(req.params.id));
   res.json({ ok: true });
 });
 
@@ -1360,10 +1350,10 @@ api.post("/goals", async (req, res) => {
   res.json({ id: await saveGoal(req.user!.id, null, goalBody.parse(req.body)) });
 });
 api.patch("/goals/:id", async (req, res) => {
-  res.json({ id: await saveGoal(req.user!.id, Number(req.params.id), goalBody.parse(req.body)) });
+  res.json({ id: await saveGoal(req.user!.id, z.coerce.number().int().parse(req.params.id), goalBody.parse(req.body)) });
 });
 api.delete("/goals/:id", async (req, res) => {
-  await deleteGoal(req.user!.id, Number(req.params.id));
+  await deleteGoal(req.user!.id, z.coerce.number().int().parse(req.params.id));
   res.json({ ok: true });
 });
 

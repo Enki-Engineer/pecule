@@ -431,12 +431,12 @@ export async function searchDocuments(
     rows = await q(
       `SELECT ${LIST_COLS}, d.content_text, MATCH(d.title, d.summary, d.content_text) AGAINST (? IN BOOLEAN MODE) AS score
        FROM documents d WHERE ${where.join(" AND ")} AND MATCH(d.title, d.summary, d.content_text) AGAINST (? IN BOOLEAN MODE)
-       ORDER BY score DESC LIMIT ? OFFSET ?`,
+       ORDER BY score DESC, d.id DESC LIMIT ? OFFSET ?`,
       [ft, ...params, ft, limit + 1, offset],
     );
     // Mots trop courts ou absents de l'index : on se rabat sur le titre.
     if (!rows.length)
-      rows = await q(`SELECT ${LIST_COLS}, d.content_text FROM documents d WHERE ${where.join(" AND ")} AND (d.title LIKE ? OR d.summary LIKE ?) ORDER BY d.doc_date DESC LIMIT ? OFFSET ?`, [
+      rows = await q(`SELECT ${LIST_COLS}, d.content_text FROM documents d WHERE ${where.join(" AND ")} AND (d.title LIKE ? OR d.summary LIKE ?) ORDER BY d.doc_date IS NULL, d.doc_date DESC, d.id DESC LIMIT ? OFFSET ?`, [
         ...params,
         `%${f.q}%`,
         `%${f.q}%`,

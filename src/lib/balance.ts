@@ -56,6 +56,35 @@ export type Movement = { date: string; amount: number; name: string; source: "re
 export type BalancePoint = { date: string; balance: number };
 
 export const addDays = (date: string, n: number): string => new Date(Date.parse(`${date}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/* ---------- Soldes passés ---------- */
+
+export type BalanceRow = { account_id: string; date: string; balance: number };
+
+/** Jours d'élan avant la fenêtre : un compte dont le dernier solde connu est plus ancien n'entre pas dans la série. */
+export const SERIES_LEAD_DAYS = 40;
+
+/**
+ * Solde total jour par jour, du jour J − `days` au jour J compris : `days` + 1 points, moins ceux d'avant le premier
+ * solde connu. Chaque compte garde son dernier solde connu, cherché jusqu'à `SERIES_LEAD_DAYS` jours avant la fenêtre.
+ * Le nombre de points ne dépend que du jour et des soldes, jamais de l'instant de l'appel.
+ */
+export function pastBalances(rows: BalanceRow[], today: string, days: number): BalancePoint[] {
+  const byDay = new Map<string, Map<string, number>>();
+  for (const r of rows) {
+    const day = r.date.slice(0, 10);
+    if (!byDay.has(day)) byDay.set(day, new Map());
+    byDay.get(day)!.set(r.account_id, Number(r.balance));
+  }
+  const last = new Map<string, number>();
+  const points: BalancePoint[] = [];
+  for (let back = days + SERIES_LEAD_DAYS; back >= 0; back--) {
+    const day = addDays(today, -back);
+    for (const [account, balance] of byDay.get(day) ?? []) last.set(account, balance);
+    if (back <= days && last.size) points.push({ date: day, balance: Math.round([...last.values()].reduce((sum, v) => sum + v, 0) * 100) / 100 });
+  }
+  return points;
+}
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /**

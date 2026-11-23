@@ -26,7 +26,7 @@ const result = await build({
     rollupOptions: {
       external: isExternal,
       // Un seul fichier : db.ts retrouve ses migrations à côté de server.mjs (pas de morceaux dans dist/assets).
-      output: { entryFileNames: "server.mjs", format: "es", inlineDynamicImports: true },
+      output: { entryFileNames: "server.mjs", format: "es", codeSplitting: false },
     },
   },
   ssr: { target: "node" },

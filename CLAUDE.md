@@ -85,6 +85,11 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
   (les contrôles automatiques l'essaient). Une table créée par une migration reçoit le jeu de caractères et la
   collation de Pécule (`withTableOptions`, `src/server/migrate-rules.ts`), jamais ceux du serveur ; un test refuse un
   schéma de départ qui en porterait d'autres.
+- Ni dans les requêtes : MySQL 8 refuse ce que MariaDB laisse passer — un `GROUP BY` par un alias qui porte le nom
+  d'une colonne prend la colonne (regrouper par position, ou par un alias qui n'est le nom d'aucune colonne). Les
+  contrôles automatiques appellent chaque lecture sur les deux moteurs (`scripts/sonde-lectures.mjs`) : une route de
+  lecture ajoutée s'inscrit dans `scripts/sonde/lectures.mjs` avec les réglages qui changent sa requête (un test
+  compare) ; un outil de lecture y est appelé de lui-même.
 - Toute colonne `LONGBLOB` se déclare dans `FILE_TABLES` (`src/server/backup-format.ts`) : la sauvegarde complète en
   dépend (un test compare au schéma).
 - Le dossier des sauvegardes du serveur se demande à `backupDir()` (`src/server/archives.ts`), jamais à un chemin

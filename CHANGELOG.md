@@ -3,6 +3,25 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.46.2
+
+Correctifs. Aucune migration, aucun réglage nouveau.
+
+- **Le bas du menu reste visible** sur un écran peu haut (un portable de 13 pouces) : l'assistant, la visite guidée,
+  le manuel, les réglages et « Replier » ne demandent plus de faire défiler le menu. Quand tout ne tient pas, ils se
+  resserrent en une rangée d'icônes, et ce sont les groupes d'écrans qui défilent au-dessus.
+- **Comparer deux périodes fonctionne sur MySQL 8** : la comparaison de l'Analyse y répondait « Erreur interne ».
+  MariaDB n'était pas touché.
+- **Recherche** : à égalité de jour, elle rend toujours les mêmes lignes dans le même ordre, et le jour d'une
+  opération y est celui de la liste des opérations (jour d'achat ou jour du débit, selon le réglage du foyer). La
+  liste des opérations et la recherche de documents ne peuvent plus répéter ni sauter une ligne d'une page à l'autre.
+- **Mini-courbe « Disponible »** : son premier point n'apparaît plus et ne disparaît plus d'un chargement à l'autre.
+- Un identifiant mal formé dans une adresse reçoit « Données invalides » au lieu d'une erreur interne.
+- Accessibilité : le bouton de recherche et les compteurs du menu portent un nom qui contient ce qu'ils affichent.
+- Côté dépôt : les contrôles automatiques appellent chaque lecture — routes et outils de l'assistant — sur
+  MariaDB 10.6 et sur MySQL 8.4 (`scripts/sonde-lectures.mjs`) ; une option dépréciée de la construction du serveur
+  est remplacée.
+
 ## 1.46.1
 
 Crypto : l'écran s'ouvre de nouveau partout, et la courbe monte en tête.

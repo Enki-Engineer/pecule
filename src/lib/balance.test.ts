@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountRule, addDays, cardDebitTargets, cleanBalanceRule, DEFAULT_BALANCE_RULE, firstLow, lowestPoint, projectBalance, type Movement } from "./balance.ts";
+import { accountRule, addDays, cardDebitTargets, cleanBalanceRule, DEFAULT_BALANCE_RULE, firstLow, lowestPoint, pastBalances, projectBalance, SERIES_LEAD_DAYS, type Movement } from "./balance.ts";
 
 const today = "2026-11-15";
 const moves: Movement[] = [
@@ -112,5 +112,35 @@ describe("compte prélevé d'une carte à débit différé", () => {
   it("ne confond ni un relevé trop éloigné du jour de prélèvement, ni un prélèvement qui n'est pas un relevé de carte", () => {
     expect(cardDebitTargets([{ accountId: "carte", tail: null }], [statement("commun", "2026-11-12", -50)], [total("carte", "2026-11-02", -50)]).size).toBe(0);
     expect(cardDebitTargets([{ accountId: "carte", tail: null }], [statement("commun", "2026-11-02", -50, "Relevé de charges de copropriété")], [total("carte", "2026-11-02", -50)]).size).toBe(0);
+  });
+});
+
+describe("soldes passés", () => {
+  const row = (account_id: string, date: string, balance: number) => ({ account_id, date, balance });
+
+  it("rend un point par jour, du jour J − n au jour J, chaque compte gardant son dernier solde connu", () => {
+    const points = pastBalances([row("courant", "2026-11-10", 1000), row("livret", "2026-11-12", 500.004), row("courant", "2026-11-14", 800)], today, 7);
+    expect(points.map((p) => p.date)).toEqual(["2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15"]);
+    expect(points.map((p) => p.balance)).toEqual([1000, 1000, 1500, 1500, 1300, 1300]);
+  });
+
+  it("compte toujours le même nombre de points pour un même jour", () => {
+    const rows = [row("courant", addDays(today, -200), 10)];
+    expect(pastBalances(rows, today, 90)).toHaveLength(0);
+    const known = [row("courant", addDays(today, -100), 10)];
+    expect(pastBalances(known, today, 90)).toHaveLength(91);
+    expect(pastBalances(known, today, 90)[0]).toEqual({ date: addDays(today, -90), balance: 10 });
+    expect(pastBalances(known, today, 90).at(-1)).toEqual({ date: today, balance: 10 });
+  });
+
+  it("reprend un solde connu pendant les jours d'élan, pas au-delà, et ignore ce qui est daté après le jour J", () => {
+    const edge = [row("ancien", addDays(today, -(7 + SERIES_LEAD_DAYS)), 40), row("oublié", addDays(today, -(8 + SERIES_LEAD_DAYS)), 999), row("courant", addDays(today, 1), 5000)];
+    const points = pastBalances(edge, today, 7);
+    expect(points).toHaveLength(8);
+    expect(new Set(points.map((p) => p.balance))).toEqual(new Set([40]));
+  });
+
+  it("lit le jour d'un solde quelle que soit la forme de sa date", () => {
+    expect(pastBalances([row("courant", "2026-11-15T00:00:00.000Z", 12.5)], today, 7)).toEqual([{ date: today, balance: 12.5 }]);
   });
 });

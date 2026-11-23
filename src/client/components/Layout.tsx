@@ -306,6 +306,9 @@ const navItem = (active: boolean, rail: boolean) =>
     active ? "bg-card font-semibold text-ink shadow-[0_1px_1px_rgb(20_20_19/0.04),0_6px_16px_-10px_rgb(20_20_19/0.18)] [&>svg]:text-accent" : "text-muted hover:bg-card/70 hover:text-ink",
   );
 
+/** Lignes du pied du menu en toutes lettres : assistant, visite guidée, manuel, réglages, replier. */
+const FOOT_ROWS = 5;
+
 function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; onRail: () => void; xl: boolean; panelOpen: boolean; onAssistant: () => void }) {
   const me = useMe();
   const nav = useNav();
@@ -323,19 +326,51 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
     };
   }, [landing]);
   const counts = useQuery({ queryKey: ["nav-counts"], queryFn: () => api<Counts>("/nav-counts"), refetchInterval: 120_000, staleTime: 60_000 });
+  // Écran court (un portable de 13 pouces) : les familles et le pied en toutes lettres ne tiennent pas ensemble. Le
+  // pied se resserre alors — l'assistant garde sa ligne, les quatre autres entrées deviennent une rangée d'icônes —
+  // avant que les familles n'aient à défiler. La mesure compare le contenu des familles à la place qu'elles auraient
+  // avec le pied en toutes lettres : elle ne dépend pas de la forme affichée, donc pas d'aller-retour entre les deux.
+  const asideRef = useRef<HTMLElement>(null);
+  const familiesRef = useRef<HTMLDivElement>(null);
+  const footRef = useRef<HTMLDivElement>(null);
+  const [tight, setTight] = useState(false);
+  useLayoutEffect(() => {
+    const aside = asideRef.current;
+    const families = familiesRef.current;
+    const foot = footRef.current;
+    if (!aside || !families || !foot) return;
+    const check = () => {
+      const row = foot.querySelector<HTMLElement>("[data-pied-ligne]")?.offsetHeight ?? 0;
+      const footStyle = getComputedStyle(foot);
+      const fullFoot = FOOT_ROWS * row + (FOOT_ROWS - 1) * (parseFloat(footStyle.rowGap) || 0) + (parseFloat(footStyle.paddingTop) || 0);
+      const room = aside.clientHeight - families.offsetTop - fullFoot - (parseFloat(getComputedStyle(aside).paddingBottom) || 0);
+      setTight(row > 0 && families.scrollHeight > room + 1);
+    };
+    check();
+    const watch = new ResizeObserver(check);
+    watch.observe(aside);
+    if (families.firstElementChild) watch.observe(families.firstElementChild);
+    return () => {
+      watch.disconnect();
+    };
+  }, [rail, nav]);
+  const compact = tight && !rail;
   // Compteur d'une entrée : en menu replié, un point ; sinon un lien à part, qui ouvre l'écran déjà filtré sur ce qu'il compte.
-  const dot = (key?: keyof Counts) => (rail && key && counts.data?.[key] ? <span className="absolute right-1.5 top-1 size-2 rounded-full bg-accent" /> : null);
+  const dot = (key?: keyof Counts, show = rail) => (show && key && counts.data?.[key] ? <span className="absolute right-1.5 top-1 size-2 rounded-full bg-accent" /> : null);
   const badge = (key?: keyof Counts) => {
     const n = key ? (counts.data?.[key] ?? 0) : 0;
     if (!key || !n || rail) return null;
     const link = COUNT_LINKS[key];
     const danger = key === "tasksOverdue" || key === "alerts" || key === "lowBalance";
+    // Le nom du lien contient le chiffre affiché (une aide à la voix l'appelle par ce qu'on voit) : au singulier,
+    // « Voir la facture à rapprocher » ne le dit pas, il se place devant.
+    const name = link.label(n);
     return (
       <Link
         to={link.to}
         viewTransition
-        title={link.label(n)}
-        aria-label={link.label(n)}
+        title={name}
+        aria-label={name.includes(String(n)) ? name : `${n} · ${name}`}
         className={cn(
           "absolute right-1.5 top-1/2 -translate-y-1/2 rounded px-1.5 text-[11px] font-semibold leading-[18px] tabular-nums transition-colors",
           danger ? "bg-neg/10 text-neg hover:bg-neg hover:text-white" : "bg-accent-soft text-accent hover:bg-accent hover:text-white",
@@ -346,13 +381,16 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
     );
   };
   return (
-    <aside className="sticky top-0 hidden h-screen flex-col overflow-y-auto bg-bg px-3 pb-3 pt-4 md:flex">
-      <Link to="/" viewTransition className={cn("mb-3 flex h-8 items-center gap-2", rail ? "justify-center" : "px-1.5")}>
+    <aside ref={asideRef} className="sticky top-0 hidden h-screen flex-col bg-bg px-3 pb-3 pt-4 md:flex">
+      <Link to="/" viewTransition className={cn("mb-3 flex h-8 shrink-0 items-center gap-2", rail ? "justify-center" : "px-1.5")}>
         <AppLogo className={cn("size-7 rounded-md", landing && "[view-transition-name:pecule-coffre]")} />
         {!rail && <span className="text-[18px] font-semibold tracking-tight">Pécule</span>}
       </Link>
+      {/* Les familles défilent seules : sur un écran court, le pied du menu (assistant, visite, manuel, réglages) reste sous les yeux. */}
+      <div ref={familiesRef} className="fade-bottom -mx-3 min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+       <div>
       {nav.map((g) => (
-        <div key={g.id} data-tour={g.id} className="mb-2">
+        <div key={g.id} data-tour={g.id} className="mb-2 last:mb-0">
           {g.title && !rail && <div className="px-2.5 pb-1 pt-3 text-[12px] font-medium text-muted">{g.title}</div>}
           {g.title && rail && <div className="mx-3 my-2 border-t border-line" />}
           {g.items.map((it) => (
@@ -367,18 +405,39 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
           ))}
         </div>
       ))}
-      <div data-tour="pied" className="mt-auto space-y-0.5 pt-4">
+       </div>
+      </div>
+      <div ref={footRef} data-tour="pied" className="flex shrink-0 flex-col gap-0.5 pt-1">
         {xl ? (
-          <button type="button" onClick={onAssistant} title={rail ? "Assistant (⌘J)" : undefined} className={cn(navItem(panelOpen, rail), "w-full text-accent")}>
+          <button type="button" data-pied-ligne onClick={onAssistant} title={rail ? "Assistant (⌘J)" : undefined} className={cn(navItem(panelOpen, rail), "w-full text-accent")}>
             <Sparkles size={16} className="shrink-0" />
             {!rail && <span className="flex-1 text-left">{t("Assistant")}</span>}
             {!rail && <kbd className="rounded border border-line px-1 text-[10px] text-muted">⌘J</kbd>}
           </button>
         ) : (
-          <NavLink to="/assistant" viewTransition className={({ isActive }) => cn(navItem(isActive, rail), "text-accent")}>
+          <NavLink to="/assistant" data-pied-ligne viewTransition className={({ isActive }) => cn(navItem(isActive, rail), "text-accent")}>
             <Sparkles size={16} className="shrink-0" /> {!rail && "Assistant"}
           </NavLink>
         )}
+        {compact ? (
+          // Pied resserré : les mêmes entrées, en une rangée d'icônes (leur nom est dans la bulle et dans le nom accessible).
+          <div className="flex gap-0.5">
+            <button type="button" onClick={(e) => startTour(e.currentTarget)} title={t("Visite guidée")} aria-label={t("Visite guidée")} className={cn(navItem(false, true), "flex-1")}>
+              <Compass size={16} className="shrink-0" />
+            </button>
+            <NavLink to="/manuel" viewTransition title={t("Manuel")} aria-label={t("Manuel")} className={({ isActive }) => cn(navItem(isActive, true), "flex-1")}>
+              <BookOpen size={16} className="shrink-0" />
+            </NavLink>
+            <NavLink to="/reglages" viewTransition title={t("Réglages")} aria-label={t("Réglages")} className={({ isActive }) => cn(navItem(isActive, true), "flex-1")}>
+              <Settings size={16} className="shrink-0" />
+              {dot("alerts", true)}
+            </NavLink>
+            <button type="button" onClick={onRail} title={t("Replier le menu (⌘\\)")} aria-label={t("Replier")} className={cn(navItem(false, true), "flex-1")}>
+              <PanelLeftClose size={16} />
+            </button>
+          </div>
+        ) : (
+          <>
         {/* Visite guidée : le tour de l'appli, bulle après bulle (components/Tour.tsx). */}
         <button type="button" onClick={(e) => startTour(e.currentTarget)} title={rail ? t("Visite guidée") : undefined} className={cn(navItem(false, rail), "w-full")}>
           <Compass size={16} className="shrink-0" />
@@ -401,6 +460,8 @@ function Sidebar({ rail, onRail, xl, panelOpen, onAssistant }: { rail: boolean; 
           {!rail && <span className="flex-1 text-left">{t("Replier")}</span>}
           {!rail && me.data?.user && <span className="text-[11px] text-muted">{me.data.user.name}</span>}
         </button>
+          </>
+        )}
       </div>
     </aside>
   );
@@ -508,7 +569,8 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
         onClick={openPalette}
         data-tour="recherche"
         title={t("Rechercher (⌘K)")}
-        aria-label={t("Rechercher…")}
+        // Le nom reprend tout ce que le bouton affiche, raccourci compris.
+        aria-label={`${t("Rechercher…")} ⌘K`}
         className={cn(
           "flex h-8 shrink-0 items-center gap-2 rounded-full bg-card text-[13px] text-muted shadow-[0_1px_2px_rgb(20_20_19/0.08)] hover:text-ink",
           showPeriod || panelOpen ? "w-8 justify-center 2xl:w-48 2xl:justify-start 2xl:px-2.5" : "w-8 justify-center lg:w-56 lg:justify-start lg:px-2.5",
@@ -516,7 +578,7 @@ function TopBar({ onAssistant, panelOpen }: { onAssistant: () => void; panelOpen
         )}
       >
         <Search size={14} className="shrink-0" />
-        <span className={cn("hidden flex-1 text-left", showPeriod || panelOpen ? (showPeriod && panelOpen ? "" : "2xl:block") : "lg:block")}>{t("Rechercher…")}</span>
+        <span className={cn("hidden flex-1 text-left", showPeriod || panelOpen ? (showPeriod && panelOpen ? "" : "2xl:block") : "lg:block")}>{t("Rechercher…")}</span>{" "}
         <kbd className={cn("hidden text-[11px]", showPeriod || panelOpen ? (showPeriod && panelOpen ? "" : "2xl:block") : "lg:block")}>⌘K</kbd>
       </button>
       <button

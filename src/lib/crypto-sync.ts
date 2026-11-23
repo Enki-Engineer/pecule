@@ -82,3 +82,38 @@ export function withoutChainCovered<T extends { coin: { symbol: string } }>(line
   for (const l of lines) (skipKeys.has(`${portfolioId}:${l.coin.symbol.toUpperCase()}`) ? skipped : kept).push(l);
   return { kept, skipped };
 }
+
+/** Sources qu'une source remplace (colonne `replaces_id` : identifiants séparés par une virgule). */
+export const replacedIds = (value: string | null | undefined): string[] => (value ?? "").split(",").map((v) => v.trim()).filter(Boolean);
+
+export type SourceLines = { id: string; name: string; lines: { symbol: string; quantity: number }[] };
+export type Duplicate = { directId: string; directName: string; otherId: string; otherName: string; symbols: string[] };
+
+const sameQuantity = (a: number, b: number) => Math.abs(a - b) <= Math.max(Math.abs(a), Math.abs(b)) * 1e-4;
+
+/**
+ * Sources qui décrivent sans doute les mêmes avoirs : une source lue sans intermédiaire (adresse, exchange, fichier)
+ * et une source d'agrégateur, quel qu'il soit, où la même crypto figure pour la même quantité. Deux cryptos égales,
+ * ou la seule crypto d'une source, suffisent à le proposer : c'est le membre qui confirme. Une paire déjà réglée
+ * (`replaced`) n'est pas reproposée.
+ */
+export function findDuplicates(direct: (SourceLines & { replaces: string[] })[], others: SourceLines[]): Duplicate[] {
+  const out: Duplicate[] = [];
+  for (const d of direct) {
+    const totals = new Map<string, number>();
+    for (const l of d.lines) totals.set(l.symbol.toUpperCase(), (totals.get(l.symbol.toUpperCase()) ?? 0) + l.quantity);
+    for (const o of others) {
+      if (d.replaces.includes(o.id) || !o.lines.length) continue;
+      const symbols = o.lines
+        .filter((l) => l.quantity > 0)
+        .filter((l) => {
+          const symbol = l.symbol.toUpperCase();
+          // La même quantité que tout ce que la source directe a de cette crypto, ou que l'une de ses lignes.
+          return (totals.has(symbol) && sameQuantity(totals.get(symbol)!, l.quantity)) || d.lines.some((x) => x.symbol.toUpperCase() === symbol && sameQuantity(x.quantity, l.quantity));
+        })
+        .map((l) => l.symbol.toUpperCase());
+      if (symbols.length >= 2 || (symbols.length === 1 && o.lines.length === 1)) out.push({ directId: d.id, directName: d.name, otherId: o.id, otherName: o.name, symbols: [...new Set(symbols)] });
+    }
+  }
+  return out;
+}

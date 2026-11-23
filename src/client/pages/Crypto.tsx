@@ -8,7 +8,7 @@ import { Card, ErrorBox, Field, PageHeader, Segmented, Sheet, Spinner } from "..
 import { dateFr, money, moneySymbol, pct, timeAgo } from "../format.ts";
 import { useCryptoEvents, type CryptoEvent } from "../api-situation.ts";
 import { BrandLogo, CoinLogo } from "../components/Logo.tsx";
-import { AddWalletSheet } from "../components/CryptoWallet.tsx";
+import { AddWalletSheet, DuplicateNotices } from "../components/CryptoWallet.tsx";
 import { useMedia } from "../useMedia.ts";
 import { Stat, StatGrid } from "../components/blocks.tsx";
 import { DataTable, type Column } from "../components/DataTable.tsx";
@@ -113,6 +113,8 @@ export function Crypto() {
             </div>
             <SyncLine st={st} />
           </Card>
+
+          <DuplicateNotices st={st} />
 
           <Segmented
             value={view}
@@ -609,6 +611,7 @@ function CryptoDesktop({
               )}
             </div>
           </Card>
+          <DuplicateNotices st={st} />
           <div>
             <h2 className="mb-2 font-semibold">{t("Portefeuilles")}</h2>
             <Portfolios positions={data.positions} st={st} onAdd={onAdd} />

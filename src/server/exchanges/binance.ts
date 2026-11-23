@@ -81,7 +81,9 @@ export async function readBinance(creds: Credentials, http: Http = request): Pro
   const add = (wallet: string, rows: { symbol: string | null; quantity: number }[]) => balances.push(...sumBySymbol(rows).map((b) => ({ ...b, wallet })));
   const spot = obj(await signed(http, creds, "/api/v3/account", { omitZeroBalances: "true" }));
   // « LDBTC » : le reçu d'un BTC placé en épargne souple, relu plus bas par l'épargne elle-même.
-  add("spot", list(spot.balances).map((b) => ({ symbol: isBinanceReceipt(text(b.asset)) ? null : text(b.asset), quantity: amountOf(b.free) + amountOf(b.locked) })));
+  const entries = list(spot.balances).map((b) => ({ asset: text(b.asset), quantity: amountOf(b.free) + amountOf(b.locked) }));
+  add("spot", entries.map((b) => ({ symbol: isBinanceReceipt(b.asset) ? null : b.asset, quantity: b.quantity })));
+  const receipts = entries.filter((b) => isBinanceReceipt(b.asset) && b.quantity > 0).map((b) => ({ symbol: b.asset.slice(2), quantity: b.quantity }));
 
   // Le reste ne doit pas empêcher de lire le compte : ce qui échoue garde ses lignes d'avant.
   const unread: string[] = [];
@@ -94,9 +96,16 @@ export async function readBinance(creds: Credentials, http: Http = request): Pro
     }
   };
   await part("financement", async () => list(await signed(http, creds, "/sapi/v1/asset/get-funding-asset")).map((b) => ({ symbol: text(b.asset), quantity: amountOf(b.free) + amountOf(b.locked) + amountOf(b.freeze) })));
-  await part("epargne", async () => [
-    ...(await earn(http, creds, "/sapi/v1/simple-earn/flexible/position")).map((p) => ({ symbol: text(p.asset), quantity: amountOf(p.totalAmount) })),
-    ...(await earn(http, creds, "/sapi/v1/simple-earn/locked/position")).map((p) => ({ symbol: text(p.asset), quantity: amountOf(p.amount) })),
-  ]);
+  // L'épargne souple : ce que dit l'épargne elle-même, et pour un actif qu'elle ne cite pas (ou si elle ne répond
+  // pas), son reçu du compte spot — l'un ou l'autre, jamais les deux.
+  const flexible = await earn(http, creds, "/sapi/v1/simple-earn/flexible/position")
+    .then((rows) => rows.map((p) => ({ symbol: text(p.asset), quantity: amountOf(p.totalAmount) })))
+    .catch((e) => {
+      if (e instanceof ExchangeError && e.refused) throw e;
+      return [] as { symbol: string; quantity: number }[];
+    });
+  const named = new Set(flexible.filter((p) => p.quantity > 0).map((p) => p.symbol));
+  add("epargne", [...flexible, ...receipts.filter((r) => !named.has(r.symbol))]);
+  await part("bloque", async () => (await earn(http, creds, "/sapi/v1/simple-earn/locked/position")).map((p) => ({ symbol: text(p.asset), quantity: amountOf(p.amount) })));
   return { balances, pricesEur: balances.length ? await prices(http) : new Map(), unread, note: `${new Set(balances.map((b) => b.symbol)).size} actifs${unread.length ? ` · non lu cette fois : ${unread.map((u) => u.slice(0, -1)).join(", ")}` : ""}` };
 }

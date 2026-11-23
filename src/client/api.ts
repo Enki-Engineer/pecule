@@ -380,7 +380,11 @@ export type CryptoStatus = {
   sources: CryptoSource[];
   lastRun: { id: number; startedAt: string; finishedAt: string | null; status: string; sources: number; lines: number; totalEur: number | null; creditsUsed: number | null; error: string | null } | null;
   archived: { id: number; symbol: string; name: string; quantity: number; manualValue: number | null; archivedAt: string; archivedReason: string | null }[];
+  duplicates: CryptoDuplicate[];
 };
+
+/** Deux sources du membre qui semblent décrire les mêmes avoirs : l'une reliée par lui, l'autre suivie par un agrégateur. */
+export type CryptoDuplicate = { directId: string; directName: string; otherId: string; otherName: string; symbols: string[] };
 
 export type CryptoSummary = { positions: CryptoPosition[]; total: number; change24h: number | null; pricesAt: string | null; status: CryptoStatus };
 

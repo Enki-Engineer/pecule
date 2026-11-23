@@ -6,7 +6,7 @@
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { EVM_CHAINS, toUnits, type EvmChainKey, type Holding } from "../../lib/crypto-chains.ts";
-import { TOKENS } from "../../lib/crypto-tokens.ts";
+import { tokensOf } from "../../lib/crypto-tokens-extra.ts";
 import { pooled, rpcBatch } from "./http.ts";
 
 /** Nœuds publics de chaque chaîne, dans l'ordre d'essai. */
@@ -39,7 +39,7 @@ const big = (hex: unknown) => (typeof hex === "string" && /^0x[0-9a-fA-F]+$/.tes
 /** Monnaie native et jetons de la table détenus par l'adresse sur une chaîne. */
 async function readChain(chain: (typeof EVM_CHAINS)[number], address: string, batch: typeof rpcBatch): Promise<Holding[]> {
   const urls = RPC[chain.key];
-  const tokens = TOKENS[chain.key] ?? [];
+  const tokens = tokensOf(chain.key);
   const padded = address.slice(2).toLowerCase().padStart(64, "0");
   const calls = [
     { method: "eth_getBalance", params: [address, "latest"] },

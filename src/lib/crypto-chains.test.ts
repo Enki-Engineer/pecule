@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { detectWallet, EVM_CHAINS, looksSecret, shortAddress, toUnits } from "./crypto-chains.ts";
+import { EXTRA_TOKENS, tokensOf } from "./crypto-tokens-extra.ts";
 import { TOKENS } from "./crypto-tokens.ts";
 
 describe("detectWallet", () => {
@@ -81,5 +82,22 @@ describe("table des jetons", () => {
   it("ne compte pas deux fois la monnaie native d'une chaîne", () => {
     // Les adresses de convention (0x000…, 0xeee…, précompilés) rendraient le solde natif, déjà lu à part.
     for (const [chain, rows] of Object.entries(TOKENS)) for (const [address] of rows) expect(address, chain).not.toMatch(/^0x(0{40}|e{40}|0{36}[0-9a-f]{4})$/);
+  });
+
+  it("ajoute les jetons dérivés tenus à la main, sans doublon avec la table", () => {
+    const chains = new Set([...EVM_CHAINS.map((c) => c.key as string), "solana"]);
+    for (const [chain, rows] of Object.entries(EXTRA_TOKENS)) {
+      expect(chains.has(chain), chain).toBe(true);
+      const table = new Set((TOKENS[chain] ?? []).map((row) => row[0]));
+      for (const [address, id, symbol] of rows) {
+        expect(address, `${chain} ${symbol}`).toMatch(chain === "solana" ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/ : /^0x[0-9a-f]{40}$/);
+        expect(id).toMatch(/^[a-z0-9-]+$/);
+        // Un jeton que la table porte désormais se retire de la liste tenue à la main.
+        expect(table.has(address), `${chain} ${symbol} est déjà dans la table`).toBe(false);
+      }
+      expect(tokensOf(chain)).toHaveLength((TOKENS[chain] ?? []).length + rows.length);
+    }
+    expect(tokensOf("ethereum").some((row) => row[1] === "staked-ether")).toBe(true);
+    expect(tokensOf("inconnue")).toEqual([]);
   });
 });

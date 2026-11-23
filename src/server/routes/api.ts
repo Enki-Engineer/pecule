@@ -11,7 +11,7 @@ import { db, exec, one, q } from "../db.ts";
 import { desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { alerts, auditLog, users } from "../db/schema/index.ts";
 import { EXCHANGE_IDS } from "../../lib/crypto-exchanges.ts";
-import { acceptSourceValue, addExchange, addWallet, archiveManualLine, importCryptocomFile, cryptoStatus, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
+import { acceptSourceValue, addExchange, addWallet, archiveManualLine, countOnce, importCryptocomFile, cryptoStatus, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
 import { requireAdmin, requireApiToken, requireAuth, requireSyncAccess, createEnrollmentLink } from "../auth.ts";
 import { guessCategory, lastSyncRuns, markCardDuplicates, fintaConnections, fintaEnabled } from "../finta.ts";
 import { syncBanks } from "../bank-sync.ts";
@@ -558,6 +558,16 @@ api.post("/crypto/exchanges", hourly(20), async (req, res) => {
       throw new ActionError(400, e instanceof Error ? e.message : String(e));
     }),
   );
+});
+
+/**
+ * Deux sources décrivent les mêmes avoirs (l'une lue sans intermédiaire, l'autre par un agrégateur) : le membre
+ * demande de ne les compter qu'une fois. La lecture directe l'emporte, crypto par crypto.
+ */
+api.post("/crypto/sources/:id/once", async (req, res) => {
+  const { other } = z.object({ other: z.string().max(96) }).parse(req.body);
+  if (!(await countOnce(req.user!.id, z.string().max(96).parse(req.params.id), other))) throw new ActionError(404, tr("Portefeuille introuvable"));
+  res.json({ ok: true });
 });
 
 /**

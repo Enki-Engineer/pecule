@@ -5,7 +5,7 @@
 
 import { base58 } from "@scure/base";
 import { toUnits, type Holding } from "../../lib/crypto-chains.ts";
-import { TOKENS } from "../../lib/crypto-tokens.ts";
+import { tokensOf } from "../../lib/crypto-tokens-extra.ts";
 import { rpcBatch, wait } from "./http.ts";
 
 /** Le nœud public de Solana : le seul qui réponde sans clé à ces demandes. Il limite chaque genre d'appel. */
@@ -51,7 +51,7 @@ export async function readSolanaAddress(address: string, batch: typeof rpcBatch 
   const holdings: Holding[] = [];
   if (wallet > 0n) holdings.push({ key: "sol:native", symbol: "SOL", name: "Solana", coingeckoId: "solana", quantity: toUnits(wallet, 9) });
   if (staked) holdings.push({ key: "sol:stake", symbol: "SOL", name: "Solana", coingeckoId: "solana", quantity: toUnits(staked, 9), place: "staking" });
-  const table = new Map((TOKENS.solana ?? []).map((row) => [row[0], row]));
+  const table = new Map(tokensOf("solana").map((row) => [row[0], row]));
   const byMint = new Map<string, { raw: bigint; decimals: number }>();
   for (const list of accounts)
     for (const { account } of list.value) {

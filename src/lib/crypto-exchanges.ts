@@ -208,7 +208,7 @@ export function sumBySymbol(rows: { symbol: string | null; quantity: number }[])
 export const sameCoin = (exchangePrice: number, coingeckoPrice: number) => exchangePrice > 0 && coingeckoPrice > 0 && exchangePrice / coingeckoPrice > 0.66 && exchangePrice / coingeckoPrice < 1.5;
 
 /** Partie d'un compte dite à côté du nom de l'exchange (le compte courant ne se dit pas). */
-const WALLET_PLACES: Record<string, string> = { financement: "financement", epargne: "épargne", staking: "staking" };
+const WALLET_PLACES: Record<string, string> = { financement: "financement", epargne: "épargne", bloque: "épargne bloquée", staking: "staking" };
 
 /**
  * Avoirs d'un compte d'exchange, prêts à être valorisés : une crypto reconnue par son symbole (`symbols` : la table

@@ -3,6 +3,27 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.42.0
+
+Crypto : les doublons se signalent d'eux-mêmes, quel que soit l'outil, et les jetons enveloppés ou de staking
+liquide sont enfin lus à une adresse.
+
+- **« Compté deux fois ? »** remplace l'encart « Déjà suivi dans CoinStats ? ». Quand une source que tu as reliée
+  toi-même (adresse, exchange, export) et une source venue d'un autre outil portent les mêmes cryptos pour les mêmes
+  quantités, Pécule le signale — à l'ajout et dans l'écran, donc aussi pour ce qui était déjà relié. « Ne compter
+  qu'une fois » garde ta lecture directe, crypto par crypto, et laisse à l'autre source ce qu'elle est seule à voir ;
+  « Ce sont deux portefeuilles » fait taire la question. La règle ne dépend pas de l'outil : elle vaudra telle
+  quelle pour un autre agrégateur que CoinStats. Un compte que l'agrégateur découpe en plusieurs portefeuilles
+  (spot, financement…) se règle portefeuille par portefeuille.
+- **Jetons enveloppés et staking liquide** : stETH, wstETH, WBTC, WETH, cbETH, rETH, weETH, cbBTC sur Ethereum et
+  leurs équivalents sur les autres chaînes, JitoSOL et mSOL sur Solana. La table des jetons, tirée du classement de
+  CoinGecko, les ignorait : ce classement les écarte, alors qu'ils sont parmi les plus détenus. Vingt-neuf contrats,
+  chacun vérifié à part.
+- **Binance** : une épargne souple que l'API d'épargne ne cite pas est comptée par son reçu du compte spot (et
+  jamais deux fois) ; l'épargne bloquée a sa propre ligne.
+
+Pour celui qui héberge : migration `0039_sources_crypto_remplacees` (une colonne élargie). Aucun réglage nouveau.
+
 ## 1.41.0
 
 Crypto : plus de voie privilégiée. CoinStats devient une façon parmi d'autres de relier ce qu'on a, sept exchanges

@@ -8,7 +8,7 @@ import { cryptoFileMoves, cryptoPositions, cryptoSources, cryptoSyncRuns, prices
 import { parseCryptocomExport } from "../lib/crypto-files.ts";
 import { SYMBOLS } from "../lib/crypto-tokens.ts";
 import { coinstatsEnabled, creditsUsed, eurRate, listPortfolios, portfolioCoins, type CsCoinLine, type CsPortfolio } from "./coinstats.ts";
-import { coingeckoCandidate, decideManualLines, portfolioSignature, suspiciousDrop, withoutChainCovered, type SyncedLine } from "../lib/crypto-sync.ts";
+import { coingeckoCandidate, decideManualLines, findDuplicates, portfolioSignature, replacedIds, suspiciousDrop, withoutChainCovered, type SyncedLine } from "../lib/crypto-sync.ts";
 import { detectWallet, isWalletKind, shortAddress, WALLET_KINDS, WALLET_NAMES, type Holding, type WalletKind } from "../lib/crypto-chains.ts";
 import { egldStaking, isMultiversXAddress } from "./multiversx.ts";
 import { ethValidator, isValidatorId } from "./beacon.ts";
@@ -323,10 +323,10 @@ async function syncCoinstats() {
   const chainLines = await q<{ portfolio_id: string; symbol: string; identifier: string | null; quantity: number; replaces_id: string | null }>(
     `SELECT c.portfolio_id, c.symbol, c.coingecko_id AS identifier, c.quantity, s.replaces_id
      FROM crypto_positions c JOIN crypto_sources s ON s.portfolio_id = c.portfolio_id
-     WHERE c.source IN ('onchain', 'exchange') AND c.owner_user_id = ? AND s.enabled = 1 AND c.archived_at IS NULL`,
+     WHERE c.source IN ('onchain', 'exchange', 'fichier') AND c.owner_user_id = ? AND s.enabled = 1 AND c.archived_at IS NULL`,
     [owner],
   );
-  const skipKeys = new Set(chainLines.filter((c) => c.replaces_id).map((c) => `${c.replaces_id}:${c.symbol.toUpperCase()}`));
+  const skipKeys = new Set(chainLines.flatMap((c) => replacedIds(c.replaces_id).map((id) => `${id}:${c.symbol.toUpperCase()}`)));
   // Seul ce qui a un identifiant de cours compte ensuite pour juger les lignes saisies à la main.
   for (const f of fetched) {
     const { kept, skipped } = withoutChainCovered(f.lines, f.leaf.portfolioId, skipKeys);
@@ -335,7 +335,7 @@ async function syncCoinstats() {
     f.totalEur = kept.reduce((s, r) => s + r.count * Number(r.price?.USD ?? 0) * rate, 0);
     await db
       .update(cryptoSources)
-      .set({ lines: kept.length, lastTotalEur: Math.round(f.totalEur * 100) / 100, note: `${skipped.map((r) => r.coin.symbol).join(", ")} ignoré ici : lu sur la blockchain` })
+      .set({ lines: kept.length, lastTotalEur: Math.round(f.totalEur * 100) / 100, note: `${skipped.map((r) => r.coin.symbol).join(", ")} ignoré ici : compté par une lecture directe` })
       .where(eq(cryptoSources.portfolioId, f.leaf.portfolioId));
   }
 
@@ -438,7 +438,67 @@ export async function cryptoStatus(userId: number) {
     .select({ id: cryptoPositions.id, symbol: cryptoPositions.symbol, name: cryptoPositions.name, quantity: cryptoPositions.quantity, manualValue: cryptoPositions.manualValue, archivedAt: cryptoPositions.archivedAt, archivedReason: cryptoPositions.archivedReason })
     .from(cryptoPositions)
     .where(and(eq(cryptoPositions.ownerUserId, userId), eq(cryptoPositions.source, "manuel"), sql`${cryptoPositions.archivedAt} IS NOT NULL`));
-  return { enabled: coinstatsEnabled(), sources, lastRun, archived };
+  return { enabled: coinstatsEnabled(), sources, lastRun, archived, duplicates: await duplicatesOf(userId, rows) };
+}
+
+/** Lignes comptées de chaque source du membre, pour repérer ce qui est vu deux fois. */
+async function sourceLines(userId: number) {
+  const lines = await q<{ portfolio_id: string; symbol: string; quantity: number }>(
+    "SELECT portfolio_id, symbol, quantity FROM crypto_positions WHERE owner_user_id = ? AND archived_at IS NULL AND portfolio_id IS NOT NULL AND source <> 'manuel'",
+    [userId],
+  );
+  const by = new Map<string, { symbol: string; quantity: number }[]>();
+  for (const l of lines) by.set(l.portfolio_id, [...(by.get(l.portfolio_id) ?? []), { symbol: l.symbol, quantity: Number(l.quantity) }]);
+  return by;
+}
+
+/**
+ * Sources du membre qui semblent décrire les mêmes avoirs : l'une lue sans intermédiaire, l'autre par un agrégateur
+ * (CoinStats aujourd'hui ; la règle ne dépend pas de l'outil). Proposé à l'écran, jamais appliqué d'office.
+ */
+async function duplicatesOf(userId: number, rows: Source[]) {
+  const counted = rows.filter((s) => s.enabled);
+  const own = counted.filter((s) => isDirect(s.type) || isFileKind(s.type));
+  const aggregated = counted.filter((s) => !isDirect(s.type) && !isFileKind(s.type));
+  if (!own.length || !aggregated.length) return [];
+  const lines = await sourceLines(userId);
+  return findDuplicates(
+    own.map((s) => ({ id: s.portfolioId, name: s.name, replaces: replacedIds(s.replacesId), lines: lines.get(s.portfolioId) ?? [] })),
+    aggregated.map((s) => ({ id: s.portfolioId, name: s.name, lines: lines.get(s.portfolioId) ?? [] })),
+  );
+}
+
+/**
+ * Le membre confirme que `otherId` (source d'un agrégateur) décrit les mêmes avoirs que `directId` : les cryptos que
+ * la lecture directe porte ne sont plus comptées dans l'autre, tout de suite et à chaque synchro. Ce que l'autre
+ * source est seule à voir y reste compté. Faux si les deux sources ne sont pas celles du membre.
+ */
+export async function countOnce(userId: number, directId: string, otherId: string) {
+  const mine = await db.select().from(cryptoSources).where(and(eq(cryptoSources.ownerUserId, userId), inArray(cryptoSources.portfolioId, [directId, otherId])));
+  const direct = mine.find((s) => s.portfolioId === directId);
+  const other = mine.find((s) => s.portfolioId === otherId);
+  if (!direct || !other || !(isDirect(direct.type) || isFileKind(direct.type)) || isDirect(other.type) || isFileKind(other.type)) return false;
+  const replaces = [...new Set([...replacedIds(direct.replacesId), otherId])];
+  await db.update(cryptoSources).set({ replacesId: replaces.join(",") }).where(eq(cryptoSources.portfolioId, directId));
+  // Les cryptos que les deux portent : elles seules quittent l'autre source.
+  const symbols = (
+    await q<{ symbol: string }>(
+      `SELECT DISTINCT UPPER(o.symbol) AS symbol FROM crypto_positions o
+       WHERE o.portfolio_id = ? AND o.owner_user_id = ? AND o.source = 'coinstats'
+         AND EXISTS (SELECT 1 FROM crypto_positions d WHERE d.portfolio_id = ? AND d.owner_user_id = ? AND d.archived_at IS NULL AND UPPER(d.symbol) = UPPER(o.symbol))`,
+      [otherId, userId, directId, userId],
+    )
+  ).map((r) => r.symbol);
+  if (symbols.length) {
+    await exec(`DELETE FROM crypto_positions WHERE portfolio_id = ? AND owner_user_id = ? AND source = 'coinstats' AND UPPER(symbol) IN (${symbols.map(() => "?").join(", ")})`, [otherId, userId, ...symbols]);
+    const left = await one<{ n: number }>("SELECT COUNT(*) AS n FROM crypto_positions WHERE portfolio_id = ? AND owner_user_id = ?", [otherId, userId]);
+    await db
+      .update(cryptoSources)
+      .set({ lines: Number(left?.n ?? 0), note: `${symbols.join(", ")} ignoré ici : compté par « ${direct.name} »`.slice(0, 255) })
+      .where(eq(cryptoSources.portfolioId, otherId));
+  }
+  await snapshotWealth(userId);
+  return true;
 }
 
 export async function setSourceEnabled(userId: number, portfolioId: string, enabled: boolean) {

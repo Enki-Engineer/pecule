@@ -151,7 +151,7 @@ export const patrimoine: ManualTheme = {
             tk("Un compte tenu par ses exports ne se relit pas seul : il se met à jour quand tu déposes un nouveau fichier. Ce qui est immobilisé dans l'appli (staking, carte) reste compté ; compare les soldes à ceux de l'appli après un dépôt."),
             tk("Les cours viennent de CoinGecko et se rafraîchissent d'eux-mêmes."),
             tk("Décoche un portefeuille pour l'écarter du total. Un portefeuille que tu as ajouté toi-même se retire par la corbeille ([[Retirer ce portefeuille]])."),
-            tk("Un même portefeuille suivi deux fois compterait double. À l'ajout, dis s'il est déjà suivi dans CoinStats, et archive la ligne saisie à la main que Pécule te signale ([[Archiver la ligne saisie à la main]])."),
+            tk("Un même portefeuille suivi par deux voies compterait double. Quand une source que tu as reliée toi-même et une source venue d'un autre outil portent les mêmes avoirs, Pécule le signale ([[Compté deux fois ?]]) : [[Ne compter qu'une fois]] garde ta lecture directe, crypto par crypto, et laisse à l'autre ce qu'elle est seule à voir. Il signale de même la ligne saisie à la main qui ferait doublon ([[Archiver la ligne saisie à la main]])."),
             tk("Si une blockchain ou un exchange ne répond pas un jour, Pécule garde les quantités de la veille et réessaie."),
             tk("Un portefeuille que CoinStats rend vide, ou bien plus bas qu'à la lecture d'avant, est marqué « [[à vérifier]] » et garde ses positions : sa connexion est peut-être cassée. S'il a vraiment été vidé ou vendu, [[C'est exact]] confirme la nouvelle valeur."),
           ],

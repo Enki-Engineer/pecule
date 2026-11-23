@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coingeckoCandidate, decideManualLines, portfolioSignature, suspiciousDrop, withoutChainCovered } from "./crypto-sync.ts";
+import { coingeckoCandidate, decideManualLines, portfolioSignature, suspiciousDrop, withoutChainCovered, findDuplicates, replacedIds } from "./crypto-sync.ts";
 
 describe("synchro CoinStats", () => {
   it("repère les portefeuilles en double (même nom, mêmes avoirs, même parent)", () => {
@@ -65,5 +65,42 @@ describe("lecture sur la blockchain prioritaire", () => {
     expect(withoutChainCovered(lines, "staking", skip).kept).toHaveLength(0);
     expect(withoutChainCovered(lines, "cryptocom", skip).kept).toHaveLength(2);
     expect(withoutChainCovered(lines, "staking", new Set(["staking:EGLD"])).kept.map((l) => l.coin.symbol)).toEqual(["ETH"]);
+  });
+});
+
+describe("doublons entre sources", () => {
+  const kraken = { id: "x-kraken:1", name: "Kraken", replaces: [], lines: [{ symbol: "BTC", quantity: 0.25 }, { symbol: "XRP", quantity: 1200.5 }, { symbol: "EUR", quantity: 14.2 }] };
+  const binance = { id: "x-binance:1", name: "Binance", replaces: [], lines: [{ symbol: "USDC", quantity: 10 }, { symbol: "USDC", quantity: 32.5 }, { symbol: "ADA", quantity: 80 }] };
+
+  it("propose de ne compter qu'une fois deux sources qui portent les mêmes cryptos pour les mêmes quantités", () => {
+    const found = findDuplicates([kraken], [{ id: "cs1", name: "Kraken", lines: [{ symbol: "btc", quantity: 0.25 }, { symbol: "XRP", quantity: 1200.5 }, { symbol: "FLR", quantity: 3 }] }]);
+    expect(found).toEqual([{ directId: "x-kraken:1", directName: "Kraken", otherId: "cs1", otherName: "Kraken", symbols: ["BTC", "XRP"] }]);
+  });
+
+  it("rapproche un compte que l'agrégateur découpe en plusieurs portefeuilles", () => {
+    const found = findDuplicates(
+      [binance],
+      [
+        { id: "spot", name: "Binance", lines: [{ symbol: "USDC", quantity: 10 }, { symbol: "ADA", quantity: 80 }] },
+        { id: "funding", name: "Binance · Funding", lines: [{ symbol: "USDC", quantity: 32.5 }] },
+        { id: "earn", name: "Binance · Earn", lines: [{ symbol: "VET", quantity: 500 }] },
+      ],
+    );
+    expect(found.map((f) => f.otherId)).toEqual(["spot", "funding"]);
+  });
+
+  it("ne propose rien pour une seule crypto commune parmi d'autres, une quantité différente, ou une paire déjà réglée", () => {
+    const other = { id: "cs1", name: "Ledger", lines: [{ symbol: "BTC", quantity: 0.25 }, { symbol: "ETH", quantity: 3 }] };
+    expect(findDuplicates([kraken], [other])).toEqual([]);
+    expect(findDuplicates([kraken], [{ id: "cs2", name: "Kraken", lines: [{ symbol: "BTC", quantity: 0.26 }, { symbol: "XRP", quantity: 1100 }] }])).toEqual([]);
+    expect(findDuplicates([{ ...kraken, replaces: ["cs3"] }], [{ id: "cs3", name: "Kraken", lines: [{ symbol: "BTC", quantity: 0.25 }, { symbol: "XRP", quantity: 1200.5 }] }])).toEqual([]);
+    // La seule crypto d'un portefeuille, à la même quantité : assez pour le proposer.
+    expect(findDuplicates([kraken], [{ id: "cs4", name: "Coffre", lines: [{ symbol: "BTC", quantity: 0.25 }] }])).toHaveLength(1);
+  });
+
+  it("lit la liste des sources remplacées", () => {
+    expect(replacedIds(null)).toEqual([]);
+    expect(replacedIds("a")).toEqual(["a"]);
+    expect(replacedIds("a, b,,c")).toEqual(["a", "b", "c"]);
   });
 });

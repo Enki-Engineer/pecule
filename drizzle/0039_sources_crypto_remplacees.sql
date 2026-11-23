@@ -1,0 +1,1 @@
+ALTER TABLE `crypto_sources` MODIFY COLUMN `replaces_id` text;

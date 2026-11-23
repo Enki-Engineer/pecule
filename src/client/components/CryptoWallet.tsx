@@ -4,7 +4,7 @@ import { Building2, Check, ChevronLeft, ChevronRight, FileUp, Layers, ShieldAler
 import { Link } from "react-router";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { api, type CryptoStatus } from "../api.ts";
+import { api, type CryptoDuplicate, type CryptoStatus } from "../api.ts";
 import { Card, Field, Sheet } from "./ui.tsx";
 import { BrandLogo } from "./Logo.tsx";
 import { detectWallet, looksSecret, WALLET_LABELS, type WalletKind } from "../../lib/crypto-chains.ts";
@@ -35,6 +35,73 @@ function kindHint(kind: WalletKind): string {
   return t("Solde de cette adresse. Pour un Ledger ou un Trezor, colle plutôt la clé publique étendue du compte (xpub, ypub ou zpub) : elle couvre toutes ses adresses.");
 }
 
+const DISTINCT_KEY = "pecule:crypto:distincts";
+const pairKey = (d: CryptoDuplicate) => `${d.directId}|${d.otherId}`;
+function readDistinct(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(DISTINCT_KEY) ?? "[]") as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Deux sources qui portent les mêmes avoirs — l'une que le membre a reliée lui-même, l'autre qui vient d'un
+ * agrégateur, quel qu'il soit — seraient comptées deux fois. Pécule le signale et propose de garder la lecture
+ * directe ; rien n'est décidé à la place du membre, qui peut répondre que ce sont deux portefeuilles.
+ */
+export function DuplicateNotices({ st, only }: { st: CryptoStatus; only?: string }) {
+  const qc = useQueryClient();
+  const [distinct, setDistinct] = useState(readDistinct);
+  const [busy, setBusy] = useState<string | null>(null);
+  const shown = st.duplicates.filter((d) => !distinct.includes(pairKey(d)) && (!only || d.directId === only));
+  if (!shown.length) return null;
+
+  async function once(d: CryptoDuplicate) {
+    setBusy(pairKey(d));
+    try {
+      await api(`/crypto/sources/${encodeURIComponent(d.directId)}/once`, { method: "POST", json: { other: d.otherId } });
+      await Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
+      toast.success(t("Compté une seule fois"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("Enregistrement impossible"));
+    } finally {
+      setBusy(null);
+    }
+  }
+  function keep(d: CryptoDuplicate) {
+    const next = [...distinct, pairKey(d)];
+    setDistinct(next);
+    try {
+      localStorage.setItem(DISTINCT_KEY, JSON.stringify(next.slice(-200)));
+    } catch {
+      // Sans stockage sur l'appareil, la question reviendra : rien de grave.
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {shown.map((d) => (
+        <Card key={pairKey(d)} className="px-4 py-3 text-sm">
+          <div className="font-medium">{t("Compté deux fois ?")}</div>
+          <div className="mt-1 leading-relaxed text-muted">
+            {t("« {direct} », que tu as relié toi-même, et « {autre} », suivi par un autre outil, portent les mêmes avoirs ({cryptos}).", { direct: d.directName, autre: d.otherName, cryptos: d.symbols.slice(0, 4).join(", ") + (d.symbols.length > 4 ? "…" : "") })}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            <button type="button" onClick={() => once(d)} disabled={busy === pairKey(d)} className="press text-sm font-medium text-accent disabled:opacity-50">
+              {t("Ne compter qu'une fois")}
+            </button>
+            <button type="button" onClick={() => keep(d)} className="press text-sm text-muted">
+              {t("Ce sont deux portefeuilles")}
+            </button>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 const INPUT = "w-full bg-transparent text-[15px] font-medium outline-none placeholder:text-muted/60";
 
 /** Les façons de relier ce qu'on a : aucune n'est la voie « normale », chacune couvre un cas. */
@@ -61,7 +128,6 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
   const [secretKey, setSecretKey] = useState("");
   const [address, setAddress] = useState("");
   const [name, setName] = useState("");
-  const [replaces, setReplaces] = useState("");
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<Added | null>(null);
   const [archived, setArchived] = useState<number[]>([]);
@@ -69,7 +135,6 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
   const text = address.trim();
   const secret = looksSecret(text);
   const kind = secret ? null : detectWallet(text);
-  const coinstats = st.enabled ? st.sources.filter((s) => !s.direct && s.enabled) : [];
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
 
   function close() {
@@ -80,7 +145,6 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
     setPassphrase("");
     setAddress("");
     setName("");
-    setReplaces("");
     setAdded(null);
     setArchived([]);
     onClose();
@@ -94,8 +158,8 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
     try {
       const r =
         mode === "adresse"
-          ? await api<Added>("/crypto/sources", { method: "POST", json: { address: text, name: name.trim() || null, replaces: replaces || null } })
-          : await api<Added>("/crypto/exchanges", { method: "POST", json: { exchange, key: key.trim(), secret: secretKey.trim() || null, passphrase: passphrase.trim() || null, name: name.trim() || null, replaces: replaces || null } });
+          ? await api<Added>("/crypto/sources", { method: "POST", json: { address: text, name: name.trim() || null } })
+          : await api<Added>("/crypto/exchanges", { method: "POST", json: { exchange, key: key.trim(), secret: secretKey.trim() || null, passphrase: passphrase.trim() || null, name: name.trim() || null } });
       // La clé ne reste pas dans la page une fois envoyée.
       setKey("");
       setSecretKey("");
@@ -173,26 +237,12 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
               </button>
             </Card>
           ))}
+        <DuplicateNotices st={st} only={added.portfolioId} />
         <button type="button" onClick={close} className="press w-full rounded-xl bg-accent py-3 font-semibold text-white">
           {t("Terminé")}
         </button>
       </Sheet>
     );
-
-  const coinstatsChoice = coinstats.length > 0 && (
-    <label className="card block px-4 py-3">
-      <span className="block text-xs text-muted">{t("Déjà suivi dans CoinStats ?")}</span>
-      <select value={replaces} onChange={(e) => setReplaces(e.target.value)} className="w-full bg-transparent text-[15px] font-medium outline-none">
-        <option value="">{t("Non")}</option>
-        {coinstats.map((s) => (
-          <option key={s.portfolioId} value={s.portfolioId}>
-            {s.name}
-          </option>
-        ))}
-      </select>
-      <span className="mt-1 block text-xs leading-relaxed text-muted">{t("Les cryptos lues ici ne seront plus comptées dans ce portefeuille CoinStats.")}</span>
-    </label>
-  );
 
   return (
     <Sheet open onClose={close} title={t("Ajouter un portefeuille")}>
@@ -256,7 +306,6 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
               )}
             </Card>
           )}
-          {st.enabled && <p className="px-1 text-xs leading-relaxed text-muted">{t("Si ce compte est aussi suivi dans CoinStats, décoche-le dans la liste des portefeuilles pour ne pas le compter deux fois.")}</p>}
         </div>
       ) : mode === "coinstats" ? (
         <div className="space-y-3">
@@ -269,7 +318,7 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
               <li>{t("Crée une clé d'API sur openapi.coinstats.app.")}</li>
               <li>{t("L'administrateur du foyer la saisit dans Réglages → Comptes et connexions.")}</li>
             </ol>
-            <div className="mt-2 text-xs leading-relaxed text-muted">{t("Un seul compte CoinStats par foyer : ses portefeuilles sont ceux de l'administrateur. Ce que tu relies aussi directement ici n'est compté qu'une fois si tu le dis à l'ajout.")}</div>
+            <div className="mt-2 text-xs leading-relaxed text-muted">{t("Un seul compte CoinStats par foyer : ses portefeuilles sont ceux de l'administrateur. Si tu relies aussi l'un d'eux directement, Pécule te signale ce qui serait compté deux fois.")}</div>
           </Card>
           <div className="px-1 text-sm">{st.enabled ? t("CoinStats est relié à ce foyer.") : t("CoinStats n'est pas relié à ce foyer.")}</div>
           <Link to="/reglages/connexions?c=coinstats" onClick={close} className="press block w-full rounded-xl bg-accent py-3 text-center font-semibold text-white">
@@ -303,7 +352,6 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
             text.length > 0 && <div className="px-1 text-sm text-muted">{t("Adresse non reconnue pour le moment : Bitcoin, Ethereum, Solana ou MultiversX.")}</div>
           )}
           <Field label={t("Nom du portefeuille (facultatif)")} value={name} onChange={setName} text placeholder="Ledger, MetaMask…" />
-          {coinstatsChoice}
           <button type="button" onClick={add} disabled={!ready || busy} className="press w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50">
             {busy ? t("Lecture en cours…") : t("Ajouter le portefeuille")}
           </button>
@@ -362,7 +410,6 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
             </label>
           )}
           <Field label={t("Nom du portefeuille (facultatif)")} value={name} onChange={setName} text placeholder={info.name} />
-          {coinstatsChoice}
           <button type="button" onClick={add} disabled={!ready || busy} className="press w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50">
             {busy ? t("Lecture en cours…") : t("Relier {exchange}", { exchange: info.name })}
           </button>

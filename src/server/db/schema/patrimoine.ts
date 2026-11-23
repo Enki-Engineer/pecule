@@ -132,8 +132,11 @@ export const cryptoSources = mysqlTable("crypto_sources", {
   lastTotalEur: decimal("last_total_eur", { precision: 14, scale: 2, mode: "number" }),
   lastSyncedAt: datetime("last_synced_at", { mode: "string" }),
   note: varchar("note", { length: 255 }),
-  /** Source lue sur la blockchain : portefeuille CoinStats dont elle remplace l'actif (évite le double compte). */
-  replacesId: varchar("replaces_id", { length: 96 }),
+  /**
+   * Source lue sans intermédiaire : les autres sources du membre (séparées par une virgule) où les mêmes avoirs
+   * figurent aussi, par un agrégateur. Les cryptos qu'elle lit n'y sont plus comptées (évite le double compte).
+   */
+  replacesId: text("replaces_id"),
   /** Ce qu'il faut pour relire la source et qui ne s'affiche pas (clé publique étendue d'un compte), chiffré. */
   secret: text("secret"),
 });

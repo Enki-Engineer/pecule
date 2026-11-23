@@ -99,6 +99,13 @@
       "when": 1795438366658,
       "tag": "0038_mouvements_crypto_par_fichier",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "5",
+      "when": 1795442625504,
+      "tag": "0039_sources_crypto_remplacees",
+      "breakpoints": true
     }
   ]
 }

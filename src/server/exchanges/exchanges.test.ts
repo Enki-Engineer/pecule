@@ -124,7 +124,7 @@ describe("Binance", () => {
       { symbol: "EUR", quantity: 120.5, wallet: "spot" },
       { symbol: "USDT", quantity: 1.5, wallet: "financement" },
       { symbol: "BTC", quantity: 2, wallet: "epargne" },
-      { symbol: "ETH", quantity: 3.5, wallet: "epargne" },
+      { symbol: "ETH", quantity: 3.5, wallet: "bloque" },
     ]);
     expect(r.unread).toEqual([]);
     expect(r.pricesEur.get("BTC")).toBe(56000);
@@ -161,8 +161,25 @@ describe("Binance", () => {
     expect(await refused(readBinance(creds, exchange({ "/api/v3/account": () => ({ status: 503, body: null }) }).http))).toBe(false);
 
     const r = await readBinance(creds, exchange({ "/sapi/v1/simple-earn/locked/position": () => ({ status: 503, body: null }) }).http);
-    expect(r.unread).toEqual(["epargne:"]);
-    expect(r.balances.map((b) => b.wallet)).toEqual(["spot", "spot", "spot", "financement"]);
+    expect(r.unread).toEqual(["bloque:"]);
+    expect(r.balances.map((b) => b.wallet)).toEqual(["spot", "spot", "spot", "financement", "epargne"]);
+  });
+
+  it("compte le reçu d'une épargne souple que l'épargne elle-même ne cite pas, sans jamais compter les deux", async () => {
+    const account = () => ({ body: { balances: [{ asset: "LDBTC", free: "2.0", locked: "0" }, { asset: "LDVET", free: "500", locked: "0" }, { asset: "BTC", free: "0.5", locked: "0" }] } });
+    // L'épargne cite le BTC (2) mais pas le VET : le BTC vient d'elle, le VET de son reçu.
+    const named = await readBinance(creds, exchange({ "/api/v3/account": account }).http);
+    expect(named.balances.filter((b) => b.wallet === "epargne")).toEqual([
+      { symbol: "BTC", quantity: 2, wallet: "epargne" },
+      { symbol: "VET", quantity: 500, wallet: "epargne" },
+    ]);
+    // L'épargne ne répond pas : les reçus valent pour elle.
+    const silent = await readBinance(creds, exchange({ "/api/v3/account": account, "/sapi/v1/simple-earn/flexible/position": () => ({ status: 503, body: null }) }).http);
+    expect(silent.balances.filter((b) => b.wallet === "epargne")).toEqual([
+      { symbol: "BTC", quantity: 2, wallet: "epargne" },
+      { symbol: "VET", quantity: 500, wallet: "epargne" },
+    ]);
+    expect(silent.unread).toEqual([]);
   });
 
   it("lit toutes les pages de l'épargne", async () => {

@@ -6,7 +6,7 @@
 import { tk } from "./i18n.ts";
 
 /** Genre d'une source lue directement (colonne `crypto_sources.type`). */
-export const WALLET_KINDS = ["btc", "btc-xpub", "evm", "sol", "mvx-staking", "eth-validator"] as const;
+export const WALLET_KINDS = ["btc", "btc-xpub", "evm", "sol", "ada", "mvx", "mvx-staking", "eth-validator"] as const;
 export type WalletKind = (typeof WALLET_KINDS)[number];
 export const isWalletKind = (type: string): type is WalletKind => (WALLET_KINDS as readonly string[]).includes(type);
 
@@ -16,6 +16,8 @@ export const WALLET_LABELS: Record<WalletKind, string> = {
   "btc-xpub": tk("Compte Bitcoin (clé publique étendue)"),
   evm: tk("Adresse Ethereum et chaînes compatibles"),
   sol: tk("Adresse Solana"),
+  ada: tk("Adresse Cardano"),
+  mvx: tk("Adresse MultiversX"),
   "mvx-staking": tk("Adresse MultiversX (EGLD délégués)"),
   "eth-validator": tk("Validateur Ethereum"),
 };
@@ -26,6 +28,8 @@ export const WALLET_NAMES: Record<WalletKind, string> = {
   "btc-xpub": "Bitcoin",
   evm: "Ethereum",
   sol: "Solana",
+  ada: "Cardano",
+  mvx: "MultiversX",
   "mvx-staking": "MultiversX",
   "eth-validator": "Ethereum",
 };
@@ -34,7 +38,8 @@ const BASE58 = "[1-9A-HJ-NP-Za-km-z]";
 const PATTERNS: [WalletKind, RegExp][] = [
   ["evm", /^0x[0-9a-fA-F]{40}$/],
   ["eth-validator", /^(0x[0-9a-fA-F]{96}|\d{1,9})$/],
-  ["mvx-staking", /^erd1[02-9ac-hj-np-z]{58}$/],
+  ["mvx", /^erd1[02-9ac-hj-np-z]{58}$/],
+  ["ada", /^(addr1[02-9ac-hj-np-z]{50,110}|stake1[02-9ac-hj-np-z]{50,60})$/],
   ["btc-xpub", new RegExp(`^[xyz]pub${BASE58}{100,110}$`)],
   // Adresses SegWit et Taproot (bc1…), puis anciennes adresses (1… et 3…).
   ["btc", /^(bc1[02-9ac-hj-np-z]{11,71}|BC1[02-9AC-HJ-NP-Z]{11,71})$/],

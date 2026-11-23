@@ -78,7 +78,7 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
 - **Patrimoine** — `assets`, `loans` et `loan_schedule`, `crypto_positions`, `prices`, `wealth_snapshots` (un
   instantané par membre et par jour). Les quantités crypto viennent de sources par membre (`crypto_sources`,
   `src/server/crypto.ts`) : un portefeuille lu par son adresse publique, sans intermédiaire ni clé
-  (`src/server/chains/` : Bitcoin, Ethereum et chaînes compatibles, Solana ; genres et reconnaissance d'une adresse
+  (`src/server/chains/` : Bitcoin, Ethereum et chaînes compatibles, VeChain, Solana, Cardano, MultiversX ; genres et reconnaissance d'une adresse
   dans `src/lib/crypto-chains.ts`, jetons lus dans `src/lib/crypto-tokens.ts`), un compte d'exchange relié par une
   clé d'API en lecture seule, gardée chiffrée (`src/server/exchanges/` : onze exchanges ; une
   liste blanche de chemins de lecture par exchange, et le refus d'une clé qui peut faire plus que lire quand

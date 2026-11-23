@@ -7,7 +7,7 @@
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { EVM_CHAINS, toUnits, type EvmChainKey, type Holding } from "../../lib/crypto-chains.ts";
 import { tokensOf } from "../../lib/crypto-tokens-extra.ts";
-import { pooled, rpcBatch } from "./http.ts";
+import { getJson, pooled, rpcBatch } from "./http.ts";
 
 /** Nœuds publics de chaque chaîne, dans l'ordre d'essai. */
 const RPC: Record<EvmChainKey, string[]> = {
@@ -32,6 +32,20 @@ export function isEvmAddress(address: string): boolean {
   if (hex === hex.toLowerCase() || hex === hex.toUpperCase()) return true;
   const hash = Buffer.from(keccak_256(new TextEncoder().encode(hex.toLowerCase()))).toString("hex");
   return [...hex].every((c, i) => /\d/.test(c) || (parseInt(hash[i], 16) >= 8 ? c === c.toUpperCase() : c === c.toLowerCase()));
+}
+
+/** VeChain n'est pas une chaîne compatible Ethereum, mais ses adresses ont la même forme : la même adresse y est lue aussi. */
+const VECHAIN = ["https://mainnet.vechain.org", "https://sync-mainnet.vechain.org"];
+
+/** VET et VTHO (le « gaz » que le VET produit) d'une adresse, sur VeChain. */
+async function readVechain(address: string, get: typeof getJson): Promise<Holding[]> {
+  const account = await get<{ balance?: string; energy?: string }>(VECHAIN.map((u) => `${u}/accounts/${address.toLowerCase()}`), "VeChain");
+  const out: Holding[] = [];
+  const vet = big(account.balance);
+  const vtho = big(account.energy);
+  if (vet > 0n) out.push({ key: "vechain:native", symbol: "VET", name: "VeChain", coingeckoId: "vechain", quantity: toUnits(vet, 18), place: "VeChain" });
+  if (vtho > 0n) out.push({ key: "vechain:vtho", symbol: "VTHO", name: "VeThor", coingeckoId: "vethor-token", quantity: toUnits(vtho, 18), place: "VeChain" });
+  return out;
 }
 
 const big = (hex: unknown) => (typeof hex === "string" && /^0x[0-9a-fA-F]+$/.test(hex) ? BigInt(hex) : 0n);
@@ -67,7 +81,7 @@ async function readChain(chain: (typeof EVM_CHAINS)[number], address: string, ba
  * Tout ce que l'adresse détient, chaîne par chaîne. Une chaîne dont aucun nœud ne répond est rendue dans `unread`
  * (le début de la clé de ses lignes) : ses lignes d'avant sont gardées, le reste est à jour. Si aucune chaîne ne répond, la lecture échoue.
  */
-export async function readEvmAddress(address: string, batch: typeof rpcBatch = rpcBatch) {
+export async function readEvmAddress(address: string, batch: typeof rpcBatch = rpcBatch, get: typeof getJson = getJson) {
   if (!isEvmAddress(address)) throw new Error("Adresse Ethereum invalide");
   type Chain = (typeof EVM_CHAINS)[number];
   const results = await pooled([...EVM_CHAINS], 3, async (chain): Promise<{ chain: Chain; holdings: Holding[]; error: string | null }> => {
@@ -80,10 +94,12 @@ export async function readEvmAddress(address: string, batch: typeof rpcBatch = r
   const failed = results.filter((r) => r.error !== null);
   if (failed.length === results.length) throw new Error(failed[0].error ?? "aucune chaîne lue");
   const holdings = results.flatMap((r) => r.holdings);
+  const vechain = await readVechain(address, get).catch(() => null);
+  if (vechain) holdings.push(...vechain);
   const chains = new Set(holdings.map((h) => h.place));
   return {
     holdings,
-    unread: failed.map((r) => `${r.chain.key}:`),
+    unread: [...failed.map((r) => `${r.chain.key}:`), ...(vechain ? [] : ["vechain:"])],
     note: `${holdings.length} lignes sur ${chains.size} chaînes${failed.length ? ` · non lues cette fois : ${failed.map((r) => r.chain.name).join(", ")}` : ""}`,
   };
 }

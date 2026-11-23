@@ -94,7 +94,8 @@ const sameQuantity = (a: number, b: number) => Math.abs(a - b) <= Math.max(Math.
 /**
  * Sources qui décrivent sans doute les mêmes avoirs : une source lue sans intermédiaire (adresse, exchange, fichier)
  * et une source d'agrégateur, quel qu'il soit, où la même crypto figure pour la même quantité. Deux cryptos égales,
- * ou la seule crypto d'une source, suffisent à le proposer : c'est le membre qui confirme. Une paire déjà réglée
+ * la seule crypto d'une source, ou une quantité qui n'a rien de rond (1,2345 n'est pas un hasard, 100 peut l'être)
+ * suffisent à le proposer : c'est le membre qui confirme. Une paire déjà réglée
  * (`replaced`) n'est pas reproposée.
  */
 export function findDuplicates(direct: (SourceLines & { replaces: string[] })[], others: SourceLines[]): Duplicate[] {
@@ -112,7 +113,9 @@ export function findDuplicates(direct: (SourceLines & { replaces: string[] })[],
           return (totals.has(symbol) && sameQuantity(totals.get(symbol)!, l.quantity)) || d.lines.some((x) => x.symbol.toUpperCase() === symbol && sameQuantity(x.quantity, l.quantity));
         })
         .map((l) => l.symbol.toUpperCase());
-      if (symbols.length >= 2 || (symbols.length === 1 && o.lines.length === 1)) out.push({ directId: d.id, directName: d.name, otherId: o.id, otherName: o.name, symbols: [...new Set(symbols)] });
+      // Une seule crypto commune suffit si elle est la seule du portefeuille, ou si sa quantité n'a rien de rond.
+      const telling = symbols.length === 1 && o.lines.some((l) => l.symbol.toUpperCase() === symbols[0] && !Number.isInteger(Math.round(l.quantity * 1e6) / 1e4));
+      if (symbols.length >= 2 || (symbols.length === 1 && (o.lines.length === 1 || telling))) out.push({ directId: d.id, directName: d.name, otherId: o.id, otherName: o.name, symbols: [...new Set(symbols)] });
     }
   }
   return out;

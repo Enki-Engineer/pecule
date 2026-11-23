@@ -21,6 +21,12 @@ describe("isEvmAddress", () => {
   });
 });
 
+/** Faux VeChain : rien à cette adresse, ou ce qu'on lui donne ; `null` : le nœud ne répond pas. */
+const vechain = (account: { balance: string; energy: string } | null = { balance: "0x0", energy: "0x0" }) => async <T>(): Promise<T> => {
+  if (!account) throw new Error("VeChain illisible");
+  return account as T;
+};
+
 describe("readEvmAddress", () => {
   const usdc = TOKENS.ethereum.find((row) => row[1] === "usd-coin")!;
 
@@ -37,7 +43,7 @@ describe("readEvmAddress", () => {
   };
 
   it("rend la monnaie native et les jetons détenus, aux bonnes décimales", async () => {
-    const r = await readEvmAddress(ADDRESS, nodes());
+    const r = await readEvmAddress(ADDRESS, nodes(), vechain());
     expect(r.holdings).toEqual([
       { key: "ethereum:native", symbol: "ETH", name: "Ethereum", coingeckoId: "ethereum", quantity: 2, place: "Ethereum" },
       { key: `ethereum:${usdc[0]}`, symbol: "USDC", name: usdc[3], coingeckoId: "usd-coin", quantity: 41.5, place: "Ethereum" },
@@ -46,14 +52,26 @@ describe("readEvmAddress", () => {
   });
 
   it("garde pour plus tard une chaîne qui ne répond pas, sans perdre les autres", async () => {
-    const r = await readEvmAddress(ADDRESS, nodes(["Base", "Linea"]));
+    const r = await readEvmAddress(ADDRESS, nodes(["Base", "Linea"]), vechain());
     expect(r.holdings).toHaveLength(2);
     expect(r.unread).toEqual(["base:", "linea:"]);
     expect(r.note).toContain("Base, Linea");
   });
 
   it("échoue si aucune chaîne ne répond, ou si l'adresse est fausse", async () => {
-    await expect(readEvmAddress(ADDRESS, async () => Promise.reject(new Error("panne")))).rejects.toThrow("panne");
-    await expect(readEvmAddress("0x123", nodes())).rejects.toThrow();
+    await expect(readEvmAddress(ADDRESS, async () => Promise.reject(new Error("panne")), vechain())).rejects.toThrow("panne");
+    await expect(readEvmAddress("0x123", nodes(), vechain())).rejects.toThrow();
+  });
+
+  it("lit aussi la même adresse sur VeChain, et garde ses lignes d'avant si le nœud ne répond pas", async () => {
+    // 1 500 VET et 2,5 VTHO, en unités de 10^-18.
+    const r = await readEvmAddress(ADDRESS, nodes(), vechain({ balance: `0x${(1500n * 10n ** 18n).toString(16)}`, energy: `0x${(25n * 10n ** 17n).toString(16)}` }));
+    expect(r.holdings.filter((h) => h.place === "VeChain")).toEqual([
+      { key: "vechain:native", symbol: "VET", name: "VeChain", coingeckoId: "vechain", quantity: 1500, place: "VeChain" },
+      { key: "vechain:vtho", symbol: "VTHO", name: "VeThor", coingeckoId: "vethor-token", quantity: 2.5, place: "VeChain" },
+    ]);
+    const down = await readEvmAddress(ADDRESS, nodes(), vechain(null));
+    expect(down.unread).toEqual(["vechain:"]);
+    expect(down.holdings).toHaveLength(2);
   });
 });

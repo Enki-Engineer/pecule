@@ -27,7 +27,9 @@ const qty = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: n
 
 /** Ce que Pécule lira pour ce genre d'adresse, dit avant d'ajouter. */
 function kindHint(kind: WalletKind): string {
-  if (kind === "evm") return t("Lue sur Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Gnosis et Linea : la monnaie de chaque chaîne et les jetons les plus courants.");
+  if (kind === "evm") return t("Lue sur Ethereum, Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Gnosis et Linea (la monnaie de chaque chaîne et les jetons les plus courants), et sur VeChain, dont les adresses ont la même forme.");
+  if (kind === "ada") return t("ADA de tout le portefeuille, récompenses de staking comprises. Les jetons natifs de Cardano ne sont pas lus.");
+  if (kind === "mvx") return t("EGLD du portefeuille, EGLD délégués et jetons que MultiversX sait valoriser.");
   if (kind === "btc-xpub") return t("Pécule en déduit toutes les adresses du compte et additionne leurs soldes. La clé est gardée chiffrée ; elle ne permet pas de dépenser.");
   if (kind === "sol") return t("SOL du portefeuille, SOL mis en staking et jetons les plus courants.");
   if (kind === "mvx-staking") return t("EGLD délégués, récompenses à réclamer et retraits en cours.");
@@ -106,7 +108,7 @@ const INPUT = "w-full bg-transparent text-[15px] font-medium outline-none placeh
 
 /** Les façons de relier ce qu'on a : aucune n'est la voie « normale », chacune couvre un cas. */
 const CHOICES = [
-  { mode: "adresse", icon: Wallet, title: tk("Un portefeuille, par son adresse publique"), hint: tk("Ledger, Trezor, MetaMask, Phantom… Bitcoin, Ethereum et ses chaînes, Solana, MultiversX.") },
+  { mode: "adresse", icon: Wallet, title: tk("Un portefeuille, par son adresse publique"), hint: tk("Ledger, Trezor, MetaMask, Phantom… Bitcoin, Ethereum et ses chaînes, Solana, Cardano, MultiversX, VeChain.") },
   { mode: "exchange", icon: Building2, title: tk("Un exchange, par une clé en lecture seule"), hint: tk("Kraken, Binance, Coinbase, Bitpanda, Bitvavo, OKX, Bybit, KuCoin, Bitget, Bitfinex, Crypto.com Exchange.") },
   { mode: "fichier", icon: FileUp, title: tk("L'appli Crypto.com, par son export"), hint: tk("L'appli n'a pas de clé d'API : dépose le fichier de son historique, de temps en temps.") },
   { mode: "coinstats", icon: Layers, title: tk("Un compte CoinStats"), hint: tk("Un agrégateur : tout ce que tu y as relié, y compris ce que Pécule ne lit pas lui-même.") },
@@ -349,7 +351,7 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
               <div className="mt-1 leading-relaxed text-muted">{kindHint(kind)}</div>
             </div>
           ) : (
-            text.length > 0 && <div className="px-1 text-sm text-muted">{t("Adresse non reconnue pour le moment : Bitcoin, Ethereum, Solana ou MultiversX.")}</div>
+            text.length > 0 && <div className="px-1 text-sm text-muted">{t("Adresse non reconnue pour le moment : Bitcoin, Ethereum, Solana, Cardano ou MultiversX.")}</div>
           )}
           <Field label={t("Nom du portefeuille (facultatif)")} value={name} onChange={setName} text placeholder="Ledger, MetaMask…" />
           <button type="button" onClick={add} disabled={!ready || busy} className="press w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50">

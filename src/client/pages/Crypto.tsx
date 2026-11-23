@@ -219,25 +219,98 @@ function GroupRow({ g, onClick }: { g: Group; onClick: () => void }) {
   );
 }
 
-const TYPES: Record<string, string> = {
-  manual: t("via CoinStats, saisi à la main"),
-  wallet: t("via CoinStats"),
-  exchange: t("via CoinStats"),
-  btc: t("lu sur la blockchain"),
-  "btc-xpub": t("compte entier, lu sur la blockchain"),
-  evm: t("lu sur la blockchain"),
-  sol: t("lu sur la blockchain"),
-  "mvx-staking": t("lu sur la blockchain"),
-  "eth-validator": t("validateur, lu sur la blockchain"),
-};
 const STATUS: Record<CryptoSource["status"], string> = { ok: "", vide: t("vide"), doublon: t("doublon ignoré"), a_verifier: t("à vérifier"), erreur: t("erreur"), refus: t("clé refusée") };
+
+/** D'où vient un portefeuille : c'est ce qui range la liste, pour qu'on voie d'un coup d'œil ce qui dépend de quoi. */
+type Origin = "adresse" | "exchange" | "fichier" | "agregateur";
+const originOf = (s: CryptoSource): Origin => (s.exchange ? "exchange" : s.file ? "fichier" : s.direct ? "adresse" : "agregateur");
+const ORIGINS: { id: Origin; title: string; hint: string }[] = [
+  { id: "adresse", title: t("Par leur adresse"), hint: t("Lus sur la blockchain, sans intermédiaire") },
+  { id: "exchange", title: t("Exchanges"), hint: t("Lus chez l'exchange, par ta clé en lecture seule") },
+  { id: "fichier", title: t("Par leurs exports"), hint: t("Mis à jour quand tu déposes un fichier") },
+  { id: "agregateur", title: t("Via CoinStats"), hint: t("Ce que réunit le compte CoinStats du foyer") },
+];
+
+type RowActions = { toggle: (s: CryptoSource) => void; remove: (s: CryptoSource) => void; accept: (s: CryptoSource) => void; accepting: string | null };
+
+function SourceRow({ s, value, actions }: { s: CryptoSource; value: number; actions: RowActions }) {
+  const warn = s.status === "a_verifier" || s.status === "erreur" || s.status === "refus";
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center gap-3">
+        <BrandLogo texts={[s.name, s.type]} size="md" tone="neutral" />
+        <div className="min-w-0 flex-1">
+          <div className={clsx("truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</div>
+          <div className="truncate text-xs text-muted" title={s.note ?? undefined}>
+            {[s.address, s.lines ? tn("{n} ligne", "{n} lignes", s.lines) : null].filter(Boolean).join(" · ") || t("aucune ligne")}
+            {STATUS[s.status] && <span className={clsx("ml-1 font-medium", warn && "text-warn")}> · {STATUS[s.status]}</span>}
+          </div>
+        </div>
+        <span className="tnum text-sm font-semibold">{money(value, value >= 1000)}</span>
+        <label className="flex items-center gap-1 text-xs text-muted">
+          <input type="checkbox" checked={!!s.enabled} onChange={() => actions.toggle(s)} className="size-[18px] accent-[var(--color-accent)]" aria-label={t("Compter « {nom} »", { nom: s.name })} />
+        </label>
+        {(s.direct || s.file) && (
+          <button type="button" onClick={() => actions.remove(s)} className="press -mr-1 grid size-8 place-items-center rounded-full text-muted hover:text-ink" aria-label={t("Retirer ce portefeuille")} title={t("Retirer ce portefeuille")}>
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
+      {s.direct && s.status === "erreur" && !!s.enabled && (
+        <div className="mt-2 text-xs text-muted">{t("Lecture impossible à la dernière synchro : Pécule garde les quantités d'avant et réessaiera.")}</div>
+      )}
+      {s.status === "refus" && !!s.enabled && (
+        <div className="mt-2 text-xs text-muted">{t("L'exchange n'accepte plus cette clé (expirée, retirée ou droits changés). Pécule garde les quantités d'avant : retire ce compte et relie-le avec une nouvelle clé.")}</div>
+      )}
+      {s.status === "a_verifier" && !!s.enabled && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+          <span className="min-w-0 flex-1">{t("CoinStats rend ce portefeuille vide ou bien plus bas qu'avant. Tant que tu ne confirmes pas, Pécule garde ses positions d'avant.")}</span>
+          <button type="button" onClick={() => actions.accept(s)} disabled={actions.accepting === s.portfolioId} className="press shrink-0 text-xs font-medium text-accent disabled:opacity-50">
+            {t("C'est exact")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Un compartiment de la liste : une provenance, son total, ses portefeuilles. Ceux qui ne comptent rien se replient. */
+function OriginCard({ title, hint, rows, positions, actions }: { title: string; hint: string; rows: CryptoSource[]; positions: CryptoPosition[]; actions: RowActions }) {
+  const [showIdle, setShowIdle] = useState(false);
+  const valued = rows.map((s) => ({ s, value: valueOf(positions, s) })).sort((a, b) => b.value - a.value);
+  // « Sans rien de compté » : vide, en double, ou dont tout est déjà compté par une lecture directe.
+  const idle = valued.filter((r) => r.value === 0 && (r.s.lines === 0 || r.s.status === "doublon") && r.s.status !== "a_verifier" && r.s.status !== "erreur" && r.s.status !== "refus");
+  const shown = valued.filter((r) => showIdle || !idle.includes(r) || valued.length === idle.length);
+  const hidden = valued.length - shown.length;
+  return (
+    <Card className="divide-y divide-line">
+      <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
+        <div className="min-w-0">
+          <div className="text-[13px] font-semibold">{title}</div>
+          <div className="truncate text-xs text-muted">{hint}</div>
+        </div>
+        <span className="tnum shrink-0 text-sm font-semibold">{money(valued.reduce((sum, r) => sum + (r.s.enabled ? r.value : 0), 0), true)}</span>
+      </div>
+      {shown.map((r) => (
+        <SourceRow key={r.s.portfolioId} s={r.s} value={r.value} actions={actions} />
+      ))}
+      {(hidden > 0 || (showIdle && idle.length > 0 && valued.length !== idle.length)) && (
+        <button type="button" onClick={() => setShowIdle(!showIdle)} className="press flex w-full items-center justify-between px-4 py-2.5 text-xs text-muted">
+          <span>{showIdle ? t("Replier ceux qui ne comptent rien") : tn("{n} autre, sans rien de compté", "{n} autres, sans rien de compté", hidden)}</span>
+          <ChevronDown size={14} className={clsx("transition-transform", showIdle && "rotate-180")} />
+        </button>
+      )}
+    </Card>
+  );
+}
 
 function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st: CryptoStatus; onAdd: () => void }) {
   const qc = useQueryClient();
   const manual = positions.filter((p) => p.source === "manuel");
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
   const toggle = (s: CryptoSource) =>
     api(`/crypto/sources/${encodeURIComponent(s.portfolioId)}`, { method: "PATCH", json: { enabled: !s.enabled } })
-      .then(() => Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]))
+      .then(refresh)
       .then(() => toast.success(s.enabled ? t("Portefeuille exclu (pris en compte à la prochaine synchro si réactivé)") : t("Portefeuille réactivé : synchronise pour le compter")));
   // Un portefeuille « à vérifier » garde ses positions d'avant : le membre confirme s'il a vraiment été vidé ou vendu.
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -245,7 +318,7 @@ function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st:
     setAccepting(s.portfolioId);
     try {
       await api(`/crypto/sources/${encodeURIComponent(s.portfolioId)}/accept`, { method: "POST" });
-      await Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
+      await refresh();
       toast.success(t("Nouvelle valeur confirmée"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Synchro impossible"));
@@ -253,76 +326,40 @@ function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st:
       setAccepting(null);
     }
   };
-  // Un portefeuille ajouté par son adresse se retire ; un portefeuille CoinStats se décoche (il reviendrait).
+  // Un portefeuille que le membre a relié lui-même se retire ; celui d'un agrégateur se décoche (il reviendrait).
   const remove = async (s: CryptoSource) => {
-    if (!confirm(t("Retirer « {nom} » ? Ses lignes ne seront plus comptées. Tu pourras l'ajouter de nouveau par son adresse.", { nom: s.name }))) return;
+    if (!confirm(t("Retirer « {nom} » ? Ses lignes ne seront plus comptées. Tu pourras l'ajouter de nouveau.", { nom: s.name }))) return;
     try {
       await api(`/crypto/sources/${encodeURIComponent(s.portfolioId)}`, { method: "DELETE" });
-      await Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
+      await refresh();
       toast.success(t("Portefeuille retiré"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Enregistrement impossible"));
     }
   };
-  const sources = [...st.sources].sort((a, b) => valueOf(positions, b) - valueOf(positions, a));
+  const actions: RowActions = { toggle, remove, accept, accepting };
   return (
-    <Card className="divide-y divide-line">
-      {sources.map((s) => {
-        const v = valueOf(positions, s);
-        return (
-          <div key={s.portfolioId} className="px-4 py-3">
-            <div className="flex items-center gap-3">
-              <BrandLogo texts={[s.name, s.type]} size="md" tone="neutral" />
-              <div className="min-w-0 flex-1">
-                <div className={clsx("truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</div>
-                <div className="truncate text-xs text-muted" title={s.note ?? undefined}>
-                  {s.exchange ? t("compte lu par sa clé") : s.file ? t("tenu par ses exports") : (TYPES[s.type] ?? s.type)}
-                  {s.address && ` · ${s.address}`}
-                  {s.lines ? ` · ${tn("{n} ligne", "{n} lignes", s.lines)}` : ""}
-                  {STATUS[s.status] && <span className={clsx("ml-1 font-medium", s.status === "a_verifier" || s.status === "erreur" || s.status === "refus" ? "text-warn" : "")}> · {STATUS[s.status]}</span>}
-                </div>
-              </div>
-              <span className="tnum text-sm font-semibold">{money(v, v >= 1000)}</span>
-              <label className="flex items-center gap-1 text-xs text-muted">
-                <input type="checkbox" checked={!!s.enabled} onChange={() => toggle(s)} className="size-[18px] accent-[var(--color-accent)]" aria-label={t("Compter « {nom} »", { nom: s.name })} />
-              </label>
-              {(s.direct || s.file) && (
-                <button type="button" onClick={() => remove(s)} className="press -mr-1 grid size-8 place-items-center rounded-full text-muted hover:text-ink" aria-label={t("Retirer ce portefeuille")} title={t("Retirer ce portefeuille")}>
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </div>
-            {s.direct && s.status === "erreur" && !!s.enabled && (
-              <div className="mt-2 text-xs text-muted">{t("Lecture impossible à la dernière synchro : Pécule garde les quantités d'avant et réessaiera.")}</div>
-            )}
-            {s.status === "refus" && !!s.enabled && (
-              <div className="mt-2 text-xs text-muted">{t("L'exchange n'accepte plus cette clé (expirée, retirée ou droits changés). Pécule garde les quantités d'avant : retire ce compte et relie-le avec une nouvelle clé.")}</div>
-            )}
-            {s.status === "a_verifier" && !!s.enabled && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-                <span className="min-w-0 flex-1">{t("CoinStats rend ce portefeuille vide ou bien plus bas qu'avant. Tant que tu ne confirmes pas, Pécule garde ses positions d'avant.")}</span>
-                <button type="button" onClick={() => accept(s)} disabled={accepting === s.portfolioId} className="press shrink-0 text-xs font-medium text-accent disabled:opacity-50">
-                  {t("C'est exact")}
-                </button>
-              </div>
-            )}
-          </div>
-        );
+    <div className="space-y-3">
+      {ORIGINS.map((o) => {
+        const rows = st.sources.filter((s) => originOf(s) === o.id);
+        return rows.length ? <OriginCard key={o.id} title={o.title} hint={o.hint} rows={rows} positions={positions} actions={actions} /> : null;
       })}
       {manual.length > 0 && (
-        <div className="flex items-center gap-3 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-medium">{t("Saisies à la main")}</div>
-            <div className="truncate text-xs text-muted">{manual.map((m) => m.symbol).join(", ")}</div>
+        <Card className="divide-y divide-line">
+          <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold">{t("Saisis à la main")}</div>
+              <div className="truncate text-xs text-muted">{manual.map((m) => m.symbol).join(", ")}</div>
+            </div>
+            <span className="tnum shrink-0 text-sm font-semibold">{money(manual.reduce((sum, m) => sum + (m.value ?? 0), 0), true)}</span>
           </div>
-          <span className="tnum text-sm font-semibold">{money(manual.reduce((s, m) => s + (m.value ?? 0), 0))}</span>
-        </div>
+        </Card>
       )}
-      {!sources.length && !manual.length && <div className="px-4 py-3 text-sm text-muted">{t("Aucun portefeuille.")}</div>}
-      <button type="button" onClick={onAdd} className="press flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-accent">
+      {!st.sources.length && !manual.length && <Card className="px-4 py-3 text-sm text-muted">{t("Aucun portefeuille.")}</Card>}
+      <button type="button" onClick={onAdd} className="press card flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-accent">
         <Plus size={16} /> {t("Ajouter un portefeuille")}
       </button>
-    </Card>
+    </div>
   );
 }
 
@@ -378,7 +415,7 @@ function GroupSheet({ g, onClose }: { g: Group | null; onClose: () => void }) {
             </div>
             <div className="mt-0.5 text-xs text-muted">
               {p.manual_value != null ? t("Valeur saisie") : `${qty(p.quantity)} ${p.symbol}`}
-              {p.price != null && ` × ${money(p.price)} (${p.price_source === "coingecko" ? "CoinGecko" : p.source === "exchange" ? t("cours de l'exchange") : "CoinStats"})`}
+              {p.price != null && ` × ${money(p.price)} (${p.price_source === "coingecko" ? "CoinGecko" : p.source === "exchange" ? t("cours de l'exchange") : p.source === "coinstats" ? "CoinStats" : t("cours de la blockchain")})`}
               {p.source === "coinstats"
                 ? ` · ${t("synchro {quand}", { quand: timeAgo(p.synced_at) })}`
                 : p.source === "onchain"

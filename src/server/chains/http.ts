@@ -41,6 +41,10 @@ async function firstAnswer<T>(urls: string[], init: RequestInit | undefined, lab
 /** Document JSON lu au premier service qui répond. */
 export const getJson = <T>(urls: string[], label: string): Promise<T> => firstAnswer(urls, undefined, label, (body) => body as T);
 
+/** Document JSON demandé par un corps JSON (lecture seule : une question trop longue pour une adresse), au premier service qui répond. */
+export const postJson = <T>(urls: string[], body: unknown, label: string): Promise<T> =>
+  firstAnswer(urls, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, label, (answer) => answer as T);
+
 type RpcCall = { method: string; params: unknown[] };
 type RpcReply = { id: number; result?: unknown; error?: { message?: string } };
 

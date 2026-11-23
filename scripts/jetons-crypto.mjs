@@ -15,7 +15,7 @@ if (args.includes("--help")) {
   process.exit(0);
 }
 const opt = (name, def) => (args.includes(name) ? Number(args[args.indexOf(name) + 1]) : def);
-const PER_CHAIN = opt("--par-chaine", 120);
+const PER_CHAIN = opt("--par-chaine", 200);
 const RANKS = opt("--rangs", 500);
 
 /** Clé de la chaîne dans Pécule (src/lib/crypto-chains.ts) → plateforme de CoinGecko. */
@@ -58,6 +58,19 @@ for (let page = 1; ranked.length < SYMBOL_RANKS; page++) {
   if (!rows.length) break;
   ranked.push(...rows);
 }
+// Le classement de CoinGecko écarte les jetons dérivés (ether en staking liquide, bitcoin et ether enveloppés), qui
+// sont pourtant parmi les plus détenus : ils sont pris dans leurs catégories et remis à leur place par capitalisation.
+const DERIVES = ["liquid-staking-tokens", "wrapped-tokens", "liquid-restaking-tokens"];
+const known = new Set(ranked.map((c) => c.id));
+for (const category of DERIVES) {
+  await new Promise((r) => setTimeout(r, 2500));
+  for (const c of await get(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&category=${category}&order=market_cap_desc&per_page=60&page=1`)) {
+    if (known.has(c.id)) continue;
+    known.add(c.id);
+    ranked.push(c);
+  }
+}
+ranked.sort((a, b) => (b.market_cap ?? 0) - (a.market_cap ?? 0));
 const rank = new Map(ranked.slice(0, RANKS).map((c, i) => [c.id, i]));
 const list = await get("https://api.coingecko.com/api/v3/coins/list?include_platform=true");
 

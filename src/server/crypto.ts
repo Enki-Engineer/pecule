@@ -15,6 +15,9 @@ import { ethValidator, isValidatorId } from "./beacon.ts";
 import { isBitcoinAddress, parseXpub, readBitcoinAddress, readBitcoinXpub } from "./chains/bitcoin.ts";
 import { isEvmAddress, readEvmAddress } from "./chains/evm.ts";
 import { isSolanaAddress, readSolanaAddress } from "./chains/solana.ts";
+import { cardanoAccount, isCardanoAddress, readCardano } from "./chains/cardano.ts";
+import { readMultiversxWallet } from "./chains/multiversx-wallet.ts";
+import { fxRate } from "./fx.ts";
 import { EXCHANGE_KINDS, EXCHANGES, exchangeOf, isExchangeKind, sameCoin, type ExchangeId } from "../lib/crypto-exchanges.ts";
 import { ExchangeError, readExchange, type Credentials } from "./exchanges/index.ts";
 import { logAudit, recordAlert } from "./journal.ts";
@@ -60,6 +63,9 @@ const READERS: Record<WalletKind, (src: Source) => Promise<Reading>> = {
   },
   evm: (src) => readEvmAddress(addressOf(src)),
   sol: (src) => readSolanaAddress(addressOf(src)),
+  ada: (src) => readCardano(addressOf(src)),
+  // Les cours de l'API MultiversX sont en dollars ; sans cours de change, les jetons restent sans valeur.
+  mvx: async (src) => readMultiversxWallet(addressOf(src), await fxRate("USD", "EUR").catch(() => 0)),
   "mvx-staking": async (src) => {
     const st = await egldStaking(addressOf(src));
     return {
@@ -126,7 +132,7 @@ async function writeReading(src: Source, r: Reading) {
     keys.push(lineKey);
     // Le cours que la source donne elle-même est gardé sous sa propre clé : il vaut pour ce que CoinGecko ne suit
     // pas, et il dément la table quand deux cryptos portent le même symbole.
-    const ownPrice = exchange ? `x:${exchange}:${h.symbol}`.slice(0, 90) : null;
+    const ownPrice = exchange ? `x:${exchange}:${h.symbol}`.slice(0, 90) : h.priceEur && !h.coingeckoId ? `x:${src.type}:${h.symbol}`.slice(0, 90) : null;
     let coingeckoId = h.coingeckoId;
     if (coingeckoId && h.priceEur) {
       const known = await one<{ p: number }>("SELECT price_eur AS p FROM prices WHERE id = ?", [`cg:${coingeckoId}`]);
@@ -429,7 +435,7 @@ export async function maybeSyncCrypto() {
 export async function cryptoStatus(userId: number) {
   const rows = await db.select().from(cryptoSources).where(eq(cryptoSources.ownerUserId, userId)).orderBy(desc(cryptoSources.lastTotalEur));
   // Le secret d'une source (clé étendue, chiffrée) ne quitte jamais le serveur.
-  const sources = rows.map(({ secret: _secret, ...s }) => ({ ...s, direct: isDirect(s.type), file: isFileKind(s.type), exchange: isExchangeKind(s.type) ? exchangeOf(s.type) : null, address: s.type === "btc" || s.type === "evm" || s.type === "sol" ? shortAddress(addressOf(s)) : null }));
+  const sources = rows.map(({ secret: _secret, ...s }) => ({ ...s, direct: isDirect(s.type), file: isFileKind(s.type), exchange: isExchangeKind(s.type) ? exchangeOf(s.type) : null, address: ["btc", "evm", "sol", "ada", "mvx", "mvx-staking"].includes(s.type) ? shortAddress(addressOf(s)) : null }));
   const [run] = await db.select().from(cryptoSyncRuns).orderBy(desc(cryptoSyncRuns.id)).limit(1);
   // Le journal des synchros est commun au foyer : un membre n'y lit que la date et l'état, et le compte de ses
   // propres portefeuilles — la valeur de ceux d'un autre ne le regarde pas.
@@ -555,7 +561,7 @@ export async function addWallet(userId: number, input: { address: string; name?:
   let kind = detectWallet(raw);
   // Une ancienne adresse Bitcoin et une adresse Solana courte ont la même forme : la somme de contrôle tranche.
   if (kind === "btc" && !isBitcoinAddress(raw) && isSolanaAddress(raw)) kind = "sol";
-  if (!kind) throw new Error(t("Adresse non reconnue. Pécule lit une adresse Bitcoin, Ethereum, Solana ou MultiversX, et la clé publique étendue d'un compte Bitcoin."));
+  if (!kind) throw new Error(t("Adresse non reconnue. Pécule lit une adresse Bitcoin, Ethereum, Solana, Cardano ou MultiversX, et la clé publique étendue d'un compte Bitcoin."));
 
   let portfolioId: string;
   let secret: string | null = null;
@@ -577,8 +583,14 @@ export async function addWallet(userId: number, input: { address: string; name?:
   } else if (kind === "sol") {
     if (!isSolanaAddress(raw)) throw new Error(t("Adresse Solana invalide : vérifie qu'elle est complète."));
     portfolioId = `sol:${raw}`;
-  } else if (kind === "mvx-staking") {
+  } else if (kind === "ada") {
+    if (!isCardanoAddress(raw)) throw new Error(t("Adresse Cardano invalide : vérifie qu'elle est complète."));
+    // Toutes les adresses d'un portefeuille Cardano portent la même clé de staking : c'est elle qui le nomme.
+    portfolioId = `ada:${cardanoAccount(raw)}`;
+  } else if (kind === "mvx" || kind === "mvx-staking") {
     if (!isMultiversXAddress(raw)) throw new Error(t("Adresse MultiversX invalide"));
+    // Le même identifiant que l'ancienne lecture du seul staking : une adresse déjà suivie devient un portefeuille entier.
+    kind = "mvx";
     portfolioId = `mvx:${raw}`;
   } else {
     if (!isValidatorId(raw)) throw new Error(t("Identifiant de validateur invalide (index ou clé publique 0x…)"));
@@ -587,7 +599,7 @@ export async function addWallet(userId: number, input: { address: string; name?:
     label = `${WALLET_NAMES[kind]} n° ${v.index}`;
   }
 
-  return adopt(userId, { portfolioId, kind, name: (input.name?.trim() || label).slice(0, 160), secret, replaces: input.replaces || null });
+  return adopt(userId, { portfolioId, kind, name: (input.name?.trim() ?? "").slice(0, 160), fallback: label.slice(0, 160), secret, replaces: input.replaces || null });
 }
 
 /**
@@ -605,18 +617,21 @@ export async function addExchange(userId: number, input: { exchange: ExchangeId;
   const kind = `x-${input.exchange}` as const;
   // La source se nomme par l'empreinte de sa clé : la même clé ajoutée deux fois reste un seul compte.
   const portfolioId = `${kind}:${createHash("sha256").update(key).digest("hex").slice(0, 24)}`;
-  return adopt(userId, { portfolioId, kind, name: (input.name?.trim() || info.name).slice(0, 160), secret: sealer.seal(JSON.stringify({ key, secret: secret || undefined, passphrase: passphrase || undefined })), replaces: input.replaces || null });
+  return adopt(userId, { portfolioId, kind, name: (input.name?.trim() ?? "").slice(0, 160), fallback: info.name, secret: sealer.seal(JSON.stringify({ key, secret: secret || undefined, passphrase: passphrase || undefined })), replaces: input.replaces || null });
 }
 
 /** Enregistre une source lue sans intermédiaire et la lit tout de suite ; une source jamais lue n'est pas gardée. */
-async function adopt(userId: number, input: { portfolioId: string; kind: string; name: string; secret: string | null; replaces: string | null }) {
-  const { portfolioId, kind, name, secret, replaces } = input;
+async function adopt(userId: number, input: { portfolioId: string; kind: string; name: string; fallback: string; secret: string | null; replaces: string | null }) {
+  const { portfolioId, kind, secret, replaces } = input;
   if (replaces && !(await db.select({ id: cryptoSources.portfolioId }).from(cryptoSources).where(and(eq(cryptoSources.portfolioId, replaces), eq(cryptoSources.ownerUserId, userId)))).length)
     throw new Error(t("Portefeuille CoinStats à remplacer introuvable"));
   const [existing] = await db.select().from(cryptoSources).where(eq(cryptoSources.portfolioId, portfolioId));
   // Une adresse ou un compte déjà suivi par un autre membre reste le sien.
   if (existing && existing.ownerUserId !== userId) throw new Error(isExchangeKind(kind) ? t("Ce compte est déjà suivi par un autre membre du foyer.") : t("Cette adresse est déjà suivie par un autre membre du foyer."));
-  if (existing) await db.update(cryptoSources).set({ name, enabled: 1, replacesId: replaces, secret: secret ?? existing.secret }).where(eq(cryptoSources.portfolioId, portfolioId));
+  // Une source déjà là garde son nom et ce qu'elle remplace, sauf si le membre en donne d'autres ; son genre suit
+  // (une adresse MultiversX suivie pour son seul staking devient un portefeuille entier).
+  const name = input.name || existing?.name || input.fallback;
+  if (existing) await db.update(cryptoSources).set({ name, type: kind, enabled: 1, replacesId: replaces ?? existing.replacesId, secret: secret ?? existing.secret }).where(eq(cryptoSources.portfolioId, portfolioId));
   else await db.insert(cryptoSources).values({ portfolioId, ownerUserId: userId, name, type: kind, replacesId: replaces, secret });
 
   const [src] = await db.select().from(cryptoSources).where(eq(cryptoSources.portfolioId, portfolioId));

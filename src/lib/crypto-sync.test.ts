@@ -90,8 +90,12 @@ describe("doublons entre sources", () => {
   });
 
   it("ne propose rien pour une seule crypto commune parmi d'autres, une quantité différente, ou une paire déjà réglée", () => {
-    const other = { id: "cs1", name: "Ledger", lines: [{ symbol: "BTC", quantity: 0.25 }, { symbol: "ETH", quantity: 3 }] };
-    expect(findDuplicates([kraken], [other])).toEqual([]);
+    // Une quantité ronde commune parmi d'autres cryptos : peut-être un hasard, rien n'est proposé.
+    const other = { id: "cs1", name: "Ledger", lines: [{ symbol: "EUR", quantity: 100 }, { symbol: "ETH", quantity: 3 }] };
+    expect(findDuplicates([{ ...kraken, lines: [{ symbol: "EUR", quantity: 100 }] }], [other])).toEqual([]);
+    // Une quantité qui n'a rien de rond : assez pour le proposer, même parmi d'autres cryptos.
+    expect(findDuplicates([kraken], [{ id: "cs5", name: "Ledger", lines: [{ symbol: "XRP", quantity: 1300.5137 }, { symbol: "ETH", quantity: 3 }] }])).toEqual([]);
+    expect(findDuplicates([{ ...kraken, lines: [{ symbol: "XRP", quantity: 1200.5137 }] }], [{ id: "cs5", name: "Ledger", lines: [{ symbol: "XRP", quantity: 1200.5137 }, { symbol: "ETH", quantity: 3 }] }])).toHaveLength(1);
     expect(findDuplicates([kraken], [{ id: "cs2", name: "Kraken", lines: [{ symbol: "BTC", quantity: 0.26 }, { symbol: "XRP", quantity: 1100 }] }])).toEqual([]);
     expect(findDuplicates([{ ...kraken, replaces: ["cs3"] }], [{ id: "cs3", name: "Kraken", lines: [{ symbol: "BTC", quantity: 0.25 }, { symbol: "XRP", quantity: 1200.5 }] }])).toEqual([]);
     // La seule crypto d'un portefeuille, à la même quantité : assez pour le proposer.

@@ -12,7 +12,9 @@ describe("detectWallet", () => {
     expect(detectWallet("zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs")).toBe("btc-xpub");
     expect(detectWallet("0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")).toBe("evm");
     expect(detectWallet("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")).toBe("sol");
-    expect(detectWallet(`erd1${"q".repeat(58)}`)).toBe("mvx-staking");
+    expect(detectWallet(`erd1${"q".repeat(58)}`)).toBe("mvx");
+    expect(detectWallet("stake1uxpdrerp9wrxunfh6ukyv5267j70fzxgw0fr3z8zeac5vyqhf9jhy")).toBe("ada");
+    expect(detectWallet("addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3n0d3vllmyqwsx5wktcd8cc3sq835lu7drv2xwl2wywfgse35a3x")).toBe("ada");
     expect(detectWallet("123456")).toBe("eth-validator");
     expect(detectWallet(`0x${"ab".repeat(48)}`)).toBe("eth-validator");
   });

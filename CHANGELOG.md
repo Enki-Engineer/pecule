@@ -3,6 +3,28 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.43.0
+
+Crypto : la liste des portefeuilles dit d'où vient chacun, et trois blockchains de plus se lisent sans intermédiaire.
+
+- **Portefeuilles rangés par provenance** (téléphone et ordinateur) : « Par leur adresse », « Exchanges », « Par
+  leurs exports », « Via CoinStats », « Saisis à la main », chacun dans son compartiment, avec son total. On voit
+  d'un coup d'œil ce qui dépend de quoi — et ce qu'il reste à un agrégateur. Les portefeuilles qui ne comptent rien
+  (vides, en double, ou déjà comptés par une lecture directe) se replient.
+- **Cardano** : une adresse du portefeuille suffit (addr1… ou stake1…) ; Pécule en tire l'adresse de staking et lit
+  le solde de tout le portefeuille, récompenses comprises. Les jetons natifs ne sont pas lus.
+- **MultiversX** : une adresse est désormais lue en entier — EGLD du portefeuille, EGLD délégués et jetons, au cours
+  que donne MultiversX. Une adresse déjà suivie pour son seul staking devient un portefeuille entier quand on
+  l'ajoute de nouveau, sans rien compter deux fois.
+- **VeChain** : ses adresses ont la forme de celles d'Ethereum ; une adresse 0x… y est lue aussi (VET et VTHO).
+- **Jetons** : deux cents jetons par chaîne au lieu de cent vingt, et les jetons enveloppés ou de staking liquide
+  entrent dans la table fabriquée (il n'en reste que treize tenus à la main, les versions pontées).
+- **Doublons** : une seule crypto commune suffit à proposer « Compté deux fois ? » quand sa quantité n'a rien de
+  rond.
+
+Pour celui qui héberge : aucune migration, aucun réglage nouveau. Le serveur interroge en plus, pour les seules
+adresses ajoutées, api.koios.rest (Cardano), api.multiversx.com (déjà employé) et mainnet.vechain.org.
+
 ## 1.42.0
 
 Crypto : les doublons se signalent d'eux-mêmes, quel que soit l'outil, et les jetons enveloppés ou de staking

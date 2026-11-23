@@ -76,7 +76,11 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
 - **Factures** — `invoices`, `invoice_items` ; lecture par l'IA, rapprochement avec l'opération qui l'a payée
   (`src/lib/invoices.ts`), ventilation de l'opération d'après les articles.
 - **Patrimoine** — `assets`, `loans` et `loan_schedule`, `crypto_positions`, `prices`, `wealth_snapshots` (un
-  instantané par membre et par jour). Le capital restant dû d'un crédit est celui de la dernière échéance passée
+  instantané par membre et par jour). Les quantités crypto viennent de sources par membre (`crypto_sources`,
+  `src/server/crypto.ts`) : un portefeuille lu par son adresse publique, sans intermédiaire ni clé
+  (`src/server/chains/` : Bitcoin, Ethereum et chaînes compatibles, Solana ; genres et reconnaissance d'une adresse
+  dans `src/lib/crypto-chains.ts`, jetons lus dans `src/lib/crypto-tokens.ts`), le compte CoinStats du foyer s'il en
+  a un, ou la saisie à la main. Le capital restant dû d'un crédit est celui de la dernière échéance passée
   de son échéancier (`src/lib/loans.ts`). Un placement peut suivre les versements qu'il rapporte
   (`assets.payout_match`, `src/server/payouts.ts`, `src/lib/payouts.ts`) : ce sont les entrées d'argent dont le
   libellé porte son texte, lues dans les opérations ; avec `valuation = 'versements'`, sa valeur est le dernier

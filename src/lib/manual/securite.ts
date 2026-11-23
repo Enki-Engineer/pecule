@@ -190,6 +190,7 @@ export const securite: ManualTheme = {
             tk("La banque : un prestataire agréé lit tes comptes avec ton accord, en lecture seule. Pécule ne peut initier aucun paiement."),
             tk("L'IA : si un fournisseur est branché, il reçoit les questions posées à l'assistant et les documents à lire."),
             tk("Les cours : les services de cours de bourse et de cryptomonnaies reçoivent le nom des titres suivis, pas tes montants."),
+            tk("Les portefeuilles crypto : l'adresse publique que tu ajoutes est demandée aux services publics qui lisent la blockchain. Ils voient l'adresse, pas ton nom ni le reste de tes comptes."),
             tk("Les mises à jour : une fois par jour, le serveur demande à GitHub quelle est la dernière version de Pécule. Aucune donnée du foyer ne part avec la question ; celui qui héberge peut la couper."),
             tk("Les clés saisies dans l'appli sont gardées chiffrées."),
           ],

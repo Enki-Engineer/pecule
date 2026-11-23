@@ -365,6 +365,10 @@ export type CryptoSource = {
   lastTotalEur: number | null;
   lastSyncedAt: string | null;
   note: string | null;
+  /** Lu par son adresse publique, sans intermédiaire (sinon : un portefeuille du compte CoinStats). */
+  direct: boolean;
+  /** Adresse abrégée d'un portefeuille lu directement, quand il en a une seule. */
+  address: string | null;
 };
 
 export type CryptoStatus = {

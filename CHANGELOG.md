@@ -3,6 +3,37 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.39.0
+
+Un portefeuille crypto se suit par son adresse publique : plus besoin d'un compte CoinStats, ni d'aucune clé.
+
+- **Ajouter un portefeuille** (écran Crypto, téléphone et ordinateur) : on colle l'adresse, Pécule reconnaît la
+  blockchain, montre ce qu'il a trouvé, puis relit le portefeuille chaque jour, sans intermédiaire. Chaque membre
+  ajoute les siens ; ils n'apparaissent que chez lui.
+- **Ce qui est lu** : Bitcoin par une adresse ou par la clé publique étendue d'un compte (xpub, ypub, zpub — un
+  Ledger ou un Trezor change d'adresse à chaque réception, la clé les couvre toutes, dans les quatre formes
+  d'adresse) ; Ethereum et huit chaînes compatibles par une seule adresse (Base, Arbitrum, Optimism, Polygon, BNB
+  Chain, Avalanche, Gnosis, Linea : la monnaie de chaque chaîne et les jetons les plus courants) ; Solana
+  (portefeuille, staking, jetons courants) ; et, comme avant mais désormais à l'écran, les EGLD délégués sur
+  MultiversX et un validateur Ethereum.
+- **Garde-fous** : une adresse publique ne permet que de lire ; une phrase de récupération ou une clé privée collée
+  par erreur est reconnue et refusée avant tout envoi ; une adresse mal recopiée est refusée par sa somme de
+  contrôle ; si la blockchain ne répond pas un jour, les quantités de la veille sont gardées.
+- **Pas de double compte** : à l'ajout, on peut dire que le portefeuille est déjà suivi dans CoinStats (ses cryptos
+  n'y sont plus comptées), et Pécule signale la ligne saisie à la main qui ferait doublon, à archiver d'un geste.
+- Un portefeuille ajouté se décoche ou se retire ; « Relire les portefeuilles » les relit sans attendre. CoinStats
+  reste possible à côté et rien ne change pour une installation qui s'en sert. Un exchange ne se lit pas par une
+  adresse : CoinStats ou la saisie à la main, comme avant.
+- Ce qui n'est pas lu : les jetons rares (hors des quelque 680 contrats les mieux capitalisés), les NFT et les
+  dépôts dans un protocole.
+
+Pour celui qui héberge : aucune clé ni réglage nouveau. Le serveur interroge des services publics, en lecture, par
+des adresses écrites dans le code : blockchain.info (Bitcoin ; blockstream.info et mempool.space en secours), des
+nœuds publics pour Ethereum et ses chaînes (publicnode, 1rpc, nœuds officiels) et le nœud public de Solana. Ils
+reçoivent les adresses publiques ajoutées, rien d'autre. Migration `0036_sources_crypto_directes` (une colonne :
+la clé étendue d'un compte Bitcoin, gardée chiffrée). Quatre paquets nouveaux à l'exécution, pour dériver les
+adresses d'un compte : `@scure/bip32`, `@scure/base`, `@noble/curves`, `@noble/hashes`.
+
 ## 1.38.3
 
 Mise à jour des dépendances et des outils de fabrication. Rien ne change dans l'usage ; aucune migration, aucun

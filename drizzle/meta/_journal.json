@@ -78,6 +78,13 @@
       "when": 1795367645251,
       "tag": "0035_virements_entre_comptes",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "5",
+      "when": 1795433896137,
+      "tag": "0036_sources_crypto_directes",
+      "breakpoints": true
     }
   ]
 }

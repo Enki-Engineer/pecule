@@ -10,7 +10,7 @@ import { z } from "zod";
 import { db, exec, one, q } from "../db.ts";
 import { desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { alerts, auditLog, users } from "../db/schema/index.ts";
-import { acceptSourceValue, addChainSource, cryptoStatus, restoreManualLine, setSourceEnabled, syncCrypto } from "../crypto.ts";
+import { acceptSourceValue, addWallet, archiveManualLine, cryptoStatus, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
 import { requireAdmin, requireApiToken, requireAuth, requireSyncAccess, createEnrollmentLink } from "../auth.ts";
 import { guessCategory, lastSyncRuns, markCardDuplicates, fintaConnections, fintaEnabled } from "../finta.ts";
 import { syncBanks } from "../bank-sync.ts";
@@ -508,14 +508,12 @@ api.get("/crypto", async (req, res) => {
   res.json({ ...(await cryptoPositions(req.user!.id)), status: await cryptoStatus(req.user!.id) });
 });
 
-/** Synchro CoinStats à la demande (quantités de tous les portefeuilles du compte). */
+/** Synchro à la demande : portefeuilles lus sur la blockchain, et compte CoinStats du foyer s'il y en a un. */
 api.post("/crypto/sync", hourly(6), async (req, res) => {
   const r = await syncCrypto("manuel");
-  if (r === null) throw new ActionError(409, tr("Une synchro crypto est déjà en cours, ou CoinStats n'est pas configuré"));
-  // Ce que la synchro a lu ne regarde que le titulaire des portefeuilles (comme `cryptoStatus`) ; leur valeur totale
-  // n'est rendue à personne ici : l'écran la relit par l'état.
-  const mine = await one("SELECT 1 AS x FROM crypto_sources WHERE owner_user_id = ? LIMIT 1", [req.user!.id]);
-  res.json(mine ? { sources: r.sources, lines: r.lines, archived: r.archived } : {});
+  if (r === null) throw new ActionError(409, tr("Une synchro crypto est déjà en cours, ou aucun portefeuille n'est à relire"));
+  // Chacun n'apprend que ce qui est à lui : ses portefeuilles, ses lignes.
+  res.json(await syncSummary(req.user!.id, r));
 });
 
 /** Inclure ou exclure un portefeuille CoinStats du patrimoine. */
@@ -529,21 +527,34 @@ api.patch("/crypto/sources/:id", async (req, res) => {
 api.post("/crypto/sources/:id/accept", hourly(12), async (req, res) => {
   if (!(await acceptSourceValue(req.user!.id, z.string().max(96).parse(req.params.id)))) throw new ActionError(409, tr("Ce portefeuille n'attend pas de confirmation"));
   const r = await syncCrypto("manuel");
-  if (r === null) throw new ActionError(409, tr("Une synchro crypto est déjà en cours, ou CoinStats n'est pas configuré"));
-  // Ce que la synchro a lu ne regarde que le titulaire des portefeuilles (comme `cryptoStatus`) ; leur valeur totale
-  // n'est rendue à personne ici : l'écran la relit par l'état.
-  const mine = await one("SELECT 1 AS x FROM crypto_sources WHERE owner_user_id = ? LIMIT 1", [req.user!.id]);
-  res.json(mine ? { sources: r.sources, lines: r.lines, archived: r.archived } : {});
+  if (r === null) throw new ActionError(409, tr("Une synchro crypto est déjà en cours, ou aucun portefeuille n'est à relire"));
+  res.json(await syncSummary(req.user!.id, r));
 });
 
-/** Ajouter une source lue sur la blockchain (staking EGLD MultiversX, validateur Ethereum). */
-api.post("/crypto/onchain", async (req, res) => {
-  const b = z
-    .object({ chain: z.enum(["multiversx", "ethereum"]), address: z.string().max(110), name: z.string().min(1).max(160), replaces: z.string().max(96).nullish() })
-    .parse(req.body);
-  res.json(await addChainSource(req.user!.id, b.chain, b.address, b.name, b.replaces).catch((e) => {
-    throw new ActionError(400, e instanceof Error ? e.message : String(e));
-  }));
+/**
+ * Ajouter un portefeuille lu par son adresse publique (Bitcoin, Ethereum et chaînes compatibles, Solana, clé étendue
+ * d'un compte Bitcoin, staking MultiversX, validateur Ethereum) : reconnu, contrôlé et lu tout de suite.
+ */
+api.post("/crypto/sources", hourly(30), async (req, res) => {
+  const b = z.object({ address: z.string().min(1).max(200), name: z.string().max(160).nullish(), replaces: z.string().max(96).nullish() }).parse(req.body);
+  res.json(
+    await addWallet(req.user!.id, b).catch((e) => {
+      throw new ActionError(400, e instanceof Error ? e.message : String(e));
+    }),
+  );
+});
+
+/** Retirer un portefeuille lu par son adresse (ceux de CoinStats se décochent : ils reviendraient à la synchro). */
+api.delete("/crypto/sources/:id", async (req, res) => {
+  if (!(await removeWallet(req.user!.id, z.string().max(96).parse(req.params.id)))) throw new ActionError(404, tr("Portefeuille introuvable"));
+  res.json({ ok: true });
+});
+
+/** Archiver une ligne saisie à la main qu'un portefeuille ajouté vient remplacer. */
+api.post("/crypto/:id/archive", async (req, res) => {
+  const { portfolioId } = z.object({ portfolioId: z.string().max(96) }).parse(req.body);
+  if (!(await archiveManualLine(req.user!.id, Number(req.params.id), portfolioId))) throw new ActionError(404, tr("Portefeuille introuvable"));
+  res.json({ ok: true });
 });
 
 /** Remettre en compte une ligne manuelle archivée. */

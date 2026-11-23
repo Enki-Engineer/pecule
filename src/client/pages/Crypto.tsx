@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, RefreshCw } from "lucide-react";
+import { ChevronDown, Plus, RefreshCw, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, useCrypto, type CryptoPosition, type CryptoSource, type CryptoStatus } from "../api.ts";
@@ -8,6 +8,7 @@ import { Card, ErrorBox, Field, PageHeader, Segmented, Sheet, Spinner } from "..
 import { dateFr, money, moneySymbol, pct, timeAgo } from "../format.ts";
 import { useCryptoEvents, type CryptoEvent } from "../api-situation.ts";
 import { BrandLogo, CoinLogo } from "../components/Logo.tsx";
+import { AddWalletSheet } from "../components/CryptoWallet.tsx";
 import { useMedia } from "../useMedia.ts";
 import { Stat, StatGrid } from "../components/blocks.tsx";
 import { DataTable, type Column } from "../components/DataTable.tsx";
@@ -40,6 +41,7 @@ export function Crypto() {
   const [open, setOpen] = useState<Group | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [showSmall, setShowSmall] = useState(false);
+  const [adding, setAdding] = useState(false);
   const desktop = useMedia("(min-width: 768px)");
 
   const groups = useMemo(() => bySymbol(data?.positions ?? []), [data]);
@@ -69,8 +71,9 @@ export function Crypto() {
   if (desktop && data && st)
     return (
       <>
-        <CryptoDesktop data={data} st={st} groups={groups} onOpen={setOpen} syncing={syncing} onSync={sync} />
+        <CryptoDesktop data={data} st={st} groups={groups} onOpen={setOpen} syncing={syncing} onSync={sync} onAdd={() => setAdding(true)} />
         <GroupSheet g={open} onClose={() => setOpen(null)} />
+        <AddWalletSheet open={adding} onClose={() => setAdding(false)} st={st} />
       </>
     );
   return (
@@ -78,10 +81,17 @@ export function Crypto() {
       <PageHeader
         title={t("Crypto")}
         right={
-          st?.enabled ? (
-            <button type="button" onClick={sync} disabled={syncing} className="press grid size-10 place-items-center rounded-full bg-card text-accent ring-1 ring-line" aria-label={t("Synchroniser CoinStats")}>
-              <RefreshCw size={18} className={clsx(syncing && "animate-spin")} />
-            </button>
+          st ? (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setAdding(true)} className="press grid size-10 place-items-center rounded-full bg-card text-accent ring-1 ring-line" aria-label={t("Ajouter un portefeuille")}>
+                <Plus size={20} />
+              </button>
+              {canSync(st) && (
+                <button type="button" onClick={sync} disabled={syncing} className="press grid size-10 place-items-center rounded-full bg-card text-accent ring-1 ring-line" aria-label={syncLabel(st)}>
+                  <RefreshCw size={18} className={clsx(syncing && "animate-spin")} />
+                </button>
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -131,27 +141,35 @@ export function Crypto() {
               )}
             </Card>
           ) : (
-            <Portfolios positions={data.positions} st={st} />
+            <Portfolios positions={data.positions} st={st} onAdd={() => setAdding(true)} />
           )}
 
           <Archived st={st} />
 
           <Journal />
 
-          <p className="px-1 text-xs leading-relaxed text-muted">
-            {t("Quantités :")} <b>Powered by CoinStats</b> {t("(synchro quotidienne de tous les portefeuilles du compte, ou bouton ↻).")} {t("Cours :")} <b>Data provided by CoinGecko</b>,{" "}
-            {t("toutes les heures ; cours CoinStats du jour pour les petites lignes. Les lignes saisies à la main restent modifiables ; celles que CoinStats couvre sont archivées automatiquement.")}
-          </p>
+          <Sources st={st} className="px-1 text-xs leading-relaxed text-muted" />
         </div>
       )}
       <GroupSheet g={open} onClose={() => setOpen(null)} />
+      {st && <AddWalletSheet open={adding} onClose={() => setAdding(false)} st={st} />}
     </>
   );
 }
 
+/** Il y a quelque chose à relire : le compte CoinStats du foyer, ou un portefeuille ajouté par son adresse. */
+const canSync = (st: CryptoStatus) => st.enabled || st.sources.some((s) => s.direct && s.enabled);
+const syncLabel = (st: CryptoStatus) => (st.enabled ? t("Synchroniser CoinStats") : t("Relire les portefeuilles"));
+
 function SyncLine({ st }: { st: CryptoStatus }) {
-  if (!st.enabled) return <div className="mt-2 text-xs text-warn">{t("CoinStats n'est pas configuré : quantités saisies à la main.")}</div>;
   const r = st.lastRun;
+  if (!st.enabled) {
+    // Sans CoinStats : les portefeuilles ajoutés par leur adresse sont relus chaque jour, le reste est saisi.
+    const read = st.sources.filter((s) => s.direct && s.enabled);
+    if (!read.length) return <div className="mt-2 text-xs text-muted">{t("Aucun portefeuille relié : ajoute-en un par son adresse, ou saisis tes positions à la main.")}</div>;
+    const last = read.map((s) => s.lastSyncedAt).filter(Boolean).sort().at(-1);
+    return <div className="mt-2 text-xs text-muted">{tn("{n} portefeuille lu sur la blockchain {quand}", "{n} portefeuilles lus sur la blockchain {quand}", read.length, { quand: timeAgo(last ?? null) })}</div>;
+  }
   if (!r) return <div className="mt-2 text-xs text-muted">{t("Quantités CoinStats : jamais synchronisées.")}</div>;
   return (
     <div className={clsx("mt-2 text-xs", r.status === "error" ? "text-neg" : "text-muted")}>
@@ -161,6 +179,25 @@ function SyncLine({ st }: { st: CryptoStatus }) {
           ? t("Quantités CoinStats : synchro en cours…")
           : tn("Quantités CoinStats : {quand} · {n} portefeuille", "Quantités CoinStats : {quand} · {n} portefeuilles", r.sources, { quand: timeAgo(r.finishedAt) })}
     </div>
+  );
+}
+
+/** D'où viennent les quantités et les cours : dit en bas de l'écran, selon ce que le foyer a relié. */
+function Sources({ st, className }: { st: CryptoStatus; className: string }) {
+  const direct = st.sources.some((s) => s.direct);
+  return (
+    <p className={className}>
+      {st.enabled && (
+        <>
+          {t("Quantités :")} <b>Powered by CoinStats</b> {t("(synchro quotidienne de tous les portefeuilles du compte).")}{" "}
+        </>
+      )}
+      {direct && <>{t("Les portefeuilles ajoutés par leur adresse sont lus sur la blockchain une fois par jour, sans intermédiaire.")} </>}
+      {t("Cours :")} <b>Data provided by CoinGecko</b>, {t("toutes les heures.")}{" "}
+      {st.enabled
+        ? t("Cours CoinStats du jour pour les petites lignes. Les lignes saisies à la main restent modifiables ; celles que CoinStats couvre sont archivées automatiquement.")
+        : t("Les lignes saisies à la main restent modifiables.")}
+    </p>
   );
 }
 
@@ -196,12 +233,16 @@ const TYPES: Record<string, string> = {
   manual: t("saisi dans CoinStats"),
   wallet: t("wallet"),
   exchange: t("exchange"),
+  btc: t("lu sur la blockchain"),
+  "btc-xpub": t("compte entier, lu sur la blockchain"),
+  evm: t("lu sur la blockchain"),
+  sol: t("lu sur la blockchain"),
   "mvx-staking": t("lu sur la blockchain"),
   "eth-validator": t("validateur, lu sur la blockchain"),
 };
 const STATUS: Record<CryptoSource["status"], string> = { ok: "", vide: t("vide"), doublon: t("doublon ignoré"), a_verifier: t("à vérifier"), erreur: t("erreur") };
 
-function Portfolios({ positions, st }: { positions: CryptoPosition[]; st: CryptoStatus }) {
+function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st: CryptoStatus; onAdd: () => void }) {
   const qc = useQueryClient();
   const manual = positions.filter((p) => p.source === "manuel");
   const toggle = (s: CryptoSource) =>
@@ -222,6 +263,17 @@ function Portfolios({ positions, st }: { positions: CryptoPosition[]; st: Crypto
       setAccepting(null);
     }
   };
+  // Un portefeuille ajouté par son adresse se retire ; un portefeuille CoinStats se décoche (il reviendrait).
+  const remove = async (s: CryptoSource) => {
+    if (!confirm(t("Retirer « {nom} » ? Ses lignes ne seront plus comptées. Tu pourras l'ajouter de nouveau par son adresse.", { nom: s.name }))) return;
+    try {
+      await api(`/crypto/sources/${encodeURIComponent(s.portfolioId)}`, { method: "DELETE" });
+      await Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
+      toast.success(t("Portefeuille retiré"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("Enregistrement impossible"));
+    }
+  };
   const sources = [...st.sources].sort((a, b) => valueOf(positions, b) - valueOf(positions, a));
   return (
     <Card className="divide-y divide-line">
@@ -235,15 +287,24 @@ function Portfolios({ positions, st }: { positions: CryptoPosition[]; st: Crypto
                 <div className={clsx("truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</div>
                 <div className="truncate text-xs text-muted" title={s.note ?? undefined}>
                   {TYPES[s.type] ?? s.type}
+                  {s.address && ` · ${s.address}`}
                   {s.lines ? ` · ${tn("{n} ligne", "{n} lignes", s.lines)}` : ""}
                   {STATUS[s.status] && <span className={clsx("ml-1 font-medium", s.status === "a_verifier" || s.status === "erreur" ? "text-warn" : "")}> · {STATUS[s.status]}</span>}
                 </div>
               </div>
               <span className="tnum text-sm font-semibold">{money(v, v >= 1000)}</span>
               <label className="flex items-center gap-1 text-xs text-muted">
-                <input type="checkbox" checked={!!s.enabled} onChange={() => toggle(s)} className="size-[18px] accent-[var(--color-accent)]" />
+                <input type="checkbox" checked={!!s.enabled} onChange={() => toggle(s)} className="size-[18px] accent-[var(--color-accent)]" aria-label={t("Compter « {nom} »", { nom: s.name })} />
               </label>
+              {s.direct && (
+                <button type="button" onClick={() => remove(s)} className="press -mr-1 grid size-8 place-items-center rounded-full text-muted hover:text-ink" aria-label={t("Retirer ce portefeuille")} title={t("Retirer ce portefeuille")}>
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
+            {s.direct && s.status === "erreur" && !!s.enabled && (
+              <div className="mt-2 text-xs text-muted">{t("Lecture impossible à la dernière synchro : Pécule garde les quantités d'avant et réessaiera.")}</div>
+            )}
             {s.status === "a_verifier" && !!s.enabled && (
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                 <span className="min-w-0 flex-1">{t("CoinStats rend ce portefeuille vide ou bien plus bas qu'avant. Tant que tu ne confirmes pas, Pécule garde ses positions d'avant.")}</span>
@@ -259,12 +320,15 @@ function Portfolios({ positions, st }: { positions: CryptoPosition[]; st: Crypto
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-medium">{t("Saisies à la main")}</div>
-            <div className="truncate text-xs text-muted">{t("{cryptos} — non vues par CoinStats", { cryptos: manual.map((m) => m.symbol).join(", ") })}</div>
+            <div className="truncate text-xs text-muted">{st.enabled ? t("{cryptos} — non vues par CoinStats", { cryptos: manual.map((m) => m.symbol).join(", ") }) : manual.map((m) => m.symbol).join(", ")}</div>
           </div>
           <span className="tnum text-sm font-semibold">{money(manual.reduce((s, m) => s + (m.value ?? 0), 0))}</span>
         </div>
       )}
       {!sources.length && !manual.length && <div className="px-4 py-3 text-sm text-muted">{t("Aucun portefeuille.")}</div>}
+      <button type="button" onClick={onAdd} className="press flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-accent">
+        <Plus size={16} /> {t("Ajouter un portefeuille")}
+      </button>
     </Card>
   );
 }
@@ -413,6 +477,7 @@ function CryptoDesktop({
   onOpen,
   syncing,
   onSync,
+  onAdd,
 }: {
   data: CryptoData;
   st: CryptoStatus;
@@ -420,6 +485,7 @@ function CryptoDesktop({
   onOpen: (g: Group) => void;
   syncing: boolean;
   onSync: () => void;
+  onAdd: () => void;
 }) {
   const [showSmall, setShowSmall] = useState(false);
   const rows = showSmall ? groups : groups.filter((g) => g.value >= SMALL);
@@ -483,13 +549,18 @@ function CryptoDesktop({
     <>
       <PageHeader
         title={t("Crypto")}
-        subtitle={`${t("Cours {quand}", { quand: timeAgo(data.pricesAt) })} · Powered by CoinStats · Data provided by CoinGecko`}
+        subtitle={`${t("Cours {quand}", { quand: timeAgo(data.pricesAt) })}${st.enabled ? " · Powered by CoinStats" : ""} · Data provided by CoinGecko`}
         right={
-          st.enabled ? (
-            <button type="button" onClick={onSync} disabled={syncing} className="flex items-center gap-1.5 rounded-md border border-line bg-card px-3 py-1.5 text-[13px] font-medium hover:bg-bg">
-              <RefreshCw size={14} className={clsx(syncing && "animate-spin")} /> {t("Synchroniser CoinStats")}
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onAdd} className="flex items-center gap-1.5 rounded-md border border-line bg-card px-3 py-1.5 text-[13px] font-medium hover:bg-bg">
+              <Plus size={14} /> {t("Ajouter un portefeuille")}
             </button>
-          ) : undefined
+            {canSync(st) && (
+              <button type="button" onClick={onSync} disabled={syncing} className="flex items-center gap-1.5 rounded-md border border-line bg-card px-3 py-1.5 text-[13px] font-medium hover:bg-bg">
+                <RefreshCw size={14} className={clsx(syncing && "animate-spin")} /> {syncLabel(st)}
+              </button>
+            )}
+          </div>
         }
       />
       <StatGrid>
@@ -545,7 +616,7 @@ function CryptoDesktop({
           </Card>
           <div>
             <h2 className="mb-2 font-semibold">{t("Portefeuilles")}</h2>
-            <Portfolios positions={data.positions} st={st} />
+            <Portfolios positions={data.positions} st={st} onAdd={onAdd} />
           </div>
           <Archived st={st} />
         </div>
@@ -553,10 +624,7 @@ function CryptoDesktop({
           <JournalTable />
         </div>
       </div>
-      <p className="mt-4 text-[12px] leading-relaxed text-muted">
-        {t("Quantités :")} <b>Powered by CoinStats</b> {t("(synchro quotidienne de tous les portefeuilles du compte).")} {t("Cours :")} <b>Data provided by CoinGecko</b>,{" "}
-        {t("toutes les heures ; cours CoinStats du jour pour les petites lignes. Les lignes saisies à la main restent modifiables ; celles que CoinStats couvre sont archivées automatiquement.")}
-      </p>
+      <Sources st={st} className="mt-4 text-[12px] leading-relaxed text-muted" />
     </>
   );
 }

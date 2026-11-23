@@ -1,7 +1,7 @@
 {
   "name": "pecule",
   "private": true,
-  "version": "1.38.3",
+  "version": "1.39.0",
   "type": "module",
   "description": "Suivi des finances d'un foyer, auto-hébergé : comptes, opérations, patrimoine, factures, documents.",
   "engines": {
@@ -32,6 +32,10 @@
   "dependencies": {
     "@anthropic-ai/foundry-sdk": "^1.1.1",
     "@anthropic-ai/sdk": "^1.11.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@scure/base": "^2.4.0",
+    "@scure/bip32": "^2.4.0",
     "@simplewebauthn/server": "^14.1.0",
     "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",

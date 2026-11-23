@@ -62,7 +62,7 @@ export function Wealth() {
               </span>
               <div className="flex-1">
                 <div className="font-semibold">{t("Crypto")}</div>
-                <div className="text-xs text-muted">{tn("{n} crypto · quantités CoinStats, cours CoinGecko", "{n} cryptos · quantités CoinStats, cours CoinGecko", new Set(w.crypto.positions.map((p) => p.symbol.toUpperCase())).size)}</div>
+                <div className="text-xs text-muted">{tn("{n} crypto · cours CoinGecko", "{n} cryptos · cours CoinGecko", new Set(w.crypto.positions.map((p) => p.symbol.toUpperCase())).size)}</div>
               </div>
               <div className="text-right">
                 <div className="tnum font-semibold">{money(w.crypto.total, true)}</div>

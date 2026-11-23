@@ -119,27 +119,45 @@ export const patrimoine: ManualTheme = {
     {
       id: "crypto",
       title: tk("Suivre ses cryptomonnaies"),
-      summary: tk("Positions, cours et portefeuilles, par CoinStats ou saisis à la main."),
+      summary: tk("Portefeuilles lus par leur adresse, compte CoinStats ou positions saisies à la main."),
       module: "crypto",
       body: [
-        tk("L'écran [[Crypto]] donne la valeur totale, la variation sur 24 heures, les positions par crypto et par portefeuille, et le journal des mouvements."),
+        tk("L'écran [[Crypto]] donne la valeur totale, la variation sur 24 heures, les positions par crypto et par portefeuille, et le journal des mouvements. Les quantités arrivent par trois voies, qui se combinent."),
         {
           list: [
-            tk("Avec CoinStats : les quantités de tous les portefeuilles de ton compte sont lues une fois par jour ; [[Synchroniser CoinStats]] les relit tout de suite."),
-            tk("Les cours viennent de CoinGecko et se rafraîchissent d'eux-mêmes."),
-            tk("Décoche un portefeuille pour l'écarter du total."),
-            tk("Un portefeuille que CoinStats rend vide, ou bien plus bas qu'à la lecture d'avant, est marqué « [[à vérifier]] » et garde ses positions : sa connexion est peut-être cassée. S'il a vraiment été vidé ou vendu, [[C'est exact]] confirme la nouvelle valeur."),
-            tk("Sans CoinStats, les positions sont saisies à la main : demande à l'assistant d'en ajouter une, puis touche une crypto pour corriger sa quantité."),
+            tk("Par l'adresse publique du portefeuille : [[Ajouter un portefeuille]], colle l'adresse, Pécule reconnaît la blockchain, montre ce qu'il a trouvé, puis relit le portefeuille chaque jour. Aucun compte à ouvrir, aucune clé à créer ; chaque membre ajoute les siens."),
+            tk("Par CoinStats, si le foyer y a un compte : les quantités de tous ses portefeuilles sont lues une fois par jour ; [[Synchroniser CoinStats]] les relit tout de suite."),
+            tk("À la main : demande à l'assistant d'ajouter une position, puis touche une crypto pour corriger sa quantité."),
           ],
         },
-        tk("Les clés de CoinStats et de CoinGecko se saisissent dans [[Réglages]] → [[Comptes et connexions]] ; elles sont réservées à l'administrateur du foyer."),
+        tk("Ce que Pécule lit à une adresse :"),
+        {
+          list: [
+            tk("Bitcoin : une adresse, ou mieux la clé publique étendue du compte (elle commence par xpub, ypub ou zpub). Un Ledger ou un Trezor change d'adresse à chaque réception : la clé étendue les couvre toutes. Elle se trouve dans les détails avancés du compte, dans l'appli du portefeuille."),
+            tk("Ethereum et les chaînes compatibles (Base, Arbitrum, Optimism, Polygon, BNB Chain, Avalanche, Gnosis, Linea) : une seule adresse 0x… pour toutes. Pécule lit la monnaie de chaque chaîne et les jetons les plus courants ; un jeton rare, un NFT ou un dépôt dans un protocole ne sont pas lus."),
+            tk("Solana : les SOL du portefeuille, ceux mis en staking et les jetons les plus courants."),
+            tk("MultiversX (EGLD délégués) et un validateur Ethereum, par son numéro ou sa clé publique."),
+          ],
+        },
+        { warning: tk("Une adresse publique permet de lire, jamais de dépenser. Ne saisis jamais ta phrase de récupération ni une clé privée : Pécule ne les demande pas, et te le dit si tu en colles une.") },
+        {
+          list: [
+            tk("Un exchange (Binance, Coinbase, Kraken…) ne se lit pas par une adresse : ses comptes ne sont pas sur une adresse à toi. Passe par CoinStats, ou saisis la position à la main."),
+            tk("Les cours viennent de CoinGecko et se rafraîchissent d'eux-mêmes."),
+            tk("Décoche un portefeuille pour l'écarter du total. Un portefeuille ajouté par son adresse se retire par la corbeille ([[Retirer ce portefeuille]]) ; [[Relire les portefeuilles]] les relit tous sans attendre le lendemain."),
+            tk("Un même portefeuille suivi deux fois compterait double. À l'ajout, dis s'il est déjà suivi dans CoinStats, et archive la ligne saisie à la main que Pécule te signale ([[Archiver la ligne saisie à la main]])."),
+            tk("Si la blockchain ne répond pas un jour, Pécule garde les quantités de la veille et réessaie."),
+            tk("Un portefeuille que CoinStats rend vide, ou bien plus bas qu'à la lecture d'avant, est marqué « [[à vérifier]] » et garde ses positions : sa connexion est peut-être cassée. S'il a vraiment été vidé ou vendu, [[C'est exact]] confirme la nouvelle valeur."),
+          ],
+        },
+        tk("Les clés de CoinStats et de CoinGecko se saisissent dans [[Réglages]] → [[Comptes et connexions]] ; elles sont réservées à l'administrateur du foyer. Aucune n'est nécessaire pour un portefeuille ajouté par son adresse."),
         { note: tk("Une ligne saisie à la main que CoinStats couvre ensuite est archivée d'elle-même, pour ne pas compter deux fois.") },
       ],
       links: [
         { to: "/patrimoine/crypto", label: ["Crypto"] },
         { to: "/reglages/connexions?c=coinstats", label: ["Réglages", "Comptes et connexions"] },
       ],
-      words: tk("bitcoin ethereum cryptomonnaie wallet portefeuille coinstats coingecko exchange staking"),
+      words: tk("bitcoin ethereum solana cryptomonnaie wallet portefeuille adresse publique xpub ledger trezor metamask phantom coinstats coingecko exchange staking blockchain"),
     },
     {
       id: "projections",

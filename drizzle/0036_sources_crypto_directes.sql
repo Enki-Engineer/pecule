@@ -1,0 +1,1 @@
+ALTER TABLE `crypto_sources` ADD `secret` text;

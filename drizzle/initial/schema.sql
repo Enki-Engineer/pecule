@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0035_virements_entre_comptes.sql
+-- inclut-jusqu-a: drizzle/0036_sources_crypto_directes.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -342,6 +342,7 @@ CREATE TABLE `crypto_sources` (
   `last_synced_at` datetime DEFAULT NULL,
   `note` varchar(255) DEFAULT NULL,
   `replaces_id` varchar(96) DEFAULT NULL,
+  `secret` text DEFAULT NULL,
   PRIMARY KEY (`portfolio_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table crypto_sync_runs

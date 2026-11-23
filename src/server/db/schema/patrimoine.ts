@@ -114,7 +114,11 @@ export const cryptoPositions = mysqlTable(
   ],
 );
 
-/** Portefeuilles CoinStats (feuilles synchronisées ; un portefeuille « parent » ne fait que regrouper). */
+/**
+ * Sources des quantités crypto : portefeuilles CoinStats (feuilles synchronisées ; un portefeuille « parent » ne fait
+ * que regrouper) et portefeuilles lus par leur adresse publique (`type` : un genre de src/lib/crypto-chains.ts,
+ * identifiant « btc:… », « evm:… », « sol:… »).
+ */
 export const cryptoSources = mysqlTable("crypto_sources", {
   portfolioId: varchar("portfolio_id", { length: 96 }).primaryKey(),
   ownerUserId: int("owner_user_id").notNull(),
@@ -130,6 +134,8 @@ export const cryptoSources = mysqlTable("crypto_sources", {
   note: varchar("note", { length: 255 }),
   /** Source lue sur la blockchain : portefeuille CoinStats dont elle remplace l'actif (évite le double compte). */
   replacesId: varchar("replaces_id", { length: 96 }),
+  /** Ce qu'il faut pour relire la source et qui ne s'affiche pas (clé publique étendue d'un compte), chiffré. */
+  secret: text("secret"),
 });
 
 /** Journal des synchros CoinStats (crédits consommés, total, erreurs). */

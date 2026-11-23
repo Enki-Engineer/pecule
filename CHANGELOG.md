@@ -3,6 +3,32 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.44.0
+
+Crypto : voir ce que porte chaque portefeuille, lire un jeton rare, corriger un export incomplet.
+
+- **Les cryptos d'un portefeuille ressortent** : touche un portefeuille ou un exchange dans la liste, et ses cryptos
+  sont mises en avant dans « Par crypto » — fond teinté, filet de couleur, et « dont … ici » quand la crypto est
+  aussi ailleurs. Un bandeau dit le portefeuille choisi, combien de cryptos il porte et pour quelle valeur ;
+  « Tout afficher » revient à la liste entière. Sur téléphone, ses cryptos passent en tête de liste. Vaut aussi
+  pour les lignes saisies à la main.
+- **Jetons rares d'une adresse Ethereum** : en plus des jetons courants de sa table, Pécule demande à un
+  explorateur public (Blockscout, sans clé) tous les jetons de l'adresse, sur Ethereum et Optimism. Il ne garde
+  qu'un jeton au cours et à la capitalisation connus, que l'explorateur ne dit pas frauduleux, et qui vaut plus
+  d'un centime : les jetons déposés pour appâter n'entrent pas. Si l'explorateur ne répond pas, les jetons trouvés
+  la fois d'avant sont gardés. Les explorateurs de Base, d'Arbitrum et de Polygon refusent les programmes : ces
+  chaînes se lisent par la table seule, comme avant.
+- **« Corriger un solde »** pour un portefeuille tenu par ses exports (le crayon de sa ligne) : l'export d'une
+  appli a parfois un trou — celui de l'appli Crypto.com ne contient pas les récompenses « Supercharger » de 2021.
+  On relève le solde que l'appli affiche pour une crypto : Pécule part de lui, et les mouvements des exports
+  déposés ensuite s'y ajoutent, sans rien compter deux fois. Un solde constaté se retire ; la liste dit lesquels
+  sont en place et depuis quand.
+- Vérifié sur un vrai compte Crypto.com, soldes de l'appli en regard : là où l'export est complet, le calcul de
+  Pécule tombe juste ; les écarts viennent des récompenses reçues depuis le dernier export et du trou de 2021.
+
+Aucune migration, aucun réglage nouveau. La lecture des jetons rares interroge deux services de plus
+(`eth.blockscout.com`, `explorer.optimism.io`), avec la seule adresse publique du portefeuille.
+
 ## 1.43.1
 
 Coinbase : la marche à suivre suit le portail d'aujourd'hui.

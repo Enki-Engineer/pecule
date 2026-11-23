@@ -1,7 +1,8 @@
 /*
  * Adresse Ethereum (0x…) lue sur Ethereum et les blockchains compatibles, par des nœuds publics, sans clé :
  * la monnaie native de chaque chaîne et les jetons courants de la table (src/lib/crypto-tokens.ts). Un jeton hors
- * de la table n'est pas lu — c'est aussi ce qui écarte les jetons déposés sans demande.
+ * de la table n'est lu que là où un explorateur public liste les jetons de l'adresse, et seulement s'il a un cours
+ * et une capitalisation connus — c'est ce qui écarte les jetons déposés sans demande.
  */
 
 import { keccak_256 } from "@noble/hashes/sha3.js";
@@ -21,6 +22,17 @@ const RPC: Record<EvmChainKey, string[]> = {
   gnosis: ["https://gnosis-rpc.publicnode.com", "https://rpc.gnosischain.com", "https://1rpc.io/gnosis"],
   linea: ["https://linea-rpc.publicnode.com", "https://rpc.linea.build", "https://1rpc.io/linea"],
 };
+/**
+ * Explorateurs publics (Blockscout) qui listent tous les jetons d'une adresse, sans clé : ils trouvent ce que la
+ * table ne connaît pas. Une chaîne sans explorateur, ou dont l'explorateur ne répond pas, se lit par la table seule.
+ * N'y figurent que ceux qui répondent à un programme : ceux de Base, d'Arbitrum et de Polygon le refusent.
+ */
+const EXPLORERS: Partial<Record<EvmChainKey, string[]>> = {
+  ethereum: ["https://eth.blockscout.com"],
+  optimism: ["https://explorer.optimism.io"],
+};
+/** En dessous, un jeton trouvé par un explorateur est une poussière : il n'est pas gardé. */
+const MIN_USD = 0.01;
 const BALANCE_OF = "0x70a08231";
 const DECIMALS = "0x313ce567";
 const CHUNK = 40;
@@ -77,29 +89,60 @@ async function readChain(chain: (typeof EVM_CHAINS)[number], address: string, ba
   return out;
 }
 
+type Found = { token?: { address_hash?: string; symbol?: string | null; name?: string | null; decimals?: string | null; exchange_rate?: string | null; circulating_market_cap?: string | null; type?: string; reputation?: string | null }; value?: string | null };
+
+/**
+ * Jetons de l'adresse que la table ne connaît pas, trouvés par l'explorateur de la chaîne. N'est gardé qu'un jeton
+ * au cours et à la capitalisation connus, que l'explorateur ne dit pas frauduleux, et qui vaut plus qu'une
+ * poussière : un jeton déposé pour appâter n'a ni l'un ni l'autre. Son cours est celui de l'explorateur, en dollars.
+ */
+async function discover(chain: (typeof EVM_CHAINS)[number], urls: string[], address: string, usdEur: number, get: typeof getJson): Promise<Holding[]> {
+  const known = new Set(tokensOf(chain.key).map(([contract]) => contract.toLowerCase()));
+  const found = await get<Found[]>(urls.map((u) => `${u}/api/v2/addresses/${address}/token-balances`), chain.name);
+  const out: Holding[] = [];
+  for (const f of Array.isArray(found) ? found : []) {
+    const token = f.token;
+    const contract = (token?.address_hash ?? "").toLowerCase();
+    const decimals = Number(token?.decimals);
+    const rate = Number(token?.exchange_rate);
+    const symbol = (token?.symbol ?? "").trim().toUpperCase();
+    if (token?.type !== "ERC-20" || !/^0x[0-9a-f]{40}$/.test(contract) || known.has(contract) || token.reputation === "scam") continue;
+    if (!/^[A-Z0-9.$-]{1,24}$/.test(symbol) || !Number.isInteger(decimals) || decimals < 0 || decimals > 36 || !(rate > 0) || !(Number(token.circulating_market_cap) > 0)) continue;
+    const quantity = toUnits(/^\d+$/.test(f.value ?? "") ? BigInt(f.value!) : 0n, decimals);
+    if (quantity * rate < MIN_USD) continue;
+    out.push({ key: `${chain.key}+:${contract}`, symbol, name: (token.name ?? symbol).trim().slice(0, 80), coingeckoId: null, quantity, place: chain.name, priceEur: usdEur > 0 ? rate * usdEur : undefined });
+  }
+  return out;
+}
+
 /**
  * Tout ce que l'adresse détient, chaîne par chaîne. Une chaîne dont aucun nœud ne répond est rendue dans `unread`
  * (le début de la clé de ses lignes) : ses lignes d'avant sont gardées, le reste est à jour. Si aucune chaîne ne répond, la lecture échoue.
  */
-export async function readEvmAddress(address: string, batch: typeof rpcBatch = rpcBatch, get: typeof getJson = getJson) {
+export async function readEvmAddress(address: string, batch: typeof rpcBatch = rpcBatch, get: typeof getJson = getJson, usdEur = 0) {
   if (!isEvmAddress(address)) throw new Error("Adresse Ethereum invalide");
   type Chain = (typeof EVM_CHAINS)[number];
-  const results = await pooled([...EVM_CHAINS], 3, async (chain): Promise<{ chain: Chain; holdings: Holding[]; error: string | null }> => {
+  const results = await pooled([...EVM_CHAINS], 3, async (chain): Promise<{ chain: Chain; holdings: Holding[]; error: string | null; rare: Holding[] | null }> => {
+    // Les jetons hors de la table : cherchés à part, pour que leur explorateur n'empêche jamais de lire la chaîne.
+    const explorer = EXPLORERS[chain.key];
+    const rare = explorer ? discover(chain, explorer, address, usdEur, get).catch(() => null) : Promise.resolve<Holding[]>([]);
     try {
-      return { chain, holdings: await readChain(chain, address, batch), error: null };
+      return { chain, holdings: await readChain(chain, address, batch), error: null, rare: await rare };
     } catch (e) {
-      return { chain, holdings: [], error: e instanceof Error ? e.message : String(e) };
+      return { chain, holdings: [], error: e instanceof Error ? e.message : String(e), rare: await rare };
     }
   });
   const failed = results.filter((r) => r.error !== null);
   if (failed.length === results.length) throw new Error(failed[0].error ?? "aucune chaîne lue");
-  const holdings = results.flatMap((r) => r.holdings);
+  const holdings = results.flatMap((r) => [...r.holdings, ...(r.rare ?? [])]);
+  // Un explorateur muet : les jetons qu'il avait trouvés gardent leur ligne d'avant.
+  const silent = results.filter((r) => r.rare === null).map((r) => `${r.chain.key}+:`);
   const vechain = await readVechain(address, get).catch(() => null);
   if (vechain) holdings.push(...vechain);
   const chains = new Set(holdings.map((h) => h.place));
   return {
     holdings,
-    unread: [...failed.map((r) => `${r.chain.key}:`), ...(vechain ? [] : ["vechain:"])],
+    unread: [...failed.map((r) => `${r.chain.key}:`), ...silent, ...(vechain ? [] : ["vechain:"])],
     note: `${holdings.length} lignes sur ${chains.size} chaînes${failed.length ? ` · non lues cette fois : ${failed.map((r) => r.chain.name).join(", ")}` : ""}`,
   };
 }

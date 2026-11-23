@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balancesOf, isCryptocomExport, parseCryptocomExport } from "./crypto-files.ts";
+import { balancesOf, isCryptocomExport, OBSERVED, parseCryptocomExport } from "./crypto-files.ts";
 
 const HEADER = "Timestamp (UTC),Transaction Description,Currency,Amount,To Currency,To Amount,Native Currency,Native Amount,Native Amount (in USD),Transaction Kind,Transaction Hash";
 const file = (...rows: string[]) => `﻿${[HEADER, ...rows].join("\n")}\n`;
@@ -83,5 +83,27 @@ describe("export de l'appli Crypto.com", () => {
     const trade = parseCryptocomExport(file("2026-02-20 08:00:00,BTC -> ETH,BTC,-0.0008,ETH,0.028,EUR,45,48,crypto_exchange,"))!.moves;
     expect(trade.map((m) => [m.symbol, m.amount])).toEqual([["BTC", -0.0008], ["ETH", 0.028]]);
     expect(trade[0].key).not.toBe(trade[1].key);
+  });
+
+  it("part du solde constaté d'une crypto et n'y ajoute que ce qui vient après", () => {
+    const moves = [
+      { symbol: "BTC", amount: 0.01, at: "2026-01-10 08:00:00", kind: "viban_purchase" },
+      { symbol: "BTC", amount: 0.002, at: "2026-02-01 08:00:00", kind: "supercharger_reward_to_app_credited" },
+      // L'appli affiche 0,0125 BTC le 1er mars : l'export a un trou de 0,0005.
+      { symbol: "BTC", amount: 0.0125, at: "2026-03-01 12:00:00", kind: OBSERVED },
+      { symbol: "BTC", amount: 0.001, at: "2026-03-05 08:00:00", kind: "supercharger_reward_to_app_credited" },
+      // Une crypto que l'export ne cite jamais, et une autre sans solde constaté.
+      { symbol: "SHIB", amount: 150000, at: "2026-03-01 12:00:00", kind: OBSERVED },
+      { symbol: "CRO", amount: 40, at: "2026-01-02 08:00:00", kind: "mco_stake_reward" },
+    ];
+    const balances = balancesOf(moves);
+    expect(balances.get("BTC")).toBeCloseTo(0.0135);
+    expect(balances.get("SHIB")).toBe(150000);
+    expect(balances.get("CRO")).toBe(40);
+    // Un solde constaté plus récent remplace l'ancien ; un export déposé ensuite, qui recouvre le passé, ne change rien.
+    const later = [...moves, { symbol: "BTC", amount: 0.02, at: "2026-04-01 09:00:00", kind: OBSERVED }, { symbol: "BTC", amount: 0.5, at: "2025-12-01 08:00:00", kind: "crypto_deposit" }];
+    expect(balancesOf(later).get("BTC")).toBe(0.02);
+    // Constaté à zéro : la crypto ne compte plus rien, jusqu'au prochain mouvement.
+    expect(balancesOf([...moves, { symbol: "CRO", amount: 0, at: "2026-02-01 00:00:00", kind: OBSERVED }]).get("CRO")).toBe(0);
   });
 });

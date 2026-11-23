@@ -22,10 +22,18 @@ describe("isEvmAddress", () => {
 });
 
 /** Faux VeChain : rien à cette adresse, ou ce qu'on lui donne ; `null` : le nœud ne répond pas. */
-const vechain = (account: { balance: string; energy: string } | null = { balance: "0x0", energy: "0x0" }) => async <T>(): Promise<T> => {
-  if (!account) throw new Error("VeChain illisible");
-  return account as T;
-};
+/** `found` : ce que l'explorateur de chaque chaîne (par son nom) liste à cette adresse ; `null` : il ne répond pas. */
+const vechain =
+  (account: { balance: string; energy: string } | null = { balance: "0x0", energy: "0x0" }, found: Record<string, unknown[] | null> = {}) =>
+  async <T>(_urls: string[], label: string): Promise<T> => {
+    if (label !== "VeChain") {
+      const list = found[label] ?? (label in found ? null : []);
+      if (!list) throw new Error(`${label} illisible`);
+      return list as T;
+    }
+    if (!account) throw new Error("VeChain illisible");
+    return account as T;
+  };
 
 describe("readEvmAddress", () => {
   const usdc = TOKENS.ethereum.find((row) => row[1] === "usd-coin")!;
@@ -73,5 +81,48 @@ describe("readEvmAddress", () => {
     const down = await readEvmAddress(ADDRESS, nodes(), vechain(null));
     expect(down.unread).toEqual(["vechain:"]);
     expect(down.holdings).toHaveLength(2);
+  });
+
+  /** Ce qu'un explorateur rend pour un jeton : 120 unités à 18 décimales, 0,40 $ pièce, sauf ce qui est changé. */
+  const found = (symbol: string, contract: string, over: Record<string, unknown> = {}, value = (120n * 10n ** 18n).toString()) => ({
+    token: { address_hash: contract, symbol, name: `Jeton ${symbol}`, decimals: "18", exchange_rate: "0.40", circulating_market_cap: "7000000", type: "ERC-20", reputation: "ok", ...over },
+    value,
+  });
+  const RARE = "0x4c11249814f11b9346808179Cf06e71ac328c1b5";
+
+  it("ajoute un jeton hors de la table que l'explorateur de la chaîne connaît, à son cours", async () => {
+    const r = await readEvmAddress(ADDRESS, nodes(), vechain(undefined, { Ethereum: [found("rare", RARE)] }), 0.9);
+    expect(r.holdings).toHaveLength(3);
+    expect(r.holdings[2]).toMatchObject({ key: `ethereum+:${RARE.toLowerCase()}`, symbol: "RARE", name: "Jeton rare", coingeckoId: null, quantity: 120, place: "Ethereum" });
+    expect(r.holdings[2].priceEur).toBeCloseTo(0.36, 10);
+    expect(r.unread).toEqual([]);
+    // Sans cours de change, le jeton est gardé sans cours.
+    expect((await readEvmAddress(ADDRESS, nodes(), vechain(undefined, { Ethereum: [found("rare", RARE)] }))).holdings[2].priceEur).toBeUndefined();
+  });
+
+  it("écarte ce qui est déposé pour appâter, les poussières et ce que la table lit déjà", async () => {
+    const other = (n: number) => `0x${String(n).padStart(40, "0")}`;
+    const list = [
+      found("usdc", usdc[0].toUpperCase().replace("0X", "0x")), // déjà lu par la table
+      found("sanscours", other(1), { exchange_rate: null }),
+      found("sanscap", other(2), { circulating_market_cap: null }),
+      found("fraude", other(3), { reputation: "scam" }),
+      found("nft", other(4), { type: "ERC-721" }),
+      found("Visit site.io", other(5)),
+      found("miette", other(6), {}, (10n ** 16n).toString()), // 0,01 unité à 0,40 $ : moins d'un centime
+      found("decimales", other(7), { decimals: "99" }),
+    ];
+    const r = await readEvmAddress(ADDRESS, nodes(), vechain(undefined, { Ethereum: list }), 0.9);
+    expect(r.holdings.map((h) => h.symbol)).toEqual(["ETH", "USDC"]);
+  });
+
+  it("garde les jetons trouvés la fois d'avant quand l'explorateur ne répond pas, sans gêner la lecture de la chaîne", async () => {
+    const r = await readEvmAddress(ADDRESS, nodes(), vechain(undefined, { Ethereum: null, Optimism: null }), 0.9);
+    expect(r.holdings).toHaveLength(2);
+    expect(r.unread).toEqual(["ethereum+:", "optimism+:"]);
+    // La chaîne en panne, son explorateur debout : le jeton trouvé est rendu, les lignes de la chaîne gardées.
+    const half = await readEvmAddress(ADDRESS, nodes(["Optimism"]), vechain(undefined, { Optimism: [found("rare", RARE)] }), 0.9);
+    expect(half.holdings.map((h) => h.key)).toContain(`optimism+:${RARE.toLowerCase()}`);
+    expect(half.unread).toEqual(["optimism:"]);
   });
 });

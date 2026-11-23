@@ -5,7 +5,7 @@ import { env, sealingSecret } from "./env.ts";
 import { db, exec, one, q, withLock } from "./db.ts";
 import { adminMember, memberByName } from "./members.ts";
 import { cryptoFileMoves, cryptoPositions, cryptoSources, cryptoSyncRuns, prices } from "./db/schema/index.ts";
-import { parseCryptocomExport } from "../lib/crypto-files.ts";
+import { balancesOf, OBSERVED, parseCryptocomExport } from "../lib/crypto-files.ts";
 import { SYMBOLS } from "../lib/crypto-tokens.ts";
 import { coinstatsEnabled, creditsUsed, eurRate, listPortfolios, portfolioCoins, type CsCoinLine, type CsPortfolio } from "./coinstats.ts";
 import { coingeckoCandidate, decideManualLines, findDuplicates, portfolioSignature, replacedIds, suspiciousDrop, withoutChainCovered, type SyncedLine } from "../lib/crypto-sync.ts";
@@ -61,7 +61,8 @@ const READERS: Record<WalletKind, (src: Source) => Promise<Reading>> = {
     if (!xpub) throw new Error("clé publique étendue illisible : retirer ce portefeuille et l'ajouter de nouveau");
     return readBitcoinXpub(xpub);
   },
-  evm: (src) => readEvmAddress(addressOf(src)),
+  // Le cours d'un jeton trouvé par un explorateur est en dollars ; sans cours de change, il reste sans valeur.
+  evm: async (src) => readEvmAddress(addressOf(src), undefined, undefined, await fxRate("USD", "EUR").catch(() => 0)),
   sol: (src) => readSolanaAddress(addressOf(src)),
   ada: (src) => readCardano(addressOf(src)),
   // Les cours de l'API MultiversX sont en dollars ; sans cours de change, les jetons restent sans valeur.
@@ -444,7 +445,13 @@ export async function cryptoStatus(userId: number) {
     .select({ id: cryptoPositions.id, symbol: cryptoPositions.symbol, name: cryptoPositions.name, quantity: cryptoPositions.quantity, manualValue: cryptoPositions.manualValue, archivedAt: cryptoPositions.archivedAt, archivedReason: cryptoPositions.archivedReason })
     .from(cryptoPositions)
     .where(and(eq(cryptoPositions.ownerUserId, userId), eq(cryptoPositions.source, "manuel"), sql`${cryptoPositions.archivedAt} IS NOT NULL`));
-  return { enabled: coinstatsEnabled(), sources, lastRun, archived, duplicates: await duplicatesOf(userId, rows) };
+  // Soldes constatés des sources tenues par fichier : l'écran les montre, pour qu'on sache ce qui ne vient pas d'un export.
+  const observed = await q<{ portfolio_id: string; symbol: string; quantity: number; at: string }>(
+    "SELECT portfolio_id, symbol, amount AS quantity, DATE_FORMAT(at, '%Y-%m-%d') AS at FROM crypto_file_moves WHERE owner_user_id = ? AND kind = ? ORDER BY symbol",
+    [userId, OBSERVED],
+  );
+  const withObserved = sources.map((s) => (s.file ? { ...s, observed: observed.filter((o) => o.portfolio_id === s.portfolioId).map((o) => ({ symbol: o.symbol, quantity: Number(o.quantity), at: o.at })) } : s));
+  return { enabled: coinstatsEnabled(), sources: withObserved, lastRun, archived, duplicates: await duplicatesOf(userId, rows) };
 }
 
 /** Lignes comptées de chaque source du membre, pour repérer ce qui est vu deux fois. */
@@ -675,11 +682,18 @@ export async function removeWallet(userId: number, portfolioId: string) {
   return true;
 }
 
-/** Lignes d'une source tenue par fichier : le solde de chaque crypto, somme de ses mouvements gardés. */
+/**
+ * Lignes d'une source tenue par fichier : le solde de chaque crypto, somme de ses mouvements gardés — depuis son
+ * solde constaté, quand le membre en a relevé un (`balancesOf`).
+ */
 async function writeFileBalances(userId: number, portfolioId: string) {
   const [src] = await db.select().from(cryptoSources).where(and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId)));
   if (!src) return { holdings: [], negative: [] };
-  const sums = await q<{ symbol: string; quantity: number }>("SELECT symbol, SUM(amount) AS quantity FROM crypto_file_moves WHERE portfolio_id = ? AND owner_user_id = ? GROUP BY symbol ORDER BY symbol", [portfolioId, userId]);
+  const moves = await q<{ symbol: string; amount: number; at: string; kind: string }>(
+    "SELECT symbol, amount, DATE_FORMAT(at, '%Y-%m-%d %H:%i:%s') AS at, kind FROM crypto_file_moves WHERE portfolio_id = ? AND owner_user_id = ?",
+    [portfolioId, userId],
+  );
+  const sums = [...balancesOf(moves.map((m) => ({ ...m, amount: Number(m.amount) })))].map(([symbol, quantity]) => ({ symbol, quantity })).sort((a, b) => a.symbol.localeCompare(b.symbol));
   // Un solde négatif dit qu'il manque des mouvements plus anciens (un fichier pas encore déposé) : il n'est pas compté.
   const negative = sums.filter((r) => Number(r.quantity) < -1e-9).map((r) => r.symbol);
   const holdings = sums.filter((r) => Number(r.quantity) > 1e-9).map((r) => ({ symbol: r.symbol, quantity: Number(r.quantity) }));
@@ -695,6 +709,50 @@ async function writeFileBalances(userId: number, portfolioId: string) {
   }
   await db.delete(cryptoPositions).where(and(eq(cryptoPositions.source, "fichier"), eq(cryptoPositions.portfolioId, portfolioId), keys.length ? notInArray(cryptoPositions.lineKey, keys) : sql`1 = 1`));
   return { holdings, negative };
+}
+
+/** Après un changement dans les mouvements d'une source tenue par fichier : ses lignes, son état, sa valeur. */
+async function closeFileChange(userId: number, portfolioId: string) {
+  const { holdings, negative } = await writeFileBalances(userId, portfolioId);
+  const span = await one<{ n: number; first: string | null; last: string | null; observed: number }>(
+    "SELECT SUM(kind <> ?) AS n, DATE(MIN(IF(kind <> ?, at, NULL))) AS first, DATE(MAX(IF(kind <> ?, at, NULL))) AS last, SUM(kind = ?) AS observed FROM crypto_file_moves WHERE portfolio_id = ? AND owner_user_id = ?",
+    [OBSERVED, OBSERVED, OBSERVED, OBSERVED, portfolioId, userId],
+  );
+  const observed = Number(span?.observed ?? 0);
+  const note = `${Number(span?.n ?? 0)} mouvements, du ${String(span?.first ?? "?").slice(0, 10)} au ${String(span?.last ?? "?").slice(0, 10)}${observed ? ` · ${observed} solde(s) constaté(s)` : ""}`;
+  await db
+    .update(cryptoSources)
+    .set({ status: holdings.length ? "ok" : "vide", lines: holdings.length, lastSyncedAt: sql`CURRENT_TIMESTAMP`, note: note.slice(0, 255) })
+    .where(and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId)));
+  if (!isDemo()) await refreshPrices().catch(() => undefined);
+  await exec(
+    `UPDATE crypto_sources s SET s.last_total_eur = (
+       SELECT ROUND(SUM(c.quantity * pg.price_eur), 2) FROM crypto_positions c LEFT JOIN prices pg ON pg.id = CONCAT('cg:', c.coingecko_id)
+       WHERE c.portfolio_id = s.portfolio_id AND c.source = 'fichier' AND c.archived_at IS NULL)
+     WHERE s.portfolio_id = ? AND s.owner_user_id = ?`,
+    [portfolioId, userId],
+  );
+  await snapshotWealth(userId);
+  return { holdings, negative, span };
+}
+
+/**
+ * Solde constaté d'une crypto dans une source tenue par fichier : ce que l'appli affiche maintenant, relevé par le
+ * membre parce que l'export a un trou. Il remplace le précédent pour cette crypto ; `null` le retire (le solde
+ * redevient la somme des mouvements). Les mouvements déposés ensuite s'y ajoutent s'ils sont plus récents.
+ */
+export async function observeFileBalance(userId: number, portfolioId: string, rawSymbol: string, quantity: number | null) {
+  const [src] = await db.select({ type: cryptoSources.type }).from(cryptoSources).where(and(eq(cryptoSources.portfolioId, portfolioId), eq(cryptoSources.ownerUserId, userId)));
+  if (!src || !isFileKind(src.type)) return null;
+  const symbol = rawSymbol.trim().toUpperCase();
+  if (!/^[A-Z0-9]{1,24}$/.test(symbol)) throw new Error(t("Symbole invalide"));
+  const rowKey = createHash("sha1").update(`${OBSERVED}|${symbol}`).digest("hex");
+  await exec("DELETE FROM crypto_file_moves WHERE portfolio_id = ? AND owner_user_id = ? AND row_key = ?", [portfolioId, userId, rowKey]);
+  // L'heure est celle de l'export (UTC) : c'est elle qui dit quels mouvements viennent après.
+  if (quantity != null)
+    await exec("INSERT INTO crypto_file_moves (portfolio_id, owner_user_id, at, kind, symbol, amount, row_key) VALUES (?, ?, ?, ?, ?, ?, ?)", [portfolioId, userId, new Date().toISOString().slice(0, 19).replace("T", " "), OBSERVED, symbol, quantity, rowKey]);
+  const { holdings } = await closeFileChange(userId, portfolioId);
+  return { symbol, quantity: holdings.find((h) => h.symbol === symbol)?.quantity ?? 0, observed: quantity != null };
 }
 
 /**
@@ -721,21 +779,7 @@ export async function importCryptocomFile(userId: number, content: string) {
     );
     added += Number((result as { affectedRows?: number }).affectedRows ?? 0);
   }
-  const { holdings, negative } = await writeFileBalances(userId, portfolioId);
-  const span = await one<{ n: number; first: string | null; last: string | null }>("SELECT COUNT(*) AS n, DATE(MIN(at)) AS first, DATE(MAX(at)) AS last FROM crypto_file_moves WHERE portfolio_id = ? AND owner_user_id = ?", [portfolioId, userId]);
-  await db
-    .update(cryptoSources)
-    .set({ status: holdings.length ? "ok" : "vide", lines: holdings.length, lastSyncedAt: sql`CURRENT_TIMESTAMP`, note: `${span?.n ?? 0} mouvements, du ${String(span?.first ?? "?").slice(0, 10)} au ${String(span?.last ?? "?").slice(0, 10)}`.slice(0, 255) })
-    .where(eq(cryptoSources.portfolioId, portfolioId));
-  if (!isDemo()) await refreshPrices().catch(() => undefined);
-  await exec(
-    `UPDATE crypto_sources s SET s.last_total_eur = (
-       SELECT ROUND(SUM(c.quantity * pg.price_eur), 2) FROM crypto_positions c LEFT JOIN prices pg ON pg.id = CONCAT('cg:', c.coingecko_id)
-       WHERE c.portfolio_id = s.portfolio_id AND c.source = 'fichier' AND c.archived_at IS NULL)
-     WHERE s.portfolio_id = ?`,
-    [portfolioId],
-  );
-  await snapshotWealth(userId);
+  const { holdings, negative, span } = await closeFileChange(userId, portfolioId);
   return { portfolioId, moves: parsed.moves.length, added, known: parsed.moves.length - added, from: String(span?.first ?? "").slice(0, 10), to: String(span?.last ?? "").slice(0, 10), holdings, negative, unpriced: holdings.filter((h) => !SYMBOLS[h.symbol]).map((h) => h.symbol) };
 }
 

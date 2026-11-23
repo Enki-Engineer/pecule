@@ -11,7 +11,7 @@ import { db, exec, one, q } from "../db.ts";
 import { desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { alerts, auditLog, users } from "../db/schema/index.ts";
 import { EXCHANGE_IDS } from "../../lib/crypto-exchanges.ts";
-import { acceptSourceValue, addExchange, addWallet, archiveManualLine, countOnce, importCryptocomFile, cryptoStatus, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
+import { acceptSourceValue, addExchange, addWallet, archiveManualLine, countOnce, importCryptocomFile, cryptoStatus, observeFileBalance, removeWallet, restoreManualLine, setSourceEnabled, syncCrypto, syncSummary } from "../crypto.ts";
 import { requireAdmin, requireApiToken, requireAuth, requireSyncAccess, createEnrollmentLink } from "../auth.ts";
 import { guessCategory, lastSyncRuns, markCardDuplicates, fintaConnections, fintaEnabled } from "../finta.ts";
 import { syncBanks } from "../bank-sync.ts";
@@ -582,6 +582,19 @@ api.post("/crypto/files/cryptocom", hourly(60), raw({ type: () => true, limit: "
       throw new ActionError(400, e instanceof Error ? e.message : String(e));
     }),
   );
+});
+
+/**
+ * Solde constaté d'une crypto dans un portefeuille tenu par ses exports : ce que l'appli affiche, quand l'export a
+ * un trou. `quantity` à `null` retire le solde constaté.
+ */
+api.post("/crypto/sources/:id/balance", hourly(120), async (req, res) => {
+  const b = z.object({ symbol: z.string().min(1).max(24), quantity: z.number().min(0).max(1e15).nullable() }).parse(req.body);
+  const done = await observeFileBalance(req.user!.id, z.string().max(96).parse(req.params.id), b.symbol, b.quantity).catch((e) => {
+    throw new ActionError(400, e instanceof Error ? e.message : String(e));
+  });
+  if (!done) throw new ActionError(404, tr("Portefeuille introuvable"));
+  res.json(done);
 });
 
 /** Retirer un portefeuille lu par son adresse ou un compte d'exchange (ceux de CoinStats se décochent : ils reviendraient à la synchro). */

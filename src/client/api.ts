@@ -373,6 +373,8 @@ export type CryptoSource = {
   exchange: string | null;
   /** Adresse abrégée d'un portefeuille lu directement, quand il en a une seule. */
   address: string | null;
+  /** Soldes constatés d'un portefeuille tenu par ses exports : ce que le membre a relevé dans l'appli, crypto par crypto. */
+  observed?: { symbol: string; quantity: number; at: string }[];
 };
 
 export type CryptoStatus = {

@@ -69,9 +69,26 @@ export function parseCryptocomExport(text: string): FileParse | null {
   return { moves, internal, rows: lines.length, from: dates[0] ?? null, to: dates.at(-1) ?? null, fiat };
 }
 
-/** Solde de chaque crypto : la somme de ses mouvements. */
-export function balancesOf(moves: { symbol: string; amount: number }[]): Map<string, number> {
-  const out = new Map<string, number>();
-  for (const m of moves) out.set(m.symbol, (out.get(m.symbol) ?? 0) + m.amount);
+/**
+ * Genre d'un « solde constaté » : ce que l'appli affiche pour une crypto, relevé par le membre à cette date. Un export
+ * peut avoir un trou (des récompenses que l'appli n'y écrit pas) ; le solde constaté le comble sans rien inventer.
+ */
+export const OBSERVED = "solde_constate";
+
+/**
+ * Solde de chaque crypto : la somme de ses mouvements. Une crypto qui a un solde constaté part de lui : seuls les
+ * mouvements venus après s'y ajoutent — un export déposé plus tard, qui recouvre la période d'avant, ne compte rien
+ * deux fois.
+ */
+export function balancesOf(moves: { symbol: string; amount: number; at?: string; kind?: string }[]): Map<string, number> {
+  const base = new Map<string, { at: string; amount: number }>();
+  for (const m of moves) if (m.kind === OBSERVED && (m.at ?? "") >= (base.get(m.symbol)?.at ?? "")) base.set(m.symbol, { at: m.at ?? "", amount: m.amount });
+  const out = new Map<string, number>([...base].map(([symbol, b]) => [symbol, b.amount]));
+  for (const m of moves) {
+    if (m.kind === OBSERVED) continue;
+    const from = base.get(m.symbol);
+    if (from && (m.at ?? "") <= from.at) continue;
+    out.set(m.symbol, (out.get(m.symbol) ?? 0) + m.amount);
+  }
   return out;
 }

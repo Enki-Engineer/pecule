@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, PencilLine, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, useCrypto, type CryptoPosition, type CryptoSource, type CryptoStatus } from "../api.ts";
@@ -8,7 +8,7 @@ import { Card, ErrorBox, Field, PageHeader, Segmented, Sheet, Spinner } from "..
 import { dateFr, money, moneySymbol, pct, timeAgo } from "../format.ts";
 import { useCryptoEvents, type CryptoEvent } from "../api-situation.ts";
 import { BrandLogo, CoinLogo } from "../components/Logo.tsx";
-import { AddWalletSheet, DuplicateNotices } from "../components/CryptoWallet.tsx";
+import { AddWalletSheet, DuplicateNotices, ObservedSheet } from "../components/CryptoWallet.tsx";
 import { useMedia } from "../useMedia.ts";
 import { Stat, StatGrid } from "../components/blocks.tsx";
 import { DataTable, type Column } from "../components/DataTable.tsx";
@@ -34,6 +34,42 @@ function bySymbol(positions: CryptoPosition[]): Group[] {
   return [...map.values()].sort((a, b) => b.value - a.value);
 }
 
+/** Portefeuille choisi dans la liste : ses cryptos ressortent dans « Par crypto ». `MANUAL` : les lignes saisies à la main. */
+const MANUAL = "manuel";
+const inFocus = (p: CryptoPosition, focus: string) => (focus === MANUAL ? p.source === "manuel" : p.portfolio_id === focus);
+/** Ce que le portefeuille choisi porte de cette crypto (sa valeur) ; `null` s'il n'en porte pas. */
+function shareOf(g: Group, focus: string | null): number | null {
+  if (!focus) return null;
+  const lines = g.lines.filter((l) => inFocus(l, focus));
+  return lines.length ? lines.reduce((sum, l) => sum + (l.value ?? 0), 0) : null;
+}
+const focusName = (st: CryptoStatus, focus: string) => (focus === MANUAL ? t("Saisis à la main") : (st.sources.find((s) => s.portfolioId === focus)?.name ?? ""));
+/** Ligne d'une crypto du portefeuille choisi : fond teinté et filet d'accent, comme une ligne choisie dans un tableau. */
+const FOCUSED = "bg-accent-soft shadow-[inset_3px_0_0_var(--color-accent)]";
+
+/** Bandeau du portefeuille choisi : son nom, ce qu'il porte, et de quoi revenir à la liste entière. */
+function FocusBar({ st, groups, focus, onClear }: { st: CryptoStatus; groups: Group[]; focus: string; onClear: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  // Sur un écran étroit, la liste des cryptos est plus haut que celle des portefeuilles : on y ramène le regard.
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [focus]);
+  const shares = groups.map((g) => shareOf(g, focus)).filter((v): v is number => v != null);
+  return (
+    <div ref={ref} className="flex scroll-mt-20 items-center gap-3 rounded-xl bg-accent-soft px-4 py-2.5 text-sm">
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-medium">{t("Dans « {nom} »", { nom: focusName(st, focus) })}</div>
+        <div className="tnum truncate text-xs text-muted">
+          {shares.length ? `${tn("{n} crypto", "{n} cryptos", shares.length)} · ${money(shares.reduce((a, b) => a + b, 0), true)}` : t("Aucune crypto comptée ici")}
+        </div>
+      </div>
+      <button type="button" onClick={onClear} className="press flex shrink-0 items-center gap-1 text-xs font-medium text-accent">
+        <X size={14} /> {t("Tout afficher")}
+      </button>
+    </div>
+  );
+}
+
 export function Crypto() {
   const { data, isLoading, error } = useCrypto();
   const qc = useQueryClient();
@@ -42,12 +78,21 @@ export function Crypto() {
   const [syncing, setSyncing] = useState(false);
   const [showSmall, setShowSmall] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [focus, setFocus] = useState<string | null>(null);
   const desktop = useMedia("(min-width: 768px)");
 
   const groups = useMemo(() => bySymbol(data?.positions ?? []), [data]);
-  const big = groups.filter((g) => g.value >= SMALL);
-  const small = groups.filter((g) => g.value < SMALL);
+  // Les cryptos du portefeuille choisi passent devant, par ce qu'il en porte ; les petites lignes des autres restent repliées.
+  const mine = focus ? groups.filter((g) => shareOf(g, focus) != null).sort((a, b) => (shareOf(b, focus) ?? 0) - (shareOf(a, focus) ?? 0)) : [];
+  const others = groups.filter((g) => !mine.includes(g));
+  const big = others.filter((g) => g.value >= SMALL);
+  const small = others.filter((g) => g.value < SMALL);
   const smallTotal = small.reduce((s, g) => s + g.value, 0);
+  // Toucher un portefeuille montre ses cryptos : sur téléphone, la liste « Par crypto » prend la place.
+  const pick = (id: string) => {
+    setFocus((now) => (now === id ? null : id));
+    if (focus !== id) setView("coins");
+  };
 
   async function sync() {
     setSyncing(true);
@@ -71,7 +116,7 @@ export function Crypto() {
   if (desktop && data && st)
     return (
       <>
-        <CryptoDesktop data={data} st={st} groups={groups} onOpen={setOpen} syncing={syncing} onSync={sync} onAdd={() => setAdding(true)} />
+        <CryptoDesktop data={data} st={st} groups={groups} onOpen={setOpen} syncing={syncing} onSync={sync} onAdd={() => setAdding(true)} focus={focus} onFocus={pick} />
         <GroupSheet g={open} onClose={() => setOpen(null)} />
         <AddWalletSheet open={adding} onClose={() => setAdding(false)} st={st} />
       </>
@@ -125,10 +170,15 @@ export function Crypto() {
             ]}
           />
 
+          {view === "coins" && focus && <FocusBar st={st} groups={groups} focus={focus} onClear={() => setFocus(null)} />}
+
           {view === "coins" ? (
-            <Card className="divide-y divide-line">
+            <Card className="divide-y divide-line overflow-hidden">
+              {mine.map((g) => (
+                <GroupRow key={g.key} g={g} onClick={() => setOpen(g)} here={shareOf(g, focus)} />
+              ))}
               {big.map((g) => (
-                <GroupRow key={g.key} g={g} onClick={() => setOpen(g)} />
+                <GroupRow key={g.key} g={g} onClick={() => setOpen(g)} away={!!focus} />
               ))}
               {small.length > 0 && (
                 <>
@@ -138,12 +188,12 @@ export function Crypto() {
                     </span>
                     <ChevronDown size={16} className={clsx("transition-transform", showSmall && "rotate-180")} />
                   </button>
-                  {showSmall && small.map((g) => <GroupRow key={g.key} g={g} onClick={() => setOpen(g)} />)}
+                  {showSmall && small.map((g) => <GroupRow key={g.key} g={g} onClick={() => setOpen(g)} away={!!focus} />)}
                 </>
               )}
             </Card>
           ) : (
-            <Portfolios positions={data.positions} st={st} onAdd={() => setAdding(true)} />
+            <Portfolios positions={data.positions} st={st} onAdd={() => setAdding(true)} focus={focus} onFocus={pick} />
           )}
 
           <Archived st={st} />
@@ -191,10 +241,11 @@ function Sources({ st, className }: { st: CryptoStatus; className: string }) {
   );
 }
 
-function GroupRow({ g, onClick }: { g: Group; onClick: () => void }) {
+/** `here` : ce que le portefeuille choisi porte de cette crypto (elle ressort) ; `away` : un autre portefeuille est choisi. */
+function GroupRow({ g, onClick, here = null, away = false }: { g: Group; onClick: () => void; here?: number | null; away?: boolean }) {
   const manual = g.lines.some((l) => l.source === "manuel");
   return (
-    <button type="button" onClick={onClick} className="press flex w-full items-center gap-3 px-4 py-3 text-left">
+    <button type="button" onClick={onClick} className={clsx("press flex w-full items-center gap-3 px-4 py-3 text-left", here != null && FOCUSED, away && "text-muted")}>
       <CoinLogo coingeckoId={g.lines.find((l) => l.coingecko_id)?.coingecko_id} symbol={g.symbol} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[15px] font-medium">
@@ -203,7 +254,8 @@ function GroupRow({ g, onClick }: { g: Group; onClick: () => void }) {
         </div>
         <div className="truncate text-xs text-muted">
           {g.quantity > 0 ? `${qty(g.quantity)} ${g.symbol}` : t("Valeur saisie")}
-          {g.lines.length > 1 && ` · ${tn("{n} portefeuille", "{n} portefeuilles", g.lines.length)}`}
+          {/* Portefeuille choisi : ce qu'il porte de cette crypto prend la place du nombre de portefeuilles. */}
+          {g.lines.length > 1 && ` · ${here != null ? t("dont {montant} ici", { montant: money(here, here >= 1000) }) : tn("{n} portefeuille", "{n} portefeuilles", g.lines.length)}`}
         </div>
       </div>
       <div className="text-right">
@@ -231,25 +283,43 @@ const ORIGINS: { id: Origin; title: string; hint: string }[] = [
   { id: "agregateur", title: t("Via CoinStats"), hint: t("Ce que réunit le compte CoinStats du foyer") },
 ];
 
-type RowActions = { toggle: (s: CryptoSource) => void; remove: (s: CryptoSource) => void; accept: (s: CryptoSource) => void; accepting: string | null };
+type RowActions = {
+  toggle: (s: CryptoSource) => void;
+  remove: (s: CryptoSource) => void;
+  accept: (s: CryptoSource) => void;
+  accepting: string | null;
+  /** Corriger un solde d'un portefeuille tenu par ses exports. */
+  observe: (s: CryptoSource) => void;
+  /** Portefeuille dont les cryptos ressortent dans « Par crypto », et de quoi le choisir. */
+  focus: string | null;
+  pick: (id: string) => void;
+};
 
 function SourceRow({ s, value, actions }: { s: CryptoSource; value: number; actions: RowActions }) {
   const warn = s.status === "a_verifier" || s.status === "erreur" || s.status === "refus";
+  const chosen = actions.focus === s.portfolioId;
   return (
-    <div className="px-4 py-3">
+    <div className={clsx("px-4 py-3", chosen && FOCUSED)}>
       <div className="flex items-center gap-3">
-        <BrandLogo texts={[s.name, s.type]} size="md" tone="neutral" />
-        <div className="min-w-0 flex-1">
-          <div className={clsx("truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</div>
-          <div className="truncate text-xs text-muted" title={s.note ?? undefined}>
-            {[s.address, s.lines ? tn("{n} ligne", "{n} lignes", s.lines) : null].filter(Boolean).join(" · ") || t("aucune ligne")}
-            {STATUS[s.status] && <span className={clsx("ml-1 font-medium", warn && "text-warn")}> · {STATUS[s.status]}</span>}
-          </div>
-        </div>
-        <span className="tnum text-sm font-semibold">{money(value, value >= 1000)}</span>
+        <button type="button" onClick={() => actions.pick(s.portfolioId)} aria-pressed={chosen} title={chosen ? t("Tout afficher") : t("Voir ses cryptos")} className="press flex min-w-0 flex-1 items-center gap-3 text-left">
+          <BrandLogo texts={[s.name, s.type]} size="md" tone="neutral" />
+          <span className="block min-w-0 flex-1">
+            <span className={clsx("block truncate text-[15px] font-medium", !s.enabled && "text-muted line-through")}>{s.name}</span>
+            <span className="block truncate text-xs text-muted" title={s.note ?? undefined}>
+              {[s.address, s.lines ? tn("{n} ligne", "{n} lignes", s.lines) : null].filter(Boolean).join(" · ") || t("aucune ligne")}
+              {STATUS[s.status] && <span className={clsx("ml-1 font-medium", warn && "text-warn")}> · {STATUS[s.status]}</span>}
+            </span>
+          </span>
+          <span className="tnum text-sm font-semibold">{money(value, value >= 1000)}</span>
+        </button>
         <label className="flex items-center gap-1 text-xs text-muted">
           <input type="checkbox" checked={!!s.enabled} onChange={() => actions.toggle(s)} className="size-[18px] accent-[var(--color-accent)]" aria-label={t("Compter « {nom} »", { nom: s.name })} />
         </label>
+        {s.file && (
+          <button type="button" onClick={() => actions.observe(s)} className="press grid size-8 place-items-center rounded-full text-muted hover:text-ink" aria-label={t("Corriger un solde")} title={t("Corriger un solde")}>
+            <PencilLine size={16} />
+          </button>
+        )}
         {(s.direct || s.file) && (
           <button type="button" onClick={() => actions.remove(s)} className="press -mr-1 grid size-8 place-items-center rounded-full text-muted hover:text-ink" aria-label={t("Retirer ce portefeuille")} title={t("Retirer ce portefeuille")}>
             <Trash2 size={16} />
@@ -304,8 +374,9 @@ function OriginCard({ title, hint, rows, positions, actions }: { title: string; 
   );
 }
 
-function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st: CryptoStatus; onAdd: () => void }) {
+function Portfolios({ positions, st, onAdd, focus, onFocus }: { positions: CryptoPosition[]; st: CryptoStatus; onAdd: () => void; focus: string | null; onFocus: (id: string) => void }) {
   const qc = useQueryClient();
+  const [observing, setObserving] = useState<string | null>(null);
   const manual = positions.filter((p) => p.source === "manuel");
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
   const toggle = (s: CryptoSource) =>
@@ -337,7 +408,7 @@ function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st:
       toast.error(e instanceof Error ? e.message : t("Enregistrement impossible"));
     }
   };
-  const actions: RowActions = { toggle, remove, accept, accepting };
+  const actions: RowActions = { toggle, remove, accept, accepting, observe: (s) => setObserving(s.portfolioId), focus, pick: onFocus };
   return (
     <div className="space-y-3">
       {ORIGINS.map((o) => {
@@ -345,20 +416,27 @@ function Portfolios({ positions, st, onAdd }: { positions: CryptoPosition[]; st:
         return rows.length ? <OriginCard key={o.id} title={o.title} hint={o.hint} rows={rows} positions={positions} actions={actions} /> : null;
       })}
       {manual.length > 0 && (
-        <Card className="divide-y divide-line">
-          <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
-            <div className="min-w-0">
-              <div className="text-[13px] font-semibold">{t("Saisis à la main")}</div>
-              <div className="truncate text-xs text-muted">{manual.map((m) => m.symbol).join(", ")}</div>
-            </div>
+        <Card className="divide-y divide-line overflow-hidden">
+          <button
+            type="button"
+            onClick={() => onFocus(MANUAL)}
+            aria-pressed={focus === MANUAL}
+            title={focus === MANUAL ? t("Tout afficher") : t("Voir ses cryptos")}
+            className={clsx("press flex w-full items-baseline justify-between gap-3 px-4 py-2.5 text-left", focus === MANUAL && FOCUSED)}
+          >
+            <span className="block min-w-0">
+              <span className="block text-[13px] font-semibold">{t("Saisis à la main")}</span>
+              <span className="block truncate text-xs text-muted">{manual.map((m) => m.symbol).join(", ")}</span>
+            </span>
             <span className="tnum shrink-0 text-sm font-semibold">{money(manual.reduce((sum, m) => sum + (m.value ?? 0), 0), true)}</span>
-          </div>
+          </button>
         </Card>
       )}
       {!st.sources.length && !manual.length && <Card className="px-4 py-3 text-sm text-muted">{t("Aucun portefeuille.")}</Card>}
       <button type="button" onClick={onAdd} className="press card flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-accent">
         <Plus size={16} /> {t("Ajouter un portefeuille")}
       </button>
+      <ObservedSheet source={st.sources.find((s) => s.portfolioId === observing) ?? null} positions={positions} onClose={() => setObserving(null)} />
     </div>
   );
 }
@@ -512,6 +590,8 @@ function CryptoDesktop({
   syncing,
   onSync,
   onAdd,
+  focus,
+  onFocus,
 }: {
   data: CryptoData;
   st: CryptoStatus;
@@ -520,9 +600,12 @@ function CryptoDesktop({
   syncing: boolean;
   onSync: () => void;
   onAdd: () => void;
+  focus: string | null;
+  onFocus: (id: string) => void;
 }) {
   const [showSmall, setShowSmall] = useState(false);
-  const rows = showSmall ? groups : groups.filter((g) => g.value >= SMALL);
+  // Les cryptos du portefeuille choisi se montrent toutes, même les petites lignes.
+  const rows = showSmall ? groups : groups.filter((g) => g.value >= SMALL || shareOf(g, focus) != null);
   const hiddenCount = groups.length - groups.filter((g) => g.value >= SMALL).length;
   const change24 = data.change24h != null ? (data.total * data.change24h) / (100 + data.change24h) : null;
   const top = groups.slice(0, 8);
@@ -540,6 +623,7 @@ function CryptoDesktop({
           <span className="truncate font-medium">{g.name}</span>
           {g.lines.some((l) => l.source === "manuel") && <span className="rounded bg-warn/15 px-1.5 py-0.5 text-[10px] font-semibold text-warn">{t("saisie")}</span>}
           {g.lines.some((l) => l.source === "onchain") && <span className="rounded bg-bg px-1.5 py-0.5 text-[10px] text-muted">{t("blockchain")}</span>}
+          {shareOf(g, focus) != null && g.lines.length > 1 && <span className="chip tnum shrink-0">{t("dont {montant} ici", { montant: money(shareOf(g, focus) ?? 0, true) })}</span>}
         </div>
       ),
     },
@@ -618,7 +702,19 @@ function CryptoDesktop({
               </button>
             )}
           </div>
-          <DataTable rows={rows} columns={columns} rowKey={(g) => g.key} initialSort={{ key: "value", dir: "desc" }} onRowClick={onOpen} />
+          {focus && (
+            <div className="mb-2">
+              <FocusBar st={st} groups={groups} focus={focus} onClear={() => onFocus(focus)} />
+            </div>
+          )}
+          <DataTable
+            rows={rows}
+            columns={columns}
+            rowKey={(g) => g.key}
+            initialSort={{ key: "value", dir: "desc" }}
+            onRowClick={onOpen}
+            rowClassName={(g) => (!focus ? undefined : shareOf(g, focus) != null ? "bg-accent-soft hover:bg-accent-soft [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-accent)]" : "text-muted")}
+          />
         </div>
         <div className="col-span-12 space-y-4 xl:col-span-4">
           <Card className="p-5">
@@ -651,7 +747,7 @@ function CryptoDesktop({
           <DuplicateNotices st={st} />
           <div>
             <h2 className="mb-2 font-semibold">{t("Portefeuilles")}</h2>
-            <Portfolios positions={data.positions} st={st} onAdd={onAdd} />
+            <Portfolios positions={data.positions} st={st} onAdd={onAdd} focus={focus} onFocus={onFocus} />
           </div>
           <Archived st={st} />
         </div>

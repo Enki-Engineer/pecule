@@ -4,7 +4,7 @@ import { Building2, Check, ChevronLeft, ChevronRight, FileUp, Layers, ShieldAler
 import { Link } from "react-router";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { api, type CryptoDuplicate, type CryptoStatus } from "../api.ts";
+import { api, type CryptoDuplicate, type CryptoPosition, type CryptoSource, type CryptoStatus } from "../api.ts";
 import { Card, Field, Sheet } from "./ui.tsx";
 import { BrandLogo } from "./Logo.tsx";
 import { detectWallet, looksSecret, WALLET_LABELS, type WalletKind } from "../../lib/crypto-chains.ts";
@@ -418,6 +418,75 @@ export function AddWalletSheet({ open, onClose, st }: { open: boolean; onClose: 
           <p className="px-1 text-xs leading-relaxed text-muted">{t("Un autre exchange ? Passe par un compte CoinStats, ou demande à l'assistant d'ajouter la position à la main.")}</p>
         </div>
       )}
+    </Sheet>
+  );
+}
+
+/**
+ * Solde constaté d'une crypto dans un portefeuille tenu par ses exports : l'export d'une appli peut avoir un trou
+ * (des récompenses qu'elle n'y écrit pas). Le membre relève ce que l'appli affiche ; les mouvements déposés ensuite
+ * s'y ajoutent.
+ */
+export function ObservedSheet({ source, positions, onClose }: { source: CryptoSource | null; positions: CryptoPosition[]; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [symbol, setSymbol] = useState("");
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (!source) return null;
+  const sym = symbol.trim().toUpperCase();
+  const value = Number(amount.replace(/\s/g, "").replace(",", "."));
+  const ready = /^[A-Z0-9]{1,24}$/.test(sym) && amount.trim() !== "" && Number.isFinite(value) && value >= 0;
+  const current = positions.find((p) => p.portfolio_id === source.portfolioId && p.symbol.toUpperCase() === sym);
+  const close = () => {
+    setSymbol("");
+    setAmount("");
+    onClose();
+  };
+  const save = async (s: string, quantity: number | null) => {
+    setBusy(true);
+    try {
+      await api(`/crypto/sources/${encodeURIComponent(source.portfolioId)}/balance`, { method: "POST", json: { symbol: s, quantity } });
+      await Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
+      toast.success(quantity == null ? t("Solde constaté retiré") : t("Solde enregistré"));
+      setSymbol("");
+      setAmount("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("Enregistrement impossible"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Sheet open onClose={close} title={t("Corriger un solde")}>
+      <div className="space-y-3">
+        <p className="px-1 text-sm leading-relaxed text-muted">
+          {t("L'export d'une appli n'est pas toujours complet : des récompenses anciennes peuvent y manquer. Relève ici ce que l'appli affiche pour une crypto : Pécule part de ce solde, et les mouvements des exports que tu déposeras ensuite s'y ajoutent.")}
+        </p>
+        <Field label={t("Crypto (son symbole)")} value={symbol} onChange={setSymbol} text placeholder="BTC" />
+        <Field label={t("Solde affiché dans l'appli")} value={amount} onChange={setAmount} placeholder="0" />
+        {current && <div className="px-1 text-xs text-muted">{t("Pécule compte aujourd'hui {quantite} {symbole}.", { quantite: qty(current.quantity), symbole: current.symbol })}</div>}
+        <button type="button" onClick={() => save(sym, value)} disabled={!ready || busy} className="press w-full rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-50">
+          {t("Enregistrer ce solde")}
+        </button>
+        {!!source.observed?.length && (
+          <Card className="divide-y divide-line">
+            <div className="px-4 py-2.5 text-[13px] font-semibold">{t("Soldes constatés")}</div>
+            {source.observed.map((o) => (
+              <div key={o.symbol} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="tnum font-medium">
+                    {qty(o.quantity)} {o.symbol}
+                  </div>
+                  <div className="text-xs text-muted">{t("relevé le {date}", { date: dateFr(o.at) })}</div>
+                </div>
+                <button type="button" onClick={() => save(o.symbol, null)} disabled={busy} className="press text-xs font-medium text-accent disabled:opacity-50">
+                  {t("Retirer##solde")}
+                </button>
+              </div>
+            ))}
+          </Card>
+        )}
+      </div>
     </Sheet>
   );
 }

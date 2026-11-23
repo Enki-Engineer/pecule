@@ -3,6 +3,21 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.39.1
+
+Correctif de confidentialité, à installer si la 1.39.0 l'a été.
+
+- **L'adresse collée à l'ajout d'un portefeuille crypto n'entre plus au journal des écritures.** La 1.39.0 l'y
+  inscrivait telle quelle — y compris la clé publique étendue d'un compte Bitcoin, que Pécule garde par ailleurs
+  chiffrée. Ce journal ne quitte pas l'installation et se lit dans Réglages → Suivi technique (chacun ses écritures,
+  l'administrateur celles du foyer) : la clé d'un membre pouvait donc y être lue par l'administrateur. L'ajout
+  s'y inscrit désormais par son genre et son nom seulement.
+- Ce que la 1.39.0 a pu y écrire est effacé au démarrage (migration `0037_journal_sans_adresse_crypto`). Une clé
+  étendue ne permet pas de dépenser : elle montre les adresses et les soldes d'un compte.
+- Le nombre de lignes annoncé après une synchro ne compte plus celles d'un portefeuille CoinStats en double.
+
+Aucun réglage nouveau.
+
 ## 1.39.0
 
 Un portefeuille crypto se suit par son adresse publique : plus besoin d'un compte CoinStats, ni d'aucune clé.

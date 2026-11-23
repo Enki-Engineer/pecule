@@ -13,7 +13,7 @@ import { ethValidator, isValidatorId } from "./beacon.ts";
 import { isBitcoinAddress, parseXpub, readBitcoinAddress, readBitcoinXpub } from "./chains/bitcoin.ts";
 import { isEvmAddress, readEvmAddress } from "./chains/evm.ts";
 import { isSolanaAddress, readSolanaAddress } from "./chains/solana.ts";
-import { recordAlert } from "./journal.ts";
+import { logAudit, recordAlert } from "./journal.ts";
 import { refreshPrices, snapshotWealth } from "./wealth.ts";
 import { t } from "../lib/i18n.ts";
 import { serviceKey } from "./service-keys.ts";
@@ -384,7 +384,7 @@ export async function cryptoStatus(userId: number) {
   const [run] = await db.select().from(cryptoSyncRuns).orderBy(desc(cryptoSyncRuns.id)).limit(1);
   // Le journal des synchros est commun au foyer : un membre n'y lit que la date et l'état, et le compte de ses
   // propres portefeuilles — la valeur de ceux d'un autre ne le regarde pas.
-  const lastRun = run ? { ...run, totalEur: null, creditsUsed: null, error: null, lines: sources.reduce((n, s) => n + (s.enabled ? s.lines : 0), 0), sources: sources.filter((s) => s.enabled && (s.status === "ok" || s.status === "vide")).length } : null;
+  const lastRun = run ? { ...run, totalEur: null, creditsUsed: null, error: null, lines: sources.reduce((n, s) => n + (s.enabled && s.status !== "doublon" ? s.lines : 0), 0), sources: sources.filter((s) => s.enabled && (s.status === "ok" || s.status === "vide")).length } : null;
   const archived = await db
     .select({ id: cryptoPositions.id, symbol: cryptoPositions.symbol, name: cryptoPositions.name, quantity: cryptoPositions.quantity, manualValue: cryptoPositions.manualValue, archivedAt: cryptoPositions.archivedAt, archivedReason: cryptoPositions.archivedReason })
     .from(cryptoPositions)
@@ -488,6 +488,8 @@ export async function addWallet(userId: number, input: { address: string; name?:
     if (!existing) await db.delete(cryptoSources).where(eq(cryptoSources.portfolioId, portfolioId));
     throw new Error(t("Lecture impossible pour le moment ({raison}). Réessaie dans quelques minutes.", { raison: failed?.note ?? "?" }));
   }
+  // Tracé ici plutôt que par le journal automatique des écritures : ni l'adresse collée ni la clé n'y figurent.
+  await logAudit("crypto : source ajoutée", portfolioId, { genre: kind, nom: name });
   await refreshPrices().catch(() => undefined);
   await refreshDirectTotals();
   await snapshotWealth(userId);

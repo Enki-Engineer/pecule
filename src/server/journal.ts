@@ -44,8 +44,12 @@ export async function logAudit(action: string, target?: string | number | null, 
   }
 }
 
-/** Requêtes qui n'écrivent rien de métier (connexion, conversation) ou déjà tracées ailleurs (réglages de l'IA : sans la clé saisie). */
-const NOT_AUDITED = [/^\/api\/auth\/setup/, /^\/api\/connections\/keys/, /^\/api\/bank\/enable-banking\/key/, /^\/api\/auth\/(login|register|token-login|logout)/, /^\/api\/assistant\/(message|confirm)/, /^\/api\/sync$/, /^\/api\/mcp/, /^\/api\/voice\//, /^\/api\/ai\//];
+/**
+ * Requêtes qui n'écrivent rien de métier (connexion, conversation) ou déjà tracées ailleurs (réglages de l'IA : sans la
+ * clé saisie ; portefeuille crypto ajouté : sans l'adresse collée, qui peut être la clé étendue d'un compte, ni la clé
+ * d'un exchange).
+ */
+const NOT_AUDITED = [/^\/api\/crypto\/(sources|exchanges)(\?|$)/, /^\/api\/auth\/setup/, /^\/api\/connections\/keys/, /^\/api\/bank\/enable-banking\/key/, /^\/api\/auth\/(login|register|token-login|logout)/, /^\/api\/assistant\/(message|confirm)/, /^\/api\/sync$/, /^\/api\/mcp/, /^\/api\/voice\//, /^\/api\/ai\//];
 
 /** Champs d'un corps de requête qui ne s'écrivent jamais au journal, à aucun niveau (codes, clés, jetons, mots de passe). */
 const SECRET_FIELD = /^(code|key|keys|cle|privatekey|private_key|accesskey|access_key|secretkey|secret_key|token|jeton|secret|password|motdepasse|p256dh|auth)$/i;

@@ -15,7 +15,7 @@ import { monthTotals } from "../../lib/month.ts";
 import { t, td, tk, tn } from "../../lib/i18n.ts";
 
 /*
- * Répartition du mois en anneau (comme la vue « Analyse » de Bankin') : dépenses par poste ou
+ * Répartition du mois en anneau : dépenses par poste ou
  * revenus par catégorie, avec la liste des parts à côté (sous l'anneau sur iPhone). Un poste s'ouvre
  * sur ses catégories ; une part ou une catégorie ouvre ses opérations (tiroir de forage).
  */

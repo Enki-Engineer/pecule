@@ -972,7 +972,7 @@ admin.post("/import/transactions", async (req, res) => {
 });
 
 /**
- * Historique de la banque (relevés de BoursoBank, opérations de Bankin') : crée les opérations
+ * Historique de la banque (relevés de BoursoBank, opérations d'un agrégateur) : crée les opérations
  * absentes de Pécule. À blanc par défaut (`?appliquer=1` pour écrire) ; rejouable.
  */
 admin.post("/import/bank-history", async (req, res) => {

@@ -12,7 +12,7 @@ import { labelKey } from "../lib/labels.ts";
 
 /*
  * Historique de la banque (voir src/lib/bank-history.ts). Finta ne remonte qu'à trois mois ; les
- * relevés de la banque et de Bankin' remontent à l'ouverture des comptes. Les lignes absentes de
+ * relevés de la banque et ceux d'un agrégateur remontent à l'ouverture des comptes. Les lignes absentes de
  * Pécule y sont créées (`origin = 'banque'`), datées et libellées comme celles de Finta, puis
  * classées : règle ou même libellé déjà classé, sinon ce que les opérations déjà là apprennent
  * (même libellé de la banque, puis même catégorie de la banque), toujours en « deviné » (auto) ;

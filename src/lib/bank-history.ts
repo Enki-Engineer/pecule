@@ -2,7 +2,7 @@ import { cardDay, couldBe, learnAccounts, type BankRow, type BankTx } from "./bo
 
 /*
  * Historique de la banque. Finta ne garde qu'environ trois mois ; la banque (export « Exporter les
- * opérations » de BoursoBank) et Bankin' gardent tout depuis l'ouverture des comptes. Ici, sans
+ * opérations » de BoursoBank) et un agrégateur gardent tout depuis l'ouverture des comptes. Ici, sans
  * base de données : quelles lignes de la banque manquent dans Pécule, à quelle date et sous quel
  * libellé les créer pour qu'elles ressemblent aux opérations venues de Finta.
  */

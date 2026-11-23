@@ -1,19 +1,37 @@
+<div align="center">
+
+<img src="public/icons/icon.svg" width="96" height="96" alt="Pécule's logo: an open treasure chest">
+
 # Pécule
 
-**Self-hosted household finance tracker** — accounts, transactions, categories, wealth, invoices, documents, taxes
-and retirement, on desktop and on your phone. One installation serves one household; your data stays on your server.
+**All your household's finances. In a vault that belongs to you.**
 
-[Lire en français](README.fr.md)
+Accounts, budget, net worth, invoices, documents, taxes and retirement, on desktop and on your phone.<br>
+Self-hosted, free and open source: your data stays on your server.
 
-![Dashboard](docs/images/tableau-de-bord.png)
+[![Version](https://img.shields.io/github/v/release/Enki-Engineer/pecule?label=version&labelColor=141413&color=874519)](https://github.com/Enki-Engineer/pecule/releases/latest)
+[![Licence](https://img.shields.io/badge/licence-AGPL--3.0-874519?labelColor=141413)](LICENSE)
+[![Checks](https://img.shields.io/github/actions/workflow/status/Enki-Engineer/pecule/ci.yml?branch=main&label=checks&labelColor=141413)](https://github.com/Enki-Engineer/pecule/actions/workflows/ci.yml)
+[![Docker](https://img.shields.io/badge/docker-one%20file-874519?labelColor=141413&logo=docker&logoColor=white)](#install)
+[![Languages](https://img.shields.io/badge/speaks-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#what-it-does)
+
+[Install](#install) · [What it does](#what-it-does) · [Your data](#your-data-stays-yours) · [Documentation](#documentation) · [Suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) · [Lire en français](README.fr.md)
+
+</div>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/en/ouverture-sombre.webp">
+  <img src="docs/images/en/ouverture-clair.webp" width="100%" alt="Pécule's dashboard on a computer (net wealth, available balance, spending by heading) and its home screen on a phone, with the fictional family of the demo mode">
+</picture>
 
 Pécule is built for France and the euro first (French banks, tax notices, payslips, pension statements), and speaks
-French, English, German, Italian and Spanish. The code and its comments are written in French.
+French, English, German, Italian and Spanish. One installation serves one household. The code and its comments are
+written in French.
 
 ## What it does
 
 - **Day to day** — transactions from all your accounts in one place, categorised by rules you can teach, monthly
-  analysis, budget envelopes, invoices matched to the transactions that paid them.
+  analysis, budget envelopes, upcoming balances, invoices matched to the transactions that paid them.
 - **Wealth** — savings, investments, property, loans with their amortisation schedules, crypto, projections.
 - **Situation** — payslips, income tax and property tax, career and pension estimates.
 - **Vault** — every document kept, searchable, with its key facts and a schedule of what is due.
@@ -21,9 +39,8 @@ French, English, German, Italian and Spanish. The code and its comments are writ
   notices, loan schedules, bank statements, deeds, leases…), checks the arithmetic, and proposes the data. Nothing is
   written before you validate it, and every import can be undone.
 - **Assistant** (optional) — ask questions about your finances, hands-free if you like; it can act, with your
-  confirmation. Hand it a quote (energy, insurance, telecoms, car) and it tells you whether it beats the contract you
-  have, with a side-by-side table. It knows the app too: it explains how to do things, links to the right screen and
-  changes a setting when you ask. Pécule also exposes an MCP server so your own AI assistant can read and update it.
+  confirmation. It knows the app too: it explains how to do things, links to the right screen and changes a setting
+  when you ask. Pécule also exposes an MCP server so your own AI assistant can read and update it.
 - **Built-in manual** — everything the app does, by topic, searchable, in all five languages.
 - **A guided start** — on their first sign-in, each member is welcomed by a short introduction: the household to set
   up, the app's landmarks, then their bank to link, step by step. A guided tour then walks through the app itself, one
@@ -33,10 +50,43 @@ French, English, German, Italian and Spanish. The code and its comments are writ
 - **For a household** — each member has their own view; shared accounts and private ones; passkeys instead of
   passwords; a demo mode with a fictional family to show the app without showing your accounts.
 
-| | |
-| --- | --- |
-| ![Analysis](docs/images/analyse.png) | ![Transactions](docs/images/operations.png) |
-| ![Phone](docs/images/iphone.png) | ![Wealth](docs/images/patrimoine.png) |
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/en/analyse.webp" alt="Analysis screen: twelve rolling months of income and spending, cumulative spending, spending by heading"><br><sub><b>Analysis</b> — twelve rolling months, the month so far, where the money goes</sub></td>
+    <td width="50%"><img src="docs/images/en/budget.webp" alt="Budget screen: household income, fixed costs, what is left, the month's envelopes and commitments"><br><sub><b>Budget</b> — fixed costs, what is really left, envelopes, commitments</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/en/patrimoine.webp" alt="Wealth screen: net wealth, gross assets, outstanding loans, wealth over time by asset class"><br><sub><b>Wealth</b> — net wealth over time, by asset class, with loans</sub></td>
+    <td width="50%"><img src="docs/images/en/coffre.webp" alt="Vault screen: the household's documents with their type, domain, date and due date"><br><sub><b>Vault</b> — every document, searchable, with its due dates</sub></td>
+  </tr>
+</table>
+
+### Got a quote? Compare it
+
+Electricity, gas, insurance, broadband, mobile, car, loan: hand the assistant a quote and it compares it with the
+contract you have — what you really paid over twelve months, cover by cover — and tells you whether it is worth
+switching, and until when you can cancel.
+
+<img src="docs/images/en/devis.webp" width="100%" alt="The assistant comparing a car insurance quote with the current contract: a verdict (cheaper but covers less), then a side-by-side table of premium, breakdown assistance, courtesy car, excess and the total over twelve months">
+
+### On your phone
+
+Add Pécule to your home screen: it behaves like an app, with a sort mode to categorise the day's transactions in a
+few swipes.
+
+<img src="docs/images/en/telephone.webp" width="100%" alt="Three phone screens: home with the available balance and the accounts, sort mode suggesting categories for a transaction, net wealth over time">
+
+## Your data stays yours
+
+Pécule runs on your own server: your accounts, documents and history stay there. No account to open with the
+project, no telemetry, no ads. No data sold to third parties and no unsolicited contact: the project never sees what you put in
+it, so there is nothing to sell and no one to call you.
+
+- **Free and open source** — AGPL-3.0: the code is public; read it, change it, host it.
+- **On your server** — one installation serves one household; the data stays in your database.
+- **Never sold, never solicited** — nobody will call you to sell a loan or an insurance policy.
+- **Your keys, not ours** — your bank read-only with your own Enable Banking key; AI, if you want it, with your own
+  key.
 
 ## Where the data comes from
 
@@ -99,10 +149,33 @@ it behaves like an app.
 - [Importing your documents](docs/guide/importer-des-documents.md) · [Where to get your documents](docs/guide/recuperer-ses-documents.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
+## A young project that moves fast
+
+Pécule's first public release dates from November 2026, and new features arrive every week: the
+[release notes](https://github.com/Enki-Engineer/pecule/releases) tell what changes for a household.
+
+- An idea, something missing? [Suggest it](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md).
+- Something does not work? [Report a problem](https://github.com/Enki-Engineer/pecule/issues/new?template=probleme.md)
+  (never attach real bank data: the demo mode almost always reproduces it).
+- Want to help with the code? See [Contributing](CONTRIBUTING.md).
+
+Pécule is free and will stay free. If it is useful to you, a star on this page helps other households find it.
+
 ## Stack
 
 Node.js 24, Express 5, React 19, Vite, Tailwind CSS 4, TypeScript, Drizzle ORM, MySQL or MariaDB. No account with us,
 no telemetry, no external service required.
+
+## Thanks
+
+To [Enable Banking](https://enablebanking.com), who make their service free for personal use: that is how Pécule
+reads your accounts, read-only, through the official channel set by European regulation (PSD2). You give your consent
+at your bank, and Pécule never sees your credentials.
+
+## Author
+
+Pécule is created and maintained by **Kevin Ferreira** —
+[LinkedIn](https://www.linkedin.com/in/ferreirakevin) · [GitHub](https://github.com/kfr-kevinferreira).
 
 ## Licence
 

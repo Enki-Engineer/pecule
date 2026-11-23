@@ -1,7 +1,8 @@
 # Contribuer à Pécule
 
 Merci de votre intérêt. Pécule est un projet personnel, tenu sur du temps libre : les corrections et les petites
-améliorations sont les bienvenues ; pour une fonction nouvelle, ouvrez d'abord un ticket pour en parler.
+améliorations sont les bienvenues ; pour une fonction nouvelle, ouvrez d'abord un ticket pour en parler
+([proposer une idée](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)).
 
 ## Mettre le projet en route
 

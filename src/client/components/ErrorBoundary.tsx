@@ -2,12 +2,14 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import { t } from "../../lib/i18n.ts";
 import { clearOfflineCache } from "../offline.tsx";
+import { reportError } from "../report.ts";
 
 /*
  * Garde-fou d'affichage : une erreur pendant le rendu d'un écran (ou d'un bloc, avec `fallback`) ne démonte plus
  * toute l'appli — sans lui, il ne restait que le fond de la page. À la place : un message et « Recharger », qui
  * oublie d'abord les données gardées sur l'appareil : si c'est l'une d'elles que l'écran n'a pas su lire (gardée par
- * une version d'avant, sous une autre forme), recharger avec elle ramènerait au même message.
+ * une version d'avant, sous une autre forme), recharger avec elle ramènerait au même message. L'erreur est remontée
+ * au serveur (src/client/report.ts) : elle se lit dans Réglages → Suivi technique.
  */
 
 type Props = { children: ReactNode; /** Ce qui remplace le bloc en panne ; par défaut, le message de pleine page. */ fallback?: ReactNode };
@@ -21,6 +23,8 @@ export class ErrorBoundary extends Component<Props, { failed: boolean }> {
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
     console.error("[écran]", error, info.componentStack);
+    // La panne remonte au serveur du foyer (Réglages → Suivi technique) : la console de cet appareil, personne ne la lit.
+    reportError("rendu", error, info.componentStack);
   }
 
   render() {

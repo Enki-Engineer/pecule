@@ -5,6 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
 import { env } from "./env.ts";
 import { aiClient, aiEnabled, aiModel, recordUsage } from "./ai.ts";
+import { partialUsage } from "../lib/ai-usage.ts";
 import { exec, one, q } from "./db.ts";
 import { ActionError } from "./actions.ts";
 import { invoiceVisible } from "./invoices.ts";
@@ -165,6 +166,8 @@ export type DisplayItem = {
   charts?: Chart[];
   /** Moment du message (ISO) ; absent des conversations antérieures. */
   at?: string;
+  /** Réponse arrêtée par le membre avant sa fin : ce qui était déjà écrit est gardé. */
+  stopped?: boolean;
 };
 
 /* ---------- Graphiques dans la réponse (outil propre à l'assistant) ---------- */
@@ -214,6 +217,45 @@ type Thread = {
 /** Titre affiché d'une conversation : celui du membre, sinon sa première question. */
 export type AssistantEvent = { type: "text"; text: string } | { type: "step"; label: string };
 type Emit = (e: AssistantEvent) => void;
+
+/*
+ * Réponses en cours d'écriture, pour pouvoir en arrêter une (bouton « Arrêter » de l'écran) : le serveur n'a qu'un
+ * processus, la table tient en mémoire. Fermer l'écran n'arrête rien — la réponse se termine et attend dans la
+ * conversation ; seule la demande d'arrêt du membre qui l'a lancée la coupe.
+ */
+const running = new Map<string, { userId: number; controller: AbortController }>();
+
+/** Inscrit une réponse qui commence : son identifiant (donné à l'écran), son signal d'arrêt, et de quoi la retirer. */
+export function startReply(userId: number): { id: string; signal: AbortSignal; end: () => void } {
+  const id = randomUUID();
+  const controller = new AbortController();
+  running.set(id, { userId, controller });
+  return { id, signal: controller.signal, end: () => void running.delete(id) };
+}
+
+/** Arrête une réponse en cours du membre. Faux si elle est déjà finie, ou si elle n'est pas à lui. */
+export function stopReply(userId: number, id: string): boolean {
+  const reply = running.get(id);
+  if (!reply || reply.userId !== userId) return false;
+  reply.controller.abort();
+  return true;
+}
+
+/**
+ * Ce que Claude lit, avec le message suivant du membre, quand celui-ci a arrêté sa réponse précédente. La note n'est
+ * pas écrite dans la réponse elle-même : Claude la prendrait pour un texte de sa main, à reproduire.
+ */
+const STOPPED_BLOCK: Anthropic.TextBlockParam = {
+  type: "text",
+  text: "[Réponse interrompue] L'utilisateur a arrêté ta réponse précédente avant sa fin : ce qui en reste est incomplet. Réponds à son nouveau message ; s'il repose la même question, reprends ta réponse depuis le début, sans revenir sur l'interruption.",
+};
+
+/** Un message de l'assistant ne peut pas être vide (le fournisseur refuserait toute la suite) : ce qui tient sa place. */
+const emptyReply = (): Anthropic.TextBlockParam[] => [{ type: "text", text: "…" }];
+
+/** Caractères déjà écrits d'une réponse coupée (texte, réflexion, appel d'outil commencé) : de quoi estimer sa sortie. */
+const writtenChars = (content: readonly Anthropic.ContentBlock[]): number =>
+  content.reduce((n, b) => n + (b.type === "text" ? b.text.length : b.type === "thinking" ? b.thinking.length : b.type === "tool_use" ? JSON.stringify(b.input ?? {}).length : 0), 0);
 
 async function loadThread(userId: number, id?: string): Promise<Thread> {
   if (id) {
@@ -345,7 +387,7 @@ function withCacheMarker(messages: Anthropic.MessageParam[]): Anthropic.MessageP
 
 /** Boucle Claude : exécute les lectures, s'arrête sur une écriture (confirmation) ou sur la réponse finale. */
 
-async function runLoop(t: Thread, emit?: Emit) {
+async function runLoop(t: Thread, emit?: Emit, signal?: AbortSignal) {
   const system = await systemPrompt(t.userId);
   let cost = 0;
   const charts: Chart[] = [];
@@ -356,7 +398,16 @@ async function runLoop(t: Thread, emit?: Emit) {
   const written: string[] = [];
   let announced = "";
   const answer = (text: string) => [...written, text].filter(Boolean).join("\n\n");
+  // Arrêt demandé par le membre : ce qui est déjà écrit reste dans la conversation, marqué comme arrêté ; Claude en est
+  // prévenu avec le message suivant (sendMessage). Une lecture ou un appel d'outil laissés en plan ne sont pas gardés.
+  // Ce que relit Claude ne reçoit que le texte de ce tour-ci : celui des tours d'avant (`written`, `announced`) y est déjà.
+  const stopped = (partial: string) => {
+    const own = partial.trim();
+    t.messages.push({ role: "assistant", content: own ? [{ type: "text", text: own }] : emptyReply() });
+    return finish({ role: "assistant", text: answer(own) || announced, stopped: true });
+  };
   for (let step = 0; step < MAX_STEPS; step++) {
+    if (signal?.aborted) return stopped("");
     const stream = aiClient().messages.stream({
       model: aiModel(),
       max_tokens: 32000,
@@ -378,14 +429,36 @@ async function runLoop(t: Thread, emit?: Emit) {
         emit({ type: "text", text: delta });
       });
     }
-    const response = await stream.finalMessage();
+    const onStop = () => stream.abort();
+    signal?.addEventListener("abort", onStop, { once: true });
+    let response: Anthropic.Message;
+    try {
+      response = await stream.finalMessage();
+    } catch (e) {
+      if (!signal?.aborted) throw e;
+      // Réponse coupée en cours d'écriture : le texte déjà reçu est gardé. Le fournisseur n'annonce la sortie qu'à la
+      // fin de la réponse : celle d'une réponse coupée est estimée d'après ce qui était écrit (partialUsage).
+      const partial = stream.currentMessage;
+      if (partial?.usage) {
+        const u = partialUsage(partial.usage, writtenChars(partial.content));
+        t.inputTokens += u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+        t.outputTokens += u.output_tokens;
+        const c = await recordUsage("assistant", aiModel(), u, t.id);
+        cost += c;
+        t.cost += c;
+      }
+      return stopped((partial?.content ?? []).filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n"));
+    } finally {
+      signal?.removeEventListener("abort", onStop);
+    }
     const u = response.usage;
     t.inputTokens += u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
     t.outputTokens += u.output_tokens;
     const c = await recordUsage("assistant", aiModel(), u, t.id);
     cost += c;
     t.cost += c;
-    t.messages.push({ role: "assistant", content: response.content });
+    // Réponse sans contenu (refus, tour clos sans un mot) : « … » tient sa place, la conversation reste utilisable.
+    t.messages.push({ role: "assistant", content: response.content.length ? response.content : emptyReply() });
 
     if (response.stop_reason === "refusal") return finish({ role: "assistant", text: tr("Je ne peux pas répondre à cette demande.") });
     const text = response.content
@@ -559,7 +632,7 @@ export async function sendMessage(
   userId: number,
   threadId: string | undefined,
   text: string,
-  opts: { invoiceIds?: number[]; documentIds?: number[]; context?: ScreenContext; voice?: boolean; emit?: Emit } = {},
+  opts: { invoiceIds?: number[]; documentIds?: number[]; context?: ScreenContext; voice?: boolean; emit?: Emit; signal?: AbortSignal } = {},
 ) {
   const t = await loadThread(userId, threadId);
   if (t.messages.length > MAX_MESSAGES) {
@@ -568,21 +641,26 @@ export async function sendMessage(
   }
   const { blocks, attachments } = await attachmentBlocks(userId, opts.invoiceIds ?? [], opts.documentIds ?? []);
   const ctx = opts.context ? contextBlock(opts.context) : null;
+  // Réponse précédente arrêtée par le membre : Claude l'apprend avec ce message.
+  const interrupted = t.display.at(-1)?.role === "assistant" && t.display.at(-1)?.stopped === true;
   // Un nouveau message pendant une confirmation vaut refus de l'action proposée.
   const pendingResults = await resolvePending(t, false, "L'utilisateur a écrit un nouveau message au lieu de confirmer : action annulée.");
-  t.messages.push({ role: "user", content: [...pendingResults, ...(ctx ? [ctx.block] : []), ...blocks, ...(opts.voice ? [VOICE_BLOCK] : []), { type: "text", text }] });
+  t.messages.push({
+    role: "user",
+    content: [...pendingResults, ...(interrupted ? [STOPPED_BLOCK] : []), ...(ctx ? [ctx.block] : []), ...blocks, ...(opts.voice ? [VOICE_BLOCK] : []), { type: "text", text }],
+  });
   t.display.push({ role: "user", text, at: new Date().toISOString(), ...(attachments.length ? { attachments } : {}), ...(ctx?.label ? { context: ctx.label } : {}) });
   // Le fil doit exister avant d'y rattacher des actions proposées.
   await saveThread(t);
   try {
-    await runLoop(t, opts.emit);
+    await runLoop(t, opts.emit, opts.signal);
   } finally {
     await saveThread(t);
   }
   return publicThread(t);
 }
 
-export async function confirmPending(userId: number, threadId: string, approve: boolean, actionIds?: string[], emit?: Emit) {
+export async function confirmPending(userId: number, threadId: string, approve: boolean, actionIds?: string[], emit?: Emit, signal?: AbortSignal) {
   const t = await loadThread(userId, threadId);
   if (!t.pending) return publicThread(t);
   // L'écran confirme ce qu'il a affiché : si l'action a changé entre-temps (autre onglet), on refuse.
@@ -595,7 +673,7 @@ export async function confirmPending(userId: number, threadId: string, approve: 
   t.messages.push({ role: "user", content: results });
   await saveThread(t);
   try {
-    await runLoop(t, emit);
+    await runLoop(t, emit, signal);
   } finally {
     await saveThread(t);
   }

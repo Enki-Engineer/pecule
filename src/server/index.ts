@@ -46,6 +46,7 @@ import { scheduleAutoBackup } from "./auto-backup.ts";
 import { updatesApi } from "./routes/updates.ts";
 import { cleanInterruptedRestore, cleanRestoreLeftovers, restoreApi, type RestoreHooks } from "./restore.ts";
 import { cleanOffsiteLeftovers } from "./offsite.ts";
+import { setClientBuild } from "./client-build.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -205,6 +206,7 @@ export async function createApp() {
     // La page part avec l'icône choisie sur l'appareil (cookie posé par le script d'apparence) : à l'ajout au Dock ou
     // à l'écran d'accueil, Safari retient le manifeste et l'icône de la page envoyée, pas ceux qu'un script y met ensuite.
     const page = readFileSync(path.join(client, "index.html"), "utf8");
+    setClientBuild(page);
     app.get("/{*path}", (req, res) => {
       const icon = asLogoId(req.cookies?.[HOME_ICON_COOKIE]);
       res.set("Cache-Control", "no-cache").vary("Cookie").type("html").send(icon ? pageWithHomeIcon(page, icon) : page);

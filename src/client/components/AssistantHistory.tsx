@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Search, Star, Trash2 } from "lucide-react";
+import { Download, Pencil, Search, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../api.ts";
 import { cn } from "../cn.ts";
@@ -104,6 +104,10 @@ function HistoryRow({
         >
           <Pencil size={14} />
         </button>
+        {/* La conversation en fichier texte, fabriquée par le serveur dans la langue du membre. */}
+        <a className={actionButton} href={`/api/assistant/threads/${thread.id}/export`} download title={t("Exporter en texte")} aria-label={t("Exporter en texte")}>
+          <Download size={14} />
+        </a>
         <button type="button" className={cn(actionButton, "hover:text-neg")} title={t("Supprimer")} aria-label={t("Supprimer")} onClick={onRemove}>
           <Trash2 size={14} />
         </button>

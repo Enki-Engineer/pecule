@@ -20,6 +20,7 @@ export const assistant: ManualTheme = {
           ],
         },
         tk("Écris ta question et envoie avec Entrée (Maj + Entrée va à la ligne). Une conversation vide propose des questions et des actions toutes prêtes."),
+        tk("Pendant qu'il répond, le bouton d'envoi devient [[Arrêter la réponse]] : ce qui est déjà écrit reste dans la conversation, et [[Relancer]] repose la même question."),
         tk("Dans le panneau, l'assistant sait quel écran est ouvert : devant une opération, une facture, un bien ou un document, « cette opération » ou « ce document » désigne celui que tu regardes. Une pastille au-dessus du champ le rappelle ; sa croix l'écarte."),
         { note: tk("L'assistant demande un fournisseur d'IA branché ; sans lui, tout le reste de Pécule fonctionne. Voir [Brancher un fournisseur d'IA](/manuel/brancher-ia).") },
       ],
@@ -173,13 +174,14 @@ export const assistant: ManualTheme = {
     {
       id: "assistant-conversations",
       title: tk("Retrouver ses conversations"),
-      summary: tk("L'historique : chercher, renommer, épingler, supprimer."),
+      summary: tk("L'historique : chercher, renommer, épingler, exporter, supprimer."),
       body: [
         tk("Ouvre [[Mes conversations]] dans l'en-tête de l'assistant ([[Historique]] sur téléphone). Les conversations sont rangées par date, les épinglées en tête."),
         {
           list: [
             tk("La recherche porte sur les titres et sur le texte des messages."),
             tk("[[Épingler en tête]], [[Renommer]] et [[Supprimer]] sont sur chaque ligne."),
+            tk("[[Exporter en texte]], sur la même ligne, télécharge la conversation en fichier texte : les questions, les réponses, les actions et ce qu'elles sont devenues."),
             tk("[[Nouvelle]] commence une conversation vierge. La dernière conversation est reprise quand tu rouvres l'assistant."),
           ],
         },
@@ -187,7 +189,7 @@ export const assistant: ManualTheme = {
         { note: tk("Une très longue conversation finit par demander d'en commencer une nouvelle.") },
       ],
       links: [{ to: "/assistant", label: ["Assistant"] }],
-      words: tk("historique anciennes conversations retrouver une réponse fil discussion copier"),
+      words: tk("historique anciennes conversations retrouver une réponse fil discussion copier exporter télécharger fichier texte arrêter relancer"),
     },
     {
       id: "brancher-ia",

@@ -1,5 +1,5 @@
 /*
- * Markdown des réponses de l'assistant, sans dépendance : découpage en blocs et en éléments de ligne (fonctions
+ * Markdown des réponses de l'assistant, sans paquet : découpage en blocs et en éléments de ligne (fonctions
  * pures, l'écran les dessine dans components/Markdown.tsx).
  *
  * Blocs : titres (#, ##, ###), paragraphes, listes à puces ou numérotées (imbriquées par l'indentation), tableaux
@@ -10,7 +10,12 @@
  * Tolérant au texte partiel (réponse en cours d'écriture).
  */
 
+import { tk } from "./i18n.ts";
+
 export type CalloutKind = "important" | "warning" | "tip" | "note";
+
+/** Intitulé d'un encadré, en texte d'origine : l'écran et l'export d'une conversation le passent à `t()`. */
+export const CALLOUT_LABELS: Record<CalloutKind, string> = { important: tk("À retenir"), warning: tk("Attention"), tip: tk("Conseil"), note: tk("À savoir") };
 
 export type Block =
   | { kind: "h"; level: number; text: string }

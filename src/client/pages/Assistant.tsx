@@ -1,7 +1,7 @@
 import { Suspense, lazy, memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowUp, AudioLines, Check, ChevronDown, ChevronLeft, Clock, Copy, FileText, History, Maximize2, Minimize2, PanelLeft, Paperclip, Plus, RefreshCw, Sparkles, X } from "lucide-react";
+import { AlertTriangle, ArrowUp, AudioLines, Check, ChevronDown, ChevronLeft, Clock, Copy, FileText, History, Maximize2, Minimize2, PanelLeft, Paperclip, Plus, RefreshCw, Sparkles, Square, X } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, apiStream, invalidateDocuments, invalidateInvoices, uploadToInbox, useMe } from "../api.ts";
@@ -18,7 +18,7 @@ import { VoiceSession, voiceSupported } from "../voice.ts";
 import { VoiceMode } from "../components/VoiceMode.tsx";
 import { SpeechStream, spokenDecision, spokenFarewell } from "../../lib/voice.ts";
 import { t } from "../../lib/i18n.ts";
-import { plainMarkdown } from "../../lib/markdown.ts";
+import { hideOpenMarks, plainMarkdown } from "../../lib/markdown.ts";
 import type { ClientEffect } from "../../lib/device-settings.ts";
 import { applyEffects } from "../deviceSettings.ts";
 import "../../styles/assistant.css";
@@ -36,6 +36,8 @@ type Item = {
   charts?: ChatChartSpec[];
   /** Moment du message (ISO) ; absent des conversations anciennes. */
   at?: string;
+  /** Réponse arrêtée par le membre : ce qui était écrit est gardé. */
+  stopped?: boolean;
 };
 type PendingAction = { id: string | null; label: string; details: string[] };
 /** `effects` : ce que l'écran doit faire après une action tout juste confirmée (réglage de l'appareil, identité à relire). */
@@ -191,10 +193,12 @@ function ChartUnavailable({ title }: { title: string }) {
 
 /** Réponse de l'assistant : le texte se lit à même la page (sans bulle), ses graphiques dessous, puis copier, heure et coût. */
 function AssistantReply({ m }: { m: Item }) {
-  if (!m.text && !m.charts?.length) return null;
+  if (!m.text && !m.charts?.length && !m.stopped) return null;
+  // Une réponse arrêtée peut finir sur une marque ouverte (« {+12 ») : elle ne s'affiche ni ne se copie en clair.
+  const text = m.stopped ? hideOpenMarks(m.text) : m.text;
   return (
     <div className="flex flex-col items-start gap-2">
-      {m.text && <Markdown text={m.text} className="w-full" />}
+      {text && <Markdown text={text} className="w-full" />}
       {m.charts?.map((c, j) => (
         <ErrorBoundary key={j} fallback={<ChartUnavailable title={c.title} />}>
           <Suspense fallback={<div className="card h-48 w-full animate-pulse" />}>
@@ -203,13 +207,14 @@ function AssistantReply({ m }: { m: Item }) {
         </ErrorBoundary>
       ))}
       <div className="-ml-1.5 flex items-center gap-1 text-[12px] text-muted">
-        {m.text && <CopyButton text={m.text} />}
+        {text && <CopyButton text={text} />}
         {m.at && <span className="px-1 tnum">{momentLabel(m.at)}</span>}
         {m.cost != null && m.cost > 0 && (
           <span className="px-1 tnum" title={t("Coût de cette réponse (Foundry)")}>
             {aiCost(m.cost)}
           </span>
         )}
+        {m.stopped && <span className="px-1">{t("Réponse arrêtée.")}</span>}
       </div>
     </div>
   );
@@ -355,6 +360,9 @@ export function AssistantChat({
     if (prefill) setText(prefill);
   }, [prefill]);
   const [busy, setBusy] = useState(false);
+  // Réponse en cours d'écriture : son identifiant (donné par le serveur au début du flux) permet de l'arrêter.
+  const [reply, setReply] = useState<string | null>(null);
+  const [stopping, setStopping] = useState(false);
   const [stream, setStream] = useState("");
   const [step, setStep] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -531,6 +539,7 @@ export function AssistantChat({
     setStep(null);
     try {
       const r = await apiStream<ThreadState>(path, body, {
+        onStart: setReply,
         onText: (t) => {
           setStep(null);
           setStream((s) => s + t);
@@ -550,7 +559,22 @@ export function AssistantChat({
     } finally {
       setStream("");
       setStep(null);
+      setReply(null);
+      setStopping(false);
     }
+  }
+
+  /** Arrête la réponse en cours : le serveur garde ce qui est déjà écrit et clôt le flux, qui rend la conversation. */
+  function stop() {
+    if (!reply || stopping) return;
+    setStopping(true);
+    // Rien n'a été arrêté (la réponse venait de finir) ou la demande s'est perdue : le bouton redevient actif.
+    api<{ stopped: boolean }>("/assistant/stop", { method: "POST", json: { reply } }).then(
+      (r) => {
+        if (!r.stopped) setStopping(false);
+      },
+      () => setStopping(false),
+    );
   }
 
   async function send(value = text) {
@@ -738,6 +762,12 @@ export function AssistantChat({
   }
 
   const items = thread?.display ?? [];
+  // Dernière réponse arrêtée par le membre : la question qui la précède juste se repose d'un geste. Pas quand une action
+  // les sépare (la question la proposerait de nouveau), ni quand la question portait des pièces jointes (elles ne
+  // repartiraient pas avec elle).
+  const stoppedReply = items.at(-1)?.role === "assistant" && items.at(-1)?.stopped === true;
+  const asked = stoppedReply ? items.at(-2) : undefined;
+  const relaunch = asked?.role === "user" && !asked.attachments?.length ? asked.text : "";
   const contextual = contextualActions(location.pathname, activeEntity);
   // Accueil : ce qui se demande sur l'élément joint passe en tête, sous son nom ; le reste suit.
   const own = entityActions(activeEntity);
@@ -786,6 +816,12 @@ export function AssistantChat({
         <>
           {items.length === 0 && !busy && <ChatWelcome name={firstName} wide={full} about={about} actions={welcomeActions} onSuggest={suggest} />}
           <ChatMessages items={items} />
+          {/* Réponse arrêtée : la même question se repose d'un geste — sauf par-dessus un message en cours d'écriture, qu'elle emporterait. */}
+          {!busy && relaunch && !text.trim() && !files.length && (
+            <button type="button" onClick={() => void send(relaunch)} className="press -mt-1 flex items-center gap-1.5 self-start rounded-lg px-2 py-1 text-[13px] font-medium text-accent hover:bg-accent-soft">
+              <RefreshCw size={13} /> {t("Relancer")}
+            </button>
+          )}
           {busy && stream && <Markdown text={stream} streaming className="w-full" />}
           {thread?.pending && !busy && <PendingCard pending={thread.pending} onConfirm={(approve) => void confirm(approve)} />}
           {busy && (
@@ -890,7 +926,7 @@ export function AssistantChat({
           placeholder={files.length ? t("Un mot (facultatif)…") : t("Écrire à l'assistant…")}
           className="flex-1 resize-none bg-transparent py-2 text-[16px] outline-none placeholder:text-muted"
         />
-        {canTalk && !text.trim() && !files.length ? (
+        {canTalk && !text.trim() && !files.length && !(busy && reply) ? (
           <button
             type="button"
             onClick={startVoice}
@@ -900,6 +936,17 @@ export function AssistantChat({
             title={t("Parler à l'assistant (mode vocal)")}
           >
             <AudioLines size={20} />
+          </button>
+        ) : busy && reply ? (
+          <button
+            type="button"
+            onClick={stop}
+            disabled={stopping}
+            className="press grid size-10 shrink-0 place-items-center rounded-full bg-accent text-white disabled:opacity-40"
+            aria-label={t("Arrêter la réponse")}
+            title={t("Arrêter la réponse")}
+          >
+            <Square size={15} className="fill-current" />
           </button>
         ) : (
           <button

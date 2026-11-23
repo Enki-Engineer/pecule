@@ -58,6 +58,15 @@ export function usageCostUsd(model: string, u: Usage, custom: CustomPrices = {})
 }
 
 /**
+ * Décompte d'une réponse coupée avant sa fin (le membre l'a arrêtée) : le fournisseur n'annonce la sortie qu'à la fin
+ * de la réponse, celle qui était déjà écrite est donc estimée — un jeton pour trois caractères, arrondi au-dessus —,
+ * sans jamais descendre sous ce qu'il avait annoncé. Une estimation : la facture du fournisseur fait foi.
+ */
+export function partialUsage(u: Usage, writtenChars: number): Usage {
+  return { ...u, output_tokens: Math.max(u.output_tokens, Math.ceil(Math.max(0, writtenChars) / 3)) };
+}
+
+/**
  * Ce que le cache a fait économiser, en dollars : les jetons relus ont coûté le tarif du cache au lieu de celui de
  * l'entrée, moins le surcoût de leur écriture. Négatif quand le cache a été écrit sans être relu.
  */

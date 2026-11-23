@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AI_MODELS, DEFAULT_AI_MODEL } from "./ai-providers.ts";
-import { KIND_GROUP, REFERENCE_MODEL, USAGE_GROUPS, USAGE_KINDS, budgetState, budgetStops, cacheSavingUsd, daysInMonth, knownModel, priceOf, projectMonth, shiftMonth, speechCostUsd, transcriptionCost, usageCostUsd, usageKind } from "./ai-usage.ts";
+import { budgetState, budgetStops, cacheSavingUsd, daysInMonth, KIND_GROUP, knownModel, partialUsage, priceOf, projectMonth, REFERENCE_MODEL, shiftMonth, speechCostUsd, transcriptionCost, USAGE_GROUPS, USAGE_KINDS, usageCostUsd, usageKind } from "./ai-usage.ts";
 
 describe("tarif d'un modèle", () => {
   it("reconnaît un modèle daté ou un déploiement qui porte son nom", () => {
@@ -28,6 +28,15 @@ describe("tarif d'un modèle", () => {
     // 4 + 2 + 1 + 0,4
     expect(usageCostUsd("claude-opus-5-5", u)).toBeCloseTo(7.4, 6);
     expect(usageCostUsd("claude-opus-5-5", { input_tokens: 0, output_tokens: 0 })).toBe(0);
+  });
+  it("estime la sortie d'une réponse coupée d'après ce qui était écrit, sans descendre sous le décompte annoncé", () => {
+    const started = { input_tokens: 1200, output_tokens: 1, cache_read_input_tokens: 800 };
+    expect(partialUsage(started, 900)).toEqual({ input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 800 });
+    expect(partialUsage(started, 10).output_tokens).toBe(4);
+    expect(partialUsage(started, 0).output_tokens).toBe(1);
+    expect(partialUsage({ input_tokens: 5, output_tokens: 250 }, 300).output_tokens).toBe(250);
+    // Une réponse coupée coûte sa sortie, pas seulement son entrée.
+    expect(usageCostUsd("claude-opus-5-5", partialUsage(started, 3000))).toBeGreaterThan(usageCostUsd("claude-opus-5-5", started));
   });
   it("mesure ce que le cache a fait économiser", () => {
     // 1 M relus : 4 − 0,2 = 3,8 ; 1 M écrits : surcoût de 1.

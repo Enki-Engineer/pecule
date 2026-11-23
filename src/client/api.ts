@@ -11,9 +11,21 @@ import { seasonMode } from "./theme.ts";
 import type { Lang } from "../lib/i18n.ts";
 
 export class ApiError extends Error {
+  /** Dit ce qu'elle est à qui n'en voit que le texte : un refus du serveur n'est pas une panne de l'écran (report.ts). */
+  override name = "ApiError";
   constructor(public status: number, message: string) {
     super(message);
   }
+}
+
+/**
+ * Le serveur n'a pas pu être joint : le navigateur le dit par une `TypeError` dont le texte change d'un navigateur et
+ * d'une langue à l'autre (« Failed to fetch », « Load failed », « La connexion Internet semble interrompue. »). Elle
+ * reste la même erreur, sous le nom « NetworkError » : la remontée des erreurs d'affichage la tait à ce nom.
+ */
+function unreachable(e: unknown): never {
+  if (e instanceof TypeError) e.name = "NetworkError";
+  throw e;
 }
 
 /** Périmètre Foyer / Moi (défini par la coquille) : envoyé à chaque requête. */
@@ -29,7 +41,7 @@ export async function api<T>(path: string, init?: RequestInit & { json?: unknown
     // X-Themes : le réglage « Thèmes de l'année » de l'appareil, que le serveur ne garde pas (l'assistant ne parle du thème du moment qu'à qui l'affiche).
     headers: { "X-Perimetre": scopeOf(), "X-Langue": appLang(), "X-Themes": seasonMode(), ...(init?.json !== undefined ? { "Content-Type": "application/json" } : {}), ...init?.headers },
     body: init?.json !== undefined ? JSON.stringify(init.json) : init?.body,
-  });
+  }).catch(unreachable);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, (data as { error?: string }).error ?? `Erreur ${res.status}`);
   return data as T;
@@ -39,13 +51,13 @@ export async function api<T>(path: string, init?: RequestInit & { json?: unknown
  * POST en flux (SSE) : texte au fil de l'eau et étapes, puis le résultat final (événement « done »).
  * Sans flux (proxy qui met en tampon), le résultat arrive simplement d'un bloc à la fin.
  */
-export async function apiStream<T>(path: string, body: unknown, h: { onText?: (t: string) => void; onStep?: (label: string) => void }): Promise<T> {
+export async function apiStream<T>(path: string, body: unknown, h: { onText?: (t: string) => void; onStep?: (label: string) => void; /** Identifiant de la réponse qui commence : de quoi l'arrêter. */ onStart?: (reply: string) => void }): Promise<T> {
   const res = await fetch(`/api${path}${path.includes("?") ? "&" : "?"}stream=1`, {
     method: "POST",
     credentials: "same-origin",
     headers: { "X-Perimetre": scopeOf(), "X-Langue": appLang(), "X-Themes": seasonMode(), "Content-Type": "application/json", Accept: "text/event-stream" },
     body: JSON.stringify(body),
-  });
+  }).catch(unreachable);
   if (!res.ok || !res.body || !res.headers.get("content-type")?.includes("text/event-stream")) {
     const data = await res.json().catch(() => ({}));
     if (res.ok) return data as T;
@@ -69,7 +81,8 @@ export async function apiStream<T>(path: string, body: unknown, h: { onText?: (t
       }
       if (!data) continue;
       const d = JSON.parse(data);
-      if (event === "text") h.onText?.(d.text);
+      if (event === "start") h.onStart?.(d.reply);
+      else if (event === "text") h.onText?.(d.text);
       else if (event === "step") h.onStep?.(d.label);
       else if (event === "done") result = d as T;
       else if (event === "error") throw new ApiError(500, d.error ?? "L'assistant n'a pas pu répondre");

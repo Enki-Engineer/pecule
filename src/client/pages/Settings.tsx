@@ -430,10 +430,38 @@ const GROUP_SECTIONS: { title: string; ids: GroupId[] }[] = [
   { title: t("Assistant et suivi"), ids: ["assistant", "cout-ia", "suivi"] },
 ];
 
-type AlertRow = { id: number; at: string; lastAt: string; level: string; source: string; message: string; occurrences: number; resolvedAt: string | null };
-const SOURCES: Record<string, string> = { serveur: t("Serveur"), synchro: t("Synchro"), cours: t("Cours##source d'alerte"), processus: t("Processus"), demarrage: t("Démarrage") };
+type AlertRow = { id: number; at: string; lastAt: string; level: string; source: string; message: string; details?: string | null; occurrences: number; resolvedAt: string | null };
+const SOURCES: Record<string, string> = { serveur: t("Serveur"), synchro: t("Synchro"), cours: t("Cours##source d'alerte"), processus: t("Processus"), demarrage: t("Démarrage"), ecran: t("Écran##source d'alerte") };
 
-/** Alertes techniques : erreurs serveur, synchro, cours, plantages (regroupées si elles se répètent). */
+/** Une alerte : son message, d'où elle vient, et son détail technique à la demande (la pile d'une erreur, l'écran en cause). */
+function AlertItem({ alert: a, onResolve }: { alert: AlertRow; onResolve: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="px-4 py-3 text-sm">
+      <div className="flex items-start justify-between gap-3">
+        <span className={clsx("min-w-0 break-words font-medium", a.level === "erreur" ? "text-neg" : "text-warn")}>{a.message}</span>
+        <button type="button" onClick={onResolve} className="press shrink-0 text-xs font-medium text-accent">
+          {t("Marquer comme lue")}
+        </button>
+      </div>
+      <div className="mt-0.5 text-xs text-muted">
+        {SOURCES[a.source] ?? a.source} · {timeAgo(a.lastAt)}
+        {a.occurrences > 1 && ` · ${t("{n} fois depuis le {date}", { n: a.occurrences, date: dateFr(a.at) })}`}
+        {a.details && (
+          <>
+            {" · "}
+            <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="press font-medium text-accent">
+              {open ? t("Masquer le détail") : t("Voir le détail")}
+            </button>
+          </>
+        )}
+      </div>
+      {open && a.details && <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-bg p-2.5 text-[11.5px] leading-snug text-muted">{a.details}</pre>}
+    </div>
+  );
+}
+
+/** Alertes techniques : erreurs serveur, synchro, cours, plantages, écrans tombés (regroupées si elles se répètent). */
 function AlertsSection() {
   const qc = useQueryClient();
   const list = useQuery({ queryKey: ["alerts"], queryFn: () => api<{ alerts: AlertRow[] }>("/alerts") });
@@ -443,18 +471,7 @@ function AlertsSection() {
     <Section id="alertes" title={open.length ? t("Alertes ({n})", { n: open.length }) : t("Alertes")}>
       <Card className="divide-y divide-line">
         {open.map((a) => (
-          <div key={a.id} className="px-4 py-3 text-sm">
-            <div className="flex items-start justify-between gap-3">
-              <span className={clsx("font-medium", a.level === "erreur" ? "text-neg" : "text-warn")}>{a.message}</span>
-              <button type="button" onClick={() => resolve(a.id)} className="press shrink-0 text-xs font-medium text-accent">
-                {t("Marquer comme lue")}
-              </button>
-            </div>
-            <div className="mt-0.5 text-xs text-muted">
-              {SOURCES[a.source] ?? a.source} · {timeAgo(a.lastAt)}
-              {a.occurrences > 1 && ` · ${t("{n} fois depuis le {date}", { n: a.occurrences, date: dateFr(a.at) })}`}
-            </div>
-          </div>
+          <AlertItem key={a.id} alert={a} onResolve={() => resolve(a.id)} />
         ))}
         {!open.length && <div className="px-4 py-3 text-sm text-muted">{t("Aucune alerte en cours.")}</div>}
       </Card>

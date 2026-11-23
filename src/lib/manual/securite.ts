@@ -170,6 +170,7 @@ export const securite: ManualTheme = {
           list: [
             tk("[[Version et mises à jour]] : la version de Pécule en service et celle qui est publiée, pour l'administrateur (voir [Mettre Pécule à jour](/manuel/mise-a-jour))."),
             tk("[[Alertes]] : les erreurs du serveur, d'une synchronisation ou d'un service de cours, regroupées quand elles se répètent. [[Marquer comme lue]] en retire une. Le menu en porte le nombre."),
+            tk("Un écran qui n'a pas pu s'afficher sur l'appareil d'un membre y laisse aussi une alerte, avec l'écran concerné : [[Voir le détail]] donne de quoi chercher (l'erreur, et si l'appareil tournait sur la version en service). L'erreur ne va qu'au serveur de ton installation."),
             tk("[[Synchronisations bancaires]] : les dernières lectures, avec le nombre d'opérations nouvelles et de classements automatiques."),
             tk("[[Journal des modifications]] : qui a changé quoi, depuis l'écran, l'assistant ou une application connectée."),
           ],

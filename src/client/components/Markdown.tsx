@@ -2,8 +2,8 @@ import { Fragment, type ReactNode } from "react";
 import { Link } from "react-router";
 import { AlertTriangle, Bookmark, Info, Lightbulb, type LucideIcon } from "lucide-react";
 import { cn } from "../cn.ts";
-import { t, tk } from "../../lib/i18n.ts";
-import { hideOpenMarks, numericCell, parseInline, parseMarkdown, totalRow, type Block, type CalloutKind, type Inline } from "../../lib/markdown.ts";
+import { t } from "../../lib/i18n.ts";
+import { CALLOUT_LABELS, hideOpenMarks, numericCell, parseInline, parseMarkdown, totalRow, type Block, type CalloutKind, type Inline } from "../../lib/markdown.ts";
 import "../../styles/assistant.css";
 
 /*
@@ -12,14 +12,9 @@ import "../../styles/assistant.css";
  * en-tête, lignes alternées et total mis en avant.
  */
 
-const CALLOUT: Record<CalloutKind, { label: string; icon: LucideIcon }> = {
-  important: { label: tk("À retenir"), icon: Bookmark },
-  warning: { label: tk("Attention"), icon: AlertTriangle },
-  tip: { label: tk("Conseil"), icon: Lightbulb },
-  note: { label: tk("À savoir"), icon: Info },
-};
+const CALLOUT_ICON: Record<CalloutKind, LucideIcon> = { important: Bookmark, warning: AlertTriangle, tip: Lightbulb, note: Info };
 /** Intitulé d'un encadré, dans la langue de l'écran. */
-export const calloutLabel = (kind: CalloutKind) => t(CALLOUT[kind].label);
+export const calloutLabel = (kind: CalloutKind) => t(CALLOUT_LABELS[kind]);
 
 function renderInline(parts: Inline[], key: string): ReactNode[] {
   return parts.map((p, i) => {
@@ -119,7 +114,7 @@ function Blocks({ blocks }: { blocks: Block[] }) {
             </blockquote>
           );
         if (b.kind === "callout") {
-          const { icon: Icon } = CALLOUT[b.type];
+          const Icon = CALLOUT_ICON[b.type];
           return (
             <div key={i} className="md-callout" data-kind={b.type} role="note">
               <Icon size={16} className="md-callout-icon" aria-hidden />

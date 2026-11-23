@@ -1,5 +1,5 @@
 import { householdDay } from "../region.ts";
-import { today } from "../region.ts";
+import { region, today } from "../region.ts";
 import { isExpense, lineKind, peerOwner, STAT_DATE_JOIN, STAT_SCOPE, statDate } from "../stats.ts";
 import { ensureTransferPeers } from "../transfers.ts";
 import { nameTransfers, parseTransferId, transferId, transferName } from "../../lib/transfers.ts";
@@ -17,13 +17,13 @@ import { requireAdmin, requireApiToken, requireAuth, requireSyncAccess, createEn
 import { guessCategory, lastSyncRuns, markCardDuplicates, fintaConnections, fintaEnabled } from "../finta.ts";
 import { syncBanks } from "../bank-sync.ts";
 import { labelKey } from "../../lib/labels.ts";
-import { t as tr } from "../../lib/i18n.ts";
+import { locale, t as tr } from "../../lib/i18n.ts";
 import { labelShape, merchantName, natureSql, shapeRegex } from "../../lib/nature.ts";
 import { summarizeLoan, type ScheduleRow } from "../../lib/loans.ts";
 import { summarizePayouts } from "../../lib/payouts.ts";
 import { payouts } from "../payouts.ts";
 import { computeWealth, cryptoHistory, cryptoPositions, ensureFreshPrices, refreshWealth, snapshotWealth, wealthHistory } from "../wealth.ts";
-import { assistantEnabled, confirmPending, deleteThread, getThread, listThreads, sendMessage, updateThread, type AssistantEvent, type PublicThread } from "../assistant.ts";
+import { assistantEnabled, confirmPending, deleteThread, getThread, listThreads, sendMessage, startReply, stopReply, updateThread, type AssistantEvent, type PublicThread } from "../assistant.ts";
 import { listMemories } from "../tools/analyse.ts";
 import { getLogo, logoKeyAllowed, logoStatus, refreshWeakLogos, resetLogo } from "../logos.ts";
 import { registerUndo, runUndo, snapshotTransactions } from "../undo.ts";
@@ -39,6 +39,10 @@ import { agenda } from "../agenda.ts";
 import { dashLayout, saveDashLayout } from "../dashboard.ts";
 import { cleanLayout } from "../../lib/dashboard.ts";
 import { pastBalances, SERIES_LEAD_DAYS, type BalanceRow } from "../../lib/balance.ts";
+import { alertOf, CLIENT_ERROR_KINDS, worthReporting } from "../../lib/client-errors.ts";
+import { conversationText, exportFileName } from "../../lib/chat-history.ts";
+import { CALLOUT_LABELS } from "../../lib/markdown.ts";
+import { env } from "../env.ts";
 import { searchDocuments } from "../documents.ts";
 import { day } from "../tools/registry.ts";
 import { coloredPostes, comparePeriods, comparisonSpan, forecast, listMonths, monthDebits, monthFlows, monthlyTrend, monthMerchants, monthTimeline, natureTrend, yearDebits } from "../flows.ts";
@@ -65,6 +69,7 @@ import { memberIdByName } from "../members.ts";
 import { isDemo } from "../demo-context.ts";
 import { ebAdoptedAccounts } from "../enable-banking.ts";
 import { updateAvailable } from "../updates.ts";
+import { clientBuild } from "../client-build.ts";
 
 export const api = Router();
 
@@ -749,6 +754,36 @@ api.get("/assistant/threads/:id", async (req, res) => {
   res.json(await getThread(req.user!.id, req.params.id));
 });
 
+/** Une conversation en fichier texte, dans la langue du membre : à garder ou à transmettre. */
+api.get("/assistant/threads/:id/export", async (req, res) => {
+  const thread = await getThread(req.user!.id, z.string().uuid().parse(req.params.id));
+  if (!thread.display.length) throw new ActionError(404, tr("Conversation introuvable"));
+  const zone = region().timeZone;
+  const moment = (iso: string) => new Date(iso).toLocaleString(locale(), { timeZone: zone, dateStyle: "short", timeStyle: "short" });
+  const text = conversationText(
+    thread.title,
+    // Une action proposée, pas encore confirmée ni refusée, figure aussi dans l'export : elle y est dite en attente.
+    [...thread.display, ...(thread.pending ?? []).map((p) => ({ role: "action" as const, text: p.label, details: p.details, status: "pending" as const }))],
+    {
+      header: tr("Conversation avec l'assistant de Pécule, exportée le {date}", { date: moment(new Date().toISOString()) }),
+      you: tr("Toi"),
+      assistant: tr("Assistant"),
+      action: tr("Action"),
+      about: (label) => tr("À propos de : {element}", { element: label }),
+      attachment: (name) => tr("Pièce jointe : {nom}", { nom: name }),
+      chart: (title) => tr("Graphique : {titre}", { titre: title }),
+      callout: (kind) => tr(CALLOUT_LABELS[kind]),
+      stopped: tr("Réponse arrêtée."),
+      status: { done: tr("faite"), declined: tr("annulée"), error: tr("en échec"), expired: tr("expirée, rien n'a été fait"), pending: tr("en attente de confirmation") },
+    },
+    moment,
+    new URL(env.APP_URL).origin,
+  );
+  res
+    .set({ "Content-Type": "text/plain; charset=utf-8", "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName(thread.title, today()))}`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" })
+    .send(text);
+});
+
 /** Ranger l'historique : renommer (un titre vide rend la première question) ou épingler une conversation. */
 api.patch("/assistant/threads/:id", async (req, res) => {
   const body = z.object({ title: z.string().max(160).optional(), pinned: z.boolean().optional() }).parse(req.body);
@@ -765,14 +800,17 @@ api.delete("/assistant/threads/:id", async (req, res) => {
  * Réponse de l'assistant : JSON, ou flux SSE avec ?stream=1 (texte au fil de l'eau, étapes « Recherche
  * des opérations… », puis le fil complet). no-transform : la compression ne doit pas retenir le flux.
  */
-async function assistantReply(req: Request, res: Response, run: (emit?: (e: AssistantEvent) => void) => Promise<PublicThread>) {
+async function assistantReply(req: Request, res: Response, run: (emit?: (e: AssistantEvent) => void, signal?: AbortSignal) => Promise<PublicThread>) {
   if (req.query.stream !== "1") return res.json(await run());
   res.status(200).set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" });
   res.flushHeaders();
   const send = (event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   const ping = setInterval(() => res.write(": ping\n\n"), 15_000);
+  // La réponse reçoit un identifiant, donné d'abord à l'écran : c'est par lui que le membre peut l'arrêter.
+  const reply = startReply(req.user!.id);
+  send("start", { reply: reply.id });
   try {
-    send("done", await run((e) => send(e.type, e)));
+    send("done", await run((e) => send(e.type, e), reply.signal));
   } catch (e) {
     if (!(e instanceof ActionError)) {
       console.error("[assistant]", e);
@@ -780,6 +818,7 @@ async function assistantReply(req: Request, res: Response, run: (emit?: (e: Assi
     }
     send("error", { error: e instanceof ActionError ? e.message : tr("L'assistant n'a pas pu répondre : réessaie dans un instant.") });
   } finally {
+    reply.end();
     clearInterval(ping);
     res.end();
   }
@@ -807,8 +846,8 @@ api.post("/assistant/message", assistantLimiter, async (req, res) => {
       voice: z.boolean().optional(),
     })
     .parse(req.body);
-  await assistantReply(req, res, (emit) =>
-    sendMessage(req.user!.id, body.threadId, body.text, { invoiceIds: body.invoiceIds, documentIds: body.documentIds, context: body.context, voice: body.voice, emit }),
+  await assistantReply(req, res, (emit, signal) =>
+    sendMessage(req.user!.id, body.threadId, body.text, { invoiceIds: body.invoiceIds, documentIds: body.documentIds, context: body.context, voice: body.voice, emit, signal }),
   );
 });
 
@@ -816,7 +855,13 @@ api.post("/assistant/confirm", assistantLimiter, async (req, res) => {
   if (!assistantEnabled()) return res.status(503).json({ error: tr("Assistant non configuré") });
   const body = z.object({ threadId: z.string().uuid(), approve: z.boolean(), actionIds: z.array(z.string().nullable()).max(10).optional() }).parse(req.body);
   const ids = body.actionIds?.map((i) => i ?? "");
-  await assistantReply(req, res, (emit) => confirmPending(req.user!.id, body.threadId, body.approve, ids, emit));
+  await assistantReply(req, res, (emit, signal) => confirmPending(req.user!.id, body.threadId, body.approve, ids, emit, signal));
+});
+
+/** Arrête la réponse que l'assistant est en train d'écrire pour ce membre : ce qui est déjà écrit reste dans la conversation. */
+api.post("/assistant/stop", async (req, res) => {
+  const body = z.object({ reply: z.string().uuid() }).parse(req.body);
+  res.json({ stopped: stopReply(req.user!.id, body.reply) });
 });
 
 /* ---------- Administration (jeton d'API) : imports et invitations ---------- */
@@ -1188,6 +1233,30 @@ api.get("/alerts", async (req, res) => {
     .orderBy(sql`${alerts.resolvedAt} IS NULL DESC`, desc(alerts.lastAt))
     .limit(40);
   res.json({ alerts: rows });
+});
+
+/** Ce qu'un appareil remonte ; les longueurs sont larges, `alertOf` coupe à ce qui se garde. */
+const clientError = z.object({
+  kind: z.enum(CLIENT_ERROR_KINDS),
+  message: z.string().min(1).max(4000),
+  stack: z.string().max(20_000).optional(),
+  component: z.string().max(20_000).optional(),
+  path: z.string().max(2000),
+  build: z.string().max(200).optional(),
+});
+
+/**
+ * Erreur d'affichage remontée par l'appareil d'un membre (src/client/report.ts) : elle devient une alerte du Suivi
+ * technique, regroupée par écran et par erreur. Sans elle, un écran tombé ne laissait de trace que dans la console du
+ * navigateur de celui qui l'avait vu. Limitée par membre : une erreur en boucle ne remplit rien.
+ */
+api.post("/client-errors", hourly(30), async (req, res) => {
+  const report = clientError.parse(req.body);
+  if (worthReporting(report.message, report.stack)) {
+    const { message, details } = alertOf(report, { member: req.user!.name, agent: req.get("user-agent") ?? "", current: clientBuild() });
+    await recordAlert("ecran", message, details);
+  }
+  res.json({ ok: true });
 });
 
 api.post("/alerts/:id/resolve", requireAdmin, async (req, res) => {

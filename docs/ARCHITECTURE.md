@@ -166,7 +166,13 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   sauvegarde automatique peut partir hors du serveur (`src/server/offsite.ts`) : chiffrement au format age écrit sans
   dépendance (`src/server/age.ts`, le serveur ne garde que la clé publique), vers un stockage compatible S3 ou WebDAV
   (`src/server/remote.ts`), essayé avant d'être enregistré.
-- Écritures tracées dans `audit_log`, erreurs dans `alerts` (Réglages → Suivi technique).
+- Écritures tracées dans `audit_log`, erreurs dans `alerts` (Réglages → Suivi technique). Une erreur d'affichage
+  sur l'appareil d'un membre y arrive aussi : le garde-fou d'affichage (`components/ErrorBoundary.tsx`) et l'écoute
+  de ce que rien n'attrape (`src/client/report.ts`) l'envoient à `POST /api/client-errors`, qui en fait une alerte
+  regroupée par écran et par erreur (règles pures dans `src/lib/client-errors.ts` : le bruit tu — réseau coupé,
+  refus du serveur, extension du navigateur —, le chemin sans ses paramètres, et la construction de l'écran comparée
+  à celle que le serveur sert, `src/server/client-build.ts`). L'écoute est posée par `src/client/main.tsx`, avant le
+  chargement de l'appli : une panne de ce chargement remonte aussi. Rien ne part hors de l'installation.
 
 ## L'IA
 
@@ -177,6 +183,15 @@ suivantes, il ne s'écrit donc pas sur la foi d'un texte lu dans un libellé ou 
 noms de catégories. Les outils sont déclarés une fois
 (`src/server/tools/`) et servent à l'assistant comme au **serveur MCP** (`POST /api/mcp`, jeton d'administration ou
 OAuth 2.1 pour un assistant extérieur).
+
+Une réponse de l'assistant en cours d'écriture s'arrête à la demande du membre qui l'a lancée (`POST
+/api/assistant/stop`, par l'identifiant que le flux donne d'abord à l'écran) : l'appel au fournisseur est coupé, ce
+qui était écrit reste dans la conversation, marqué comme arrêté, et Claude l'apprend avec le message suivant du
+membre (jamais par une note dans sa propre réponse). Le fournisseur n'annonce la sortie qu'à la fin d'une réponse :
+celle d'une réponse coupée est estimée d'après ce qui était écrit (`partialUsage`, `src/lib/ai-usage.ts`). Fermer
+l'écran n'arrête rien : la réponse se termine et attend dans la conversation. Une conversation s'exporte en texte
+(`GET /api/assistant/threads/:id/export`, mise en forme pure dans `src/lib/chat-history.ts` : les réponses sans
+leurs marques, comme par « Copier », une action encore proposée dite en attente).
 
 Le serveur MCP borne ce qu'un accès peut lui demander : vingt messages au plus par requête, exécutés l'un après
 l'autre, et un débit par accès (`src/server/mcp.ts`).

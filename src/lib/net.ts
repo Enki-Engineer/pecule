@@ -43,11 +43,14 @@ export function isPrivateAddress(ip: string): boolean {
   if (g.slice(0, 5).every((x) => x === 0)) return g[5] === 0xffff ? privateV4(g[6] >> 8, g[6] & 0xff) : true; // « :: », « ::1 », IPv4 « compatibles »
   // « ::ffff:0:a.b.c.d », IPv4 traduite (RFC 2765) : jamais l'adresse d'un service public.
   if (g.slice(0, 4).every((x) => x === 0) && g[4] === 0xffff && g[5] === 0) return true;
+  // « 64:ff9b::a.b.c.d », IPv4 traduite par le réseau (NAT64, RFC 6052) : sur un réseau sans IPv4, tout site public en
+  // IPv4 se joint ainsi — c'est donc l'IPv4 portée qui compte, privée comme publique. Le reste de 64:ff9b::/32
+  // (préfixes propres à un réseau, RFC 8215) reste refusé : on ne sait pas ce qu'ils désignent.
+  if (g[0] === 0x64 && g[1] === 0xff9b) return g.slice(2, 6).some((x) => x !== 0) || privateV4(g[6] >> 8, g[6] & 0xff);
   return (
     (g[0] & 0xfe00) === 0xfc00 || // fc00::/7, réseau privé
     (g[0] & 0xff80) === 0xfe80 || // fe80::/9 : lien local et anciennes adresses de site
     (g[0] & 0xff00) === 0xff00 || // diffusion
-    (g[0] === 0x64 && g[1] === 0xff9b) || // 64:ff9b::/32, vers une IPv4 traduite
     g[0] === 0x2002 || // 6to4 : porte une IPv4
     (g[0] === 0x2001 && (g[1] === 0 || g[1] === 0x0db8)) // Teredo, documentation
   );

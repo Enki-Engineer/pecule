@@ -16,6 +16,14 @@ describe("adresses privées", () => {
       expect(isPrivateAddress(ip), ip).toBe(true);
     for (const ip of ["::ffff:808:808", "0:0:0:0:0:ffff:5db8:d822", "2a00:1450:4007:80e::200e", "2001:4860:4860::8888"]) expect(isPrivateAddress(ip), ip).toBe(false);
   });
+  it("juge l'IPv4 portée par une adresse traduite par le réseau (NAT64)", () => {
+    // Sur un réseau sans IPv4, un site public en IPv4 a pour adresse « 64:ff9b:: » suivie de son IPv4.
+    for (const ip of ["64:ff9b::808:808", "64:ff9b::8.8.8.8", "64:ff9b:0:0:0:0:5db8:d822"]) expect(isPrivateAddress(ip), ip).toBe(false);
+    // La même écriture ne donne pas accès au réseau privé ni à la machine.
+    for (const ip of ["64:ff9b::7f00:1", "64:ff9b::a00:5", "64:ff9b::10.0.0.5", "64:ff9b::c0a8:101", "64:ff9b::a9fe:a9fe", "64:ff9b::ac10:1", "64:ff9b::"]) expect(isPrivateAddress(ip), ip).toBe(true);
+    // Préfixes propres à un réseau, ou IPv4 ailleurs qu'à la fin : on ne sait pas ce qu'ils désignent.
+    for (const ip of ["64:ff9b:1::808:808", "64:ff9b:0:0:0:1:808:808", "64:ff9b:808:808::"]) expect(isPrivateAddress(ip), ip).toBe(true);
+  });
   it("refuse ce qui n'est pas une adresse", () => {
     for (const ip of ["exemple", "", "1.2.3", "256.1.1.1", "::ffff:999.1.1.1", "1::2::3", "12345::1", "g::1", "1:2:3:4:5:6:7", "1:2:3:4:5:6:7:8:9"]) expect(isPrivateAddress(ip), ip).toBe(true);
   });

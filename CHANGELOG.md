@@ -3,6 +3,27 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.47.0
+
+L'assistant s'arrête et se relance, une conversation s'exporte, et un écran qui tombe laisse une trace. Aucune
+migration, aucun réglage nouveau.
+
+- **Arrêter une réponse de l'assistant** : pendant qu'il écrit, le bouton d'envoi devient « Arrêter la réponse ».
+  Ce qui est déjà écrit reste dans la conversation, l'appel à l'IA est coupé, et « Relancer » repose la même
+  question. Fermer l'écran n'arrête toujours rien : la réponse se termine et t'attend dans la conversation. Le coût
+  d'une réponse arrêtée est estimé d'après ce qui était écrit : le fournisseur ne le dit qu'en fin de réponse.
+- **Exporter une conversation** : dans l'historique, « Exporter en texte » télécharge la conversation — questions,
+  réponses, actions et ce qu'elles sont devenues —, dans ta langue et sans les marques de mise en forme, comme
+  « Copier ».
+- **Un écran qui ne s'affiche pas laisse une alerte** : « Cet écran n'a pas pu s'afficher », ou une erreur que rien
+  n'attrapait, arrive dans Réglages → Suivi technique avec l'écran concerné. « Voir le détail » donne de quoi
+  chercher, et dit si l'appareil tournait sur la version en service ou sur une version d'avant. L'erreur ne va qu'au
+  serveur de ton installation, sans le contenu de l'écran ni les paramètres de l'adresse. Le détail des autres
+  alertes s'ouvre de la même façon.
+- **Réseaux sans IPv4** (DNS64, NAT64) : depuis un tel réseau, les sites publics n'étaient plus joignables — logos
+  introuvables, fournisseur d'IA ou assistant extérieur refusés. Pécule juge désormais l'adresse IPv4 que porte une
+  adresse traduite par le réseau ; le réseau privé reste hors d'atteinte par ce chemin.
+
 ## 1.46.2
 
 Correctifs. Aucune migration, aucun réglage nouveau.

@@ -3584,8 +3584,6 @@ export const it: Dict = {
   "Compte spot, portefeuille de financement et épargne (Simple Earn, souple et bloquée). Les contrats à terme ne sont pas lus.": "Conto spot, portafoglio di finanziamento e risparmio (Simple Earn, flessibile e vincolato). I futures non vengono letti.",
   "Nom de la clé (organizations/…/apiKeys/…)": "Nome della chiave (organizations/…/apiKeys/…)",
   "Clé privée (-----BEGIN EC PRIVATE KEY-----)": "Chiave privata (-----BEGIN EC PRIVATE KEY-----)",
-  "Sur portal.cdp.coinbase.com : API Keys → créer une clé d'API.": "Su portal.cdp.coinbase.com: API Keys → crea una chiave API.",
-  "Choisis l'algorithme ECDSA (l'autre, Ed25519, n'ouvre pas les comptes Coinbase) et le seul droit « View ».": "Scegli l'algoritmo ECDSA (l'altro, Ed25519, non apre i conti Coinbase) e il solo permesso «View».",
   "Copie le nom de la clé et sa clé privée, telle qu'elle est écrite dans le fichier téléchargé.": "Copia il nome della chiave e la sua chiave privata, così com'è scritta nel file scaricato.",
   "Tous les comptes de l'appli Coinbase (cryptos et monnaie).": "Tutti i conti dell'app Coinbase (cripto e denaro).",
   "Dans Bitpanda : Réglages du compte → API Keys → nouvelle clé.": "In Bitpanda: Impostazioni dell'account → API Keys → nuova chiave.",
@@ -3692,4 +3690,6 @@ export const it: Dict = {
   "Adresse non reconnue. Pécule lit une adresse Bitcoin, Ethereum, Solana, Cardano ou MultiversX, et la clé publique étendue d'un compte Bitcoin.": "Indirizzo non riconosciuto. Pécule legge un indirizzo Bitcoin, Ethereum, Solana, Cardano o MultiversX, e la chiave pubblica estesa di un conto Bitcoin.",
   "Adresse Cardano invalide : vérifie qu'elle est complète.": "Indirizzo Cardano non valido: controlla che sia completo.",
   "{n} autre, sans rien de compté": ["{n} altro, senza nulla di contato", "{n} altri, senza nulla di contato"],
+  "Sur portal.cdp.coinbase.com : Settings → API Keys → « Create secret API key ».": "Su portal.cdp.coinbase.com: Settings → API Keys → «Create secret API key».",
+  "Choisis l'algorithme ECDSA (l'autre, Ed25519, n'ouvre pas les comptes Coinbase) et garde le seul droit « Read » : ni Trade, ni Transfer, ni Receive.": "Scegli l'algoritmo ECDSA (l'altro, Ed25519, non apre i conti Coinbase) e tieni il solo permesso «Read»: né Trade, né Transfer, né Receive.",
 };

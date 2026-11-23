@@ -59,8 +59,8 @@ export const EXCHANGES: Record<ExchangeId, ExchangeInfo> = {
     secretLabel: tk("Clé privée (-----BEGIN EC PRIVATE KEY-----)"),
     longSecret: true,
     steps: [
-      tk("Sur portal.cdp.coinbase.com : API Keys → créer une clé d'API."),
-      tk("Choisis l'algorithme ECDSA (l'autre, Ed25519, n'ouvre pas les comptes Coinbase) et le seul droit « View »."),
+      tk("Sur portal.cdp.coinbase.com : Settings → API Keys → « Create secret API key »."),
+      tk("Choisis l'algorithme ECDSA (l'autre, Ed25519, n'ouvre pas les comptes Coinbase) et garde le seul droit « Read » : ni Trade, ni Transfer, ni Receive."),
       tk("Copie le nom de la clé et sa clé privée, telle qu'elle est écrite dans le fichier téléchargé."),
     ],
     covers: tk("Tous les comptes de l'appli Coinbase (cryptos et monnaie)."),

@@ -3,6 +3,19 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.43.1
+
+Coinbase : la marche à suivre suit le portail d'aujourd'hui.
+
+- **Créer la clé Coinbase** : le portail range désormais les clés sous « Settings → API Keys », le bouton s'appelle
+  « Create secret API key » et le droit de lecture « Read ». Les trois étapes affichées à l'ajout d'un compte
+  Coinbase le disent ainsi, dans les cinq langues. Rien ne change pour un compte déjà relié.
+- Le connecteur Coinbase a été lu sur un vrai compte (clé ECDSA, droit « Read » seul) : après Kraken et Binance,
+  c'est le troisième des onze exchanges vérifié ainsi. Les huit autres restent à confirmer ; un écart se signale
+  sur le dépôt.
+
+Aucune migration, aucun réglage nouveau.
+
 ## 1.43.0
 
 Crypto : la liste des portefeuilles dit d'où vient chacun, et trois blockchains de plus se lisent sans intermédiaire.

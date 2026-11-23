@@ -3584,8 +3584,6 @@ export const en: Dict = {
   "Compte spot, portefeuille de financement et épargne (Simple Earn, souple et bloquée). Les contrats à terme ne sont pas lus.": "Spot account, funding wallet and savings (Simple Earn, flexible and locked). Futures aren't read.",
   "Nom de la clé (organizations/…/apiKeys/…)": "Key name (organizations/…/apiKeys/…)",
   "Clé privée (-----BEGIN EC PRIVATE KEY-----)": "Private key (-----BEGIN EC PRIVATE KEY-----)",
-  "Sur portal.cdp.coinbase.com : API Keys → créer une clé d'API.": "On portal.cdp.coinbase.com: API Keys → create an API key.",
-  "Choisis l'algorithme ECDSA (l'autre, Ed25519, n'ouvre pas les comptes Coinbase) et le seul droit « View ».": "Choose the ECDSA algorithm (the other one, Ed25519, doesn't open Coinbase accounts) and the “View” permission only.",
   "Copie le nom de la clé et sa clé privée, telle qu'elle est écrite dans le fichier téléchargé.": "Copy the key's name and its private key, exactly as written in the downloaded file.",
   "Tous les comptes de l'appli Coinbase (cryptos et monnaie).": "All the accounts of the Coinbase app (crypto and cash).",
   "Dans Bitpanda : Réglages du compte → API Keys → nouvelle clé.": "In Bitpanda: Account settings → API Keys → new key.",
@@ -3692,4 +3690,6 @@ export const en: Dict = {
   "Adresse non reconnue. Pécule lit une adresse Bitcoin, Ethereum, Solana, Cardano ou MultiversX, et la clé publique étendue d'un compte Bitcoin.": "Address not recognised. Pécule reads a Bitcoin, Ethereum, Solana, Cardano or MultiversX address, and the extended public key of a Bitcoin account.",
   "Adresse Cardano invalide : vérifie qu'elle est complète.": "Invalid Cardano address: check that it's complete.",
   "{n} autre, sans rien de compté": ["{n} other, counting nothing", "{n} others, counting nothing"],
+  "Sur portal.cdp.coinbase.com : Settings → API Keys → « Create secret API key ».": "On portal.cdp.coinbase.com: Settings → API Keys → “Create secret API key”.",
+  "Choisis l'algorithme ECDSA (l'autre, Ed25519, n'ouvre pas les comptes Coinbase) et garde le seul droit « Read » : ni Trade, ni Transfer, ni Receive.": "Choose the ECDSA algorithm (the other one, Ed25519, doesn't open Coinbase accounts) and keep the “Read” permission only: no Trade, no Transfer, no Receive.",
 };

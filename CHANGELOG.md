@@ -3,6 +3,25 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.38.3
+
+Mise à jour des dépendances et des outils de fabrication. Rien ne change dans l'usage ; aucune migration, aucun
+réglage nouveau.
+
+- **Lecture des PDF** (unpdf 2.2, moteur PDF.js 6.5) : des mots que l'ancienne version coupait par une espace en
+  trop sont recollés (« 4, 5 » redevient « 4,5 ») ; le texte gardé au coffre, celui de la recherche et celui que lit
+  l'IA sont un peu plus justes pour les documents déposés désormais. Le reste est inchangé : mêmes pages, même
+  durée, mêmes refus (PDF abîmé, au-delà de 400 pages).
+- **IA** (SDK Anthropic 1.11, que le client Foundry partage) : une demande d'outil dont le contenu n'est pas du
+  JSON valide est refusée au lieu d'être « réparée » en silence — l'ancienne version pouvait lire 123 là où le
+  modèle avait écrit « 12 3 ». Les réponses se lisent comme avant.
+- **Écran** (React Router 8.5.2, TanStack Query 5.108, Recharts 3.11, Lucide 1.77, tailwind-merge 3.7.1) : l'icône
+  de l'échéancier est légèrement redessinée ; rien d'autre ne bouge.
+- Côté dépôt : les actions des flux GitHub passent à leurs versions majeures courantes (checkout 7, setup-node 7,
+  pnpm/action-setup 6, actions Docker 4, 6 et 7, attestation de provenance 4), toujours épinglées par l'empreinte de
+  leur commit. Le flux de publication garde ses permissions et reste sans cache : il refuse en toutes lettres le
+  cache de dépendances et l'inscription aux « artefacts liés » que ces versions font d'office.
+
 ## 1.38.2
 
 Une commande pour installer Pécule sans Docker. Rien ne change dans l'appli ; aucune migration, aucun réglage

@@ -1,8 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Signaler une faille de sécurité · Report a vulnerability
-    url: https://github.com/Enki-Engineer/pecule/security/advisories/new
-    about: En privé, jamais par un ticket public (voir SECURITY.md).
   - name: Installer ou mettre à jour Pécule · Install or update
     url: https://github.com/Enki-Engineer/pecule/blob/main/docs/guide/installation.md
     about: Le guide d'installation, à lire avant d'ouvrir un ticket.

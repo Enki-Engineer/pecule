@@ -1,4 +1,4 @@
-# Bouton « Sponsor » du dépôt. Les adresses de dons (Bitcoin, Ethereum) sont dans le README, rubrique « Support the project ».
+# Bouton « Sponsor » du dépôt. Les adresses de dons (Bitcoin, Ethereum) sont aussi dans le README, rubrique « Support the project ».
 github: [kfr-kevinferreira]
 liberapay: pecule
-custom: ["https://github.com/Enki-Engineer/pecule#support-the-project"]
+custom: ["https://pecule.org/en/#soutenir"]

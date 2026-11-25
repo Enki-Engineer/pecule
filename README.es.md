@@ -9,13 +9,14 @@
 Cuentas, presupuesto, patrimonio, facturas, documentos, impuestos y jubilación, en el ordenador y en el teléfono.<br>
 Alojado en tu casa, gratuito, libre y de código abierto: tus datos se quedan en tu servidor.
 
+[![web](https://img.shields.io/badge/web-pecule.org-874519?labelColor=141413)](https://pecule.org/en/)
 [![versión](https://img.shields.io/github/v/release/Enki-Engineer/pecule?label=versi%C3%B3n&labelColor=141413&color=874519)](https://github.com/Enki-Engineer/pecule/releases/latest)
 [![licencia](https://img.shields.io/badge/licencia-AGPL--3.0-874519?labelColor=141413)](LICENSE)
 [![controles](https://img.shields.io/github/actions/workflow/status/Enki-Engineer/pecule/ci.yml?branch=main&label=controles&labelColor=141413)](https://github.com/Enki-Engineer/pecule/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-un%20archivo-874519?labelColor=141413&logo=docker&logoColor=white)](#instalar)
 [![habla](https://img.shields.io/badge/habla-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#qué-hace)
 
-[Instalar](#instalar) · [Qué hace](#qué-hace) · [Con tus colores](#con-tus-colores) · [Conecta tu IA](#conecta-tu-ia) · [Tus datos](#tus-datos-te-pertenecen) · [Documentación](#documentación) · [Apoyar](#apoyar-a-pécule) · [Proponer una idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Sitio web](https://pecule.org/en/) · [Instalar](#instalar) · [Qué hace](#qué-hace) · [Con tus colores](#con-tus-colores) · [Conecta tu IA](#conecta-tu-ia) · [Tus datos](#tus-datos-te-pertenecen) · [Documentación](#documentación) · [Apoyar](#apoyar-a-pécule) · [Proponer una idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 [English](README.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · **Español**
 
@@ -29,6 +30,10 @@ Alojado en tu casa, gratuito, libre y de código abierto: tus datos se quedan en
 Pécule está pensado ante todo para Francia y el euro (bancos franceses, avisos de impuestos, nóminas, informes de
 vida laboral) y habla francés, inglés, alemán, italiano y español. Una instalación sirve a un hogar. El código y sus
 comentarios están escritos en francés.
+
+**Pécule en 70 segundos** (en inglés)
+
+https://github.com/user-attachments/assets/1fe650f7-87a4-414a-a726-2bdbf8f4a193
 
 ## Qué hace
 

@@ -9,13 +9,14 @@
 Conti, budget, patrimonio, fatture, documenti, imposte e pensione, sul computer e sul telefono.<br>
 Ospitato da te, gratuito, libero e open source: i tuoi dati restano sul tuo server.
 
+[![sito](https://img.shields.io/badge/sito-pecule.org-874519?labelColor=141413)](https://pecule.org/en/)
 [![versione](https://img.shields.io/github/v/release/Enki-Engineer/pecule?label=versione&labelColor=141413&color=874519)](https://github.com/Enki-Engineer/pecule/releases/latest)
 [![licenza](https://img.shields.io/badge/licenza-AGPL--3.0-874519?labelColor=141413)](LICENSE)
 [![controlli](https://img.shields.io/github/actions/workflow/status/Enki-Engineer/pecule/ci.yml?branch=main&label=controlli&labelColor=141413)](https://github.com/Enki-Engineer/pecule/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-un%20file-874519?labelColor=141413&logo=docker&logoColor=white)](#installare)
 [![parla](https://img.shields.io/badge/parla-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#cosa-fa)
 
-[Installare](#installare) · [Cosa fa](#cosa-fa) · [Con i tuoi colori](#con-i-tuoi-colori) · [Collega la tua IA](#collega-la-tua-ia) · [I tuoi dati](#i-tuoi-dati-sono-tuoi) · [Documentazione](#documentazione) · [Sostenere](#sostenere-pécule) · [Proponi un'idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Sito](https://pecule.org/en/) · [Installare](#installare) · [Cosa fa](#cosa-fa) · [Con i tuoi colori](#con-i-tuoi-colori) · [Collega la tua IA](#collega-la-tua-ia) · [I tuoi dati](#i-tuoi-dati-sono-tuoi) · [Documentazione](#documentazione) · [Sostenere](#sostenere-pécule) · [Proponi un'idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 [English](README.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · **Italiano** · [Español](README.es.md)
 
@@ -29,6 +30,10 @@ Ospitato da te, gratuito, libero e open source: i tuoi dati restano sul tuo serv
 Pécule è pensato anzitutto per la Francia e l'euro (banche francesi, avvisi d'imposta, buste paga, estratti
 contributivi) e parla francese, inglese, tedesco, italiano e spagnolo. Un'installazione serve una famiglia. Il codice e
 i suoi commenti sono scritti in francese.
+
+**Pécule in 70 secondi** (in inglese)
+
+https://github.com/user-attachments/assets/1fe650f7-87a4-414a-a726-2bdbf8f4a193
 
 ## Cosa fa
 

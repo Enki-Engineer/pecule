@@ -9,13 +9,14 @@
 Accounts, budget, net worth, invoices, documents, taxes and retirement, on desktop and on your phone.<br>
 Self-hosted, free and open source: your data stays on your server.
 
+[![website](https://img.shields.io/badge/website-pecule.org-874519?labelColor=141413)](https://pecule.org/en/)
 [![version](https://img.shields.io/github/v/release/Enki-Engineer/pecule?label=version&labelColor=141413&color=874519)](https://github.com/Enki-Engineer/pecule/releases/latest)
 [![licence](https://img.shields.io/badge/licence-AGPL--3.0-874519?labelColor=141413)](LICENSE)
 [![checks](https://img.shields.io/github/actions/workflow/status/Enki-Engineer/pecule/ci.yml?branch=main&label=checks&labelColor=141413)](https://github.com/Enki-Engineer/pecule/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-one%20file-874519?labelColor=141413&logo=docker&logoColor=white)](#install)
 [![speaks](https://img.shields.io/badge/speaks-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#what-it-does)
 
-[Install](#install) · [What it does](#what-it-does) · [Make it yours](#make-it-yours) · [Plug in your AI](#plug-in-your-ai) · [Your data](#your-data-stays-yours) · [Documentation](#documentation) · [Support](#support-the-project) · [Suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Website](https://pecule.org/en/) · [Install](#install) · [What it does](#what-it-does) · [Make it yours](#make-it-yours) · [Plug in your AI](#plug-in-your-ai) · [Your data](#your-data-stays-yours) · [Documentation](#documentation) · [Support](#support-the-project) · [Suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 **English** · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Español](README.es.md)
 
@@ -29,6 +30,10 @@ Self-hosted, free and open source: your data stays on your server.
 Pécule is built for France and the euro first (French banks, tax notices, payslips, pension statements), and speaks
 French, English, German, Italian and Spanish. One installation serves one household. The code and its comments are
 written in French.
+
+**Pécule in 70 seconds**
+
+https://github.com/user-attachments/assets/1fe650f7-87a4-414a-a726-2bdbf8f4a193
 
 ## What it does
 

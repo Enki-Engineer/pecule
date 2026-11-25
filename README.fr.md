@@ -9,13 +9,14 @@
 Comptes, budget, patrimoine, factures, documents, impôts et retraite, sur ordinateur et sur téléphone.<br>
 Hébergé chez toi, gratuit, libre et open source : tes données restent sur ton serveur.
 
+[![site](https://img.shields.io/badge/site-pecule.org-874519?labelColor=141413)](https://pecule.org)
 [![version](https://img.shields.io/github/v/release/Enki-Engineer/pecule?label=version&labelColor=141413&color=874519)](https://github.com/Enki-Engineer/pecule/releases/latest)
 [![licence](https://img.shields.io/badge/licence-AGPL--3.0-874519?labelColor=141413)](LICENSE)
 [![contrôles](https://img.shields.io/github/actions/workflow/status/Enki-Engineer/pecule/ci.yml?branch=main&label=contr%C3%B4les&labelColor=141413)](https://github.com/Enki-Engineer/pecule/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-un%20fichier-874519?labelColor=141413&logo=docker&logoColor=white)](#installer)
 [![parle](https://img.shields.io/badge/parle-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#ce-quil-fait)
 
-[Installer](#installer) · [Ce qu'il fait](#ce-quil-fait) · [À tes couleurs](#à-tes-couleurs) · [Branche ton IA](#branche-ton-ia) · [Tes données](#tes-données-tappartiennent) · [Documentation](#documentation) · [Soutenir](#soutenir-pécule) · [Proposer une idée](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Site](https://pecule.org) · [Installer](#installer) · [Ce qu'il fait](#ce-quil-fait) · [À tes couleurs](#à-tes-couleurs) · [Branche ton IA](#branche-ton-ia) · [Tes données](#tes-données-tappartiennent) · [Documentation](#documentation) · [Soutenir](#soutenir-pécule) · [Proposer une idée](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 [English](README.md) · **Français** · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Español](README.es.md)
 
@@ -29,6 +30,10 @@ Hébergé chez toi, gratuit, libre et open source : tes données restent sur ton
 Pécule est pensé d'abord pour la France et l'euro (banques françaises, avis d'impôt, bulletins de paie, relevés de
 carrière), et parle français, anglais, allemand, italien et espagnol. Une installation sert un foyer. Le code et ses
 commentaires sont en français.
+
+**Pécule en 70 secondes**
+
+https://github.com/user-attachments/assets/fdd6d964-d034-4faa-8411-1a4719270c20
 
 ## Ce qu'il fait
 

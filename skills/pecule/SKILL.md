@@ -18,8 +18,13 @@ Réponds à la personne dans sa langue. Ce qui suit est l'essentiel, si le fichi
 
 ## Installer
 
-1. Demande où la personne veut Pécule : sur cet ordinateur pour essayer (`http://localhost:3000`), ou sur un serveur
-   à une adresse en https (les clés d'accès l'exigent). Démarrer quoi que ce soit se fait avec son accord.
+1. Demande où la personne veut Pécule, et sur quelle machine elle l'ouvrira : l'adresse de l'installation est celle
+   qu'elle tapera dans son navigateur, et c'est elle qui décide de la connexion. Son navigateur est sur cette
+   machine : `http://localhost:3000`, clé d'accès. Sur une autre machine de la maison (tu tournes sur un serveur, un
+   NAS, par SSH) : `http://<adresse de cette machine sur le réseau>:3000`, mot de passe — ou un tunnel SSH
+   (`ssh -L 3000:127.0.0.1:3000 …`, puis `http://localhost:3000` chez elle), ou une adresse en https. Sur un
+   serveur : une adresse en https sur un nom de domaine, clé d'accès. Jamais de certificat autosigné ni d'adresse IP
+   en espérant une clé d'accès : le navigateur la refuse. Démarrer quoi que ce soit se fait avec son accord.
 2. Docker répond (`docker compose version`) ? D'abord `docker compose ls -a` : si un projet `pecule` y figure, Pécule
    est déjà installé (son dossier est dans la colonne « CONFIG FILES ») — on le met à jour ou on le dépanne là, on ne
    le réinstalle pas ailleurs. Sinon, dans un dossier à garder :
@@ -32,7 +37,8 @@ Réponds à la personne dans sa langue. Ce qui suit est l'essentiel, si le fichi
    ```
    Un fichier `.env` à côté de `compose.yaml`, avant de démarrer, seulement s'il faut régler quelque chose. Un autre
    port que 3000 : `PECULE_PORT=3322` (l'adresse suit d'elle-même). Sur un serveur : `APP_URL=https://…`, et
-   `COMPOSE_PROFILES=https` pour que Caddy obtienne le certificat (à omettre s'il y a déjà un proxy https).
+   `COMPOSE_PROFILES=https` pour que Caddy obtienne le certificat (à omettre s'il y a déjà un proxy https). Sur le
+   réseau de la maison : `APP_URL=http://192.168.1.20:3000` et `PECULE_BIND=0.0.0.0` (le port est publié sur ce réseau).
 3. Pas de Docker, mais Node 24 et une base MariaDB ou MySQL vide : l'archive prête à l'emploi.
    ```sh
    npm create pecule && cd pecule      # ou : curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule.tar.gz && tar -xzf pecule.tar.gz && cd pecule
@@ -42,8 +48,9 @@ Réponds à la personne dans sa langue. Ce qui suit est l'essentiel, si le fichi
    ```
    `setup` essaie la base (`"database":{"reachable":true,…}`) ; sans `--url`, l'adresse est `http://localhost:<port>`
    (`--port`, 3000 sinon).
-4. Remets à la personne le `link` rendu par `lien` : elle l'ouvre, donne son prénom et crée sa clé d'accès (Face ID,
-   Touch ID) — le seul geste que tu ne peux pas faire à sa place. Ne lui demande aucun secret, et n'affiche pas le
+4. Remets à la personne le `link` rendu par `lien` (lui, pas une variante de l'adresse) : elle l'ouvre, donne son
+   prénom — elle est aussitôt connectée — puis protège son accès par une clé d'accès (Face ID, Touch ID) ou, là où
+   elle ne peut pas servir, par un mot de passe : le seul geste que tu ne peux pas faire à sa place. Ne lui demande aucun secret, et n'affiche pas le
    contenu des réglages : les secrets sont tirés par l'installation.
 5. Dis-lui ce qui suit : Pécule l'accueille par une présentation (son foyer, les repères de l'appli, puis un guide
    pas à pas pour relier sa banque). Le reste se règle aussi dans l'appli : brancher l'IA, importer ses documents.

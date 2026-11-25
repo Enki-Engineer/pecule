@@ -3,6 +3,43 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.48.0
+
+Le premier lancement ne bute plus sur la clé d'accès : on entre d'abord, l'écran dit pourquoi une clé ne peut pas se
+créer, et un mot de passe la remplace là où il le faut — Pécule s'installe aussi sur le réseau de la maison, en http.
+Une migration (table `passwords`) ; un réglage nouveau, facultatif, pour Docker (`PECULE_BIND`).
+
+- **Premier démarrage** : le prénom donné, tu es connecté. L'écran suivant propose de protéger ton accès — une clé
+  d'accès, un mot de passe, ou plus tard — sans que ce choix te barre l'entrée. Avant, une clé d'accès qui ne se
+  créait pas laissait devant « Opération annulée. », sans avoir vu l'appli.
+- **Pourquoi la clé d'accès ne se crée pas** : l'écran le dit avant que tu essaies — la page n'est pas ouverte à
+  l'adresse de l'installation (`127.0.0.1` au lieu de `localhost`, par exemple : il donne le lien de la bonne),
+  l'adresse est une adresse IP, ou en http hors de `localhost` — et après un refus, il distingue ce que tu as annulé
+  de ce que le navigateur a refusé de lui-même, certificat non reconnu compris.
+- **Mot de passe** : un membre peut en choisir un, à l'inscription ou dans Réglages → Compte et sécurité (douze
+  caractères au moins, une phrase convient). Il se connecte alors avec son prénom et lui. La clé d'accès reste
+  proposée d'abord ; les deux peuvent coexister. Cinq mots de passe faux de suite ferment la connexion par mot de
+  passe de ce membre une minute, puis jusqu'à quinze. Un mot de passe oublié se remplace par un lien d'inscription,
+  que donne l'administrateur — ou, pour lui-même, le serveur : `node scripts/lien.mjs --membre <prénom>`.
+- **Exiger la clé d'accès** (administrateur, Réglages → Compte et sécurité) : sur une installation en https où
+  chacun a sa clé, plus aucun mot de passe n'est accepté. Rien ne change pour une installation existante tant que
+  personne ne choisit de mot de passe.
+- **Sur le réseau de la maison, en http** : Pécule s'installe à l'adresse d'une machine du réseau
+  (`http://192.168.1.20:3000`) et s'ouvre depuis une autre — le cas d'un serveur de la maison ou d'un NAS. On s'y
+  connecte par mot de passe ; tout y circule en clair sur ce réseau, ce que l'écran rappelle. Les boutons « Copier »
+  y marchent aussi. En http sur une adresse publique, l'installation reste refusée.
+- **Pour celui qui héberge** : `scripts/setup.mjs` accepte une adresse du réseau de la maison et dit comment on s'y
+  connectera (`signIn` : `cle` ou `mot-de-passe`) ; `doctor` le dit aussi, et signale une adresse IP. Avec Docker,
+  `PECULE_BIND=0.0.0.0` publie le port sur le réseau de la maison (sans lui, comme avant : la machine seule). Les
+  consignes des agents (`AGENTS.md`), le guide d'installation et la compétence demandent désormais d'où Pécule sera
+  ouvert, et interdisent le certificat autosigné et l'adresse IP « pour que la clé marche ».
+- **Sécurité** : la connexion par mot de passe et le premier démarrage n'acceptent qu'une demande venue de l'adresse
+  de l'installation ; l'empreinte gardée est un scrypt (2^15, 8, 3) avec son sel ; chaque essai est compté avant
+  d'être vérifié, pour que des demandes simultanées ne passent pas sous l'arrêt ; changer de mot de passe redemande
+  l'actuel — y compris par un lien qu'on se donne soi-même — et ferme les autres sessions, comme le retirer ou exiger
+  la clé d'accès ; « Couper ses accès » efface aussi le mot de passe ; aucun mot de passe, actuel compris, ne s'écrit
+  au journal.
+
 ## 1.47.2
 
 La démo ne nomme plus aucun assureur réel, son écran Retraite compare trois familles de simulations, et la page du

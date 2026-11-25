@@ -37,6 +37,8 @@ const BLOCKED: [method: string, path: RegExp][] = [
   ["*", /^\/auth\/register\//],
   ["*", /^\/auth\/users\/\d+\/(enrollment|revoke-access)/],
   ["*", /^\/auth\/passkeys\//],
+  // Choisir un mot de passe, ou exiger la clé d'accès, touche aux vrais accès du membre.
+  ["*", /^\/auth\/(password|policy)$/],
   ["*", /^\/admin\//],
   ["*", /^\/mcp/],
   ["*", /^\/oauth\//],
@@ -51,9 +53,9 @@ const BLOCKED: [method: string, path: RegExp][] = [
   ["*", /^\/household\/currency/],
 ];
 
-/** Routes d'identification : toujours sur la vraie base (sessions, défis, clés d'accès). */
+/** Routes d'identification : toujours sur la vraie base (sessions, défis, clés d'accès, mots de passe). */
 // Ancrées : « logout-others » fermerait les vraies sessions du membre depuis une session de démo.
-const REAL_AUTH = /^\/auth\/(me|login\/.*|logout|token-login|demo)$/;
+const REAL_AUTH = /^\/auth\/(me|access|login\/.*|password\/login|logout|token-login|demo)$/;
 
 let migrated: Promise<void> | null = null;
 

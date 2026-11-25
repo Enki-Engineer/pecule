@@ -63,8 +63,8 @@ https://github.com/user-attachments/assets/1fe650f7-87a4-414a-a726-2bdbf8f4a193
   bubble at a time, and can be replayed from the menu.
 - **Any currency** — the household picks its country, currency and time zone; an account held in another currency is
   converted at the European Central Bank reference rate of each transaction's day and keeps its original amounts.
-- **For a household** — each member has their own view; shared accounts and private ones; passkeys instead of
-  passwords; a demo mode with a fictional family to show the app without showing your accounts.
+- **For a household** — each member has their own view; shared accounts and private ones; passkeys first, a
+  password where they cannot be used; a demo mode with a fictional family to show the app without showing your accounts.
 
 <table>
   <tr>

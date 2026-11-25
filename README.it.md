@@ -64,7 +64,8 @@ https://github.com/user-attachments/assets/1fe650f7-87a4-414a-a726-2bdbf8f4a193
   dell'app, una nuvoletta dopo l'altra, e si può ripetere dal menu.
 - **Nella tua valuta** — la famiglia sceglie paese, valuta e fuso orario; un conto tenuto in un'altra valuta è convertito
   al tasso di riferimento della Banca centrale europea del giorno di ogni movimento e conserva gli importi originali.
-- **Per una famiglia** — ogni membro ha la sua vista; conti comuni e conti privati; passkey al posto delle password;
+- **Per una famiglia** — ogni membro ha la sua vista; conti comuni e conti privati; passkey per prime, una password
+  dove non si possono usare;
   una modalità demo con una famiglia fittizia, per mostrare l'app senza mostrare i tuoi conti.
 
 <table>

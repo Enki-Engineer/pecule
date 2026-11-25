@@ -13,7 +13,7 @@ type Section = { title: string; text: string };
 const PRIVACY: Section[] = [
   {
     title: t("Qui y a accès"),
-    text: t("Seuls les membres du foyer, invités par son administrateur, peuvent se connecter, avec une clé d'accès. Il n'y a ni inscription publique, ni utilisateur extérieur au foyer."),
+    text: t("Seuls les membres du foyer, invités par son administrateur, peuvent se connecter, avec une clé d'accès ou un mot de passe. Il n'y a ni inscription publique, ni utilisateur extérieur au foyer."),
   },
   {
     title: t("Données traitées"),

@@ -48,6 +48,13 @@ pnpm lint && pnpm test && pnpm build
   `src/client/format.ts` ; serveur : `src/server/region.ts`). Deux exceptions : les cours (`prices`, en euros, le
   pivot) et le coût de l'IA. Le jour qu'il est se demande à `today()` (fuseau du foyer) ; ce qui est propre à la France
   (calendrier fiscal, fêtes locales) se garde par `isFrance(region().country)`.
+- **L'adresse décide de la connexion** : une clé d'accès ne se crée qu'en https sur un nom de domaine, ou sur
+  `http://localhost` ; ailleurs, le mot de passe. Ce que permet une adresse se demande à `addressInfo()`
+  (`src/lib/address.ts` ; son jumeau `scripts/lib/adresse.mjs` pour les scripts, un test compare), jamais à un test
+  du nom d'hôte écrit sur place. La clé d'accès reste proposée d'abord ; un écran qui la demande dit avant le geste
+  pourquoi elle ne peut pas servir (`pageBlock`, `withPasskey`, `src/client/access.ts`), et ne laisse jamais la
+  personne sans moyen d'entrer. Une route d'identification appelée sans session contrôle d'où vient la demande
+  (`fromApp`, `src/server/auth.ts`).
 - **Serveur en un seul fichier** (`dist/server.mjs`) : jamais d'`import()` dynamique d'un module local côté serveur
   (le serveur ne retrouverait plus ses migrations). Les paquets de `node_modules` peuvent l'être.
 

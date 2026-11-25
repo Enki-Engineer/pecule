@@ -26,7 +26,15 @@ spare time: an answer usually comes within a week. Only the latest published rel
 
 ## What protects an installation
 
-- **Https is mandatory** outside `localhost`; sign-in uses passkeys (WebAuthn), never a password.
+- **Https on the Internet, always.** Over http, Pécule only installs on the machine itself (`localhost`) or on the
+  home network (a private address), where everything travels in the clear on that network.
+- **Sign-in uses passkeys (WebAuthn) first.** A member may choose a **password** — the only way in where a passkey
+  cannot be created (http on the home network, an IP address): twelve characters at least, kept as a scrypt hash,
+  attempts throttled per member (five wrong in a row close their password sign-in for one minute, then up to
+  fifteen) and per address. On an https installation where everyone has a passkey, the administrator can **require
+  passkeys**: no password is accepted any more (Settings → Account and security). Knowing a first name lets someone
+  close that member's password sign-in for a while, not their passkey; `node scripts/lien.mjs --membre <first name>`,
+  on the server, gives access back to whoever lost theirs.
 - **`API_TOKEN`** grants every right on the API: keep it out of the repository and do not share it. **`SECRET_KEY`**
   encrypts the secrets kept in the database (bank key, AI key, notification key): losing or changing it makes them
   unreadable. An installation without `SECRET_KEY` encrypts with `API_TOKEN`.
@@ -37,10 +45,10 @@ spare time: an answer usually comes within a week. Only the latest published rel
   network (a NAS): only the administrator sets it, never in demo mode.
 - **Restoring from the app** only exists on an installation with no member and no data, and requires the setup code
   (`SETUP_CODE`, or `API_TOKEN` by default): a running installation cannot be overwritten that way. Only restore your
-  own archives: a backup is the whole database, access included (passkeys, administration tokens, connected
-  applications) — restoring someone else's hands them the installation.
+  own archives: a backup is the whole database, access included (passkeys, password hashes, administration tokens,
+  connected applications) — restoring someone else's hands them the installation.
 - The administrator **revokes all of a member's access at once** (lost device, member leaving the household):
-  passkeys, sessions, calendar link, upload tokens, connected applications (Settings → Account and security).
+  passkeys, password, sessions, calendar link, upload tokens, connected applications (Settings → Account and security).
 - Nothing the assistant writes is written without confirmation, **its memory included**: text coming from elsewhere
   (a transfer label, an uploaded document) cannot write itself there. An external assistant connected through OAuth,
   however, reads labels and documents as they are: only connect an assistant you trust with this data, and keep it
@@ -50,4 +58,5 @@ spare time: an answer usually comes within a week. Only the latest published rel
 - Documents sent for reading go to the **AI provider you chose**, and nowhere else.
 - Behind more than one proxy (or none), set `TRUST_PROXY`: the sign-in attempt limit is counted per visitor address.
   Without Docker, close the server's port at the firewall: only your https proxy should reach it.
-- Do not publish your instance without https, and leave `X-Robots-Tag` in place: nothing should be indexed.
+- Do not publish your instance without https — nor behind a self-signed certificate, which browsers refuse for
+  passkeys —, and leave `X-Robots-Tag` in place: nothing should be indexed.

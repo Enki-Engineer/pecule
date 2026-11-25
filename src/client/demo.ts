@@ -1,11 +1,13 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { api } from "./api.ts";
+import { withPasskey, type Access } from "./access.ts";
 import { clearOfflineCache } from "./offline.tsx";
 
 /*
  * Mode démo (côté écran) : entrer = la session passe sur les données fictives ; sortir = se
- * reconnecter avec sa clé d'accès (Face ID / Touch ID), ce qui ouvre une nouvelle session normale.
+ * reconnecter avec sa clé d'accès (Face ID / Touch ID), ce qui ouvre une nouvelle session normale — ou, pour le
+ * membre qui n'a qu'un mot de passe, fermer la session : l'écran de connexion le lui redemande.
  * Dans les deux cas, tout ce qui est gardé à l'écran ou sur l'appareil est effacé, puis l'appli
  * repart de l'accueil : jamais un chiffre réel affiché en démo, ni l'inverse.
  */
@@ -22,9 +24,14 @@ export async function enterDemo(qc: QueryClient) {
   restart(qc);
 }
 
-export async function leaveDemo(qc: QueryClient) {
+export async function leaveDemo(qc: QueryClient, access?: Access | null) {
+  // Pas de clé d'accès (membre entré par mot de passe) : la session se ferme, et il se reconnecte.
+  if (access && !access.passkeys) {
+    await api("/auth/logout", { method: "POST" });
+    return restart(qc);
+  }
   const { options } = await api<{ options: Parameters<typeof startAuthentication>[0]["optionsJSON"] }>("/auth/login/options", { method: "POST" });
-  const response = await startAuthentication({ optionsJSON: options });
+  const response = await withPasskey(() => startAuthentication({ optionsJSON: options }), access?.address);
   await api("/auth/login/verify", { method: "POST", json: { response } });
   restart(qc);
 }

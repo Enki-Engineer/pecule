@@ -28,6 +28,24 @@ export const passkeys = mysqlTable(
   (t) => [foreignKey({ name: "fk_passkeys_user", columns: [t.userId], foreignColumns: [users.id] }).onDelete("cascade")],
 );
 
+/**
+ * Mot de passe d'un membre : facultatif, la clé d'accès reste la connexion proposée d'abord. Seule son empreinte
+ * (scrypt, avec ses réglages et son sel) est gardée. `failures` et `locked_until` freinent les essais.
+ */
+export const passwords = mysqlTable(
+  "passwords",
+  {
+    userId: int("user_id").primaryKey(),
+    hash: varchar("hash", { length: 255 }).notNull(),
+    failures: int("failures").notNull().default(0),
+    lockedUntil: datetime("locked_until", { mode: "string" }),
+    createdAt: createdAt(),
+    /** Dernier changement du mot de passe (écrit par le serveur). */
+    changedAt: createdAt("changed_at"),
+  },
+  (t) => [foreignKey({ name: "fk_passwords_user", columns: [t.userId], foreignColumns: [users.id] }).onDelete("cascade")],
+);
+
 /** Sessions navigateur : seule l'empreinte du jeton est stockée. */
 export const sessions = mysqlTable(
   "sessions",

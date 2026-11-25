@@ -139,14 +139,21 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
 
 ## Membres, accès, vie privée
 
-- Connexion par **clés d'accès** (WebAuthn) ; sessions en base ; le premier membre, créé avec le code d'installation,
-  est l'administrateur. Le jeton d'administration (`API_TOKEN`) agit en son nom.
+- Connexion par **clés d'accès** (WebAuthn) d'abord ; sessions en base ; le premier membre, créé avec le code
+  d'installation, est l'administrateur. Le jeton d'administration (`API_TOKEN`) agit en son nom.
+- **L'adresse décide de la connexion** (`src/lib/address.ts`, et son jumeau pour les scripts,
+  `scripts/lib/adresse.mjs`) : une clé d'accès ne se crée qu'en https sur un nom de domaine, ou sur
+  `http://localhost`. Ailleurs — le http du réseau de la maison, une adresse IP —, le membre choisit un **mot de
+  passe** (`src/server/passwords.ts` : empreinte scrypt, essais freinés par membre ; règles communes à l'écran et au
+  serveur dans `src/lib/password-rules.ts`). L'écran dit avant le geste pourquoi une clé ne peut pas servir, et
+  après un refus s'il vient de la personne ou du navigateur (`src/lib/passkey-check.ts`, `src/client/access.ts`).
+  L'administrateur peut exiger la clé d'accès de tous (`PUT /api/auth/policy`, gardé dans `app_kv` « acces »).
 - Chaque donnée est **commune** (`owner_user_id` nul) ou **privée** à un membre. Un compte est commun, personnel,
   professionnel ou à une personne sans connexion ; chaque membre règle ce qu'il masque.
 - **Mode démo** : une seconde base, remplie d'une famille fictive, vers laquelle sont aiguillées toutes les requêtes
   d'une session de démo. Les services extérieurs et les accès y sont fermés.
-- **Présentation de bienvenue** (`/bienvenue`, `src/client/pages/Onboarding.tsx`) : un membre qui crée sa première
-  clé d'accès est « à accueillir » (`src/server/welcome.ts`, un état par membre dans `app_kv`) ; l'appli ouvre alors
+- **Présentation de bienvenue** (`/bienvenue`, `src/client/pages/Onboarding.tsx`) : un membre qui vient d'être créé au
+  premier démarrage, ou qui choisit son premier moyen d'entrer (clé d'accès, mot de passe), est « à accueillir » (`src/server/welcome.ts`, un état par membre dans `app_kv`) ; l'appli ouvre alors
   la présentation avant tout autre écran, jusqu'à ce qu'il l'ait finie ou passée — sur n'importe lequel de ses
   appareils. Quelques étapes, dont l'ordre et les réglages proposés sont des règles pures (`src/lib/onboarding.ts`) :
   l'accueil, le pays, la devise et les écrans du foyer (administrateur), les repères de l'appli, puis les comptes,
@@ -306,8 +313,9 @@ planifiée tourne dans le processus quand une source est reliée.
 l'administrateur — contre le code d'installation (`SETUP_CODE`). `scripts/lien.mjs` attend que le serveur soit prêt
 et donne ce code dans un lien (`<adresse>/#code=…`) : le fragment n'est jamais envoyé au serveur, l'écran le lit à
 l'ouverture puis le retire de l'adresse (`src/client/setup-code.ts`), et ne demande plus qu'un prénom. Sans lien,
-l'écran affiche la commande qui le donne. Si le premier membre existe sans clé d'accès, `lien` redonne son lien
-d'inscription.
+l'écran affiche la commande qui le donne. Le prénom donné, la session s'ouvre : l'écran d'inscription propose alors
+de protéger son accès (clé d'accès, mot de passe, ou plus tard), sans que ce choix barre l'entrée. Si le premier
+membre n'a ni clé d'accès ni mot de passe et a perdu sa session, `lien` redonne son lien d'inscription.
 
 ## Versions et mises à jour
 

@@ -83,7 +83,7 @@ export const assistant: ManualTheme = {
             tk("Et aussi : enveloppes, objectifs, engagements et revenus du budget, catégories."),
           ],
         },
-        tk("Ce qui touche à la sécurité ou à un service extérieur se fait à l'écran : clés d'accès et membres, connexion d'une banque, fournisseur d'IA, activation des notifications sur un appareil, sauvegarde, pays et devise du foyer, mode démo. L'assistant t'explique alors la marche à suivre et te donne le lien."),
+        tk("Ce qui touche à la sécurité ou à un service extérieur se fait à l'écran : clés d'accès, mots de passe et membres, connexion d'une banque, fournisseur d'IA, activation des notifications sur un appareil, sauvegarde, pays et devise du foyer, mode démo. L'assistant t'explique alors la marche à suivre et te donne le lien."),
         { tip: tk("Pour savoir où se trouve un réglage, demande-le lui : il te donne le lien vers le bon écran.") },
       ],
       links: [{ to: "/reglages", label: ["Réglages"] }],

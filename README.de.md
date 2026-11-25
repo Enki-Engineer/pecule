@@ -67,8 +67,8 @@ https://github.com/user-attachments/assets/1fe650f7-87a4-414a-a726-2bdbf8f4a193
   Rundgang führt danach durch die App, eine Sprechblase nach der anderen, und lässt sich über das Menü wiederholen.
 - **In deiner Währung** — der Haushalt wählt Land, Währung und Zeitzone; ein Konto in einer anderen Währung wird zum
   Referenzkurs der Europäischen Zentralbank vom Tag jeder Buchung umgerechnet und behält seine ursprünglichen Beträge.
-- **Für einen Haushalt** — jedes Mitglied hat seine eigene Ansicht; gemeinsame und private Konten; Passkeys statt
-  Passwörtern; ein Demomodus mit einer fiktiven Familie, um die App zu zeigen, ohne deine Konten zu zeigen.
+- **Für einen Haushalt** — jedes Mitglied hat seine eigene Ansicht; gemeinsame und private Konten; Passkeys zuerst,
+  ein Passwort dort, wo sie nicht nutzbar sind; ein Demomodus mit einer fiktiven Familie, um die App zu zeigen, ohne deine Konten zu zeigen.
 
 <table>
   <tr>

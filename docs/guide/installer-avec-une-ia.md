@@ -14,7 +14,9 @@ Ouvrez votre assistant dans un dossier vide et collez :
 > Je veux l'essayer sur cet ordinateur.
 
 Pour un serveur, changez la dernière phrase : « Je veux y accéder à l'adresse `https://pecule.exemple.fr`, depuis ce
-serveur. » La même consigne en anglais :
+serveur. » Si l'assistant tourne sur une autre machine que celle où vous ouvrirez Pécule (un serveur de la maison,
+un NAS, une session SSH), dites-le : « Je l'ouvrirai depuis un autre ordinateur de la maison. » Il choisira une
+adresse de votre réseau, où l'on se connecte par mot de passe. La même consigne en anglais :
 
 > Install Pécule for me by following the instructions at
 > https://raw.githubusercontent.com/Enki-Engineer/pecule/stable/AGENTS.md — read the whole file with curl.
@@ -29,9 +31,9 @@ commandes : donnez-lui la même consigne, il vous guidera pas à pas — vous ta
 
 | L'assistant | Vous |
 | --- | --- |
-| Regarde ce que la machine a (Docker, sinon Node et une base) et choisit le chemin | Dire où vous voulez Pécule : sur cet ordinateur pour essayer, ou à une adresse en https |
+| Regarde ce que la machine a (Docker, sinon Node et une base) et choisit le chemin | Dire où vous voulez Pécule, et d'où vous l'ouvrirez : sur cet ordinateur pour essayer, depuis un autre ordinateur de la maison, ou à une adresse en https |
 | Télécharge le fichier de la version, démarre Pécule, contrôle que tout répond | Donner votre accord avant qu'il démarre, arrête ou installe quoi que ce soit |
-| Vous remet le lien du premier démarrage | L'ouvrir, donner votre prénom, créer votre clé d'accès (Face ID, Touch ID) |
+| Vous remet le lien du premier démarrage | L'ouvrir, donner votre prénom, puis protéger votre accès : une clé d'accès (Face ID, Touch ID) ou, là où elle ne peut pas servir, un mot de passe |
 | Vous guide pour relier une banque | Créer votre compte Enable Banking et donner l'accord à votre banque |
 | Charge un dossier de documents et vous présente ce qu'il y a lu | Relire et valider ce qui n'est pas « sûr » |
 

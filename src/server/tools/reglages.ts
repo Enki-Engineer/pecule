@@ -30,7 +30,7 @@ import { audience } from "../sharing.ts";
  * Aide et réglages : le manuel de Pécule (src/lib/manual.ts), que l'assistant lit avant d'expliquer un écran ou
  * un réglage, et les réglages qu'il peut changer à la demande — ceux du membre et du foyer, gardés par le serveur,
  * et ceux de l'appareil, que l'écran applique une fois l'action confirmée (`effect`).
- * Ce qui touche à la sécurité ou à un service extérieur (clés d'accès, membres, banques, fournisseur d'IA,
+ * Ce qui touche à la sécurité ou à un service extérieur (clés d'accès, mots de passe, membres, banques, fournisseur d'IA,
  * sauvegarde, devise du foyer) ne se règle qu'à l'écran : l'assistant y renvoie.
  */
 

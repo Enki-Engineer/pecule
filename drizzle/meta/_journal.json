@@ -106,6 +106,13 @@
       "when": 1795442625504,
       "tag": "0039_sources_crypto_remplacees",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "5",
+      "when": 1795647086475,
+      "tag": "0040_mots_de_passe",
+      "breakpoints": true
     }
   ]
 }

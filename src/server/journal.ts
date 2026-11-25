@@ -50,10 +50,10 @@ export async function logAudit(action: string, target?: string | number | null, 
  * clé saisie ; portefeuille crypto ajouté : sans l'adresse collée, qui peut être la clé étendue d'un compte, ni la clé
  * d'un exchange).
  */
-const NOT_AUDITED = [/^\/api\/client-errors(\?|$)/, /^\/api\/crypto\/(sources|exchanges)(\?|$)/, /^\/api\/auth\/setup/, /^\/api\/connections\/keys/, /^\/api\/bank\/enable-banking\/key/, /^\/api\/auth\/(login|register|token-login|logout)/, /^\/api\/assistant\/(message|confirm|stop)/, /^\/api\/sync$/, /^\/api\/mcp/, /^\/api\/voice\//, /^\/api\/ai\//];
+const NOT_AUDITED = [/^\/api\/client-errors(\?|$)/, /^\/api\/crypto\/(sources|exchanges)(\?|$)/, /^\/api\/auth\/setup/, /^\/api\/connections\/keys/, /^\/api\/bank\/enable-banking\/key/, /^\/api\/auth\/(login|register|token-login|logout|password\/login)/, /^\/api\/assistant\/(message|confirm|stop)/, /^\/api\/sync$/, /^\/api\/mcp/, /^\/api\/voice\//, /^\/api\/ai\//];
 
 /** Champs d'un corps de requête qui ne s'écrivent jamais au journal, à aucun niveau (codes, clés, jetons, mots de passe). */
-const SECRET_FIELD = /^(code|key|keys|cle|privatekey|private_key|accesskey|access_key|secretkey|secret_key|token|jeton|secret|password|motdepasse|p256dh|auth)$/i;
+const SECRET_FIELD = /^(code|key|keys|cle|privatekey|private_key|accesskey|access_key|secretkey|secret_key|token|jeton|secret|password|currentpassword|motdepasse|p256dh|auth)$/i;
 function masked(value: unknown, depth = 0): unknown {
   if (Array.isArray(value)) return depth > 4 ? "…" : value.map((v) => masked(v, depth + 1));
   if (!value || typeof value !== "object") return value;

@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import clsx from "clsx";
 import { api, useMe } from "../api.ts";
 import { enterDemo, leaveDemo } from "../demo.ts";
+import { deviceName, pageBlock, useAccess, withPasskey } from "../access.ts";
+import { AccessPolicy, PasswordSettings } from "../components/PasswordSettings.tsx";
 import { Card, PageHeader, Segmented } from "../components/ui.tsx";
 import { useAppearance, useDensity, useTheme, type Density } from "../theme.ts";
 import { clearOfflineCache, offlineCacheEnabled, setOfflineCache } from "../offline.tsx";
@@ -37,7 +39,7 @@ import { useCrumb } from "../shell.ts";
 import { locale, t, td, tn } from "../../lib/i18n.ts";
 import { MCP_CLIENTS } from "../../lib/mcp-clients.ts";
 
-type Users = { users: { id: number; name: string; passkeys: { id_hash: string; device_name: string | null; created_at: string; last_used_at: string | null }[] }[] };
+type Users = { users: { id: number; name: string; hasPassword?: boolean; passkeys: { id_hash: string; device_name: string | null; created_at: string; last_used_at: string | null }[] }[] };
 type Run = { id: number; started_at: string; finished_at: string | null; status: string; source: string; tx_seen: number; tx_new: number; tx_auto: number; error: string | null };
 
 export function Settings() {
@@ -50,6 +52,7 @@ export function Settings() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const users = useQuery({ queryKey: ["users"], queryFn: () => api<Users>("/auth/users") });
+  const access = useAccess();
   const runs = useQuery({ queryKey: ["runs"], queryFn: () => api<{ runs: Run[] }>("/sync/runs") });
   const rules = useQuery({ queryKey: ["rules"], queryFn: () => api<{ rules: { id: number; pattern: string; category_name: string }[] }>("/rules") });
   const [links, setLinks] = useState<Record<number, string>>({});
@@ -70,11 +73,12 @@ export function Settings() {
   async function addDevice() {
     try {
       const { options } = await api<{ options: Parameters<typeof startRegistration>[0]["optionsJSON"] }>("/auth/register/options", { method: "POST", json: {} });
-      const response = await startRegistration({ optionsJSON: options });
-      const deviceName = /iPhone/.test(navigator.userAgent) ? "iPhone" : /iPad/.test(navigator.userAgent) ? "iPad" : /Mac/.test(navigator.userAgent) ? "Mac" : t("Appareil");
-      await api("/auth/register/verify", { method: "POST", json: { response, deviceName } });
+      // Un refus arrive expliqué : annulé, refusé par le navigateur, adresse ou certificat qui ne conviennent pas.
+      const response = await withPasskey(() => startRegistration({ optionsJSON: options }), access.data?.address);
+      await api("/auth/register/verify", { method: "POST", json: { response, deviceName: deviceName() } });
       toast.success(t("Clé d'accès ajoutée"));
       qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["access"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Ajout impossible"));
     }
@@ -98,6 +102,7 @@ export function Settings() {
     try {
       await api(`/auth/passkeys/${idHash}`, { method: "DELETE" });
       qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["access"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Suppression impossible"));
     }
@@ -134,9 +139,12 @@ export function Settings() {
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">{u.name}</span>
                   {demo ? null : u.id === me.data?.user?.id ? (
-                    <button type="button" onClick={addDevice} className="press flex items-center gap-1 text-sm font-medium text-accent">
-                      <KeyRound size={15} /> {t("Ajouter cet appareil")}
-                    </button>
+                    // Là où une clé d'accès ne peut pas servir, le bouton laisse la place à l'explication (plus bas).
+                    pageBlock(access.data) ? null : (
+                      <button type="button" onClick={addDevice} className="press flex items-center gap-1 text-sm font-medium text-accent">
+                        <KeyRound size={15} /> {t("Ajouter cet appareil")}
+                      </button>
+                    )
                   ) : me.data?.user?.admin ? (
                     <span className="flex items-center gap-4">
                       <button type="button" onClick={() => revokeAccess(u)} className="press text-sm font-medium text-muted">
@@ -148,7 +156,9 @@ export function Settings() {
                     </span>
                   ) : null}
                 </div>
-                {!demo && u.passkeys.length === 0 && <div className="mt-1 text-sm text-warn">{t("Aucune clé d'accès : envoie-lui un lien d'inscription.")}</div>}
+                {/* Un autre membre qui ne peut pas entrer : ni clé d'accès ni mot de passe. Le sien se dit plus bas, avec ce qu'il peut y faire. */}
+                {!demo && u.id !== me.data?.user?.id && u.passkeys.length === 0 && !u.hasPassword && <div className="mt-1 text-sm text-warn">{t("Aucune clé d'accès : envoie-lui un lien d'inscription.")}</div>}
+                {!demo && u.id !== me.data?.user?.id && u.hasPassword && <div className="mt-1 text-sm text-muted">{t("Se connecte avec un mot de passe")}</div>}
                 {u.passkeys.map((k) => (
                   <div key={k.id_hash} className="mt-1.5 flex items-center justify-between text-sm text-muted">
                     <span>
@@ -162,6 +172,7 @@ export function Settings() {
                     )}
                   </div>
                 ))}
+                {!demo && u.id === me.data?.user?.id && <PasswordSettings name={u.name} />}
                 {links[u.id] && (
                   <div className="mt-2 rounded-xl bg-bg p-3 text-xs">
                     <div className="break-all">{links[u.id]}</div>
@@ -178,6 +189,7 @@ export function Settings() {
             ))}
           </Card>
           {!demo && me.data?.user?.admin && <AddMember />}
+          {!demo && me.data?.user?.admin && <AccessPolicy />}
         </Section>
         {/* Partage de ses revenus avec le foyer : chaque membre règle le sien (absent d'un foyer d'un seul membre). */}
         <SharingSettings />
@@ -200,7 +212,7 @@ export function Settings() {
           <button
             type="button"
             onClick={() =>
-              confirm(t("Fermer toutes tes autres sessions ? Tes autres appareils devront se reconnecter avec leur clé d'accès.")) &&
+              confirm(t("Fermer toutes tes autres sessions ? Tes autres appareils devront se reconnecter.")) &&
               api<{ closed: number }>("/auth/logout-others", { method: "POST" })
                 .then((r) => toast.success(tn("{n} session fermée", "{n} sessions fermées", r.closed, { n: r.closed })))
                 .catch((e) => toast.error(e instanceof Error ? e.message : t("Action impossible")))
@@ -911,6 +923,7 @@ function DemoBanner() {
 function DemoSection() {
   const me = useMe();
   const qc = useQueryClient();
+  const access = useAccess();
   const [busy, setBusy] = useState(false);
   const demo = me.data?.user?.demo === true;
   const available = me.data?.demoAvailable !== false;
@@ -934,12 +947,12 @@ function DemoSection() {
             <button
               type="button"
               disabled={busy}
-              onClick={() => run(() => leaveDemo(qc), t("Sortie impossible"))}
+              onClick={() => run(() => leaveDemo(qc, access.data), t("Sortie impossible"))}
               className="press flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3 font-semibold text-white disabled:opacity-60"
             >
               <ScanFace size={19} /> {busy ? t("Vérification…") : t("Quitter le mode démo")}
             </button>
-            <p className="text-[12px] text-muted">{t("Face ID, Touch ID ou le code de l'appareil est demandé : personne ne peut sortir de la démo à ta place.")}</p>
+            <p className="text-[12px] text-muted">{access.data && !access.data.passkeys ? t("Ton mot de passe est demandé : personne ne peut sortir de la démo à ta place.") : t("Face ID, Touch ID ou le code de l'appareil est demandé : personne ne peut sortir de la démo à ta place.")}</p>
           </>
         ) : (
           <>

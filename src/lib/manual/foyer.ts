@@ -9,7 +9,7 @@ export const foyer: ManualTheme = {
     {
       id: "membres",
       title: tk("Ajouter un membre au foyer"),
-      summary: tk("Inviter son conjoint ou un proche : il crée sa clé d'accès avec un lien."),
+      summary: tk("Inviter son conjoint ou un proche : il crée sa clé d'accès, ou choisit un mot de passe, avec un lien."),
       body: [
         tk("Une installation de Pécule sert un foyer. Le premier membre créé en est l'administrateur ; c'est lui qui ajoute les autres."),
         {
@@ -17,7 +17,7 @@ export const foyer: ManualTheme = {
             tk("Ouvre [[Réglages]] → [[Compte et sécurité]]."),
             tk("Sous [[Membres et clés d'accès]], saisis le prénom du nouveau membre et touche [[Ajouter un membre]]."),
             tk("Sur sa ligne, touche [[Lien d'inscription]], puis copie le lien et envoie-le lui."),
-            tk("Il ouvre le lien sur son appareil et touche [[Créer ma clé d'accès]]."),
+            tk("Il ouvre le lien sur son appareil et touche [[Créer ma clé d'accès]] — ou [[Choisir plutôt un mot de passe]], là où une clé d'accès ne peut pas servir."),
           ],
         },
         tk("Le lien est valable sept jours. Un prénom ne peut servir qu'une fois dans le foyer."),

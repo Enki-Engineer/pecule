@@ -1,3 +1,4 @@
+import "./clipboard.ts";
 import { useDiscreet } from "./discret.ts";
 import { Fragment, StrictMode, Suspense, useEffect, useState } from "react";
 import { TooltipLayer } from "./components/Tooltip.tsx";

@@ -118,7 +118,7 @@ describe("image Docker", () => {
   });
 
   it("le diagnostic et le lien se lancent sans rien d'autre que Node : aucun fichier TypeScript importé", () => {
-    for (const file of ["scripts/doctor.mjs", "scripts/lien.mjs", "scripts/importer.mjs", "scripts/lib/reglages.mjs"]) expect(read(file), file).not.toMatch(/from\s+["'][^"']+\.ts["']/);
+    for (const file of ["scripts/doctor.mjs", "scripts/lien.mjs", "scripts/importer.mjs", "scripts/lib/reglages.mjs", "scripts/lib/adresse.mjs"]) expect(read(file), file).not.toMatch(/from\s+["'][^"']+\.ts["']/);
   });
 });
 

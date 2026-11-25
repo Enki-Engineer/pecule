@@ -3,7 +3,8 @@
 // puis dit quoi lancer. Sans dépendance (Node seul), utilisable par une personne ou par un agent.
 //
 //   node scripts/setup.mjs --docker [--url https://pecule.exemple.fr] [--port 3000] [--proxy]
-//       installation avec Docker Compose (l'appli et sa base). Facultatif : sans fichier .env, `docker compose up -d`
+//       installation avec Docker Compose (l'appli et sa base). Sans --url : http://localhost:<port>, pour un essai sur
+//       la machine ; --url http://192.168.1.20:3000 : sur le réseau de la maison, en http (mot de passe). Facultatif : sans fichier .env, `docker compose up -d`
 //       tire lui-même les secrets et les garde dans un volume ; cette commande sert à les choisir et à les tenir
 //       dans un fichier, ou à régler l'adresse et le port d'un coup.
 //   node scripts/setup.mjs --base "mysql://utilisateur:motdepasse@hote:3306/pecule" [--url …] [--base-demo "mysql://…"]
@@ -17,6 +18,7 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, chownSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
+import { addressInfo } from "./lib/adresse.mjs";
 import { describeDatabase, probeDatabase, supported } from "./lib/base.mjs";
 
 const argv = process.argv.slice(2);
@@ -25,6 +27,7 @@ const HELP = `Prépare une installation de Pécule : écrit le fichier de régla
   node scripts/setup.mjs --docker [--url https://pecule.exemple.fr] [--port 3000] [--proxy]
       Docker Compose : l'appli et sa base. Sans --url : http://localhost:<port>. Avec une adresse en https, Caddy
       est lancé avec Pécule et obtient le certificat ; --proxy s'il y a déjà un proxy https devant Pécule.
+      Avec une adresse du réseau de la maison (--url http://192.168.1.20:3000), le port est publié sur ce réseau.
       Facultatif : sans fichier .env, « docker compose up -d » tire lui-même les secrets et les garde dans un volume.
   node scripts/setup.mjs --base "mysql://utilisateur:motdepasse@hote:3306/pecule" [--url …] [--port 3000] [--base-demo "mysql://…"]
       hébergement Node, avec une base MySQL ou MariaDB déjà créée. Sans --url : http://localhost:<port>.
@@ -33,6 +36,12 @@ const HELP = `Prépare une installation de Pécule : écrit le fichier de régla
       arguments d'une commande, mot de passe compris, se lisent par « ps » depuis un autre compte.
 
 Options : --fichier <chemin> (défaut .env) · --force (remplace un fichier existant) · --json (résultat pour un outil)
+
+L'adresse (--url) est celle que la personne ouvrira dans son navigateur, exactement. Elle dit comment on se connecte :
+  https://pecule.exemple.fr       un nom de domaine en https : clé d'accès (Face ID, Touch ID, code de l'appareil)
+  http://localhost:3000           le navigateur est sur cette machine : clé d'accès
+  http://192.168.1.20:3000        une autre machine du réseau de la maison, en http : mot de passe (pas de clé d'accès)
+Une adresse IP en https, ou un certificat que le navigateur ne reconnaît pas, ne permettent pas la clé d'accès.
 Le lien du premier démarrage se redemande à tout moment : node scripts/lien.mjs`;
 if (argv.includes("--help") || argv.includes("-h")) {
   console.log(HELP);
@@ -163,7 +172,9 @@ const docker = flag("docker");
 // de la commande, que tout compte de la machine peut lire (« ps »).
 const base = value("base") ?? (process.env.PECULE_BASE?.trim() || undefined);
 const file = value("fichier") ?? ".env";
-const port = Number(value("port") ?? 3000);
+// En http, le port écrit dans l'adresse est celui où Pécule écoute : il vaut pour --port quand celui-ci n'est pas donné.
+const urlPort = /^http:\/\/[^/]*:(\d+)(?:\/|$)/i.exec(value("url") ?? "")?.[1];
+const port = Number(value("port") ?? urlPort ?? 3000);
 const url = (value("url") ?? `http://localhost:${port}`).replace(/\/+$/, "");
 
 if (!docker && !base) fail("Indique --docker (Docker Compose) ou --base \"mysql://…\" (base déjà créée).");
@@ -175,8 +186,14 @@ try {
 } catch {
   fail(`Adresse invalide : ${url}`);
 }
-const local = ["localhost", "127.0.0.1"].includes(parsed.hostname);
-if (parsed.protocol !== "https:" && !local) fail(`${url} : il faut une adresse en https (les clés d'accès l'exigent), ou http://localhost pour un essai sur sa propre machine.`);
+// Ce que l'adresse permet (scripts/lib/adresse.mjs) : clé d'accès en https sur un nom de domaine ou sur localhost,
+// mot de passe ailleurs. En http sur une adresse publique, tout circulerait en clair sur Internet : refusé.
+const address = addressInfo(url);
+if (!address) fail(`Adresse invalide : ${url} (attendu : https://… ou http://…)`);
+if (address.kind === "public") fail(`${url} : en http, Pécule ne se sert que sur la machine elle-même (http://localhost:${port}) ou sur le réseau de la maison (une adresse privée, comme http://192.168.1.20:${port}). Sur Internet, il faut une adresse en https.`);
+const local = address.kind === "local";
+const lan = address.kind === "reseau";
+if (urlPort && Number(urlPort) !== port) fail(`${url} et --port ${port} ne disent pas le même port : en http, l'adresse porte le port où Pécule écoute.`);
 if (base && !/^mysql:\/\/[^:]+:[^@]*@[^/]+\/[^/?]+/.test(base)) fail("--base : attendu « mysql://utilisateur:motdepasse@hote:3306/nom_de_la_base ».");
 if (flag("proxy") && !docker) fail("--proxy ne vaut qu'avec --docker (il retient Caddy, que Docker Compose lancerait).");
 if (existsSync(file) && !flag("force")) fail(`${file} existe déjà : rien n'a été modifié (--force pour le remplacer, --fichier pour écrire ailleurs).`);
@@ -211,10 +228,12 @@ const lines = [
   "NODE_ENV=production",
 ];
 // Caddy (https avec certificat automatique) n'est lancé que pour une adresse publique, et sans autre proxy devant.
-const caddy = docker && !local && !flag("proxy");
+const caddy = docker && address.kind === "https" && !flag("proxy");
 if (docker) {
   lines.push(`DB_PASSWORD=${secret(16)}`, `DEMO_DB_PASSWORD=${secret(16)}`, `DB_ROOT_PASSWORD=${secret(16)}`, `PECULE_PORT=${port}`);
-  if (!local) lines.push(`PECULE_DOMAIN=${parsed.hostname}`);
+  // Réseau de la maison : le port est publié sur ce réseau, pas sur cette machine seule.
+  if (lan) lines.push("PECULE_BIND=0.0.0.0");
+  if (address.kind === "https") lines.push(`PECULE_DOMAIN=${parsed.hostname}`);
   // Le profil « https » de compose.yaml : inscrit ici, « docker compose up -d » suffit, à l'installation comme ensuite.
   if (caddy) lines.push("COMPOSE_PROFILES=https");
 } else {
@@ -243,16 +262,27 @@ const start = docker ? "docker compose up -d" : existsSync("src/server") ? "pnpm
 const next = [
   start,
   `ouvrir ${link} : l'écran « Bienvenue dans Pécule » demande ton prénom (le code d'installation est dans le lien)`,
-  "créer ta clé d'accès (Face ID, Touch ID ou code de l'appareil), puis relier une banque ou importer un fichier dans Réglages → Comptes et connexions",
+  address.passkeys
+    ? "protéger ton accès : une clé d'accès (Face ID, Touch ID ou code de l'appareil), ou un mot de passe — puis relier une banque ou importer un fichier dans Réglages → Comptes et connexions"
+    : "choisir ton mot de passe (à cette adresse, une clé d'accès ne peut pas se créer), puis relier une banque ou importer un fichier dans Réglages → Comptes et connexions",
 ];
+// Ce que l'adresse ne permet pas, dit avant que la personne ne s'y heurte à l'écran.
+const how = lan
+  ? `${url} est une adresse du réseau de la maison, en http : on s'y connecte par mot de passe (pas de clé d'accès), et tout y circule en clair sur ce réseau. Pour un usage durable, ou hors de la maison : une adresse en https.`
+  : local && address.ip
+    ? `Sur une adresse IP, une clé d'accès ne peut pas se créer : http://localhost:${port} l'accepte (--url, avec --force), sinon la connexion se fera par mot de passe.`
+    : address.kind === "https" && address.ip
+      ? "Une clé d'accès ne se crée pas sur une adresse IP, même en https : la connexion se fera par mot de passe. Un nom de domaine la permet."
+      : null;
 const warnings = [
+  how,
   busy ? `Le port ${port} est déjà pris sur cette machine : choisis-en un autre avec --port (et --force pour réécrire ${file}).` : null,
   !databaseOk ? `Attention, ${describeDatabase(database)}. Les réglages sont écrits ; corrige l'adresse de la base (--base, avec --force) avant de démarrer.` : null,
   database?.reachable && database.tables > 0 ? `La base porte déjà ${database.tables} tables : Pécule s'installe dans une base vide, ou reprend la sienne.` : null,
 ].filter(Boolean);
 const warning = warnings.length ? warnings.join(" ") : null;
 // database : la base essayée (`reachable`, sa version, ses tables) ; absent quand rien n'a pu être essayé.
-if (json) console.log(JSON.stringify({ ok: true, file, url, port, portBusy: busy, mode: docker ? "docker" : "node", https: caddy ? "caddy" : local ? "aucun" : "proxy", ...(database ? { database } : {}), installationCode: setupCode, link, start, next, ...(warning ? { warning } : {}) }));
+if (json) console.log(JSON.stringify({ ok: true, file, url, port, portBusy: busy, mode: docker ? "docker" : "node", https: caddy ? "caddy" : address.kind === "https" ? "proxy" : "aucun", address: address.kind, signIn: address.passkeys ? "cle" : "mot-de-passe", ...(database ? { database } : {}), installationCode: setupCode, link, start, next, ...(warning ? { warning } : {}) }));
 else {
   console.log(`✓ ${file} écrit (adresse ${url}, ${docker ? "Docker Compose" : databaseOk && database ? describeDatabase(database) : "base fournie"}).`);
   for (const w of warnings) console.log(`⚠ ${w}`);

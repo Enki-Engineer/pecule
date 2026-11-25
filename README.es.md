@@ -64,8 +64,8 @@ https://github.com/user-attachments/assets/1fe650f7-87a4-414a-a726-2bdbf8f4a193
   recorre la aplicación, un bocadillo tras otro, y se puede repetir desde el menú.
 - **En tu moneda** — el hogar elige su país, su moneda y su zona horaria; una cuenta en otra moneda se convierte al tipo
   de referencia del Banco Central Europeo del día de cada movimiento y conserva sus importes originales.
-- **Para un hogar** — cada miembro tiene su vista; cuentas comunes y cuentas privadas; llaves de acceso en lugar de
-  contraseñas; un modo demo con una familia ficticia, para enseñar la aplicación sin enseñar tus cuentas.
+- **Para un hogar** — cada miembro tiene su vista; cuentas comunes y cuentas privadas; llaves de acceso primero,
+  una contraseña donde no pueden usarse; un modo demo con una familia ficticia, para enseñar la aplicación sin enseñar tus cuentas.
 
 <table>
   <tr>

@@ -7,6 +7,7 @@
 // Code de sortie 0 si rien ne bloque, 1 sinon. Aucun secret n'est affiché.
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { addressInfo } from "./lib/adresse.mjs";
 import { describeDatabase, probeDatabase, supported } from "./lib/base.mjs";
 import { dockerState, loadSettings, localPort, ROOT, run } from "./lib/reglages.mjs";
 
@@ -85,8 +86,17 @@ if (known) {
   } catch {
     /* signalé ci-dessous */
   }
-  const local = !!appUrl && ["localhost", "127.0.0.1"].includes(appUrl.hostname);
-  check("app_url", !!appUrl && (appUrl.protocol === "https:" || local), `APP_URL ${env.APP_URL ?? (appUrl ? `${appUrl.origin} (par défaut)` : "absent")}`, "APP_URL : une adresse en https, ou http://localhost pour un essai local (les clés d'accès l'exigent).");
+  // Ce que l'adresse permet (scripts/lib/adresse.mjs) : la clé d'accès, ou le mot de passe seulement.
+  const address = appUrl ? addressInfo(appUrl.href) : null;
+  const how = !address
+    ? ""
+    : address.passkeys
+      ? " — connexion par clé d'accès, ou par mot de passe"
+      : address.kind === "reseau"
+        ? " — réseau de la maison, en http : connexion par mot de passe (pas de clé d'accès), tout y circule en clair"
+        : " — une adresse IP : connexion par mot de passe (une clé d'accès ne s'y crée pas ; un nom de domaine en https, ou http://localhost, la permet)";
+  check("app_url", !!address && address.kind !== "public", `APP_URL ${env.APP_URL ?? (appUrl ? `${appUrl.origin} (par défaut)` : "absent")}${how}`, "APP_URL : une adresse en https (un nom de domaine : clé d'accès), http://localhost pour un essai sur la machine, ou l'adresse privée de la machine sur le réseau de la maison (http://192.168.1.20:3000 : mot de passe). Jamais en http sur une adresse publique.");
+  if (address && checks.length) Object.assign(checks[checks.length - 1], { address: address.kind, signIn: address.passkeys ? "cle" : "mot-de-passe" });
   const ownBase = /^mysql:\/\//.test(env.DATABASE_URL ?? "");
   check("base", docker || ownBase, docker ? (ownBase && !inside ? "Base donnée par DATABASE_URL" : "Base fournie par Docker Compose") : `DATABASE_URL ${env.DATABASE_URL ? "présent" : "absent"}`, "DATABASE_URL=mysql://utilisateur:motdepasse@hote:3306/base (ou Docker : docker compose up -d).");
   // La base elle-même, quand son adresse vaut d'ici (pas celle du réseau des conteneurs, lue depuis la machine) et que

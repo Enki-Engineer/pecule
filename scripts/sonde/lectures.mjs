@@ -9,7 +9,7 @@ export const HORS_SONDE = {
 };
 
 /** Routes appelées telles quelles. */
-const SIMPLES = `/accounts /agenda /ai/config /alerts /assistant/memories /assistant/status /assistant/threads /assistant/usage /audit /auth/me /auth/users
+const SIMPLES = `/accounts /agenda /ai/config /alerts /assistant/memories /assistant/status /assistant/threads /assistant/usage /audit /auth/access /auth/me /auth/users
 /backup/info /backup/remote /balance-alert /balance-series /bank-logos /bank/cards /bank/enable-banking /bank/enable-banking/banks
 /bank/enable-banking/compare /birthdays /brands /budget /calendar-link /categories /connections /connections/admin-tokens /crypto /crypto/events
 /dashboard /dashboard/layout /documents /documents/topics /envelopes /fun /goals /household /household/date-basis /imports /invoices /loans

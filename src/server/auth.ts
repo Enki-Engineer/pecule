@@ -27,6 +27,8 @@ import { dateBasis } from "./stat-dates.ts";
 import { installKind } from "./install.ts";
 import { linkCommand } from "../lib/install.ts";
 import { LANG_IDS, t as tr } from "../lib/i18n.ts";
+import { passwordProblem, passwordProblemText } from "../lib/password-rules.ts";
+import { anyPassword, currentPassword, hasPassword, passkeysOnly, passwordLogin, removePassword, setPasskeysOnly, setPassword } from "./passwords.ts";
 
 const SESSION_COOKIE = "pecule_session";
 const CHALLENGE_COOKIE = "pecule_challenge";
@@ -173,9 +175,16 @@ export function requireSyncAccess(req: Request, res: Response, next: NextFunctio
   res.status(401).json({ error: tr("Connexion requise") });
 }
 
-/** Crée un lien d'inscription (passkey) valable 7 jours pour un utilisateur. */
-export async function createEnrollmentLink(userId: number): Promise<string> {
-  const t = token();
+/** Marque d'un lien d'inscription que le membre s'est donné lui-même, depuis sa session. */
+const SELF_LINK = "soi.";
+
+/**
+ * Crée un lien d'inscription (clé d'accès ou mot de passe) valable 7 jours pour un membre. `self` : le membre se le
+ * donne lui-même, depuis sa session — ce lien-là ne remplace pas un mot de passe sans l'actuel : une session laissée
+ * ouverte ne doit pas suffire à le changer. La marque fait partie du jeton, dont seule l'empreinte est gardée.
+ */
+export async function createEnrollmentLink(userId: number, self = false): Promise<string> {
+  const t = `${self ? SELF_LINK : ""}${token()}`;
   await exec(
     "INSERT INTO enrollment_tokens (token_hash, user_id, expires_at) VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY))",
     [sha256(t), userId],
@@ -244,14 +253,34 @@ authRouter.get("/me", async (req, res) => {
   res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, welcome, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true, setupCommand: linkCommand(installKind()) } : {}) });
 });
 
+/** Ce que l'écran doit savoir pour proposer la bonne connexion : l'adresse de l'installation et la place du mot de passe. */
+async function accessFacts() {
+  const only = await passkeysOnly();
+  return { address: origin, password: !only, passwordLogin: !only && (await anyPassword()) };
+}
+
 /**
- * Premier démarrage : crée le premier membre du foyer, qui en est l'administrateur, et renvoie son lien d'inscription
- * (création de sa clé d'accès). Possible seulement tant qu'aucun membre n'existe, et avec le code d'installation
- * (SETUP_CODE, à défaut le jeton d'administration) : celui qui installe Pécule le reçoit du serveur (`scripts/lien.mjs`
- * le donne dans un lien), pas un visiteur.
+ * Une demande faite sans session (connexion par mot de passe, premier démarrage) doit venir de l'appli elle-même,
+ * ouverte à l'adresse de l'installation : ni d'une page d'un autre site, ni d'une autre adresse de la même machine —
+ * le témoin de session ne vaudrait pas là-bas, et l'adresse est ce qui lie une clé d'accès. Un appel sans navigateur
+ * (ligne de commande, essais) ne porte aucun de ces en-têtes.
+ */
+function fromApp(req: Request): boolean {
+  const site = req.get("sec-fetch-site");
+  const from = req.get("origin");
+  return !((site && site !== "same-origin" && site !== "none") || (from && from !== origin));
+}
+
+/**
+ * Premier démarrage : crée le premier membre du foyer, qui en est l'administrateur, et ouvre sa session. Il choisit
+ * ensuite comment protéger son accès (clé d'accès, mot de passe) sans que ce choix lui barre l'entrée : le code
+ * d'installation a déjà dit qui il est. Possible seulement tant qu'aucun membre n'existe, et avec ce code (SETUP_CODE,
+ * à défaut le jeton d'administration) : celui qui installe Pécule le reçoit du serveur (`scripts/lien.mjs` le donne
+ * dans un lien), pas un visiteur.
  */
 authRouter.post("/setup", async (req, res) => {
   const body = z.object({ name: z.string().trim().min(1).max(80), code: z.string().min(1).max(400) }).parse(req.body);
+  if (!fromApp(req)) return res.status(403).json({ error: tr("Ouvre Pécule à son adresse : {adresse}", { adresse: origin }) });
   if (!safeEqual(body.code.trim(), env.SETUP_CODE ?? env.API_TOKEN)) return res.status(403).json({ error: tr("Code d'installation incorrect.") });
   // Une sauvegarde est en train d'être rechargée ici : le foyer qu'on créerait serait effacé avec le reste.
   if (isRestoring()) return res.status(409).json({ error: tr("Une restauration est déjà en cours.") });
@@ -259,7 +288,10 @@ authRouter.post("/setup", async (req, res) => {
   const created = await exec("INSERT INTO users (name, role) SELECT ?, 'admin' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM users)", [body.name]);
   if (!created.affectedRows) return res.status(409).json({ error: tr("Cette installation a déjà ses membres.") });
   console.log("[installation] premier membre créé (administrateur)");
-  res.json({ link: await createEnrollmentLink(created.insertId) });
+  // La présentation de bienvenue l'attend dès maintenant, quel que soit le moyen d'entrer qu'il choisira.
+  await expectWelcome(created.insertId).catch((e) => console.error("[bienvenue] présentation non annoncée", e));
+  await createSession(res, created.insertId, req.get("user-agent"));
+  res.json({ ok: true });
 });
 
 /** Langue de Pécule pour ce membre, sur tous ses appareils (écrans, assistant, voix). */
@@ -337,8 +369,8 @@ authRouter.post("/register/verify", async (req, res) => {
   });
   if (!verification.verified) return res.status(400).json({ error: tr("Clé d'accès refusée") });
   const cred = verification.registrationInfo.credential;
-  // Première clé d'accès de ce membre : c'est sa première connexion, la présentation de bienvenue l'attend.
-  const first = !(await one("SELECT 1 AS x FROM passkeys WHERE user_id = ? LIMIT 1", [ch.user_id]));
+  // Premier moyen d'entrer de ce membre : c'est sa première connexion, la présentation de bienvenue l'attend.
+  const first = !(await one("SELECT 1 AS x FROM passkeys WHERE user_id = ? LIMIT 1", [ch.user_id])) && !(await hasPassword(ch.user_id));
   await exec(
     "INSERT INTO passkeys (id, id_hash, user_id, public_key, counter, transports, device_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
     [cred.id, sha256(cred.id), ch.user_id, Buffer.from(cred.publicKey), cred.counter, cred.transports?.join(",") ?? null, body.deviceName ?? null],
@@ -389,6 +421,121 @@ authRouter.post("/login/verify", async (req, res) => {
   res.json({ ok: true });
 });
 
+/** Les essais de mot de passe sont comptés à part, et plus court : vingt par quart d'heure et par adresse. */
+const passwordLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false });
+
+/** Connexion par prénom et mot de passe, pour le membre qui en a choisi un. */
+authRouter.post("/password/login", passwordLimiter, async (req, res) => {
+  const body = z.object({ name: z.string().trim().min(1).max(80), password: z.string().min(1).max(1000) }).parse(req.body);
+  if (!fromApp(req)) return res.status(403).json({ error: tr("Ouvre Pécule à son adresse : {adresse}", { adresse: origin }) });
+  if (await passkeysOnly()) return res.status(403).json({ error: tr("Cette installation n'accepte que les clés d'accès.") });
+  const found = await passwordLogin(body.name, body.password);
+  if (found && "wait" in found) {
+    const minutes = Math.ceil(found.wait / 60);
+    return res.status(429).json({ error: tr("Trop d'essais : la connexion par mot de passe de ce membre est fermée encore {n} min. Sa clé d'accès, s'il en a une, marche toujours.", { n: minutes }) });
+  }
+  if (!found) return res.status(401).json({ error: tr("Prénom ou mot de passe incorrect.") });
+  // L'ancienne session de cet appareil (ex. une session de démo dont on sort) est fermée.
+  const previous = req.cookies?.[SESSION_COOKIE];
+  if (typeof previous === "string") await exec("DELETE FROM sessions WHERE token_hash = ?", [sha256(previous)]);
+  await createSession(res, found.userId, req.get("user-agent"));
+  res.json({ ok: true });
+});
+
+/**
+ * Choisir ou changer son mot de passe : connecté (depuis une session de navigateur ; l'actuel est alors redemandé s'il
+ * y en a un), ou avec un lien d'inscription — c'est aussi le chemin de celui qui l'a oublié.
+ */
+authRouter.post("/password", passwordLimiter, async (req, res) => {
+  const body = z.object({ password: z.string().max(1000), currentPassword: z.string().max(1000).optional(), jeton: z.string().optional() }).parse(req.body);
+  if (!fromApp(req)) return res.status(403).json({ error: tr("Ouvre Pécule à son adresse : {adresse}", { adresse: origin }) });
+  if (await passkeysOnly()) return res.status(403).json({ error: tr("Cette installation n'accepte que les clés d'accès.") });
+  let userId: number | null = null;
+  if (body.jeton) {
+    const row = await one<{ user_id: number }>(
+      "SELECT user_id FROM enrollment_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()",
+      [sha256(body.jeton)],
+    );
+    if (!row) return res.status(403).json({ error: tr("Lien d'inscription invalide ou expiré") });
+    userId = row.user_id;
+  } else if (req.user?.via === "session" && !req.user.demo) userId = req.user.id;
+  if (!userId) return res.status(403).json({ error: tr("Réservé à une session ouverte dans le navigateur") });
+  const user = await one<{ id: number; name: string }>("SELECT id, name FROM users WHERE id = ?", [userId]);
+  if (!user) return res.status(404).json({ error: tr("Utilisateur introuvable") });
+  const problem = passwordProblem(body.password, user.name);
+  if (problem) return res.status(400).json({ error: passwordProblemText(problem) });
+  const had = await hasPassword(userId);
+  // Changer de mot de passe demande l'actuel : une session laissée ouverte ne suffit pas — ni le lien qu'on se donne
+  // depuis elle. Seul un lien donné par l'administrateur, ou par le serveur (`lien`), remplace un mot de passe oublié.
+  if (had && (!body.jeton || body.jeton.startsWith(SELF_LINK))) {
+    const known = await currentPassword(userId, body.currentPassword ?? "");
+    if (known !== "ok")
+      return typeof known === "object"
+        ? res.status(429).json({ error: tr("Trop d'essais : la connexion par mot de passe de ce membre est fermée encore {n} min. Sa clé d'accès, s'il en a une, marche toujours.", { n: Math.ceil(known.wait / 60) }) })
+        : res.status(403).json({ error: tr("Le mot de passe actuel n'est pas le bon.") });
+  }
+  // Premier moyen d'entrer de ce membre : c'est sa première connexion, la présentation de bienvenue l'attend.
+  const first = !had && !(await one("SELECT 1 AS x FROM passkeys WHERE user_id = ? LIMIT 1", [userId]));
+  await setPassword(userId, body.password);
+  if (first) await expectWelcome(userId).catch((e) => console.error("[bienvenue] présentation non annoncée", e));
+  // Par un lien : tous les liens en cours de ce membre sont consommés, et la session s'ouvre ici.
+  if (body.jeton) {
+    await exec("UPDATE enrollment_tokens SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND used_at IS NULL", [userId]);
+    // Un défi d'inscription ouvert avec ce lien ne lui survit pas : il créerait encore une clé d'accès sur ce compte.
+    await exec("DELETE FROM auth_challenges WHERE user_id = ? AND purpose = 'register'", [userId]);
+    const previous = req.cookies?.[SESSION_COOKIE];
+    if (typeof previous === "string") await exec("DELETE FROM sessions WHERE token_hash = ?", [sha256(previous)]);
+  }
+  // Un mot de passe changé ferme les autres sessions de ce membre : celui qui connaissait l'ancien ne reste pas dedans.
+  if (had) {
+    const current = !body.jeton && typeof req.cookies?.[SESSION_COOKIE] === "string" ? sha256(req.cookies[SESSION_COOKIE]) : "";
+    await exec("DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?", [userId, current]);
+  }
+  if (body.jeton) await createSession(res, userId, req.get("user-agent"));
+  res.json({ ok: true });
+});
+
+/** Retirer son mot de passe : possible quand une clé d'accès reste pour entrer. */
+authRouter.delete("/password", requireAuth, async (req, res) => {
+  if (req.user!.via !== "session" || req.user!.demo) return res.status(403).json({ error: tr("Réservé à une session ouverte dans le navigateur") });
+  if (!(await one("SELECT 1 AS x FROM passkeys WHERE user_id = ? LIMIT 1", [req.user!.id])))
+    return res.status(400).json({ error: tr("Crée d'abord une clé d'accès : sans elle ni mot de passe, tu ne pourrais plus entrer.") });
+  await removePassword(req.user!.id);
+  // Un mot de passe retiré ferme les autres sessions de ce membre : celui qui le connaissait ne reste pas dedans.
+  const current = typeof req.cookies?.[SESSION_COOKIE] === "string" ? sha256(req.cookies[SESSION_COOKIE]) : "";
+  await exec("DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?", [req.user!.id, current]);
+  res.json({ ok: true });
+});
+
+/**
+ * Comment on entre dans cette installation, et comment ce membre y entre : l'adresse (une clé d'accès ne vaut que là),
+ * la place du mot de passe, et pour celui qui est connecté ses clés d'accès et son mot de passe.
+ */
+authRouter.get("/access", async (req, res) => {
+  const facts = await accessFacts();
+  if (!req.user) return res.json(facts);
+  const keys = await runReal(() => one<{ n: number }>("SELECT COUNT(*) AS n FROM passkeys WHERE user_id = ?", [req.user!.id]));
+  res.json({ ...facts, passkeysOnly: !facts.password, passkeys: Number(keys?.n ?? 0), hasPassword: await hasPassword(req.user.id) });
+});
+
+/**
+ * Exiger la clé d'accès de tous les membres (administrateur) : plus aucun mot de passe n'est accepté, ceux qui étaient
+ * gardés sont effacés. Refusé à l'administrateur qui n'a pas lui-même de clé d'accès : il s'enfermerait dehors.
+ */
+authRouter.put("/policy", requireAdmin, async (req, res) => {
+  const { passkeysOnly: only } = z.object({ passkeysOnly: z.boolean() }).parse(req.body);
+  if (only && !(await one("SELECT 1 AS x FROM passkeys WHERE user_id = ? LIMIT 1", [req.user!.id])))
+    return res.status(400).json({ error: tr("Crée d'abord ta clé d'accès : sans elle, tu ne pourrais plus entrer.") });
+  await setPasskeysOnly(only);
+  // Toutes les sessions sont fermées, sauf celle qui fait la demande : aucune de celles qu'un mot de passe avait
+  // ouvertes ne reste. Chacun revient par sa clé d'accès ; qui n'en a pas, par un lien d'inscription.
+  if (only) {
+    const current = typeof req.cookies?.[SESSION_COOKIE] === "string" ? sha256(req.cookies[SESSION_COOKIE]) : "";
+    await exec("DELETE FROM sessions WHERE token_hash <> ?", [current]);
+  }
+  res.json({ ok: true, passkeysOnly: only });
+});
+
 /** Ouvre une session navigateur à partir du jeton d'administration (tests, Claude). */
 authRouter.post("/token-login", async (req, res) => {
   if (req.user?.via !== "api") return res.status(403).json({ error: "Jeton d'administration requis" });
@@ -409,9 +556,12 @@ authRouter.get("/users", requireAuth, async (_req, res) => {
   const keys = await q<{ user_id: number; device_name: string | null; created_at: string; last_used_at: string | null; id_hash: string }>(
     "SELECT user_id, device_name, created_at, last_used_at, id_hash FROM passkeys ORDER BY created_at",
   );
+  // Qui a un mot de passe (jamais le mot de passe ni son empreinte).
+  const withPassword = new Set((await q<{ user_id: number }>("SELECT user_id FROM passwords")).map((p) => p.user_id));
   res.json({
     users: users.map((u) => ({
       ...u,
+      hasPassword: withPassword.has(u.id),
       passkeys: keys.filter((k) => k.user_id === u.id).map(({ user_id: _u, ...k }) => k),
     })),
   });
@@ -431,17 +581,18 @@ authRouter.post("/users/:id/enrollment", requireAuth, async (req, res) => {
   // Un lien d'inscription permet de créer une clé d'accès sur le compte visé : jamais sur celui d'un autre sans être l'administrateur.
   if (id !== req.user!.id && (!req.user!.admin || req.user!.demo)) return res.status(403).json({ error: tr("Réservé à l'administrateur de Pécule") });
   if (!(await one("SELECT id FROM users WHERE id = ?", [id]))) return res.status(404).json({ error: tr("Utilisateur introuvable") });
-  res.json({ link: await createEnrollmentLink(id) });
+  res.json({ link: await createEnrollmentLink(id, id === req.user!.id) });
 });
 
 /**
- * Tout ce qui laisse entrer un membre, coupé d'un coup : clés d'accès, sessions, liens d'inscription, jetons (dépôt,
+ * Tout ce qui laisse entrer un membre, coupé d'un coup : clés d'accès, mot de passe, sessions, liens d'inscription, jetons (dépôt,
  * calendrier, administration), accords donnés à des applications, notifications de ses appareils. Le membre et ses
  * données restent ; il revient par un nouveau lien d'inscription.
  */
 export async function revokeMemberAccess(userId: number): Promise<void> {
   await exec("DELETE FROM sessions WHERE user_id = ?", [userId]);
   await exec("DELETE FROM passkeys WHERE user_id = ?", [userId]);
+  await exec("DELETE FROM passwords WHERE user_id = ?", [userId]);
   await exec("DELETE FROM auth_challenges WHERE user_id = ?", [userId]);
   await exec("UPDATE enrollment_tokens SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND used_at IS NULL", [userId]);
   await exec("UPDATE api_tokens SET revoked_at = UTC_TIMESTAMP() WHERE user_id = ? AND revoked_at IS NULL", [userId]);
@@ -470,8 +621,9 @@ authRouter.delete("/passkeys/:idHash", requireAuth, async (req, res) => {
   // Ses propres clés, ou celles d'un autre membre pour l'administrateur.
   if (key.user_id !== req.user!.id && (!req.user!.admin || req.user!.demo)) return res.status(403).json({ error: tr("Réservé à l'administrateur de Pécule") });
   const count = await one<{ n: number }>("SELECT COUNT(*) AS n FROM passkeys WHERE user_id = ?", [key.user_id]);
-  // On ne peut pas s'enfermer dehors soi-même ; le jeton d'administration le peut (nettoyage).
-  if ((count?.n ?? 0) <= 1 && req.user?.via !== "api")
+  // On ne peut pas s'enfermer dehors soi-même : la dernière clé reste, sauf si un mot de passe laisse entrer. Le jeton
+  // d'administration, lui, le peut (nettoyage).
+  if ((count?.n ?? 0) <= 1 && req.user?.via !== "api" && !(await one("SELECT 1 AS x FROM passwords WHERE user_id = ?", [key.user_id])))
     return res.status(400).json({ error: tr("Impossible de supprimer la dernière clé d'accès de cet utilisateur") });
   await exec("DELETE FROM passkeys WHERE id_hash = ?", [req.params.idHash]);
   // Une clé retirée (appareil perdu, accès à couper) ferme les sessions de ce membre, sauf celle qui fait la demande.

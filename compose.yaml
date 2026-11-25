@@ -9,9 +9,11 @@
 # Un fichier `.env` posé à côté de celui-ci est facultatif ; ce qu'il donne l'emporte, sauf sur un secret déjà gardé,
 # qui ne se remplace qu'exprès (docker compose run --rm -e FORCE_SETTINGS=1 reglages). Ce qu'on y règle :
 #
-#   APP_URL=https://pecule.exemple.fr    adresse où Pécule est servi (https exigé hors de localhost : les clés d'accès)
+#   APP_URL=https://pecule.exemple.fr    adresse où Pécule est servi : en https sur un serveur (clés d'accès), ou en
+#                                        http sur le réseau de la maison (http://192.168.1.20:3000 : mot de passe)
 #   COMPOSE_PROFILES=https               Caddy sert cette adresse en https, certificat automatique (ports 80 et 443)
 #   PECULE_PORT=3322                     port publié sur la machine, quand 3000 est pris (l'adresse locale suit)
+#   PECULE_BIND=0.0.0.0                  publie ce port sur le réseau de la maison aussi (sans lui : cette machine seule)
 #   PECULE_IMAGE=ghcr.io/enki-engineer/pecule:1.34.0     une version précise plutôt que la dernière
 #
 # Avec son propre proxy https : pas de profil « https », le proxy pointe vers 127.0.0.1:3000 et APP_URL donne l'adresse.
@@ -116,7 +118,9 @@ services:
       base:
         condition: service_healthy
     ports:
-      - "127.0.0.1:${PECULE_PORT:-3000}:3000"
+      # Publié sur cette machine seulement. PECULE_BIND=0.0.0.0 l'ouvre au réseau de la maison (avec APP_URL en http
+      # sur l'adresse de la machine) ; sur un serveur, c'est le proxy https qui est exposé, pas ce port.
+      - "${PECULE_BIND:-127.0.0.1}:${PECULE_PORT:-3000}:3000"
     volumes:
       # Réglages gardés par l'installation (secrets, adresses des bases) : écrits par « reglages », lus ici.
       - pecule-reglages:/app/data/reglages:ro

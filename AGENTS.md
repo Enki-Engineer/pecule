@@ -12,8 +12,8 @@ Pour modifier le code de Pécule, les règles sont dans `CLAUDE.md`.
 
 Pécule est une application web de suivi des finances d'un foyer (comptes, opérations, budget, patrimoine, factures,
 documents, impôts, retraite), que chaque foyer héberge lui-même : un serveur Node.js et une base MariaDB ou MySQL.
-Une installation sert un foyer. On s'y connecte par une clé d'accès (Face ID, Touch ID, code de l'appareil), ce qui
-exige une adresse en **https** — ou `http://localhost` pour un essai sur sa propre machine.
+Une installation sert un foyer. On s'y connecte par une clé d'accès (Face ID, Touch ID, code de l'appareil), qui ne
+se crée qu'en **https sur un nom de domaine** ou sur `http://localhost` ; ailleurs (réseau de la maison), par un mot de passe.
 
 ## Règles
 
@@ -40,12 +40,17 @@ exige une adresse en **https** — ou `http://localhost` pour un essai sur sa pr
 
 ## 1. Choisir le chemin
 
-Demande à la personne, si elle ne l'a pas dit : **où veut-elle Pécule ?**
+Demande à la personne, si elle ne l'a pas dit : **où veut-elle Pécule, et sur quelle machine l'ouvrira-t-elle ?**
+L'adresse de l'installation est celle qu'elle tapera dans son navigateur, exactement : elle décide de la connexion.
 
-- « Sur cet ordinateur, pour essayer » → adresse `http://localhost:3000` (ou un autre port, si elle en donne un),
-  rien d'autre à régler. Dis-lui que son téléphone ne pourra pas s'y connecter : c'est un essai.
-- « Sur un serveur, à cette adresse » → une adresse en https dont le nom pointe vers ce serveur. Demande alors s'il
-  y a déjà un proxy https devant (Nginx, Traefik, Caddy, celui d'un NAS).
+| Où est son navigateur ? | Adresse | Connexion |
+| --- | --- | --- |
+| Sur cette machine (« sur cet ordinateur, pour essayer ») | `http://localhost:3000` (ou un autre port, si elle en donne un), rien d'autre à régler ; son téléphone ne pourra pas s'y connecter | clé d'accès |
+| Sur une autre machine de la maison : tu tournes sur un serveur, un NAS, une machine virtuelle, par SSH — son `localhost` n'est pas le tien (un doute sur « cet ordinateur » ? demande-le) | `http://<adresse de cette machine sur le réseau>:3000`, par exemple `http://192.168.1.20:3000` (`hostname -I` la donne sous Linux) ; tout y circule en clair sur ce réseau | **mot de passe** |
+| Idem, pour un essai avec clé d'accès | `http://localhost:3000`, par un tunnel SSH qu'elle lance sur son ordinateur et laisse ouvert : `ssh -L 3000:127.0.0.1:3000 utilisateur@machine` ; rien à régler dans Pécule | clé d'accès |
+| Partout, téléphone compris (« sur un serveur, à cette adresse ») | une adresse en https sur un nom de domaine qui pointe vers la machine, ou celui d'un tunnel (Tailscale Serve, Cloudflare Tunnel) ; demande s'il y a déjà un proxy https devant (Nginx, Traefik, Caddy, celui d'un NAS) | clé d'accès |
+
+**Ne bricole jamais l'adresse** : ni certificat autosigné (le navigateur refuse alors la clé d'accès, sans dire pourquoi), ni adresse IP ou `127.0.0.1` en espérant une clé d'accès, ni port ouvert sur Internet en http (`setup` le refuse). Aucun chemin ne convient ? Dis-le à la personne plutôt que d'improviser.
 
 Puis regarde la machine :
 
@@ -67,7 +72,7 @@ en a un, `.env` : c'est de là que se lancent les commandes ; les données sont 
 | Étape | Commande | Réussite |
 | --- | --- | --- |
 | Fichier | `mkdir -p pecule && cd pecule && curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/compose.yaml` | `compose.yaml` existe |
-| Réglages, s'il en faut | écrire `.env` à côté (voir ci-dessous) : un serveur, ou un autre port que 3000 | — |
+| Réglages, s'il en faut | écrire `.env` à côté (voir ci-dessous) : un serveur, le réseau de la maison, ou un autre port que 3000 | — |
 | Démarrage | `docker compose up -d` | code 0 ; le service `reglages` s'arrête aussitôt (« Exited », code 0 dans `docker compose ps -a`) : c'est normal |
 | Lien | `docker compose exec -T pecule node scripts/lien.mjs --json` | attend que Pécule soit prêt, puis `{"ok":true,"setup":true,"url":"…","link":"…","code":"…"}` : c'est `link` qu'il faut remettre |
 | Contrôle | `docker compose exec -T pecule node scripts/doctor.mjs --json` | `"ok": true` ; la ligne `installe` donne la version |
@@ -88,6 +93,7 @@ COMPOSE_PROFILES=https                # Caddy obtient le certificat (ports 80 et
 ```
 
 Avec un proxy déjà là : pas de `COMPOSE_PROFILES`, et le proxy renvoie l'adresse vers `127.0.0.1:3000`.
+Sur le réseau de la maison : `APP_URL=http://192.168.1.20:3000` (son adresse sur ce réseau) et `PECULE_BIND=0.0.0.0`, qui y publie le port ; un pare-feu (ufw, firewalld) doit le laisser passer — avec l'accord de la personne, jamais vers Internet.
 
 Les secrets de l'installation sont tirés au premier démarrage et gardés dans le volume `pecule-reglages` : tu n'as
 rien à produire ni à recopier. Si un contrôle de `doctor` porte `"ok": false`, applique son champ `fix`.
@@ -98,7 +104,8 @@ rien à produire ni à recopier. Si un contrôle de `doctor` porte `"ok": false`
 | l'image ne se télécharge pas | réseau, ou registre injoignable : `docker compose pull` dit pourquoi |
 | `service "reglages" didn't complete successfully` | `docker compose logs reglages` dit pourquoi : le plus souvent une variable du terminal qui porte le nom d'un réglage de Pécule (`APP_URL`, `API_TOKEN`, `SECRET_KEY`… : `unset`), ou un démarrage lancé hors du dossier de l'installation |
 | Pécule ne devient pas prêt | `docker compose logs pecule --tail 100` |
-| la clé d'accès ne se crée pas | l'adresse ouverte n'est pas exactement `APP_URL`, ou n'est pas en https |
+| la clé d'accès ne se crée pas | l'écran dit pourquoi : page ouverte ailleurs qu'à `APP_URL` (donne le `link` de `lien`, pas `127.0.0.1` ni une IP), adresse IP ou http hors de `localhost`, certificat non reconnu. Ne force rien (ni certificat, ni `APP_URL`) : l'écran propose un mot de passe, et la section 1 dit quelle adresse permet la clé |
+| la page ne s'ouvre pas depuis l'autre machine | `PECULE_BIND=0.0.0.0` manque dans `.env`, ou le pare-feu de la machine ferme le port |
 
 ## 3. Archive (Node.js, sans Docker)
 
@@ -114,7 +121,7 @@ plus récent et une base MariaDB 10.6+ ou MySQL 8+ **vide**, que la personne cr�
 | Contrôle | `node scripts/doctor.mjs --json` | `"ok": true` |
 
 Toutes ces commandes se lancent dans le dossier `pecule`. Sans `--url`, l'adresse est `http://localhost:<port>`
-(essai sur la machine) ; `--port` choisit le port, 3000 sinon. Lancé par `nohup`, le serveur ne repart pas avec la
+(essai sur la machine) ; `--port` choisit le port, 3000 sinon ; réseau de la maison : `--url http://192.168.1.20:3000`. Le résultat dit la connexion à cette adresse (`"signIn"` : `cle` ou `mot-de-passe`). Lancé par `nohup`, le serveur ne repart pas avec la
 machine : dis-le à la personne. Chez un hébergeur Node.js qui règle les variables dans son interface : c'est à la
 personne d'y recopier le contenu du `.env` produit — il porte tous les secrets, ne le lis pas et ne l'affiche pas —,
 fichier d'entrée `dist/server.mjs`, aucune commande de build, aucun répertoire de sortie. Sur une machine partagée,
@@ -126,12 +133,12 @@ Un modèle de service systemd est dans `docs/guide/installation.md`.
 
 Donne-lui le **lien** rendu par `lien` (pas une variante de l'adresse) et dis-lui ce qui l'attend :
 
-1. elle ouvre le lien : l'écran « Bienvenue dans Pécule » ne demande que son prénom ;
-2. elle crée sa clé d'accès — c'est le seul geste que tu ne peux pas faire à sa place ;
+1. elle ouvre le lien : l'écran « Bienvenue dans Pécule » ne demande que son prénom, et elle est aussitôt connectée ;
+2. elle protège son accès : une clé d'accès ou, là où elle ne peut pas servir, un mot de passe — le seul geste que tu ne peux pas faire à sa place ; elle peut le remettre à plus tard, rien ne lui barre l'entrée ;
 3. Pécule l'accueille par une présentation : le pays, la devise et les écrans du foyer, les repères de l'appli, puis
    un guide pas à pas pour relier sa banque. Elle peut la suivre, la passer, ou la reprendre plus tard.
 
-Le lien a déjà servi, ou la page a été fermée avant la clé d'accès ? Relance `lien` : il donne ce qu'il faut ouvrir.
+Le lien a déjà servi, ou sa session s'est perdue sans clé d'accès ni mot de passe ? Relance `lien` : il donne ce qu'il faut ouvrir. Mot de passe oublié ou appareil perdu : `lien --membre <prénom>` donne à ce membre un lien d'inscription.
 
 ## 5. Ensuite, dans l'appli
 

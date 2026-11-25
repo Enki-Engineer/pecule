@@ -65,8 +65,8 @@ https://github.com/user-attachments/assets/fdd6d964-d034-4faa-8411-1a4719270c20
 - **Dans ta devise** — le foyer choisit son pays, sa devise et son fuseau horaire ; un compte tenu dans une autre
   devise est converti au cours de référence de la Banque centrale européenne du jour de chaque opération, et garde ses
   montants d'origine.
-- **Pour un foyer** — chaque membre a sa vue ; des comptes communs et des comptes privés ; des clés d'accès à la
-  place des mots de passe ; un mode démo avec une famille fictive, pour montrer l'appli sans montrer tes comptes.
+- **Pour un foyer** — chaque membre a sa vue ; des comptes communs et des comptes privés ; des clés d'accès
+  d'abord, un mot de passe là où elles ne peuvent pas servir ; un mode démo avec une famille fictive, pour montrer l'appli sans montrer tes comptes.
 
 <table>
   <tr>

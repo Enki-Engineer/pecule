@@ -23,8 +23,12 @@ téléphone, « Ajouter au Dock » sur un Mac (le manuel intégré à l'appli le
 
 Deux choses à savoir avant de commencer :
 
-- **L'adresse doit être en https** : les clés d'accès (Face ID, Touch ID, code de l'appareil) l'exigent. Seule
-  exception, `http://localhost`, pour un essai sur sa propre machine — le téléphone n'y aura pas accès.
+- **L'adresse décide de la façon de se connecter.** C'est celle que vous taperez dans votre navigateur, exactement.
+  En **https sur un nom de domaine**, on se connecte par une clé d'accès (Face ID, Touch ID, code de l'appareil),
+  téléphone compris. Sur `http://localhost`, aussi — mais seulement depuis la machine où Pécule tourne. Sur **le
+  réseau de la maison, en http** (`http://192.168.1.20:3000`), par un mot de passe : aucun navigateur ne crée de
+  clé d'accès en http, ni sur une adresse IP, ni avec un certificat qu'il ne reconnaît pas (autosigné). Voir
+  [Quelle adresse choisir](#quelle-adresse-choisir).
 - **Les versions** : la branche `stable` et l'image `latest` ne bougent qu'à chaque version publiée ; `main` reçoit
   le travail en cours.
 
@@ -56,6 +60,33 @@ Deux précautions, qui tiennent à Docker Compose :
   aucun secret qu'il garde déjà — jeton d'administration compris — sans qu'on le lui demande exprès. Au premier
   démarrage, il nomme les secrets qu'il a repris de l'environnement plutôt que tirés (`docker compose logs reglages`).
 
+### Quelle adresse choisir
+
+| Où est le navigateur ? | Adresse | Connexion |
+| --- | --- | --- |
+| Sur la machine où Pécule tourne | `http://localhost:3000` (rien à régler) | clé d'accès, ou mot de passe |
+| Sur une autre machine de la maison | `http://192.168.1.20:3000` — l'adresse de la machine sur le réseau | mot de passe |
+| Sur une autre machine, pour un essai | `http://localhost:3000`, par un tunnel SSH : `ssh -L 3000:127.0.0.1:3000 utilisateur@machine` | clé d'accès, ou mot de passe |
+| Partout, téléphone compris | `https://pecule.exemple.fr` — un nom de domaine, ou celui d'un tunnel (Tailscale Serve, Cloudflare Tunnel) | clé d'accès, ou mot de passe |
+
+En http sur le réseau de la maison, tout circule en clair sur ce réseau, mot de passe compris : c'est le chemin d'un
+essai ou d'un usage à la maison. En http sur une adresse publique, Pécule ne s'installe pas (`setup` le refuse).
+L'écran dit lui-même quand une clé d'accès ne peut pas servir, et pourquoi.
+
+### Sur le réseau de la maison, en http
+
+Pécule tourne sur une machine (un serveur de la maison, un NAS, un mini-PC) et s'ouvre depuis une autre. Posez un
+fichier `.env` à côté de `compose.yaml` avant de démarrer, avec l'adresse de la machine sur le réseau :
+
+```sh
+APP_URL=http://192.168.1.20:3000
+PECULE_BIND=0.0.0.0
+```
+
+`PECULE_BIND` publie le port sur le réseau (sans lui, il n'est ouvert qu'à la machine elle-même). Si la machine a
+un pare-feu, ouvrez-y ce port au réseau de la maison — jamais à Internet. On se connecte par mot de passe ; le jour
+où Pécule passe en https, chacun peut y créer sa clé d'accès, et l'administrateur exiger qu'il n'y ait plus qu'elle.
+
 ### Sur un serveur, en https
 
 Avec un nom de domaine qui pointe vers le serveur (ports 80 et 443 ouverts), posez un fichier `.env` à côté de
@@ -80,7 +111,8 @@ et `docker compose up -d`.
 
 | Réglage | Effet |
 | --- | --- |
-| `APP_URL` | Adresse où Pécule est servi. Sans lui : `http://localhost:<port>`. |
+| `APP_URL` | Adresse où Pécule est servi, telle qu'on l'ouvre dans le navigateur. Sans lui : `http://localhost:<port>`. |
+| `PECULE_BIND` | `0.0.0.0` publie le port sur le réseau de la maison ; sans lui, sur la machine seule (`127.0.0.1`). |
 | `COMPOSE_PROFILES=https` | Lance Caddy pour servir `APP_URL` en https. |
 | `PECULE_PORT` | Port publié sur la machine, si 3000 est pris. |
 | `PECULE_IMAGE` | Une version précise plutôt que la dernière : `ghcr.io/enki-engineer/pecule:1.34.0`, ou `:1.34`, ou `:1`. |
@@ -199,7 +231,9 @@ Réglages d'un hébergeur relié à GitHub : branche **`stable`**, gestionnaire 
 ## Premier démarrage
 
 Ouvrez le **lien du premier démarrage** : l'écran « Bienvenue dans Pécule » propose la langue, puis ne demande que
-votre prénom. Vous devenez l'administrateur du foyer et créez votre clé d'accès.
+votre prénom. Vous devenez l'administrateur du foyer, et vous êtes aussitôt connecté. L'écran suivant propose de
+protéger votre accès : une clé d'accès ou, là où elle ne peut pas servir, un mot de passe (douze caractères au
+moins). Ce choix peut attendre — rien ne vous barre l'entrée — et se fait ensuite dans Réglages → Compte et sécurité.
 
 Le lien porte le code d'installation, qui ne sert qu'une fois. Vous avez ouvert l'adresse sans lui ? L'écran demande
 ce code et affiche la commande qui redonne le lien :
@@ -209,8 +243,8 @@ docker compose exec pecule node scripts/lien.mjs      # Docker
 node scripts/lien.mjs                                 # archive ou sources
 ```
 
-La même commande dépanne si la page a été fermée avant la création de la clé d'accès : elle redonne alors le lien
-d'inscription du premier membre.
+La même commande dépanne si votre session s'est perdue avant que vous ayez choisi une clé d'accès ou un mot de
+passe : elle redonne alors le lien d'inscription du premier membre.
 
 Pécule vous accueille alors par une **présentation** de quelques étapes : le pays, la devise et les écrans du foyer
 (ce qu'indique votre navigateur est proposé, rien n'est enregistré sans votre geste), les repères pour s'y retrouver,
@@ -230,7 +264,11 @@ Tant que le foyer n'a aucun compte, l'accueil affiche aussi « Bien démarrer »
 - **importer vos documents** (Documents → Coffre, zone de dépôt) : voir [`importer-des-documents.md`](importer-des-documents.md).
 
 Les autres membres du foyer s'ajoutent dans Réglages → Compte et sécurité : chacun reçoit un lien d'inscription,
-crée sa propre clé d'accès, et voit la présentation à sa première connexion.
+crée sa propre clé d'accès (ou choisit son mot de passe), et voit la présentation à sa première connexion. Un mot de
+passe oublié se remplace par un nouveau lien d'inscription, que l'administrateur donne dans les réglages — ou, pour
+l'administrateur lui-même, le serveur : `node scripts/lien.mjs --membre <prénom>` (avec Docker :
+`docker compose exec pecule node scripts/lien.mjs --membre <prénom>`). Sur une installation en https où chacun a sa clé,
+l'administrateur peut cocher « Exiger une clé d'accès de tous les membres » : plus aucun mot de passe n'est accepté.
 
 ## Vérifier, arrêter, repartir de zéro
 
@@ -330,9 +368,12 @@ Ce qu'il faut savoir :
 | `docker compose up` : `port is already allocated` | Le port 3000 est pris : `PECULE_PORT=3322` dans `.env`, puis `docker compose up -d`. |
 | `docker compose up` : l'image ne peut pas être récupérée | Réseau ou registre injoignable : `docker compose pull` dit pourquoi. Depuis le dépôt, `docker compose up -d --build` la construit sur place. |
 | Le service `reglages` reste en erreur (`didn't complete successfully`) | Son journal dit pourquoi (`docker compose logs reglages`). « Cette installation est servie à … » : le démarrage est lancé hors du dossier de l'installation, sans son `.env` — relancez-le depuis ce dossier. « … trop court », « le secret qui chiffre les clés … » ou « … n'est pas celui que cette installation garde » : une variable du terminal porte le nom d'un réglage de Pécule (`unset API_TOKEN`, par exemple) ; si le changement est voulu, le message dit comment passer outre. Pécule reste arrêté tant que ce démarrage n'aboutit pas ; rien n'a été modifié. |
-| La clé d'accès ne se crée pas | L'adresse ouverte dans le navigateur n'est pas celle d'`APP_URL`, ou elle n'est pas en https. |
+| La clé d'accès ne se crée pas | L'écran dit pourquoi. La page n'est pas ouverte à l'adresse d'`APP_URL` (`127.0.0.1` au lieu de `localhost`, une adresse IP) : il donne le lien de la bonne. L'adresse est une IP, ou en http hors de `localhost` : il propose un mot de passe. « Le navigateur ne fait pas confiance au certificat » : un certificat autosigné ne convient pas, il faut celui d'un nom de domaine. Voir [Quelle adresse choisir](#quelle-adresse-choisir). |
+| La page ne s'ouvre pas depuis une autre machine de la maison | Avec Docker, `PECULE_BIND=0.0.0.0` manque dans `.env` ; sinon, le pare-feu de la machine ferme le port. |
+| « Ouvre Pécule à son adresse » | La page est ouverte à une autre adresse que celle d'`APP_URL` : on ne se connecte qu'à celle-ci. |
+| Mot de passe oublié, ou appareil perdu avec sa seule clé d'accès | L'administrateur donne un lien d'inscription dans Réglages → Compte et sécurité. S'il s'agit de lui : `lien --membre <prénom>`, sur le serveur. |
 | « Code d'installation incorrect » | Le lien a déjà servi, ou vient d'une autre installation : `lien` redonne le bon. |
-| Le prénom est donné, mais la page a été fermée avant la clé d'accès | `lien` redonne le lien d'inscription du premier membre. |
+| Le prénom est donné, mais la session s'est perdue avant le choix d'une clé d'accès ou d'un mot de passe | `lien` redonne le lien d'inscription du premier membre. |
 | MariaDB affiche `io_uring_queue_init() failed` ou « Aborted connection » au démarrage | Sans effet : seul `GET /api/health` fait foi. |
 | L'API répond 409 « pas encore de membre » avec le bon jeton | Normal sur une installation neuve : le jeton agit au nom du premier membre, créez-le d'abord dans l'appli. |
 | L'hébergeur ne publie rien | Un répertoire de sortie est renseigné : il n'en faut pas ; l'entrée est `dist/server.mjs`. |

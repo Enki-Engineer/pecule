@@ -4,14 +4,14 @@ import type { ManualTheme } from "../manual.ts";
 export const securite: ManualTheme = {
   id: "securite",
   title: tk("Sécurité et suivi"),
-  hint: tk("Clés d'accès, sauvegarde, mise à jour, accès donnés, journal"),
+  hint: tk("Clés d'accès, mot de passe, sauvegarde, mise à jour, accès donnés, journal"),
   articles: [
     {
       id: "cles-d-acces",
-      title: tk("Se connecter avec une clé d'accès"),
-      summary: tk("Pas de mot de passe : Face ID, Touch ID ou le code de l'appareil."),
+      title: tk("Se connecter : clé d'accès ou mot de passe"),
+      summary: tk("Face ID, Touch ID ou le code de l'appareil ; un mot de passe là où la clé ne peut pas servir."),
       body: [
-        tk("Pécule n'a ni mot de passe ni identifiant. Chaque membre se connecte avec une clé d'accès, gardée par son appareil et déverrouillée par Face ID, Touch ID ou le code de l'appareil."),
+        tk("Chaque membre se connecte d'abord avec une clé d'accès, gardée par son appareil et déverrouillée par Face ID, Touch ID ou le code de l'appareil : rien à retenir, et rien à voler sur le serveur."),
         {
           list: [
             tk("Sur l'écran de connexion, touche [[Se connecter]] et valide sur l'appareil."),
@@ -20,30 +20,42 @@ export const securite: ManualTheme = {
           ],
         },
         { tip: tk("Crée une clé sur au moins deux appareils : si l'un est perdu, l'autre te laisse entrer.") },
+        tk("Une clé d'accès ne sert qu'à l'adresse de l'installation, en https sur un nom de domaine — ou sur http://localhost, sur la machine elle-même. Sur le réseau de la maison en http, sur une adresse IP, ou sur un appareil qui ne sait pas en garder, Pécule le dit avant que tu essaies et propose un mot de passe."),
+        {
+          list: [
+            tk("À l'inscription, touche [[Choisir plutôt un mot de passe]] : douze caractères au moins, une phrase convient très bien."),
+            tk("Tu te connectes alors avec ton prénom et lui : [[Se connecter avec un mot de passe]], sur l'écran de connexion."),
+            tk("Cinq mots de passe faux de suite ferment la connexion par mot de passe de ce membre une minute, puis de plus en plus longtemps. Sa clé d'accès, s'il en a une, marche toujours."),
+          ],
+        },
+        { warning: tk("En http, le mot de passe et tes données circulent en clair sur le réseau : à garder pour le réseau de la maison. Pour un usage durable, ou hors de chez toi, sers Pécule en https.") },
       ],
       links: [{ to: "/reglages/compte#membres", label: ["Réglages", "Compte et sécurité"] }],
-      words: tk("mot de passe passkey connexion login identifiant face id touch id empreinte authentification"),
+      words: tk("mot de passe password passkey connexion login identifiant face id touch id empreinte authentification adresse ip http https réseau local certificat opération annulée"),
     },
     {
       id: "appareils",
       title: tk("Ajouter un appareil, en retirer un, se déconnecter"),
-      summary: tk("Gérer les clés d'accès et les sessions ouvertes."),
+      summary: tk("Gérer les clés d'accès, le mot de passe et les sessions ouvertes."),
       body: [
         tk("Tout est dans [[Réglages]] → [[Compte et sécurité]], sous [[Membres et clés d'accès]]."),
         {
           list: [
             tk("[[Ajouter cet appareil]], sur ta ligne, crée une clé d'accès sur l'appareil que tu utilises."),
             tk("Pour un appareil que tu n'as pas sous la main, [[Lien d'inscription]] donne un lien à y ouvrir, valable sept jours."),
-            tk("La corbeille à côté d'une clé la supprime : cet appareil ne pourra plus se connecter. Ta dernière clé ne peut pas être supprimée."),
+            tk("La corbeille à côté d'une clé la supprime : cet appareil ne pourra plus se connecter. Ta dernière clé ne peut pas être supprimée, sauf si tu as un mot de passe."),
+            tk("[[Choisir un mot de passe]], sur ta ligne, t'en donne un ; [[Changer]] redemande l'actuel, et ferme tes autres sessions ; [[Retirer]] le supprime, quand une clé d'accès te laisse entrer."),
+            tk("Mot de passe oublié : l'administrateur te donne un [[Lien d'inscription]], qui te laisse en choisir un autre."),
             tk("[[Déconnecter mes autres appareils]] ferme toutes tes autres sessions."),
             tk("[[Se déconnecter]] ferme la session de cet appareil, y arrête les notifications et efface les données qu'il gardait."),
           ],
         },
         { note: tk("Ces gestes ne se font qu'à l'écran, et sont coupés en mode démo. L'administrateur peut supprimer la clé d'un autre membre.") },
-        tk("Appareil perdu, ou membre qui quitte le foyer : sur la ligne de ce membre, l'administrateur touche [[Couper ses accès]]. Ses clés d'accès, ses sessions, son lien de calendrier, ses jetons de dépôt, ses applications connectées et les notifications de ses appareils cessent d'un coup. Ses données restent ; un nouveau [[Lien d'inscription]] le fait revenir."),
+        tk("L'administrateur peut cocher [[Exiger une clé d'accès de tous les membres]] : plus aucun mot de passe n'est accepté, et ceux qui existent sont effacés. C'est le réglage d'une installation servie en https, où chacun a sa clé."),
+        tk("Appareil perdu, ou membre qui quitte le foyer : sur la ligne de ce membre, l'administrateur touche [[Couper ses accès]]. Ses clés d'accès, son mot de passe, ses sessions, son lien de calendrier, ses jetons de dépôt, ses applications connectées et les notifications de ses appareils cessent d'un coup. Ses données restent ; un nouveau [[Lien d'inscription]] le fait revenir."),
       ],
       links: [{ to: "/reglages/compte#membres", label: ["Réglages", "Compte et sécurité"] }],
-      words: tk("nouvel appareil nouveau téléphone déconnexion appareil perdu volé supprimer une clé session couper les accès révoquer membre parti"),
+      words: tk("nouvel appareil nouveau téléphone déconnexion appareil perdu volé supprimer une clé session couper les accès révoquer membre parti changer de mot de passe mot de passe oublié"),
     },
     {
       id: "sauvegarde",

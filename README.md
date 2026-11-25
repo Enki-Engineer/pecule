@@ -92,7 +92,7 @@ year round, in hours of work, worked out from your payslips.
 ## Plug in your AI
 
 Pécule exposes an **MCP server**: connect your favourite AI assistant and do everything from there — find a
-transaction, categorise a batch, analyse a month, compare a contract, update your wealth. Sixty-nine tools, read-only
+transaction, categorise a batch, analyse a month, compare a contract, update your wealth. Sixty-eight tools, read-only
 or with actions: it reads and acts on your Pécule, with the rights you grant.
 
 Pécule recognises Claude, ChatGPT, Mistral Le Chat and Perplexity, as well as any assistant on your computer

@@ -93,7 +93,7 @@ Halloween — y, todo el año, en horas de trabajo, calculadas a partir de tus n
 ## Conecta tu IA
 
 Pécule expone un **servidor MCP**: conecta tu asistente de IA favorito y hazlo todo desde él — encontrar un
-movimiento, clasificar un lote, analizar un mes, comparar un contrato, actualizar tu patrimonio. Sesenta y nueve
+movimiento, clasificar un lote, analizar un mes, comparar un contrato, actualizar tu patrimonio. Sesenta y ocho
 herramientas, en solo lectura o con acciones: lee y actúa sobre tu Pécule, con los permisos que le das.
 
 Pécule reconoce a Claude, ChatGPT, Mistral Le Chat y Perplexity, además de cualquier asistente de tu ordenador

@@ -93,7 +93,7 @@ toute l'année, en heures de travail, d'après tes bulletins de paie.
 ## Branche ton IA
 
 Pécule expose un **serveur MCP** : relie ton assistant IA favori, et fais tout depuis lui — retrouver une
-opération, classer un lot, analyser un mois, comparer un contrat, mettre à jour ton patrimoine. Soixante-neuf outils,
+opération, classer un lot, analyser un mois, comparer un contrat, mettre à jour ton patrimoine. Soixante-huit outils,
 en lecture seule ou avec les actions : il lit et agit sur ton Pécule, avec les droits que tu lui donnes.
 
 Pécule reconnaît Claude, ChatGPT, Mistral Le Chat et Perplexity, ainsi que tout assistant de ton ordinateur

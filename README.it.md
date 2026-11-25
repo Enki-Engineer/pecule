@@ -91,7 +91,7 @@ tutto l'anno, in ore di lavoro, calcolate dalle tue buste paga.
 ## Collega la tua IA
 
 Pécule espone un **server MCP**: collega il tuo assistente IA preferito e fai tutto da lì — ritrovare un movimento,
-classificare un gruppo, analizzare un mese, confrontare un contratto, aggiornare il tuo patrimonio. Sessantanove
+classificare un gruppo, analizzare un mese, confrontare un contratto, aggiornare il tuo patrimonio. Sessantotto
 strumenti, in sola lettura o con le azioni: legge e agisce sul tuo Pécule, con i diritti che gli dai.
 
 Pécule riconosce Claude, ChatGPT, Mistral Le Chat e Perplexity, oltre a qualsiasi assistente del tuo computer

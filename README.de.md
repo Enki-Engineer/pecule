@@ -96,7 +96,7 @@ ganze Jahr über in Arbeitsstunden, berechnet aus deinen Gehaltsabrechnungen.
 
 Pécule stellt einen **MCP-Server** bereit: Verbinde deinen bevorzugten KI-Assistenten und erledige alles von dort
 aus — eine Buchung finden, einen Stapel einordnen, einen Monat analysieren, einen Vertrag vergleichen, dein Vermögen
-aktualisieren. Neunundsechzig Werkzeuge, nur lesend oder mit Aktionen: Er liest und handelt in deinem Pécule, mit den
+aktualisieren. Achtundsechzig Werkzeuge, nur lesend oder mit Aktionen: Er liest und handelt in deinem Pécule, mit den
 Rechten, die du ihm gibst.
 
 Pécule erkennt Claude, ChatGPT, Mistral Le Chat und Perplexity sowie jeden Assistenten auf deinem Computer

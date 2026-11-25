@@ -15,7 +15,7 @@ Self-hosted, free and open source: your data stays on your server.
 [![Docker](https://img.shields.io/badge/docker-one%20file-874519?labelColor=141413&logo=docker&logoColor=white)](#install)
 [![speaks](https://img.shields.io/badge/speaks-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#what-it-does)
 
-[Install](#install) · [What it does](#what-it-does) · [Make it yours](#make-it-yours) · [Plug in your AI](#plug-in-your-ai) · [Your data](#your-data-stays-yours) · [Documentation](#documentation) · [Support](#support-pécule) · [Suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Install](#install) · [What it does](#what-it-does) · [Make it yours](#make-it-yours) · [Plug in your AI](#plug-in-your-ai) · [Your data](#your-data-stays-yours) · [Documentation](#documentation) · [Support](#support-the-project) · [Suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 **English** · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Español](README.es.md)
 
@@ -190,10 +190,12 @@ Pécule's first public release dates from November 2026, and new features arrive
   (never attach real bank data: the demo mode almost always reproduces it).
 - Want to help with the code? See [Contributing](CONTRIBUTING.md).
 
-## Support Pécule
+## Support the project
 
 Pécule is free and will stay free. To help: a star on this page (it costs nothing and it counts), spread the word,
 [suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) — or buy me a coffee:
+
+**Liberapay** — [liberapay.com/pecule](https://liberapay.com/pecule): a recurring donation, by card or direct debit.
 
 **Bitcoin (BTC)**
 

@@ -75,7 +75,7 @@ export function generateOperations(ops: Ops, s: Scenario, model: IncomeModel, mo
     ops.prlv("c", workdayAfter(at(22)), "Orange Sa Forfait Mobile", 19.99, "B1-05", "Orange");
 
     // Transports, santé, sport, banque.
-    ops.prlv("joint", workdayAfter(at(8)), "Macif Assurance Auto", 47.8, "B2-02", "Macif");
+    ops.prlv("joint", workdayAfter(at(8)), "Orvane Assurance Auto", 47.8, "B2-02", "Orvane");
     ops.prlv("c", workdayAfter(at(3)), "Naolib Abonnement Mensuel", 49.5, "B2-04");
     ops.prlv("c", workdayAfter(at(1)), "Basic Fit France Abonnement", 29.99, "B9-01");
     ops.prlv("c", workdayAfter(at(5)), "Harmonie Mutuelle Cotisation", 61.9, "B6-02", "Harmonie Mutuelle");

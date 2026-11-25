@@ -26,7 +26,7 @@ export type Scenario = {
   leaseStart: string;
   lastRevision: string;
   nextRevision: string;
-  macifRenewal: string;
+  carInsuranceRenewal: string;
   canalEnd: string;
   /** Décalage (en mois, ≤ 0) du dernier mois de décembre de l'historique. */
   decOff: number;
@@ -51,7 +51,7 @@ export function scenario(today: Date): Scenario {
     leaseStart,
     lastRevision: addMonths(leaseStart, 12, 1),
     nextRevision: addMonths(leaseStart, 24, 1),
-    macifRenewal: addDays(T, 28),
+    carInsuranceRenewal: addDays(T, 28),
     canalEnd: addMonths(T, -5, 1),
     decOff: -(monthOf(T) === 12 ? 12 : monthOf(T)),
   };

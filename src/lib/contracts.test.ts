@@ -97,7 +97,7 @@ describe("guessTopic", () => {
   const of = (title: string, kind = "assurance", summary: string | null = null) => guessTopic({ title, kind, summary });
 
   it("reconnaît la nature au titre", () => {
-    expect(of("Contrat d'assurance auto — Macif")).toBe("assurance_auto");
+    expect(of("Contrat d'assurance auto — Orvane")).toBe("assurance_auto");
     expect(of("Devis d’assurance automobile", "devis")).toBe("assurance_auto");
     expect(of("Attestation d'assurance habitation 2026")).toBe("assurance_habitation");
     expect(of("Assurance multirisque copropriété (2022)")).toBe("assurance_habitation");

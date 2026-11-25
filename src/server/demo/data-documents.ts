@@ -167,12 +167,12 @@ export function buildDocuments(s: Scenario, model: IncomeModel, [ua, uc]: readon
       lines: ["Logement : studio, 24,3 m², chauffage électrique, eau chaude par ballon", "Consommation : 198 kWh/m²/an (classe D)", "Émissions : 6 kg CO2/m²/an (classe B)", "Recommandations : isolation des combles, ventilation hygroréglable"],
     },
     {
-      title: "Contrat d'assurance auto — Macif",
+      title: "Contrat d'assurance auto — Orvane",
       kind: "assurance",
       domain: "budget",
       owner: null,
-      docDate: addMonths(s.macifRenewal, -12),
-      expiresAt: s.macifRenewal,
+      docDate: addMonths(s.carInsuranceRenewal, -12),
+      expiresAt: s.carInsuranceRenewal,
       summary: "Assurance tous risques de la citadine électrique du foyer, échéance annuelle à venir (préavis de résiliation d'un mois).",
       facts: [["Véhicule", "Citadine électrique (2022)"], ["Formule", "Tous risques"], ["Cotisation", "573,60 € par an"], ["Bonus", "0,50"]],
       lines: [
@@ -181,12 +181,12 @@ export function buildDocuments(s: Scenario, model: IncomeModel, [ua, uc]: readon
         "Formule tous risques, assistance 0 km, prêt de véhicule",
         "Franchise dommages tous accidents : 250 € ; bris de glace : sans franchise",
         "Cotisation annuelle : 573,60 €, prélevée chaque mois",
-        `Échéance principale : ${dateFr(s.macifRenewal)}`,
+        `Échéance principale : ${dateFr(s.carInsuranceRenewal)}`,
       ],
     },
     // Une offre concurrente, à comparer au contrat ci-dessus : moins chère, mais elle couvre un peu moins.
     {
-      title: "Devis d'assurance auto — Matmut",
+      title: "Devis d'assurance auto — Mutuelle Lisière",
       kind: "devis",
       domain: "budget",
       owner: null,

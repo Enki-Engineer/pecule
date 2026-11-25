@@ -1,45 +1,50 @@
-# Contribuer à Pécule
+# Contributing to Pécule
 
-Merci de votre intérêt. Pécule est un projet personnel, tenu sur du temps libre : les corrections et les petites
-améliorations sont les bienvenues ; pour une fonction nouvelle, ouvrez d'abord un ticket pour en parler
-([proposer une idée](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)).
+[Lire en français](CONTRIBUTING.fr.md)
 
-## Mettre le projet en route
+Thank you for your interest. Pécule is a personal project, maintained in spare time: fixes and small improvements
+are welcome; for a new feature, open an issue first to talk about it
+([suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)).
+
+The code, its comments and the commit messages are written in French; issues and pull requests are welcome in French
+or in English.
+
+## Getting the project running
 
 ```sh
 pnpm install
-pnpm local base        # MariaDB dans Docker, sur 127.0.0.1:3316
-pnpm local dev         # http://localhost:3210, rechargement à chaud
+pnpm local base        # MariaDB in Docker, on 127.0.0.1:3316
+pnpm local dev         # http://localhost:3210, hot reload
 ```
 
-Au premier lancement, l'appli demande le code d'installation : c'est `API_TOKEN` dans `.env.dev.local`.
-Le mode démo (Réglages → Mode démo) remplit l'appli d'une famille fictive.
+On first launch the app asks for the setup code: it is `API_TOKEN` in `.env.dev.local`.
+The demo mode (Settings → Demo mode) fills the app with a fictional family.
 
-## Avant d'envoyer une demande de fusion
+## Before opening a pull request
 
 ```sh
 pnpm lint && pnpm test && pnpm build
 ```
 
-- Les règles du code sont dans [`CLAUDE.md`](CLAUDE.md) (elles valent pour les humains comme pour les agents) et
-  l'organisation du projet dans [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-- **Tout texte affiché passe par `t()`** et sa traduction dans les quatre autres langues est ajoutée dans la même
-  demande (`pnpm i18n:manquants` liste ce qui manque ; un test échoue sinon).
-- **Aucune donnée réelle** dans le code, les tests ou les exemples : la famille de la démo (Alex, Camille, Léo ;
-  Nantes, Angers) sert partout.
-- Une modification du schéma vient avec sa migration (`pnpm db:generate --name …`) et le schéma de départ régénéré
+- The rules of the code are in [`CLAUDE.md`](CLAUDE.md) (they apply to humans and agents alike) and the project's
+  layout is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Both are in French.
+- **Every displayed text goes through `t()`**, and its translation into the four other languages is added in the same
+  pull request (`pnpm i18n:manquants` lists what is missing; a test fails otherwise).
+- **No real data** in the code, the tests or the examples: the demo family (Alex, Camille, Léo; Nantes, Angers) is
+  used everywhere.
+- A schema change comes with its migration (`pnpm db:generate --name …`) and the regenerated initial schema
   (`pnpm local base && pnpm db:initial`).
-- `dependencies` ne porte que ce que le serveur charge en service ; ce qui sert à construire l'écran va dans
-  `devDependencies` (le build refuse un paquet mal rangé). Une étape d'installation ajoutée se reporte dans
-  [`AGENTS.md`](AGENTS.md) et dans la compétence `skills/pecule/SKILL.md` (un test les relit).
-- Ce qui change pour un foyer ou pour celui qui héberge s'écrit dans [`CHANGELOG.md`](CHANGELOG.md). Les versions
-  sont publiées par les mainteneurs (étiquette `vX.Y.Z`, voir « Versions et publication » dans `CLAUDE.md`).
-- Le code, ses commentaires et les messages de commit sont en français.
+- `dependencies` only holds what the server loads at runtime; what is only needed to build the screens goes into
+  `devDependencies` (the build refuses a misplaced package). A new installation step is also written into
+  [`AGENTS.md`](AGENTS.md) and the skill `skills/pecule/SKILL.md` (a test reads them).
+- What changes for a household or for whoever hosts the app is written in [`CHANGELOG.md`](CHANGELOG.md). Releases
+  are published by the maintainers (tag `vX.Y.Z`, see "Versions et publication" in `CLAUDE.md`).
 
-## Signaler un problème
+## Reporting a problem
 
-Un ticket avec : ce que vous avez fait, ce que vous attendiez, ce qui s'est passé, la sortie de `doctor`
-(`docker compose exec pecule node scripts/doctor.mjs`, ou `node scripts/doctor.mjs`). **Ne joignez jamais de vraies données bancaires** : le mode démo permet presque toujours de
-reproduire. Une faille de sécurité ne se signale pas par un ticket public : voir [`SECURITY.md`](SECURITY.md).
+An issue with: what you did, what you expected, what happened, and the output of `doctor`
+(`docker compose exec pecule node scripts/doctor.mjs`, or `node scripts/doctor.mjs`). **Never attach real bank
+data**: the demo mode almost always reproduces the problem. A security vulnerability is not reported through a public
+issue: see [`SECURITY.md`](SECURITY.md).
 
-En contribuant, vous acceptez que votre contribution soit publiée sous la licence du projet (AGPL-3.0-only).
+By contributing, you agree that your contribution is published under the project's licence (AGPL-3.0-only).

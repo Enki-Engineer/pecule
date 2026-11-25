@@ -108,7 +108,7 @@ export const RULE_CANDIDATES: readonly (readonly [string, string])[] = [
   ["freebox", "B1-05"],
   ["free mobile", "B1-05"],
   ["orange", "B1-05"],
-  ["macif", "B2-02"],
+  ["orvane", "B2-02"],
   ["vinci autoroutes", "B2-03"],
   ["naolib", "B2-04"],
   ["carrefour", "B3-01"],

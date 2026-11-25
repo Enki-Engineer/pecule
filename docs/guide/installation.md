@@ -194,7 +194,7 @@ node dist/server.mjs
 Réglages d'un hébergeur relié à GitHub : branche **`stable`**, gestionnaire de paquets **pnpm**, commande de build
 `pnpm build`, fichier d'entrée `dist/server.mjs`, aucun répertoire de sortie. Le dépôt porte aussi `compose.yaml` :
 `docker compose up -d --build` y construit l'image depuis le code du dossier. Pour contribuer :
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md).
+[`CONTRIBUTING.fr.md`](../../CONTRIBUTING.fr.md).
 
 ## Premier démarrage
 

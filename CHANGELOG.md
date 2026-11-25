@@ -3,6 +3,20 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.47.1
+
+La démo ne nomme plus d'assureurs réels, et la page du projet se lit en cinq langues. Aucune migration, aucun
+réglage nouveau.
+
+- **Mode démo** : le contrat d'assurance auto de la famille fictive et le devis à lui comparer portaient les noms de
+  deux assureurs réels, avec des prix et des garanties inventés. Ils s'appellent désormais « Orvane » et « Mutuelle
+  Lisière », deux noms fictifs — dans le coffre, le budget, les opérations et les réponses de l'assistant. La démo se
+  recrée seule : rien à faire.
+- **Page du projet** : le README existe aussi en allemand, en italien et en espagnol, avec les écrans de l'appli
+  dans chaque langue ; il présente la personnalisation (couleurs, thèmes de l'année, équivalences amusantes) et le
+  serveur MCP. La politique de sécurité, le guide de contribution et le code de conduite sont en anglais par
+  défaut, leur version française à côté (`SECURITY.fr.md`, `CONTRIBUTING.fr.md`, `CODE_OF_CONDUCT.fr.md`).
+
 ## 1.47.0
 
 L'assistant s'arrête et se relance, une conversation s'exporte, et un écran qui tombe laisse une trace. Aucune

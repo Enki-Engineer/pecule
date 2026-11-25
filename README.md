@@ -9,19 +9,21 @@
 Accounts, budget, net worth, invoices, documents, taxes and retirement, on desktop and on your phone.<br>
 Self-hosted, free and open source: your data stays on your server.
 
-[![Version](https://img.shields.io/github/v/release/Enki-Engineer/pecule?label=version&labelColor=141413&color=874519)](https://github.com/Enki-Engineer/pecule/releases/latest)
-[![Licence](https://img.shields.io/badge/licence-AGPL--3.0-874519?labelColor=141413)](LICENSE)
-[![Checks](https://img.shields.io/github/actions/workflow/status/Enki-Engineer/pecule/ci.yml?branch=main&label=checks&labelColor=141413)](https://github.com/Enki-Engineer/pecule/actions/workflows/ci.yml)
+[![version](https://img.shields.io/github/v/release/Enki-Engineer/pecule?label=version&labelColor=141413&color=874519)](https://github.com/Enki-Engineer/pecule/releases/latest)
+[![licence](https://img.shields.io/badge/licence-AGPL--3.0-874519?labelColor=141413)](LICENSE)
+[![checks](https://img.shields.io/github/actions/workflow/status/Enki-Engineer/pecule/ci.yml?branch=main&label=checks&labelColor=141413)](https://github.com/Enki-Engineer/pecule/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-one%20file-874519?labelColor=141413&logo=docker&logoColor=white)](#install)
-[![Languages](https://img.shields.io/badge/speaks-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#what-it-does)
+[![speaks](https://img.shields.io/badge/speaks-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#what-it-does)
 
-[Install](#install) · [What it does](#what-it-does) · [Your data](#your-data-stays-yours) · [Documentation](#documentation) · [Suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) · [Lire en français](README.fr.md)
+[Install](#install) · [What it does](#what-it-does) · [Make it yours](#make-it-yours) · [Plug in your AI](#plug-in-your-ai) · [Your data](#your-data-stays-yours) · [Documentation](#documentation) · [Suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+
+**English** · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Español](README.es.md)
 
 </div>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/en/ouverture-sombre.webp">
-  <img src="docs/images/en/ouverture-clair.webp" width="100%" alt="Pécule's dashboard on a computer (net wealth, available balance, spending by heading) and its home screen on a phone, with the fictional family of the demo mode">
+  <img src="docs/images/en/ouverture-clair.webp" width="100%" alt="Pécule's dashboard on a computer, in the summer theme, with a purchase written in scoops of ice cream; next to it, the home screen on a phone in the Christmas theme and net wealth in dark mode — the fictional family of the demo mode">
 </picture>
 
 Pécule is built for France and the euro first (French banks, tax notices, payslips, pension statements), and speaks
@@ -40,7 +42,7 @@ written in French.
   written before you validate it, and every import can be undone.
 - **Assistant** (optional) — ask questions about your finances, hands-free if you like; it can act, with your
   confirmation. It knows the app too: it explains how to do things, links to the right screen and changes a setting
-  when you ask. Pécule also exposes an MCP server so your own AI assistant can read and update it.
+  when you ask.
 - **Built-in manual** — everything the app does, by topic, searchable, in all five languages.
 - **A guided start** — on their first sign-in, each member is welcomed by a short introduction: the household to set
   up, the app's landmarks, then their bank to link, step by step. A guided tour then walks through the app itself, one
@@ -56,7 +58,7 @@ written in French.
     <td width="50%"><img src="docs/images/en/budget.webp" alt="Budget screen: household income, fixed costs, what is left, the month's envelopes and commitments"><br><sub><b>Budget</b> — fixed costs, what is really left, envelopes, commitments</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/en/patrimoine.webp" alt="Wealth screen: net wealth, gross assets, outstanding loans, wealth over time by asset class"><br><sub><b>Wealth</b> — net wealth over time, by asset class, with loans</sub></td>
+    <td width="50%"><img src="docs/images/en/patrimoine.webp" alt="Wealth screen, in the winter theme: net wealth, gross assets, outstanding loans, wealth over time by asset class"><br><sub><b>Wealth</b> — net wealth over time, by asset class, with loans</sub></td>
     <td width="50%"><img src="docs/images/en/coffre.webp" alt="Vault screen: the household's documents with their type, domain, date and due date"><br><sub><b>Vault</b> — every document, searchable, with its due dates</sub></td>
   </tr>
 </table>
@@ -74,13 +76,33 @@ switching, and until when you can cancel.
 Add Pécule to your home screen: it behaves like an app, with a sort mode to categorise the day's transactions in a
 few swipes.
 
-<img src="docs/images/en/telephone.webp" width="100%" alt="Three phone screens: home with the available balance and the accounts, sort mode suggesting categories for a transaction, net wealth over time">
+<img src="docs/images/en/telephone.webp" width="100%" alt="Three phone screens, each with its own look: home in the Christmas theme, sort mode in the spring theme, net wealth in dark mode">
+
+## Make it yours
+
+A dashboard you arrange card by card, seven colours, light or dark, and themes that follow the year — Christmas,
+Easter, Halloween, summer… — each with its own treasure chest. No theme is on at first: you switch them on.
+
+And because money does not always have to be serious, **fun equivalents** also write an amount in the unit of
+the moment: litres of beer on St Patrick's Day, scoops of ice cream in summer, kilos of sweets at Halloween — and, all
+year round, in hours of work, worked out from your payslips.
+
+<img src="docs/images/en/personnalisation.webp" width="100%" alt="Five phones side by side, each in a theme of the year (Easter, Halloween, Valentine's Day, summer, St Patrick's Day), then the “Figure of the moment” card: an 84-euro purchase is worth 6 litres of beer, at 7 euros a pint, or 3 h 20 of work">
+
+## Plug in your AI
+
+Pécule exposes an **MCP server**: connect your favourite AI assistant and do everything from there — find a
+transaction, categorise a batch, analyse a month, compare a contract, update your wealth. Sixty-nine tools, read-only
+or with actions: it reads and acts on your Pécule, with the rights you grant.
+
+Pécule recognises Claude, ChatGPT, Mistral Le Chat and Perplexity, as well as any assistant on your computer
+(Claude Code, Codex, Cursor, Gemini CLI…). They sign in with your passkey; Settings → Accounts and connections →
+"Connected apps" gives the address.
 
 ## Your data stays yours
 
 Pécule runs on your own server: your accounts, documents and history stay there. No account to open with the
-project, no telemetry, no ads. No data sold to third parties and no unsolicited contact: the project never sees what you put in
-it, so there is nothing to sell and no one to call you.
+project, no telemetry, no ads. No data sold to third parties, no unsolicited contact.
 
 - **Free and open source** — AGPL-3.0: the code is public; read it, change it, host it.
 - **On your server** — one installation serves one household; the data stays in your database.
@@ -140,7 +162,7 @@ another server; [installing with an AI agent](docs/guide/installer-avec-une-ia.m
 stays yours (Claude Code: `/plugin install pecule --marketplace Enki-Engineer/pecule` adds the skill). Pécule tells
 its administrator when a new version is released and shows the command that installs it
 ([updating](docs/guide/mise-a-jour.md)). Once the server runs, add Pécule to your phone's home screen or your Dock:
-it behaves like an app.
+it behaves like an app. The guides are written in French.
 
 ## Documentation
 

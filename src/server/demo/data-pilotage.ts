@@ -115,7 +115,7 @@ export function buildPilotage(s: Scenario, [ua, uc]: readonly [DemoUser, DemoUse
   const agendaItems: Insert<typeof schema.agendaItems>[] = [
     { ownerUserId: null, kind: "tache", title: "Envoyer l'attestation d'assurance habitation au syndic", dueDate: addDays(s.T, -12), domain: "immobilier", entityType: "property", entityId: PROPERTY_IDS.rp, notes: "Demandée par Syndic Atlantique Gestion pour le dossier de l'assemblée générale" },
     { ownerUserId: ua.id, kind: "tache", title: "Régulariser les charges du studio avec la locataire", dueDate: addDays(s.T, 18), domain: "immobilier", entityType: "property", entityId: PROPERTY_IDS.studio, amount: 86.4 },
-    { ownerUserId: null, kind: "tache", title: "Comparer les offres d'assurance auto avant l'échéance", dueDate: addDays(s.T, 7), domain: "budget", notes: `Échéance du contrat le ${dateFr(s.macifRenewal)}, préavis d'un mois` },
+    { ownerUserId: null, kind: "tache", title: "Comparer les offres d'assurance auto avant l'échéance", dueDate: addDays(s.T, 7), domain: "budget", notes: `Échéance du contrat le ${dateFr(s.carInsuranceRenewal)}, préavis d'un mois` },
     { ownerUserId: null, kind: "tache", title: "Passer en revue les opérations à classer", dueDate: nextFirst, domain: "banque", recurrence: "mensuel" },
     { ownerUserId: ua.id, kind: "tache", title: "Réviser le loyer du studio (IRL)", dueDate: addDays(s.nextRevision, -15), domain: "immobilier", entityType: "property", entityId: PROPERTY_IDS.studio, recurrence: "annuel" },
     { ownerUserId: null, kind: "tache", title: "Déclarer les revenus de l'année", dueDate: ymd(declared, 5, 28), domain: "impots", status: "fait", doneAt: `${ymd(declared, 5, 20)} 21:14:00` },

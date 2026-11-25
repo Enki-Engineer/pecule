@@ -63,7 +63,7 @@ export function buildSituation(s: Scenario, model: IncomeModel, [ua, uc]: readon
     c("Box internet", "Logement", "abonnement", "B1-05", { monthly: 35.99 }, { matchPattern: "freebox", provider: "Free" }),
     c(`Forfait mobile ${ua.name}`, "Téléphonie", "abonnement", "B1-05", { monthly: 15.99 }, { matchPattern: "free mobile", provider: "Free Mobile", ownerUserId: ua.id }),
     c(`Forfait mobile ${uc.name}`, "Téléphonie", "abonnement", "B1-05", { monthly: 19.99 }, { matchPattern: "orange", provider: "Orange", ownerUserId: uc.id }),
-    c("Assurance auto", "Transports", "assurance", "B2-02", { monthly: 47.8 }, { matchPattern: "macif", provider: "Macif", renewalDate: s.macifRenewal, noticeDays: 30 }),
+    c("Assurance auto", "Transports", "assurance", "B2-02", { monthly: 47.8 }, { matchPattern: "orvane", provider: "Orvane", renewalDate: s.carInsuranceRenewal, noticeDays: 30 }),
     c(`Abonnement Naolib ${uc.name}`, "Transports", "abonnement", "B2-04", { monthly: 49.5 }, { matchPattern: "naolib abonnement", provider: "Naolib", ownerUserId: uc.id, notes: "Remboursé à 50 % par l'employeur sur la fiche de paie" }),
     c("Restauration scolaire", "Famille", "abonnement", "B4-01", { monthly: 68 }, { matchPattern: "restauration scolaire", provider: "Ville de Nantes", notes: "Facturée au nombre de repas, hors juillet et août" }),
     c("Accueil périscolaire", "Famille", "garde", "B4-03", { monthly: 46 }, { matchPattern: "periscolaire", provider: "Ville de Nantes" }),

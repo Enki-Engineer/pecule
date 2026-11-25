@@ -99,7 +99,7 @@ gh attestation verify oci://ghcr.io/enki-engineer/pecule:1.38.1 --repo Enki-Engi
 
 Les versions d'avant la 1.38.1 n'ont pas d'attestation : leur vérification échoue, ce qui est attendu.
 
-Une vérification qui échoue sur une version récente : n'installez pas, et signalez-le (voir `SECURITY.md`). Les
+Une vérification qui échoue sur une version récente : n'installez pas, et signalez-le (voir `SECURITY.fr.md`). Les
 étiquettes `latest`, `1` et `1.36` de l'image ne désignent jamais une version plus ancienne que celle qu'elles
 désignaient : republier une ancienne version ne fait pas reculer une installation qui suit `latest`.
 

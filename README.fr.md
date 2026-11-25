@@ -9,19 +9,21 @@
 Comptes, budget, patrimoine, factures, documents, impôts et retraite, sur ordinateur et sur téléphone.<br>
 Hébergé chez toi, gratuit, libre et open source : tes données restent sur ton serveur.
 
-[![Version](https://img.shields.io/github/v/release/Enki-Engineer/pecule?label=version&labelColor=141413&color=874519)](https://github.com/Enki-Engineer/pecule/releases/latest)
-[![Licence](https://img.shields.io/badge/licence-AGPL--3.0-874519?labelColor=141413)](LICENSE)
-[![Contrôles](https://img.shields.io/github/actions/workflow/status/Enki-Engineer/pecule/ci.yml?branch=main&label=contr%C3%B4les&labelColor=141413)](https://github.com/Enki-Engineer/pecule/actions/workflows/ci.yml)
+[![version](https://img.shields.io/github/v/release/Enki-Engineer/pecule?label=version&labelColor=141413&color=874519)](https://github.com/Enki-Engineer/pecule/releases/latest)
+[![licence](https://img.shields.io/badge/licence-AGPL--3.0-874519?labelColor=141413)](LICENSE)
+[![contrôles](https://img.shields.io/github/actions/workflow/status/Enki-Engineer/pecule/ci.yml?branch=main&label=contr%C3%B4les&labelColor=141413)](https://github.com/Enki-Engineer/pecule/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-un%20fichier-874519?labelColor=141413&logo=docker&logoColor=white)](#installer)
-[![Langues](https://img.shields.io/badge/parle-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#ce-quil-fait)
+[![parle](https://img.shields.io/badge/parle-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#ce-quil-fait)
 
-[Installer](#installer) · [Ce qu'il fait](#ce-quil-fait) · [Tes données](#tes-données-tappartiennent) · [Documentation](#documentation) · [Proposer une idée](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) · [Read in English](README.md)
+[Installer](#installer) · [Ce qu'il fait](#ce-quil-fait) · [À tes couleurs](#à-tes-couleurs) · [Branche ton IA](#branche-ton-ia) · [Tes données](#tes-données-tappartiennent) · [Documentation](#documentation) · [Proposer une idée](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+
+[English](README.md) · **Français** · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Español](README.es.md)
 
 </div>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/fr/ouverture-sombre.webp">
-  <img src="docs/images/fr/ouverture-clair.webp" width="100%" alt="Le tableau de bord de Pécule sur ordinateur (patrimoine net, disponible, dépenses par poste) et son accueil sur téléphone, avec la famille fictive du mode démo">
+  <img src="docs/images/fr/ouverture-clair.webp" width="100%" alt="Le tableau de bord de Pécule sur ordinateur, dans le thème de l'été, avec une dépense écrite en boules de glace ; à côté, l'accueil sur téléphone dans le thème de Noël et le patrimoine en sombre — la famille fictive du mode démo">
 </picture>
 
 Pécule est pensé d'abord pour la France et l'euro (banques françaises, avis d'impôt, bulletins de paie, relevés de
@@ -41,7 +43,6 @@ commentaires sont en français.
   données. Rien n'est écrit avant ta validation, et tout import s'annule.
 - **Assistant** (facultatif) — pose tes questions, à la voix si tu veux ; il peut agir, avec ta confirmation.
   Il connaît aussi l'appli : il explique comment faire, renvoie au bon écran et change un réglage si tu le demandes.
-  Pécule expose aussi un serveur MCP : ton propre assistant IA peut le lire et le tenir à jour.
 - **Manuel intégré** — tout ce que sait faire l'appli, par thème, avec une recherche, dans les cinq langues.
 - **Un accueil qui guide** — à sa première connexion, chaque membre est accueilli par une courte présentation : le
   foyer à régler, les repères de l'appli, puis sa banque à relier, pas à pas. Une visite guidée fait ensuite le tour
@@ -58,7 +59,7 @@ commentaires sont en français.
     <td width="50%"><img src="docs/images/fr/budget.webp" alt="Écran Budget : revenus du foyer, charges fixes, reste réel, enveloppes du mois et engagements"><br><sub><b>Budget</b> — charges fixes, reste réel, enveloppes, engagements</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/fr/patrimoine.webp" alt="Écran Patrimoine : patrimoine net, actifs bruts, crédits restants, évolution par poche"><br><sub><b>Patrimoine</b> — le patrimoine net dans le temps, par poche, crédits compris</sub></td>
+    <td width="50%"><img src="docs/images/fr/patrimoine.webp" alt="Écran Patrimoine, dans le thème de l'hiver : patrimoine net, actifs bruts, crédits restants, évolution par poche"><br><sub><b>Patrimoine</b> — le patrimoine net dans le temps, par poche, crédits compris</sub></td>
     <td width="50%"><img src="docs/images/fr/coffre.webp" alt="Écran Coffre : les documents du foyer avec leur type, leur domaine, leur date et leur échéance"><br><sub><b>Coffre</b> — chaque document, retrouvable, avec ses échéances</sub></td>
   </tr>
 </table>
@@ -76,13 +77,34 @@ changer, et jusqu'à quand tu peux résilier.
 Ajoute Pécule à ton écran d'accueil : il se comporte comme une appli, avec un mode tri pour classer les opérations
 du jour en quelques gestes.
 
-<img src="docs/images/fr/telephone.webp" width="100%" alt="Trois écrans de téléphone : l'accueil avec le disponible et les comptes, le mode tri qui propose des catégories pour une opération, le patrimoine net dans le temps">
+<img src="docs/images/fr/telephone.webp" width="100%" alt="Trois écrans de téléphone aux allures différentes : l'accueil dans le thème de Noël, le mode tri dans celui du printemps, le patrimoine net en sombre">
+
+## À tes couleurs
+
+Un tableau de bord que tu composes carte par carte, sept couleurs, clair ou sombre, et des thèmes qui suivent
+l'année — Noël, Pâques, Halloween, l'été… — chacun avec son coffre. Aucun thème au départ : c'est toi qui les actives.
+
+Et parce que l'argent n'a pas à être toujours sérieux, les **équivalences amusantes** écrivent aussi un montant
+dans l'unité du moment : litres de bière à la Saint-Patrick, boules de glace l'été, kilos de bonbons à Halloween — et,
+toute l'année, en heures de travail, d'après tes bulletins de paie.
+
+<img src="docs/images/fr/personnalisation.webp" width="100%" alt="Cinq téléphones côte à côte, chacun dans un thème de l'année (Pâques, Halloween, Saint-Valentin, été, Saint-Patrick), puis la carte « Le chiffre du moment » : une dépense de 84 € vaut 6 litres de bière, à 7 € la pinte, ou 3 h 20 de travail">
+
+## Branche ton IA
+
+Pécule expose un **serveur MCP** : relie ton assistant IA favori, et fais tout depuis lui — retrouver une
+opération, classer un lot, analyser un mois, comparer un contrat, mettre à jour ton patrimoine. Soixante-neuf outils,
+en lecture seule ou avec les actions : il lit et agit sur ton Pécule, avec les droits que tu lui donnes.
+
+Pécule reconnaît Claude, ChatGPT, Mistral Le Chat et Perplexity, ainsi que tout assistant de ton ordinateur
+(Claude Code, Codex, Cursor, Gemini CLI…). Ils s'y connectent par ta clé d'accès ; Réglages → Comptes et connexions →
+« Applications connectées » donne l'adresse.
 
 ## Tes données t'appartiennent
 
 Pécule s'installe chez toi : tes comptes, tes documents et ton historique restent sur ton serveur. Aucun compte à
-ouvrir auprès du projet, pas de télémétrie, pas de publicité. Aucune revente de données à des tiers et aucun
-démarchage : le projet ne voit rien de ce que tu y mets, il n'a donc rien à vendre ni personne à te faire appeler.
+ouvrir auprès du projet, pas de télémétrie, pas de publicité. Aucune revente de données à des tiers, aucun
+démarchage.
 
 - **Gratuit, libre et open source** — licence AGPL-3.0 : le code est public, tu peux le lire, le modifier,
   l'héberger.
@@ -150,7 +172,7 @@ téléphone ou au Dock : il se comporte comme une appli.
 - [Installation](docs/guide/installation.md) · [Installer avec une IA](docs/guide/installer-avec-une-ia.md) · [Mettre à jour](docs/guide/mise-a-jour.md)
 - [Relier ses banques avec Enable Banking](docs/connecteurs/enable-banking.md)
 - [Importer ses documents](docs/guide/importer-des-documents.md) · [Où récupérer ses documents](docs/guide/recuperer-ses-documents.md)
-- [Architecture](docs/ARCHITECTURE.md) · [Contribuer](CONTRIBUTING.md) · [Sécurité](SECURITY.md)
+- [Architecture](docs/ARCHITECTURE.md) · [Contribuer](CONTRIBUTING.fr.md) · [Sécurité](SECURITY.fr.md)
 
 ## Un projet jeune, qui avance vite
 
@@ -160,7 +182,7 @@ La première version publique de Pécule date de novembre 2026, et des nouveaut�
 - Une idée, un manque ? [Propose-la](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md).
 - Quelque chose ne marche pas ? [Signale un problème](https://github.com/Enki-Engineer/pecule/issues/new?template=probleme.md)
   (ne joins jamais de vraies données bancaires : le mode démo permet presque toujours de reproduire).
-- Envie d'aider sur le code ? Vois [Contribuer](CONTRIBUTING.md).
+- Envie d'aider sur le code ? Vois [Contribuer](CONTRIBUTING.fr.md).
 
 Pécule est gratuit et le restera. S'il t'est utile, une étoile sur cette page aide d'autres foyers à le trouver.
 

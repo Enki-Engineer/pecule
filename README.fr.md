@@ -15,7 +15,7 @@ Hébergé chez toi, gratuit, libre et open source : tes données restent sur ton
 [![Docker](https://img.shields.io/badge/docker-un%20fichier-874519?labelColor=141413&logo=docker&logoColor=white)](#installer)
 [![parle](https://img.shields.io/badge/parle-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#ce-quil-fait)
 
-[Installer](#installer) · [Ce qu'il fait](#ce-quil-fait) · [À tes couleurs](#à-tes-couleurs) · [Branche ton IA](#branche-ton-ia) · [Tes données](#tes-données-tappartiennent) · [Documentation](#documentation) · [Proposer une idée](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Installer](#installer) · [Ce qu'il fait](#ce-quil-fait) · [À tes couleurs](#à-tes-couleurs) · [Branche ton IA](#branche-ton-ia) · [Tes données](#tes-données-tappartiennent) · [Documentation](#documentation) · [Soutenir](#soutenir-pécule) · [Proposer une idée](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 [English](README.md) · **Français** · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Español](README.es.md)
 
@@ -36,7 +36,17 @@ commentaires sont en français.
   l'analyse du mois, des enveloppes de budget, les soldes à venir, les factures reliées aux opérations qui les ont
   payées.
 - **Patrimoine** — épargne, placements, immobilier, crédits et leurs échéanciers, crypto, projections.
-- **Situation** — bulletins de paie, impôt sur le revenu et taxe foncière, carrière et estimations de retraite.
+- **Analyse** — un mois ou une année sous six angles : douze mois et leur prévision, la répartition en anneaux, le
+  diagramme de flux, le calendrier des prélèvements, la frise des paiements, et une période face à une autre.
+- **Paie** — tes bulletins lus mois après mois (brut, net imposable, impôt prélevé à la source, net payé, primes),
+  pour toi ou pour le foyer.
+- **Impôts** — tes avis lus année après année : revenu imposable, impôt net, tranche marginale, taux moyen, réductions
+  et crédits, taxe foncière de chaque bien ; le calendrier fiscal dans ton échéancier. Demande à l'assistant ce que
+  changerait un don ou un versement sur un plan d'épargne retraite, ou quelles dépenses peuvent ouvrir droit à un
+  crédit d'impôt.
+- **Retraite** — trimestres, carrière et pension selon l'âge de départ ; les simulations officielles à côté d'une
+  carrière complète ou d'un arrêt à 55 ans (FIRE), âge par âge. *Impôts et retraite lisent aujourd'hui des documents
+  français ; d'autres pays suivront.*
 - **Coffre** — chaque document gardé, retrouvable, avec ses faits clés et l'échéancier de ce qui arrive.
 - **Import massif de documents** — dépose un dossier entier ; Pécule range chaque document, lit ceux qu'il connaît
   (bulletins, avis d'impôt, tableaux d'amortissement, relevés, actes, baux…), vérifie les comptes et propose les
@@ -184,7 +194,25 @@ La première version publique de Pécule date de novembre 2026, et des nouveaut�
   (ne joins jamais de vraies données bancaires : le mode démo permet presque toujours de reproduire).
 - Envie d'aider sur le code ? Vois [Contribuer](CONTRIBUTING.fr.md).
 
-Pécule est gratuit et le restera. S'il t'est utile, une étoile sur cette page aide d'autres foyers à le trouver.
+## Soutenir Pécule
+
+Pécule est gratuit et le restera. Pour aider : une étoile sur cette page (ça ne coûte rien et ça compte), en parler
+autour de toi, [proposer une idée](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) — ou offrir un
+café :
+
+**Bitcoin (BTC)**
+
+```text
+bc1q6d23e8fkm7fnz3ulzj97mpdhh7h6kk4lesxhvu
+```
+
+**Ethereum (ETH)**
+
+```text
+0xDb3f435b19237881Ab00Bfa88FE397516DC36cF7
+```
+
+Ces deux adresses sont dédiées aux dons de Pécule.
 
 ## Socle technique
 

@@ -68,8 +68,8 @@ export function generateOperations(ops: Ops, s: Scenario, model: IncomeModel, mo
     ops.prlv("joint", workdayAfter(at(6)), "Edf Clients Particuliers Mensualite", y < s.TY || m < 2 ? 91 : 96, "B1-03", "EDF");
     if (m === 6) ops.prlv("joint", workdayAfter(at(6)), "Edf Clients Particuliers Facture De Regularisation", 64.18, "B1-03", "EDF");
     if ([2, 5, 8, 11].includes(m)) ops.prlv("joint", workdayAfter(at(20)), "Saur Facture Eau", R.amount(82, 94), "B1-03", "Saur");
-    ops.prlv("joint", workdayAfter(at(10)), "Maif Assurance Habitation", 27.4, "B1-04", "MAIF");
-    ops.prlv("a", workdayAfter(at(10)), "Axa France Iard Pno Studio", 8.9, "B1-04", "AXA");
+    ops.prlv("joint", workdayAfter(at(10)), "Galerne Assurances Habitation", 27.4, "B1-04", "Galerne");
+    ops.prlv("a", workdayAfter(at(10)), "Valmire Assurances Pno Studio", 8.9, "B1-04", "Valmire");
     ops.prlv("joint", workdayAfter(at(18)), "Free Telecom Freebox", 35.99, "B1-05", "Freebox");
     ops.prlv("a", workdayAfter(at(18)), "Free Mobile Forfait", 15.99, "B1-05", "Free Mobile");
     ops.prlv("c", workdayAfter(at(22)), "Orange Sa Forfait Mobile", 19.99, "B1-05", "Orange");
@@ -78,7 +78,7 @@ export function generateOperations(ops: Ops, s: Scenario, model: IncomeModel, mo
     ops.prlv("joint", workdayAfter(at(8)), "Orvane Assurance Auto", 47.8, "B2-02", "Orvane");
     ops.prlv("c", workdayAfter(at(3)), "Naolib Abonnement Mensuel", 49.5, "B2-04");
     ops.prlv("c", workdayAfter(at(1)), "Basic Fit France Abonnement", 29.99, "B9-01");
-    ops.prlv("c", workdayAfter(at(5)), "Harmonie Mutuelle Cotisation", 61.9, "B6-02", "Harmonie Mutuelle");
+    ops.prlv("c", workdayAfter(at(5)), "Mutuelle Nerine Cotisation", 61.9, "B6-02", "Mutuelle Nérine");
     ops.push({ acc: "c", date: at(6), amount: -6.2, label: "Cotisation Offre Compte A Composer", merchant: null, cat: "B11", kind: "frais", fixed: true });
 
     // Léo : cantine et périscolaire pendant l'année scolaire, accueil de loisirs pendant les vacances.

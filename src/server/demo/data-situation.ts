@@ -59,7 +59,7 @@ export function buildSituation(s: Scenario, model: IncomeModel, [ua, uc]: readon
     c("Charges de copropriété", "Logement", "abonnement", "B1-02", { annual: 1464 }, { matchPattern: "syndic atlantique", provider: "Syndic Atlantique Gestion", propertyId: PROPERTY_IDS.rp }),
     c("Électricité", "Logement", "abonnement", "B1-03", { monthly: 96 }, { matchPattern: "edf", provider: "EDF" }),
     c("Eau", "Logement", "abonnement", "B1-03", { annual: 352 }, { matchPattern: "saur", provider: "Saur" }),
-    c("Assurance habitation", "Logement", "assurance", "B1-04", { monthly: 27.4 }, { matchPattern: "maif", provider: "MAIF", propertyId: PROPERTY_IDS.rp, renewalDate: jan1, noticeDays: 30 }),
+    c("Assurance habitation", "Logement", "assurance", "B1-04", { monthly: 27.4 }, { matchPattern: "galerne", provider: "Galerne", propertyId: PROPERTY_IDS.rp, renewalDate: jan1, noticeDays: 30 }),
     c("Box internet", "Logement", "abonnement", "B1-05", { monthly: 35.99 }, { matchPattern: "freebox", provider: "Free" }),
     c(`Forfait mobile ${ua.name}`, "Téléphonie", "abonnement", "B1-05", { monthly: 15.99 }, { matchPattern: "free mobile", provider: "Free Mobile", ownerUserId: ua.id }),
     c(`Forfait mobile ${uc.name}`, "Téléphonie", "abonnement", "B1-05", { monthly: 19.99 }, { matchPattern: "orange", provider: "Orange", ownerUserId: uc.id }),
@@ -68,7 +68,7 @@ export function buildSituation(s: Scenario, model: IncomeModel, [ua, uc]: readon
     c("Restauration scolaire", "Famille", "abonnement", "B4-01", { monthly: 68 }, { matchPattern: "restauration scolaire", provider: "Ville de Nantes", notes: "Facturée au nombre de repas, hors juillet et août" }),
     c("Accueil périscolaire", "Famille", "garde", "B4-03", { monthly: 46 }, { matchPattern: "periscolaire", provider: "Ville de Nantes" }),
     c("Judo de Léo", "Famille", "abonnement", "B4-02", { annual: 185 }, { matchPattern: "judo club", renewalDate: s.TM >= 9 ? ymd(s.TY + 1, 9, 1) : ymd(s.TY, 9, 1) }),
-    c(`Mutuelle santé ${uc.name}`, "Santé", "assurance", "B6-02", { monthly: 61.9 }, { matchPattern: "harmonie mutuelle", provider: "Harmonie Mutuelle", ownerUserId: uc.id, renewalDate: jan1, noticeDays: 30 }),
+    c(`Mutuelle santé ${uc.name}`, "Santé", "assurance", "B6-02", { monthly: 61.9 }, { matchPattern: "mutuelle nerine", provider: "Mutuelle Nérine", ownerUserId: uc.id, renewalDate: jan1, noticeDays: 30 }),
     c("Netflix", "Abonnements", "abonnement", "B9-02", { monthly: 13.49 }, { matchPattern: "netflix", provider: "Netflix" }),
     c("Spotify Famille", "Abonnements", "abonnement", "B9-02", { monthly: 21.99 }, { matchPattern: "spotify", provider: "Spotify", ownerUserId: ua.id }),
     c("Disney+", "Abonnements", "abonnement", "B9-02", { monthly: 9.99 }, { matchPattern: "disney", provider: "Disney+", ownerUserId: uc.id }),
@@ -80,7 +80,7 @@ export function buildSituation(s: Scenario, model: IncomeModel, [ua, uc]: readon
     c("Taxe foncière — studio", "Impôts", "taxe", "B7", { annual: model.tf("studio", s.TY).total }, { matchPattern: "taxe fonciere angers", propertyId: PROPERTY_IDS.studio, ownerUserId: ua.id }),
     c(STUDIO_LOAN_LABEL, "Studio Angers", "credit", "B1-01", { monthly: next(loans.studio).payment }, { matchPattern: "caisse d epargne", provider: LOANS.studio.bank, propertyId: PROPERTY_IDS.studio, ownerUserId: ua.id, startDate: s.studioFirst, endDate: loans.studio[loans.studio.length - 1].date }),
     c("Charges de copropriété du studio", "Studio Angers", "abonnement", "B1-02", { annual: 832 }, { matchPattern: "cabinet gerance anjou", propertyId: PROPERTY_IDS.studio, ownerUserId: ua.id }),
-    c("Assurance propriétaire non occupant", "Studio Angers", "assurance", "B1-04", { monthly: 8.9 }, { matchPattern: "axa", provider: "AXA", propertyId: PROPERTY_IDS.studio, ownerUserId: ua.id }),
+    c("Assurance propriétaire non occupant", "Studio Angers", "assurance", "B1-04", { monthly: 8.9 }, { matchPattern: "valmire", provider: "Valmire", propertyId: PROPERTY_IDS.studio, ownerUserId: ua.id }),
     c("Courses du quotidien", "Budgets courants", "budget", "B3-01", { monthly: 1100 }, { notes: "Enveloppe indicative, sans prélèvement" }),
   ];
   commitments.forEach((x, i) => (x.sortOrder = i));

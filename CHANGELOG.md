@@ -3,6 +3,23 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.47.2
+
+La démo ne nomme plus aucun assureur réel, son écran Retraite compare trois familles de simulations, et la page du
+projet dit comment le soutenir. Aucune migration, aucun réglage nouveau.
+
+- **Mode démo, assureurs** : les trois derniers assureurs réels de la famille fictive — assurance habitation,
+  assurance du studio, mutuelle santé — deviennent « Galerne », « Valmire » et « Mutuelle Nérine », trois noms
+  fictifs, dans les opérations, le budget, le coffre et les règles de classement. La démo se recrée seule : rien à
+  faire.
+- **Mode démo, retraite** : l'écran Retraite d'Alex montre, à côté des simulations officielles, une carrière complète
+  et un arrêt à 55 ans (FIRE), âge par âge. Ses chiffres clés sont justes — 68 trimestres sur 172, taux plein à
+  67 ans, départ au plus tôt daté : ils affichaient « 0 / 172 » et « Taux plein à ? ans », les faits de la démo ne
+  portant pas les libellés que l'écran lit.
+- **Page du projet** : le README, dans ses cinq langues, détaille à part l'analyse, la paie, les impôts et la
+  retraite, et gagne une rubrique « Soutenir Pécule » avec deux adresses de dons (Bitcoin, Ethereum). Le dépôt porte
+  un bouton « Sponsor » (`.github/FUNDING.yml`).
+
 ## 1.47.1
 
 La démo ne nomme plus d'assureurs réels, et la page du projet se lit en cinq langues. Aucune migration, aucun

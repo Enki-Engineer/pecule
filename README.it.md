@@ -15,7 +15,7 @@ Ospitato da te, gratuito, libero e open source: i tuoi dati restano sul tuo serv
 [![Docker](https://img.shields.io/badge/docker-un%20file-874519?labelColor=141413&logo=docker&logoColor=white)](#installare)
 [![parla](https://img.shields.io/badge/parla-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#cosa-fa)
 
-[Installare](#installare) · [Cosa fa](#cosa-fa) · [Con i tuoi colori](#con-i-tuoi-colori) · [Collega la tua IA](#collega-la-tua-ia) · [I tuoi dati](#i-tuoi-dati-sono-tuoi) · [Documentazione](#documentazione) · [Proponi un'idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Installare](#installare) · [Cosa fa](#cosa-fa) · [Con i tuoi colori](#con-i-tuoi-colori) · [Collega la tua IA](#collega-la-tua-ia) · [I tuoi dati](#i-tuoi-dati-sono-tuoi) · [Documentazione](#documentazione) · [Sostenere](#sostenere-pécule) · [Proponi un'idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 [English](README.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · **Italiano** · [Español](README.es.md)
 
@@ -35,7 +35,18 @@ i suoi commenti sono scritti in francese.
 - **Ogni giorno** — i movimenti di tutti i tuoi conti in un unico posto, classificati con regole che gli insegni,
   l'analisi del mese, le buste di budget, i saldi in arrivo, le fatture collegate ai movimenti che le hanno pagate.
 - **Patrimonio** — risparmi, investimenti, immobili, prestiti con i loro piani di ammortamento, cripto, proiezioni.
-- **Situazione** — buste paga, imposta sul reddito e imposta fondiaria, carriera e stime della pensione.
+- **Analisi** — un mese o un anno da sei angolazioni: dodici mesi con la previsione, la ripartizione ad anelli, il
+  diagramma dei flussi, il calendario degli addebiti, la linea del tempo dei pagamenti e un periodo a confronto con un
+  altro.
+- **Busta paga** — le tue buste paga lette mese dopo mese (lordo, netto imponibile, imposta trattenuta, netto pagato,
+  premi), per te o per la famiglia.
+- **Imposte** — i tuoi avvisi letti anno dopo anno: reddito imponibile, imposta netta, aliquota marginale, aliquota
+  media, riduzioni e crediti, imposta fondiaria di ogni immobile; il calendario fiscale nel tuo scadenzario. Chiedi
+  all'assistente che cosa cambierebbe una donazione o un versamento su un piano pensionistico, o quali spese possono
+  dare diritto a un credito d'imposta.
+- **Pensione** — trimestri, carriera e pensione secondo l'età di uscita; le simulazioni ufficiali accanto a una
+  carriera completa o a uno stop a 55 anni (FIRE), età per età. *Imposte e pensione leggono oggi documenti francesi;
+  altri paesi seguiranno.*
 - **Cassaforte** — ogni documento conservato e ritrovabile, con i suoi dati chiave e lo scadenzario di ciò che arriva.
 - **Importazione in blocco di documenti** — deposita un'intera cartella; Pécule archivia ogni documento, legge quelli che
   conosce (buste paga, avvisi d'imposta, piani di ammortamento, estratti conto, atti, contratti d'affitto…), verifica i
@@ -181,7 +192,24 @@ La prima versione pubblica di Pécule è del novembre 2026, e ogni settimana arr
   (non allegare mai dati bancari reali: la modalità demo permette quasi sempre di riprodurlo).
 - Vuoi dare una mano sul codice? Vedi [Contribuire](CONTRIBUTING.md).
 
-Pécule è gratuito e lo resterà. Se ti è utile, una stella su questa pagina aiuta altre famiglie a trovarlo.
+## Sostenere Pécule
+
+Pécule è gratuito e lo resterà. Per aiutare: una stella su questa pagina (non costa nulla e conta), parlane in giro,
+[proponi un'idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) — oppure offrimi un caffè:
+
+**Bitcoin (BTC)**
+
+```text
+bc1q6d23e8fkm7fnz3ulzj97mpdhh7h6kk4lesxhvu
+```
+
+**Ethereum (ETH)**
+
+```text
+0xDb3f435b19237881Ab00Bfa88FE397516DC36cF7
+```
+
+Entrambi gli indirizzi sono dedicati alle donazioni per Pécule.
 
 ## Tecnologie
 

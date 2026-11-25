@@ -99,6 +99,10 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   bulletins de `payslipYears` (`src/lib/payslips.ts`). Bulletins et déclarations personnelles d'un membre ne
   comptent dans la vue du foyer des autres que s'il partage ses revenus (`src/server/sharing.ts`, app_kv
   « partage:revenus:<id> », éteint par défaut) : montants seuls, jamais le document.
+- **Retraite** — l'écran lit ses chiffres clés dans les faits du membre (`facts`, `entity_type` = « retirement »),
+  retrouvés par le début de leur libellé, et range chaque simulation dans une famille — officielle, carrière
+  complète, arrêt anticipé (`RETIREMENT_FACTS`, `simFamily`, `src/lib/retirement.ts`). La lecture d'un relevé de
+  carrière et la démo écrivent ces libellés-là : un test compare la démo à ce que l'écran attend.
 - **Documents** — `documents` (coffre, texte indexé, identifiants masqués par `src/lib/redact.ts`) et `agenda_items` ;
   les échéances des crédits, garanties et contrats sont calculées à la volée.
 - **Nature d'un contrat** — `documents.topic` (`TOPICS`, `src/lib/contracts.ts`) : assurance auto, habitation,

@@ -72,8 +72,8 @@ export function buildDocuments(s: Scenario, model: IncomeModel, [ua, uc]: readon
       entity: ["property", PROPERTY_IDS.rp],
       docDate: ymd(year, 1, 6),
       expiresAt: ymd(year, 12, 31),
-      summary: `Attestation MAIF pour l'appartement de Nantes, valable jusqu'au 31/12/${year}. Cotisation annuelle de 328,80 €.`,
-      facts: [["Assureur", "MAIF"], ["Formule", "Multirisque habitation, propriétaire occupant"], ["Cotisation annuelle", "328,80 €"], ["Validité", `01/01/${year} au 31/12/${year}`]],
+      summary: `Attestation Galerne pour l'appartement de Nantes, valable jusqu'au 31/12/${year}. Cotisation annuelle de 328,80 €.`,
+      facts: [["Assureur", "Galerne"], ["Formule", "Multirisque habitation, propriétaire occupant"], ["Cotisation annuelle", "328,80 €"], ["Validité", `01/01/${year} au 31/12/${year}`]],
       lines: [
         `L'assureur certifie que ${ua.name} et ${uc.name} sont assurés pour le logement suivant :`,
         "Appartement de 4 pièces, 86 m², 14 allée des Hérons, 44300 Nantes, avec cave et parking",
@@ -140,7 +140,7 @@ export function buildDocuments(s: Scenario, model: IncomeModel, [ua, uc]: readon
       docDate: ymd(year, 1, 2),
       expiresAt: ymd(year, 12, 31),
       summary: "Complémentaire santé individuelle, renouvelée chaque 1er janvier, résiliable à tout moment après un an.",
-      facts: [["Organisme", "Harmonie Mutuelle"], ["Cotisation", "61,90 € par mois"], ["Renouvellement", `01/01/${year + 1}`]],
+      facts: [["Organisme", "Mutuelle Nérine"], ["Cotisation", "61,90 € par mois"], ["Renouvellement", `01/01/${year + 1}`]],
       lines: [`Adhérente : ${uc.name}`, "Garanties : hospitalisation, soins courants, optique (forfait 250 € tous les deux ans), dentaire", "Cotisation mensuelle : 61,90 €", `Échéance annuelle : 31/12/${year}, reconduction tacite`],
     },
     {

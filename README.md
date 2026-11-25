@@ -15,7 +15,7 @@ Self-hosted, free and open source: your data stays on your server.
 [![Docker](https://img.shields.io/badge/docker-one%20file-874519?labelColor=141413&logo=docker&logoColor=white)](#install)
 [![speaks](https://img.shields.io/badge/speaks-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#what-it-does)
 
-[Install](#install) · [What it does](#what-it-does) · [Make it yours](#make-it-yours) · [Plug in your AI](#plug-in-your-ai) · [Your data](#your-data-stays-yours) · [Documentation](#documentation) · [Suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Install](#install) · [What it does](#what-it-does) · [Make it yours](#make-it-yours) · [Plug in your AI](#plug-in-your-ai) · [Your data](#your-data-stays-yours) · [Documentation](#documentation) · [Support](#support-pécule) · [Suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 **English** · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · [Español](README.es.md)
 
@@ -35,7 +35,16 @@ written in French.
 - **Day to day** — transactions from all your accounts in one place, categorised by rules you can teach, monthly
   analysis, budget envelopes, upcoming balances, invoices matched to the transactions that paid them.
 - **Wealth** — savings, investments, property, loans with their amortisation schedules, crypto, projections.
-- **Situation** — payslips, income tax and property tax, career and pension estimates.
+- **Analysis** — a month or a year from six angles: twelve months with a forecast, breakdown rings, a flow diagram, a
+  calendar of debits, a payment timeline, and one period against another.
+- **Pay** — payslips read month by month (gross, taxable net, tax withheld, net pay, bonuses), for you or for the
+  household.
+- **Taxes** — your notices read year after year: taxable income, net tax, marginal band, average rate, reductions and
+  credits, property tax on each property; the tax calendar in your schedule. Ask the assistant what a donation or a
+  pension-plan contribution would change, or which expenses may qualify for a tax credit.
+- **Retirement** — quarters, career and pension by retirement age; the official simulations next to a full career or
+  stopping work at 55 (FIRE), age by age. *Taxes and retirement currently read French documents; other countries will
+  follow.*
 - **Vault** — every document kept, searchable, with its key facts and a schedule of what is due.
 - **Bulk document import** — drop a whole folder; Pécule files each document, reads the ones it knows (payslips, tax
   notices, loan schedules, bank statements, deeds, leases…), checks the arithmetic, and proposes the data. Nothing is
@@ -181,7 +190,24 @@ Pécule's first public release dates from November 2026, and new features arrive
   (never attach real bank data: the demo mode almost always reproduces it).
 - Want to help with the code? See [Contributing](CONTRIBUTING.md).
 
-Pécule is free and will stay free. If it is useful to you, a star on this page helps other households find it.
+## Support Pécule
+
+Pécule is free and will stay free. To help: a star on this page (it costs nothing and it counts), spread the word,
+[suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) — or buy me a coffee:
+
+**Bitcoin (BTC)**
+
+```text
+bc1q6d23e8fkm7fnz3ulzj97mpdhh7h6kk4lesxhvu
+```
+
+**Ethereum (ETH)**
+
+```text
+0xDb3f435b19237881Ab00Bfa88FE397516DC36cF7
+```
+
+Both addresses are dedicated to Pécule donations.
 
 ## Stack
 

@@ -15,7 +15,7 @@ Selbst gehostet, kostenlos, frei und Open Source: Deine Daten bleiben auf deinem
 [![Docker](https://img.shields.io/badge/docker-eine%20Datei-874519?labelColor=141413&logo=docker&logoColor=white)](#installieren)
 [![spricht](https://img.shields.io/badge/spricht-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#was-es-kann)
 
-[Installieren](#installieren) · [Was es kann](#was-es-kann) · [Ganz nach dir](#ganz-nach-dir) · [Verbinde deine KI](#verbinde-deine-ki) · [Deine Daten](#deine-daten-gehören-dir) · [Dokumentation](#dokumentation) · [Idee vorschlagen](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Installieren](#installieren) · [Was es kann](#was-es-kann) · [Ganz nach dir](#ganz-nach-dir) · [Verbinde deine KI](#verbinde-deine-ki) · [Deine Daten](#deine-daten-gehören-dir) · [Dokumentation](#dokumentation) · [Unterstützen](#pécule-unterstützen) · [Idee vorschlagen](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 [English](README.md) · [Français](README.fr.md) · **Deutsch** · [Italiano](README.it.md) · [Español](README.es.md)
 
@@ -36,7 +36,18 @@ Haushalt. Der Code und seine Kommentare sind auf Französisch geschrieben.
   Monatsanalyse, Budgettöpfe, kommende Kontostände, Rechnungen, die mit den Buchungen verknüpft sind, die sie bezahlt
   haben.
 - **Vermögen** — Ersparnisse, Geldanlagen, Immobilien, Kredite mit ihren Tilgungsplänen, Krypto, Prognosen.
-- **Situation** — Gehaltsabrechnungen, Einkommensteuer und Grundsteuer, Erwerbsverlauf und Rentenschätzungen.
+- **Analyse** — ein Monat oder ein Jahr aus sechs Blickwinkeln: zwölf Monate mit Prognose, die Verteilung in Ringen,
+  ein Flussdiagramm, der Kalender der Lastschriften, die Zeitleiste der Zahlungen und ein Zeitraum im Vergleich mit
+  einem anderen.
+- **Gehalt** — deine Gehaltsabrechnungen, Monat für Monat gelesen (Brutto, steuerpflichtiges Netto, einbehaltene
+  Steuer, Auszahlungsbetrag, Prämien), für dich oder für den Haushalt.
+- **Steuern** — deine Bescheide, Jahr für Jahr gelesen: zu versteuerndes Einkommen, Nettosteuer, Grenzsteuersatz,
+  Durchschnittssteuersatz, Ermäßigungen und Gutschriften, Grundsteuer je Immobilie; der Steuerkalender steht in deinem
+  Terminplan. Frag den Assistenten, was eine Spende oder eine Einzahlung in einen Altersvorsorgeplan ändern würde oder
+  welche Ausgaben für eine Steuergutschrift infrage kommen.
+- **Rente** — Quartale, Erwerbsverlauf und Rente je nach Renteneintrittsalter; die offiziellen Simulationen neben
+  einer vollständigen Laufbahn oder einem Ausstieg mit 55 (FIRE), Alter für Alter. *Steuern und Rente lesen derzeit
+  französische Dokumente; weitere Länder folgen.*
 - **Tresor** — jedes Dokument aufbewahrt und auffindbar, mit seinen wichtigsten Angaben und einem Terminplan dessen, was
   ansteht.
 - **Massenimport von Dokumenten** — leg einen ganzen Ordner ab; Pécule ordnet jedes Dokument ein, liest die, die es kennt
@@ -186,8 +197,25 @@ Die erste öffentliche Version von Pécule stammt vom November 2026, und jede Wo
   (häng niemals echte Bankdaten an: Der Demomodus stellt es fast immer nach).
 - Lust, am Code mitzuhelfen? Siehe [Mitwirken](CONTRIBUTING.md).
 
-Pécule ist kostenlos und bleibt es. Wenn es dir nützt, hilft ein Stern auf dieser Seite anderen Haushalten, es zu
-finden.
+## Pécule unterstützen
+
+Pécule ist kostenlos und bleibt es. So hilfst du: ein Stern auf dieser Seite (kostet nichts und zählt), erzähl anderen
+davon, [schlag eine Idee vor](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) — oder spendier mir
+einen Kaffee:
+
+**Bitcoin (BTC)**
+
+```text
+bc1q6d23e8fkm7fnz3ulzj97mpdhh7h6kk4lesxhvu
+```
+
+**Ethereum (ETH)**
+
+```text
+0xDb3f435b19237881Ab00Bfa88FE397516DC36cF7
+```
+
+Beide Adressen sind ausschließlich für Spenden an Pécule bestimmt.
 
 ## Technik
 

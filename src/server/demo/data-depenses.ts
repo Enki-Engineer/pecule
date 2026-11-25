@@ -149,7 +149,7 @@ export function spendMonth(ops: Ops, mo: Month): void {
   if (often(0.08)) ops.card(R.pick(["a", "c"] as const), rnd(), "Cabinet Dentaire Graslin", null, R.amount(45, 120), "B6-01");
   if (off === -7) {
     const t = ops.card("c", at(R.int(3, 12)), "Opticien Du Commerce", null, 289, "B6-01", { note: "Nouvelles lunettes" });
-    if (t) ops.virIn("c", addDays(t.date, 12), "Harmonie Mutuelle Remboursement", 210, "A6");
+    if (t) ops.virIn("c", addDays(t.date, 12), "Mutuelle Nerine Remboursement", 210, "A6");
   }
 
   // Loisirs et vacances

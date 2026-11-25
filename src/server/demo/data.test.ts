@@ -7,6 +7,7 @@ import { brandOf, brandText, customMatcher, customPattern } from "../../lib/bran
 import { autoMatch } from "../../lib/invoices.ts";
 import { labelKey } from "../../lib/labels.ts";
 import { natureOf } from "../../lib/nature.ts";
+import { RETIREMENT_FACTS, type RetirementFact, SIM_FAMILIES, retirementFact, simFamily } from "../../lib/retirement.ts";
 import { DEMO_TABLES, buildDemoData, tablesToClear } from "./data.ts";
 
 const T = "2026-11-10";
@@ -214,6 +215,16 @@ describe("données de démo", () => {
       const found = c.labelRegex ? recent.some((t) => t.merchant === c.label && new RegExp(c.labelRegex!).test(t.label.toLowerCase())) : recent.some((t) => (t.labelKey ?? "").includes(c.matchPattern!));
       expect(found, c.label).toBe(true);
     }
+  });
+
+  it("donnent à l'écran Retraite les faits qu'il lit et ses trois familles de simulations", () => {
+    const facts = d.facts.filter((f) => f.entityType === "retirement").map((f) => ({ label: f.label, value: String(f.value) }));
+    for (const key of Object.keys(RETIREMENT_FACTS) as RetirementFact[]) expect(retirementFact(facts, key), key).not.toBeNull();
+    const families = new Set(d.retirementSimulations.map((s) => simFamily({ source: s.source, label: s.label })));
+    for (const f of SIM_FAMILIES) expect(families.has(f), f).toBe(true);
+    // L'âge légal et l'âge du taux plein désignent chacun une simulation officielle : l'écran en tire deux chiffres clés.
+    const official = d.retirementSimulations.filter((s) => s.source === "info-retraite");
+    for (const key of ["legalAge", "fullAge"] as const) expect(official.some((s) => String(s.age) === retirementFact(facts, key)), key).toBe(true);
   });
 
   it("relient les factures à des opérations que le rapprochement aurait choisies", () => {

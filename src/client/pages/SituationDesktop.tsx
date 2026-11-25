@@ -13,6 +13,7 @@ import { cn } from "../cn.ts";
 import { SharingNote } from "../components/ScopeSwitch.tsx";
 import { TaxOwner, ownerLabel } from "../components/TaxOwner.tsx";
 import { taxYears } from "../../lib/taxes.ts";
+import { retirementFact, simFamily } from "../../lib/retirement.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
 
 /*
@@ -315,18 +316,17 @@ type Career = Retirement["career"][number];
 
 /** Trois familles de simulations : officielle, carrière complète, arrêt anticipé (FIRE). */
 const SIM_SERIES = [
-  { key: "officielle", label: t("Officielle (info-retraite)"), short: t("Officielle"), color: "var(--series-1)", match: (s: Sim) => s.source === "info-retraite" },
-  { key: "complete", label: t("Carrière complète"), short: t("Carrière complète"), color: "var(--series-3)", match: (s: Sim) => s.source !== "info-retraite" && /complète/i.test(s.label) },
-  { key: "fire", label: t("Arrêt à 55 ans (FIRE)"), short: t("Arrêt à 55 ans (FIRE)"), color: "var(--series-2)", match: (s: Sim) => s.source !== "info-retraite" && /fire|arrêt/i.test(s.label) },
+  { key: "officielle", label: t("Officielle (info-retraite)"), short: t("Officielle"), color: "var(--series-1)", match: (s: Sim) => simFamily(s) === "officielle" },
+  { key: "complete", label: t("Carrière complète"), short: t("Carrière complète"), color: "var(--series-3)", match: (s: Sim) => simFamily(s) === "complete" },
+  { key: "fire", label: t("Arrêt à 55 ans (FIRE)"), short: t("Arrêt à 55 ans (FIRE)"), color: "var(--series-2)", match: (s: Sim) => simFamily(s) === "fire" },
 ] as const;
 
 export function RetirementDesktop({ d }: { d: Retirement }) {
-  const fact = (re: RegExp) => d.facts.find((f) => re.test(f.label))?.value ?? null;
-  const quarters = Number(fact(/^Trimestres enregistrés/i) ?? 0);
-  const required = Number(fact(/^Trimestres requis/i) ?? 0);
-  const legalAge = fact(/^Âge légal/i);
-  const fullAge = fact(/^Âge du taux plein/i);
-  const earliest = fact(/départ au plus tôt/i);
+  const quarters = Number(retirementFact(d.facts, "quarters") ?? 0);
+  const required = Number(retirementFact(d.facts, "required") ?? 0);
+  const legalAge = retirementFact(d.facts, "legalAge");
+  const fullAge = retirementFact(d.facts, "fullAge");
+  const earliest = retirementFact(d.facts, "earliest");
   const official = d.simulations.filter((s) => s.source === "info-retraite");
   const atLegal = official.find((s) => String(s.age) === legalAge) ?? official[0];
   const atFull = official.find((s) => String(s.age) === fullAge);

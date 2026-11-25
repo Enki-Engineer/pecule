@@ -15,7 +15,7 @@ Alojado en tu casa, gratuito, libre y de código abierto: tus datos se quedan en
 [![Docker](https://img.shields.io/badge/docker-un%20archivo-874519?labelColor=141413&logo=docker&logoColor=white)](#instalar)
 [![habla](https://img.shields.io/badge/habla-FR%20%C2%B7%20EN%20%C2%B7%20DE%20%C2%B7%20IT%20%C2%B7%20ES-874519?labelColor=141413)](#qué-hace)
 
-[Instalar](#instalar) · [Qué hace](#qué-hace) · [Con tus colores](#con-tus-colores) · [Conecta tu IA](#conecta-tu-ia) · [Tus datos](#tus-datos-te-pertenecen) · [Documentación](#documentación) · [Proponer una idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
+[Instalar](#instalar) · [Qué hace](#qué-hace) · [Con tus colores](#con-tus-colores) · [Conecta tu IA](#conecta-tu-ia) · [Tus datos](#tus-datos-te-pertenecen) · [Documentación](#documentación) · [Apoyar](#apoyar-a-pécule) · [Proponer una idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md)
 
 [English](README.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Italiano](README.it.md) · **Español**
 
@@ -36,8 +36,17 @@ comentarios están escritos en francés.
   enseñas, el análisis del mes, sobres de presupuesto, saldos previstos, facturas vinculadas a los movimientos que las
   pagaron.
 - **Patrimonio** — ahorros, inversiones, inmuebles, préstamos con sus cuadros de amortización, cripto, proyecciones.
-- **Situación** — nóminas, impuesto sobre la renta e impuesto sobre bienes inmuebles, vida laboral y estimaciones de
-  jubilación.
+- **Análisis** — un mes o un año desde seis ángulos: doce meses con su previsión, la distribución en anillos, el
+  diagrama de flujos, el calendario de los cargos, la línea de tiempo de los pagos y un periodo frente a otro.
+- **Nómina** — tus nóminas leídas mes a mes (bruto, neto imponible, impuesto retenido, neto pagado, primas), para ti o
+  para el hogar.
+- **Impuestos** — tus avisos leídos año tras año: renta imponible, impuesto neto, tipo marginal, tipo medio,
+  reducciones y créditos, impuesto inmobiliario de cada inmueble; el calendario fiscal en tus vencimientos. Pregunta
+  al asistente qué cambiaría una donación o una aportación a un plan de pensiones, o qué gastos pueden dar derecho a
+  un crédito fiscal.
+- **Jubilación** — trimestres, vida laboral y pensión según la edad de salida; las simulaciones oficiales junto a una
+  carrera completa o un retiro a los 55 años (FIRE), edad por edad. *Impuestos y jubilación leen hoy documentos
+  franceses; otros países llegarán.*
 - **Caja fuerte** — cada documento guardado y localizable, con sus datos clave y el calendario de lo que viene.
 - **Importación masiva de documentos** — deposita una carpeta entera; Pécule archiva cada documento, lee los que conoce
   (nóminas, avisos de impuestos, cuadros de amortización, extractos, escrituras, contratos de alquiler…), comprueba las
@@ -184,8 +193,25 @@ La primera versión pública de Pécule es de noviembre de 2026, y cada semana l
   (no adjuntes nunca datos bancarios reales: el modo demo casi siempre permite reproducirlo).
 - ¿Quieres ayudar con el código? Mira [Contribuir](CONTRIBUTING.md).
 
-Pécule es gratuito y lo seguirá siendo. Si te resulta útil, una estrella en esta página ayuda a otros hogares a
-encontrarlo.
+## Apoyar a Pécule
+
+Pécule es gratuito y lo seguirá siendo. Para ayudar: una estrella en esta página (no cuesta nada y cuenta), habla de
+él a tu alrededor, [propón una idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) — o invítame
+a un café:
+
+**Bitcoin (BTC)**
+
+```text
+bc1q6d23e8fkm7fnz3ulzj97mpdhh7h6kk4lesxhvu
+```
+
+**Ethereum (ETH)**
+
+```text
+0xDb3f435b19237881Ab00Bfa88FE397516DC36cF7
+```
+
+Ambas direcciones están dedicadas a las donaciones para Pécule.
 
 ## Tecnologías
 

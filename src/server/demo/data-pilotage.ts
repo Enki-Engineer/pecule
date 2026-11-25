@@ -26,10 +26,25 @@ export function buildPilotage(s: Scenario, [ua, uc]: readonly [DemoUser, DemoUse
     source: "info-retraite",
     notes: "Projection à revenus constants",
   });
+  // Deux hypothèses posées à côté des simulations officielles, comme l'assistant les enregistre : une carrière menée
+  // jusqu'au bout avec un salaire qui progresse, et un arrêt de toute activité à 55 ans (136 trimestres à cette date).
+  const scenario = (label: string, age: number, quarters: number, base: number, complementary: number, adjustment: string | null, notes: string) => ({
+    ...sim(label, age, quarters, base, complementary, adjustment),
+    source: "scenario",
+    notes,
+  });
+  const COMPLETE = "Hypothèse : salaire en hausse de 1,5 % par an jusqu'au départ";
+  const FIRE = "Hypothèse : arrêt de toute activité à 55 ans, sans trimestre ni point acquis ensuite";
   const retirementSimulations: Insert<typeof schema.retirementSimulations>[] = [
     sim("Départ à l'âge légal (64 ans)", 64, 168, 1418, 1032, "Décote de 4 trimestres (-5 %)"),
     sim("Départ au taux plein (65 ans)", 65, 172, 1530, 1102, null),
     sim("Départ à 67 ans (taux plein automatique)", 67, 180, 1611, 1205, "Surcote de 8 trimestres (+10 %)"),
+    scenario("Carrière complète, départ à 64 ans", 64, 168, 1468, 1120, "Décote de 4 trimestres (-5 %)", COMPLETE),
+    scenario("Carrière complète, départ à 65 ans", 65, 172, 1585, 1196, null, COMPLETE),
+    scenario("Carrière complète, départ à 67 ans", 67, 180, 1672, 1310, "Surcote de 8 trimestres (+10 %)", COMPLETE),
+    scenario("Arrêt à 55 ans (FIRE), départ à 64 ans", 64, 136, 955, 690, "Décote de 12 trimestres (-15 %)", FIRE),
+    scenario("Arrêt à 55 ans (FIRE), départ à 65 ans", 65, 136, 1012, 715, "Décote de 8 trimestres (-10 %)", FIRE),
+    scenario("Arrêt à 55 ans (FIRE), départ à 67 ans", 67, 136, 1124, 743, "Taux plein automatique, au prorata de 136 trimestres", FIRE),
   ];
 
   // Carrière d'Alex (38 ans) : 17 années validées jusqu'à l'an dernier.
@@ -88,10 +103,13 @@ export function buildPilotage(s: Scenario, [ua, uc]: readonly [DemoUser, DemoUse
       ["gestion", "Gestion", "En direct, sans agence"],
       ["dpe", "Classe énergie", "D (198 kWh/m²/an)"],
     ]),
+    // Mêmes libellés que ceux qu'écrit la lecture d'un relevé de carrière : l'écran Retraite les retrouve par leur début.
     ...fact(ua.id, "retirement", String(ua.id), [
       ["age_legal", "Âge légal de départ", "64", "ans"],
+      ["depart_au_plus_tot", "Date de départ au plus tôt", ymd(born + 64, 4, 1)],
+      ["age_taux_plein", "Âge du taux plein automatique", "67", "ans"],
       ["trimestres_requis", "Trimestres requis pour le taux plein", "172"],
-      ["trimestres_valides", "Trimestres validés", "68"],
+      ["trimestres_enregistres", `Trimestres enregistrés au ${dateFr(simulatedOn)}`, "68"],
       ["points_complementaire", "Points Agirc-Arrco", "13170", "points"],
     ]),
   ];

@@ -197,6 +197,8 @@ La prima versione pubblica di Pécule è del novembre 2026, e ogni settimana arr
 Pécule è gratuito e lo resterà. Per aiutare: una stella su questa pagina (non costa nulla e conta), parlane in giro,
 [proponi un'idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) — oppure offrimi un caffè:
 
+**GitHub Sponsors** — [github.com/sponsors/kfr-kevinferreira](https://github.com/sponsors/kfr-kevinferreira): mensile o una tantum, dell'importo che preferisci.
+
 **Liberapay** — [liberapay.com/pecule](https://liberapay.com/pecule): una donazione ricorrente, con carta o addebito diretto.
 
 **Bitcoin (BTC)**

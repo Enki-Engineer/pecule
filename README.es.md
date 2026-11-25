@@ -199,6 +199,8 @@ Pécule es gratuito y lo seguirá siendo. Para ayudar: una estrella en esta pág
 él a tu alrededor, [propón una idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) — o invítame
 a un café:
 
+**GitHub Sponsors** — [github.com/sponsors/kfr-kevinferreira](https://github.com/sponsors/kfr-kevinferreira): mensual o puntual, del importe que elijas.
+
 **Liberapay** — [liberapay.com/pecule](https://liberapay.com/pecule): una donación periódica, con tarjeta o domiciliación bancaria.
 
 **Bitcoin (BTC)**

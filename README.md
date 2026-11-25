@@ -195,6 +195,8 @@ Pécule's first public release dates from November 2026, and new features arrive
 Pécule is free and will stay free. To help: a star on this page (it costs nothing and it counts), spread the word,
 [suggest an idea](https://github.com/Enki-Engineer/pecule/issues/new?template=idee.md) — or buy me a coffee:
 
+**GitHub Sponsors** — [github.com/sponsors/kfr-kevinferreira](https://github.com/sponsors/kfr-kevinferreira): monthly or one-time, the amount you choose.
+
 **Liberapay** — [liberapay.com/pecule](https://liberapay.com/pecule): a recurring donation, by card or direct debit.
 
 **Bitcoin (BTC)**

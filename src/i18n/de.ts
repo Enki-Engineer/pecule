@@ -3867,4 +3867,5 @@ export const de: Dict = {
   "Choisir son mot de passe": "Passwort festlegen lassen",
   "Pas encore de mot de passe : « {bouton} » lui en fait choisir un, ici même.": "Noch kein Passwort: Mit „{bouton}“ legt das Mitglied gleich hier eines fest.",
   "Pécule n'a pas répondu : réessaie dans un instant.": "Pécule hat nicht geantwortet: Versuche es gleich noch einmal.",
+  "Numéro du compte choisi (4 derniers chiffres)": "Nummer des gewählten Kontos (letzte 4 Ziffern)",
 };

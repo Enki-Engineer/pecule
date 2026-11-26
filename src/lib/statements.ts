@@ -30,15 +30,35 @@ const plain = (s: string | null | undefined) =>
 export type StatementAccount = { bank: string | null | undefined; label: string | null | undefined; tail: string | null | undefined };
 
 /**
+ * Deux écritures de la même banque : d'un relevé à l'autre, son nom est lu avec ou sans sa région, avec ou sans
+ * accent (« Caisse du Maine » et « Caisse du Maine Anjou »). Égales, ou l'une contenue dans l'autre.
+ */
+function sameBankName(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = plain(a);
+  const y = plain(b);
+  return !!x && !!y && (x === y || (Math.min(x.length, y.length) >= 5 && (x.includes(y) || y.includes(x))));
+}
+
+/**
  * Deux relevés parlent-ils du même compte ? Le numéro fait foi (mêmes quatre derniers caractères, et la même banque
  * quand les deux la nomment) ; sans numéro des deux côtés, la même banque et le même intitulé.
  */
 export function sameAccount(a: StatementAccount, b: StatementAccount): boolean {
   const ta = tailKey(a.tail);
   const tb = tailKey(b.tail);
-  const sameBank = !plain(a.bank) || !plain(b.bank) || plain(a.bank) === plain(b.bank);
-  if (ta || tb) return ta === tb && sameBank;
-  return !!plain(a.bank) && plain(a.bank) === plain(b.bank) && !!plain(a.label) && plain(a.label) === plain(b.label);
+  if (ta || tb) return ta === tb && (!plain(a.bank) || !plain(b.bank) || sameBankName(a.bank, b.bank));
+  return sameBankName(a.bank, b.bank) && !!plain(a.label) && plain(a.label) === plain(b.label);
+}
+
+/**
+ * Les quatre derniers chiffres du numéro qu'un compte de Pécule porte déjà, quand il en porte un : dans son nom
+ * (« •••• 1234 »), ou parce que son identifiant est ce numéro. Sert à refuser un relevé rangé dans le mauvais compte.
+ */
+export function knownTail(name: string | null | undefined, id?: string | null): string | null {
+  const inName = /••••\s*([0-9a-z]{4})(?![0-9a-z])/i.exec(name ?? "");
+  if (inName) return inName[1].toUpperCase();
+  const inId = /(?:^|:)(\d{8,})$/.exec(id ?? "");
+  return inId ? inId[1].slice(-4) : null;
 }
 
 /**

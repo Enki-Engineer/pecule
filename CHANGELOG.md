@@ -3,6 +3,24 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.49.2
+
+Relevés de compte : deux corrections tirées d'une vraie reprise d'historique (une cinquantaine de relevés, trois
+comptes). Aucune migration, aucun réglage nouveau.
+
+- **Un même compte n'est plus coupé en deux séries** quand le nom de la banque est lu de deux façons d'un relevé à
+  l'autre — avec ou sans sa région, avec ou sans accent. L'encadré « Relevés de compte : la série » annonçait alors de
+  faux relevés manquants, le compte choisi pour un relevé n'était pas reporté à toute la série, et un relevé déposé
+  plus tard pouvait ne pas retrouver le compte créé par les premiers.
+- **Un relevé ne se range plus d'un coup dans le compte d'un autre.** Quand le compte proposé porte un autre numéro
+  que le relevé — dans son nom (« •••• 1234 ») ou son identifiant —, la fiche le montre comme un écart : le relevé
+  n'est plus « sûr » et demande un regard. L'IA reçoit aussi le titulaire de chaque compte, et la consigne de ne
+  retenir aucun compte que son numéro ou son titulaire contredit : dans un foyer où deux membres ont le même livret
+  dans la même banque, elle proposait parfois celui de l'autre.
+- **Un livret ou un plan imprimé sur un relevé mensuel** garde la période de ses propres soldes (un trimestre, une
+  année) au lieu de celle du relevé : ses opérations ne sortent plus de « la période du relevé », contrôle qui
+  demandait jusque-là une correction à la main.
+
 ## 1.49.1
 
 Pécule a son appli pour Mac : sur un Mac à puce Apple, une commande l'installe, et tout — l'appli, sa base, tes

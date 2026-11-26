@@ -3867,4 +3867,5 @@ export const en: Dict = {
   "Choisir son mot de passe": "Choose their password",
   "Pas encore de mot de passe : « {bouton} » lui en fait choisir un, ici même.": "No password yet: “{bouton}” lets them choose one, right here.",
   "Pécule n'a pas répondu : réessaie dans un instant.": "Pécule didn't answer: try again in a moment.",
+  "Numéro du compte choisi (4 derniers chiffres)": "Number of the chosen account (last 4 digits)",
 };

@@ -12,7 +12,7 @@ import { reconcile, type RecTx } from "../../../lib/bank-reconcile.ts";
 import { near, sum } from "../../../lib/imports.ts";
 import { locale, t, tk, tn } from "../../../lib/i18n.ts";
 import { labelKey, ownerKey, ownerLabel } from "../../../lib/labels.ts";
-import { balanceGap, coverage, isCardTotal, purchaseDayFor, sameAccount, suspects, tailKey, type CardTotal } from "../../../lib/statements.ts";
+import { balanceGap, coverage, isCardTotal, knownTail, purchaseDayFor, sameAccount, suspects, tailKey, type CardTotal } from "../../../lib/statements.ts";
 import { day, money, num, str, type Extractor, type Field } from "../registry.ts";
 
 /*
@@ -66,8 +66,8 @@ const kindOf = (d: Statement): (typeof KINDS)[number] => d.account_kind ?? (/liv
  */
 const gapOf = (d: Statement) => (isCard(d) ? balanceGap(0, d.total_debit == null ? null : -Math.abs(d.total_debit), d.operations) : balanceGap(d.opening_balance, d.closing_balance, d.operations));
 
-type Account = { id: string; name: string; raw: string; institution: string | null; source: string; currency: string; kind: string };
-const accounts = () => q<Account>("SELECT id, COALESCE(display_name, name) AS name, name AS raw, institution, source, currency, kind FROM accounts ORDER BY name");
+type Account = { id: string; name: string; raw: string; institution: string | null; source: string; currency: string; kind: string; owner: string };
+const accounts = () => q<Account>("SELECT id, COALESCE(display_name, name) AS name, name AS raw, institution, source, currency, kind, owner FROM accounts ORDER BY name");
 /** Devise du relevé, quand elle est lue et que Pécule sait la convertir. */
 const statementCurrency = (d: Statement) => {
   const code = d.currency?.trim().toUpperCase();
@@ -124,6 +124,17 @@ async function continuity(d: Statement, account: Account) {
   return [{ label: tk("Solde de départ (face au solde déjà connu à cette date)"), before: money(Number(known.balance)), after: money(d.opening_balance) }];
 }
 
+/**
+ * Le compte choisi porte un autre numéro que le relevé (dans son nom, ou parce que son identifiant est ce numéro) :
+ * c'est sans doute le compte d'un autre titulaire ou d'une autre banque, proposé à tort. Un écart, pour que le
+ * relevé ne soit jamais validé d'un coup dans le mauvais compte.
+ */
+function otherNumber(d: Statement, account: Account) {
+  const known = knownTail(account.raw, account.id) ?? knownTail(account.name);
+  const tail = tailKey(d.account_tail);
+  return known && tail && known !== tail ? [{ label: tk("Numéro du compte choisi (4 derniers chiffres)"), before: known, after: tail }] : [];
+}
+
 /** Catégorie des mouvements entre comptes du foyer (la première du référentiel), s'il y en a une. */
 const internalCategory = async () => (await one<{ id: string }>("SELECT id FROM categories WHERE kind = 'interne' ORDER BY sort_order, id LIMIT 1"))?.id ?? null;
 
@@ -149,7 +160,8 @@ export const releve: Extractor<Statement> = {
     "Compte lu : un relevé peut porter plusieurs comptes. Lis celui que la demande désigne ; si elle n'en désigne aucun, le premier compte du relevé qui a des opérations. « other_accounts » : chacun des AUTRES comptes du relevé qui a au moins une opération (son intitulé et les 4 derniers chiffres de son numéro) — ils seront lus à part ; liste vide s'il n'y en a pas, ou si la demande désigne le compte à lire.",
     "Carte à débit différé : deux présentations. (1) Les achats sont listés un à un parmi les opérations du compte, souvent sous un intertitre (« Paiements différés carte… ») : ce sont des opérations de ce compte, recopie-les à leur place, et ne nomme pas la carte dans « other_accounts ». (2) Le compte ne porte qu'une ligne pour le total du mois, et le détail des achats est imprimé à part (un tableau de la carte, hors des opérations du compte) : ce détail est un autre compte, à nommer dans « other_accounts » (« Carte » et ses 4 derniers chiffres). Quand c'est lui que tu lis : « account_kind » = « carte », ses soldes sont null, « total_debit » est le total prélevé (valeur positive), « card_debit_date » le jour où ce total est prélevé sur le compte, chaque achat est daté du jour de l'achat, négatif (positif pour un remboursement). « account_kind » vaut sinon « courant » ou « epargne » (livret, plan, compte à terme).",
     "Opérations : recopie TOUTES celles du compte lu, dans l'ordre, sans en sauter. Date de l'opération (pas la date de valeur). Libellé complet sur une seule ligne : les lignes de détail imprimées sous une opération sont jointes à son libellé. Montant signé, négatif pour un débit, positif pour un crédit : avec deux colonnes Débit et Crédit, c'est la colonne où le montant est imprimé qui donne le signe ; avec une seule colonne, le signe imprimé. Quand le relevé n'imprime pas l'année d'une opération, prends celle de la période du relevé (un relevé à cheval sur décembre et janvier porte deux années). « purchase » : pour un paiement par carte, le jour de l'achat quand le relevé l'imprime en plus de la date de l'opération — dans le libellé (« FACT 120117 », « CARTE 12/01 », « DU 12/01 ») ou dans une colonne — ; null pour toute autre opération, et quand il n'est pas imprimé. N'inclus ni les lignes de solde (ancien solde, solde intermédiaire, nouveau solde), ni les totaux, ni les reports de page, ni les opérations d'un autre compte.",
-    "« opening_balance » et « closing_balance » : soldes de début et de fin de période du compte lu, négatifs s'ils sont débiteurs (un solde imprimé « débiteur », ou dans la colonne Débit, est négatif : c'est une lecture, pas une déduction). « total_debit » et « total_credit » : totaux des mouvements imprimés à la fin du compte, en valeurs positives, null s'ils ne sont pas imprimés. « account_tail » : les 4 derniers chiffres du numéro du compte lu, sans espace, rien de plus. « account_id » : le compte de Pécule correspondant, choisi dans la liste fournie, sinon null — l'absence de compte correspondant est normale pour un compte encore inconnu : elle ne baisse pas la confiance et n'est pas un doute. « is_bank_statement » est faux pour tout autre document (relevé de placement, avis d'opéré, échéancier).",
+    "« period_start » et « period_end » : la période du compte lu, du jour de son solde de début au jour de son solde de fin. Elle peut être plus longue que celle du relevé : un livret ou un plan arrêté chaque trimestre, imprimé sur un relevé mensuel, porte la période de ses propres soldes, qui couvre toutes ses opérations.",
+    "« opening_balance » et « closing_balance » : soldes de début et de fin de période du compte lu, négatifs s'ils sont débiteurs (un solde imprimé « débiteur », ou dans la colonne Débit, est négatif : c'est une lecture, pas une déduction). « total_debit » et « total_credit » : totaux des mouvements imprimés à la fin du compte, en valeurs positives, null s'ils ne sont pas imprimés. « account_tail » : les 4 derniers chiffres du numéro du compte lu, sans espace, rien de plus. « account_id » : le compte de Pécule correspondant, choisi dans la liste fournie, sinon null — l'absence de compte correspondant est normale pour un compte encore inconnu : elle ne baisse pas la confiance et n'est pas un doute. Ne retiens un compte de la liste que si rien ne le contredit : un compte dont le nom ou l'identifiant porte un autre numéro, ou dont le titulaire n'est pas celui du relevé, n'est pas le bon, même s'il a le même intitulé dans la même banque — null. « is_bank_statement » est faux pour tout autre document (relevé de placement, avis d'opéré, échéancier).",
   ].join("\n"),
   schema: {
     properties: {
@@ -160,8 +172,8 @@ export const releve: Extractor<Statement> = {
       bank: str("Banque, nom usuel"),
       account_label: str("Intitulé du compte lu (« Compte courant », « Livret A »)"),
       account_tail: str("4 derniers chiffres du numéro du compte lu, sans espace"),
-      period_start: day("Début de la période du relevé"),
-      period_end: day("Fin de la période du relevé"),
+      period_start: day("Début de la période du compte lu (jour de son solde de début)"),
+      period_end: day("Fin de la période du compte lu (jour de son solde de fin)"),
       opening_balance: num("Solde du compte lu en début de période"),
       closing_balance: num("Solde du compte lu en fin de période"),
       total_debit: num("Total des débits imprimé à la fin du compte lu, en valeur positive"),
@@ -232,7 +244,8 @@ export const releve: Extractor<Statement> = {
   },
   context: async (ctx) =>
     [
-      `Comptes de Pécule : ${(await accounts()).map((a) => `${a.id} = ${a.name}${a.institution ? ` (${a.institution})` : ""}`).join(" ; ") || "aucun"}.`,
+      // Le titulaire de chaque compte est dit : deux membres ont souvent le même livret dans la même banque.
+      `Comptes de Pécule (identifiant = nom, banque, titulaire) : ${(await accounts()).map((a) => `${a.id} = ${a.name}${a.institution ? ` (${a.institution})` : ""} — titulaire : ${ownerLabel(a.owner)}`).join(" ; ") || "aucun"}.`,
       // Une tranche d'un long relevé lit le compte de la première, et dit quels autres comptes elle croise.
       ctx.part && ctx.segment ? `Compte à lire : « ${ctx.part} », et lui seul. « other_accounts » : les autres comptes qui ont des opérations sur ces pages.` : "",
       ctx.part && !ctx.segment ? `Ce relevé porte plusieurs comptes. Compte à lire : « ${ctx.part} », et lui seul (« other_accounts » : liste vide).` : "",
@@ -312,7 +325,7 @@ export const releve: Extractor<Statement> = {
     const summary = t("Compte « {compte} » : {a} opérations déjà connues, {b} à ajouter.", { compte: account.name, a: p.known, b: p.fresh.length });
     // Des opérations qui s'ajoutent à un compte existant ne changent rien à ce qui est déjà là ; un solde de départ
     // qui ne retombe pas sur le solde connu, si.
-    return { summary: p.close ? `${summary} ${t("Dont {n} rapprochées à quelques jours près d'une opération fournie par la banque.", { n: p.close })}` : summary, diffs: await continuity(d, account) };
+    return { summary: p.close ? `${summary} ${t("Dont {n} rapprochées à quelques jours près d'une opération fournie par la banque.", { n: p.close })}` : summary, diffs: [...otherNumber(d, account), ...(await continuity(d, account))] };
   },
   async apply(d, _ctx, track) {
     let account = await target(d);
@@ -323,7 +336,7 @@ export const releve: Extractor<Statement> = {
       const name = accountName(d);
       const currency = statementCurrency(d) ?? householdCurrency();
       await track.upsert("accounts", { id }, { name, institution: d.bank?.slice(0, 120) ?? null, owner, kind: kindOf(d), currency, hidden: 0, excluded: 0, source: "manuel" });
-      account = { id, name, raw: name, institution: d.bank, source: "manuel", currency, kind: kindOf(d) };
+      account = { id, name, raw: name, institution: d.bank, source: "manuel", currency, kind: kindOf(d), owner };
     }
     const card = isCard(d);
     const booked = debitDay(d);

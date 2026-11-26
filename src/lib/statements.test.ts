@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balanceGap, coverage, isCardTotal, purchaseDayFor, sameAccount, suspects, tailKey } from "./statements.ts";
+import { balanceGap, coverage, isCardTotal, knownTail, purchaseDayFor, sameAccount, suspects, tailKey } from "./statements.ts";
 
 describe("même compte", () => {
   it("ramène un numéro lu à ses quatre derniers caractères", () => {
@@ -15,6 +15,25 @@ describe("même compte", () => {
     expect(sameAccount({ bank: "Banque de l'Estuaire", label: "Compte courant", tail: "4821" }, { bank: null, label: "Compte courant", tail: "4821" })).toBe(true);
     expect(sameAccount({ bank: "Banque de l'Estuaire", label: "Compte courant", tail: "4821" }, { bank: "Caisse du Maine", label: "Compte courant", tail: "4821" })).toBe(false);
     expect(sameAccount({ bank: "Banque de l'Estuaire", label: "Compte courant", tail: "4821" }, { bank: "Banque de l'Estuaire", label: "Livret A", tail: "7702" })).toBe(false);
+  });
+
+  it("reconnaît la même banque écrite avec ou sans sa région, avec ou sans accent", () => {
+    const account = { label: "Compte de dépôt", tail: "4821" };
+    expect(sameAccount({ ...account, bank: "Caisse du Maine Anjou" }, { ...account, bank: "Caisse du Maine" })).toBe(true);
+    expect(sameAccount({ ...account, bank: "Caisse d'Épargne du Maine" }, { ...account, bank: "CAISSE D'EPARGNE" })).toBe(true);
+    // Un nom trop court ne suffit pas à en contenir un autre, et deux banques différentes restent différentes.
+    expect(sameAccount({ ...account, bank: "BNO" }, { ...account, bank: "Banque BNO de l'Ouest" })).toBe(false);
+    expect(sameAccount({ ...account, bank: "Caisse du Maine" }, { ...account, bank: "Banque de l'Estuaire" })).toBe(false);
+    expect(sameAccount({ bank: "Caisse du Maine Anjou", label: "Livret A", tail: null }, { bank: "Caisse du Maine", label: "LIVRET A", tail: null })).toBe(true);
+  });
+
+  it("lit le numéro qu'un compte de Pécule porte déjà, dans son nom ou son identifiant", () => {
+    expect(knownTail("Banque de l'Estuaire · Compte courant · •••• 4821")).toBe("4821");
+    expect(knownTail("Carte •••• 77a2 (2023-2025)")).toBe("77A2");
+    expect(knownTail("PEL (clôturé)", "banque:16400012345")).toBe("2345");
+    expect(knownTail("Compte courant", "8f1c2a5e-0177-4510-b1da-adffb9e0506a")).toBeNull();
+    expect(knownTail("Carte", "banque:service-20398294")).toBeNull();
+    expect(knownTail(null, null)).toBeNull();
   });
 
   it("sans numéro, demande la même banque et le même intitulé", () => {

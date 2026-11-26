@@ -35,14 +35,16 @@ describe("notes d'une version", () => {
     const installer = read("bureau/pecule-mac.sh");
     for (const name of Object.values(MAC_FILES)) {
       expect(publication, `${name} : à joindre à la version`).toContain(`dist/bureau/${name}`);
-      expect(bureau, `${name} : à transmettre au flux de publication`).toContain(`dist/bureau/${name}`);
+      // Ce qui annonce la mise à jour est écrit à la signature, dans le flux de publication lui-même.
+      if (name !== MAC_FILES.manifest) expect(bureau, `${name} : à transmettre au flux de publication`).toContain(`dist/bureau/${name}`);
       expect(fabriquer, `${name} : à fabriquer`).toContain(`"${name}"`);
     }
     // Le script d'installation prend l'appli et ses empreintes sous ces noms ; l'appli cherche ses mises à jour sous celui-ci.
     for (const name of [MAC_FILES.app, MAC_FILES.sums]) expect(installer).toContain(name);
     expect(read("bureau/src-tauri/tauri.conf.json")).toContain(`/releases/latest/download/${MAC_FILES.manifest}`);
     // La version n'est créée qu'une fois l'appli fabriquée : une version publiée ne reçoit plus de pièce jointe.
-    expect(publication).toMatch(/publication:\n\s+needs: bureau\n/);
+    expect(publication).toMatch(/publication:\n\s+needs: signature\n/);
+    expect(publication).toMatch(/signature:\n\s+needs: bureau\n/);
   });
 
   it("une copie du projet annonce ses propres adresses", () => {

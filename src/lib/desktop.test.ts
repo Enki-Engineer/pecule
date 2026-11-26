@@ -334,12 +334,15 @@ describe("fabrication de l'appli", () => {
   });
 
   it("la clé qui signe les mises à jour ne va que sur une machine qui n'a rien compilé, pour une version", () => {
-    const flow = read(".github/workflows/bureau.yml");
-    const signing = flow.slice(flow.indexOf("\n  signature:"));
+    const publication = read(".github/workflows/publication.yml");
+    const signing = publication.slice(publication.indexOf("\n  signature:"), publication.indexOf("\n  publication:"));
+    // Un secret d'environnement ne se lit que d'une étape du flux appelant : la signature n'est pas dans le flux appelé.
     expect(signing).toContain("environment: publication");
     expect(signing).toContain("pnpm install --frozen-lockfile --ignore-scripts");
-    expect(flow.slice(0, flow.indexOf("\n  signature:"))).not.toContain("TAURI_SIGNING_PRIVATE_KEY");
-    expect(read(".github/workflows/publication.yml")).not.toContain("TAURI_SIGNING_PRIVATE_KEY");
+    expect(signing).toContain("needs: bureau");
+    expect(publication).toMatch(/\n  publication:\n    needs: signature\n/);
+    expect(publication.replace(signing, "")).not.toContain("TAURI_SIGNING_PRIVATE_KEY");
+    expect(read(".github/workflows/bureau.yml")).not.toContain("TAURI_SIGNING_PRIVATE_KEY");
   });
 
   it("montre au démarrage le logo de l'appli", () => {

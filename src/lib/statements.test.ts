@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balanceGap, coverage, isCardTotal, knownTail, purchaseDayFor, sameAccount, suspects, tailKey } from "./statements.ts";
+import { balanceGap, cardLabel, coverage, isCardTotal, knownTail, purchaseDayFor, sameAccount, suspects, tailKey } from "./statements.ts";
 
 describe("même compte", () => {
   it("ramène un numéro lu à ses quatre derniers caractères", () => {
@@ -99,6 +99,26 @@ describe("série de relevés", () => {
   it("ignore le même relevé déposé deux fois, et met de côté celui dont la période n'est pas lue", () => {
     const c = coverage([month(1, 1, 100, 150), month(9, 1, 100, 150), month(2, 2, 150, 90), { id: 5, start: null, end: null, opening: 1, closing: 2, operations: 3 }]);
     expect(c).toMatchObject({ statements: 4, gaps: [], breaks: [], undated: 1, to: "2025-02-28" });
+  });
+});
+
+describe("libellé d'un achat par carte", () => {
+  it("ramène « CB marchand FACT jjmmaa » à la forme que Pécule connaît", () => {
+    expect(cardLabel("CB LIBRAIRIE LES MOTS BLEUS FACT 090620")).toBe("CARTE 09/06/20 LIBRAIRIE LES MOTS BLEUS");
+    expect(cardLabel("cb marche*bio des halles fact 020620")).toBe("CARTE 02/06/20 marche*bio des halles");
+    // Achat en devise : la conversion et la commission restent à la fin.
+    expect(cardLabel("CB PAPETERIE DU PORT FACT 120117 (EN GBP 12,00) DONT FRAIS DE COMM. 0,30 EUR")).toBe("CARTE 12/01/17 PAPETERIE DU PORT (EN GBP 12,00) DONT FRAIS DE COMM. 0,30 EUR");
+  });
+
+  it("laisse tout autre libellé tel quel", () => {
+    for (const label of ["VIR SEPA SALAIRE ATELIER DU BOIS", "CARTE 09/06/20 LIBRAIRIE LES MOTS BLEUS", "CB LIBRAIRIE FACT 310220X", "CB LIBRAIRIE FACT 991320", "PRLV SEPA EAU DE NANTES FACT 0906201"]) expect(cardLabel(label)).toBe(label);
+  });
+
+  it("donne alors la même clé de libellé qu'une opération de carte venue de la banque", async () => {
+    const { labelKey } = await import("./labels.ts");
+    const { historyLabel } = await import("./bank-history.ts");
+    expect(labelKey(historyLabel(cardLabel("CB LIBRAIRIE LES MOTS BLEUS FACT 090620")))).toBe(labelKey("Carte 09 06 20 Librairie Les Mots Bleus"));
+    expect(labelKey(historyLabel(cardLabel("CB LIBRAIRIE LES MOTS BLEUS FACT 090620")))).toBe("librairie les mots bleus");
   });
 });
 

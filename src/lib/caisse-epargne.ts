@@ -5,6 +5,8 @@
  * la lecture au centime : solde précédent + opérations = nouveau solde.
  */
 
+import { cardLabel } from "./statements.ts";
+
 export type CeOperation = { date: string; label: string; detail: string; amount: number };
 export type CeAccount = {
   /** Numéro du compte (11 derniers chiffres du RIB imprimé). */
@@ -119,8 +121,8 @@ export function parseCeStatement(text: string): CeAccount[] {
  * marchand et les règles de classement se lisent comme ailleurs ; un virement garde son motif.
  */
 export function ceLabel(o: CeOperation): string {
-  const card = /^CB\s+(.+?)\s+FACT\s+(\d{2})(\d{2})(\d{2})$/.exec(o.label);
-  if (card) return `CARTE ${card[2]}/${card[3]}/${card[4]} ${card[1]}`;
+  const card = cardLabel(o.label);
+  if (card !== o.label) return card;
   const motif = o.detail.split(" · ").find((d) => d && !/^-?R[ée]f\./i.test(d) && !/^\d[\d\s/.-]*$/.test(d));
   return motif && /^(VIR|VIREMENT|PRLV)/.test(o.label) && !o.label.includes(motif) ? `${o.label} ${motif}`.slice(0, 250) : o.label;
 }

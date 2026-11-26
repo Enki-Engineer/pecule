@@ -12,7 +12,7 @@ import { reconcile, type RecTx } from "../../../lib/bank-reconcile.ts";
 import { near, sum } from "../../../lib/imports.ts";
 import { locale, t, tk, tn } from "../../../lib/i18n.ts";
 import { labelKey, ownerKey, ownerLabel } from "../../../lib/labels.ts";
-import { balanceGap, coverage, isCardTotal, knownTail, purchaseDayFor, sameAccount, suspects, tailKey, type CardTotal } from "../../../lib/statements.ts";
+import { balanceGap, cardLabel, coverage, isCardTotal, knownTail, purchaseDayFor, sameAccount, suspects, tailKey, type CardTotal } from "../../../lib/statements.ts";
 import { day, money, num, str, type Extractor, type Field } from "../registry.ts";
 
 /*
@@ -96,7 +96,7 @@ async function target(d: Statement): Promise<Account | null> {
  * opération comme son relevé. Deux relevés, eux, se comparent au jour près.
  */
 async function plan(d: Statement, account: Account | null) {
-  const incoming: RecTx[] = d.operations.map((o, i) => ({ id: String(i), date: o.date, amount: o.amount, label: o.label, status: "posted" }));
+  const incoming: RecTx[] = d.operations.map((o, i) => ({ id: String(i), date: o.date, amount: o.amount, label: cardLabel(o.label), status: "posted" }));
   if (!account || !d.operations.length) return { fresh: d.operations, known: 0, close: 0 };
   const days = d.operations.map((o) => o.date).sort();
   // Montants comparés dans la devise du compte, celle du relevé. Le détail d'une carte date ses achats du jour de
@@ -354,7 +354,9 @@ export const releve: Extractor<Statement> = {
       const n = seen.get(base) ?? 0;
       seen.set(base, n + 1);
       const id = `f:${createHash("sha1").update(`${account.id}|${base}|${n}`).digest("hex").slice(0, 32)}`;
-      const label = historyLabel(row.label);
+      // Un achat par carte prend la forme que Pécule connaît : son marchand retrouve ainsi les règles et les
+      // catégories que le foyer lui a déjà données ailleurs.
+      const label = historyLabel(cardLabel(row.label));
       const key = labelKey(label);
       // Un achat du détail d'une carte est écrit le jour du prélèvement, son jour d'achat gardé à côté — comme la banque
       // l'écrit elle-même pour une carte à débit différé. Ailleurs, le jour d'achat est celui que le relevé imprime.

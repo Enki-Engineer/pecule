@@ -3,6 +3,17 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.49.3
+
+Relevés de compte : les achats par carte retrouvent leurs catégories. Aucune migration, aucun réglage nouveau.
+
+- **Un achat par carte écrit « CB marchand FACT jjmmaa »** (la forme de certaines banques sur leurs relevés) est
+  gardé sous la forme que Pécule connaît, « Carte jj mm aa Marchand ». Jusque-là, un historique repris par ses
+  relevés gardait le libellé brut : aucune règle de classement ni aucune catégorie déjà donnée au même marchand ne
+  s'y appliquait, l'opération passait pour un prélèvement, et la recherche du paiement d'une facture ne la
+  reconnaissait pas. Vaut pour les relevés validés à partir de cette version ; pour un relevé déjà validé, « Annuler
+  la validation » puis « Valider » réécrit ses opérations.
+
 ## 1.49.2
 
 Relevés de compte : deux corrections tirées d'une vraie reprise d'historique (une cinquantaine de relevés, trois

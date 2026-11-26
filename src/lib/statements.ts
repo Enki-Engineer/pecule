@@ -90,6 +90,20 @@ export function suspects(ops: { amount: number }[], gap: number | null): Suspect
 }
 
 /**
+ * Achat par carte écrit à la façon de certaines banques (« CB LEROY MERLIN FACT 090620 » : marchand, puis jour de la
+ * facturette) → la forme que Pécule connaît (« CARTE 09/06/20 LEROY MERLIN »). Le marchand, le jour d'achat, la
+ * nature de l'opération et les règles de classement se lisent alors comme pour une opération venue de la banque :
+ * sans cela, un historique repris par ses relevés ne retrouve aucune des catégories déjà données au même marchand.
+ * Ce qui suit le jour (une conversion de devise, une commission) reste à la fin du libellé. Tout autre libellé est
+ * rendu tel quel.
+ */
+export function cardLabel(label: string): string {
+  const m = /^\s*CB\s+(.+?)\s+FACT\s+(\d{2})(\d{2})(\d{2})(?![0-9a-z])\s*(.*)$/i.exec(label);
+  if (!m || Number(m[2]) < 1 || Number(m[2]) > 31 || Number(m[3]) < 1 || Number(m[3]) > 12) return label;
+  return `CARTE ${m[2]}/${m[3]}/${m[4]} ${m[1]}${m[5] ? ` ${m[5]}` : ""}`;
+}
+
+/**
  * Jour d'achat à garder pour une opération écrite par la banque le `booked` : celui que le relevé imprime, s'il est
  * plausible (jamais après l'écriture, jamais plus de 70 jours avant : une carte à débit différé prélève le mois
  * suivant). Le même jour que l'écriture n'apprend rien : null.

@@ -14,6 +14,9 @@ export const INSTALL_END = "<!-- /installer -->";
 /** Pièces jointes d'une version : les mêmes noms d'une version à l'autre (`scripts/paquet.mjs`). */
 export const RELEASE_FILES = { compose: "compose.yaml", tar: "pecule.tar.gz", zip: "pecule.zip", sums: "SHA256SUMS" } as const;
 
+/** Pièces jointes de l'appli de bureau pour Mac (`bureau/fabriquer.mjs`) : l'appli, la même pour sa mise à jour, ce qui l'annonce, le script qui l'installe. */
+export const MAC_FILES = { app: "Pecule-mac.zip", update: "Pecule-mac.app.tar.gz", manifest: "pecule-mac.json", installer: "pecule-mac.sh", sums: "SHA256SUMS-mac" } as const;
+
 /** L'image Docker d'un dépôt : celle du projet, ou celle d'une copie (`ghcr.io/<propriétaire>/<dépôt>`, en minuscules). */
 const imageOf = (repo: string) => (repo === DEFAULT_REPO ? DOCKER_IMAGE : `ghcr.io/${repo.toLowerCase()}`);
 
@@ -32,9 +35,11 @@ export function installBlock(version: string, repo: string = DEFAULT_REPO): stri
     `| **Docker** | Un ordinateur, un serveur, un NAS : le plus simple | ${file(RELEASE_FILES.compose)}, puis \`docker compose up -d\` | \`docker compose pull && docker compose up -d\` |`,
     // L'installateur npm est celui du projet d'origine : une copie du projet n'annonce que ses propres fichiers.
     `| **Archive prête à l'emploi** | Un hébergement Node.js, sans Docker ni build | ${repo === DEFAULT_REPO ? "\`npm create pecule\`, ou " : ""}${file(RELEASE_FILES.tar)} ou ${file(RELEASE_FILES.zip)} | \`node scripts/maj.mjs\` |`,
+    // L'appli de bureau s'installe par une commande : téléchargée par un navigateur, macOS demanderait de l'autoriser à la main.
+    `| **Appli pour Mac** | Un Mac à puce Apple, sans serveur ni Docker | dans le Terminal : \`curl -fsSL ${site}/releases/download/${tag}/${MAC_FILES.installer} \\| sh\` | menu Pécule → « Rechercher une mise à jour… » |`,
     `| **Sources** | Contribuer, construire soi-même | \`git clone -b ${tag} ${site}.git\` | \`node scripts/maj.mjs\` |`,
     "",
-    `Image : \`${imageOf(repo)}:${version}\` (amd64 et arm64) · empreintes des fichiers : ${file(RELEASE_FILES.sums)}`,
+    `Image : \`${imageOf(repo)}:${version}\` (amd64 et arm64) · empreintes des fichiers : ${file(RELEASE_FILES.sums)}, ${file(MAC_FILES.sums)}`,
     "",
     `Pas à pas : [installer](${doc("installation")}) · [installer avec une IA](${doc("installer-avec-une-ia")}) · [mettre à jour](${doc("mise-a-jour")})`,
     "",

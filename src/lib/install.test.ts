@@ -43,6 +43,13 @@ describe("commandes d'une installation", () => {
     expect(versionCommand("node", "1.40.0")).toBe("node scripts/maj.mjs --version 1.40.0");
   });
 
+  it("appli de bureau : aucune commande à montrer, l'appli fait le geste elle-même", () => {
+    expect(linkCommand("bureau")).toBeNull();
+    expect(doctorCommand("bureau")).toBeNull();
+    expect(updateCommand("bureau")).toBeNull();
+    expect(versionCommand("bureau", "1.40.0")).toBeNull();
+  });
+
   it("les scripts annoncent une commande telle qu'elle se tape sur la machine", () => {
     expect(run({ inside: true, docker: true, file: null }, "node scripts/lien.mjs")).toBe(linkCommand("docker"));
     expect(run({ inside: false, docker: true, file: null }, "node scripts/lien.mjs")).toBe(linkCommand("docker"));
@@ -53,9 +60,10 @@ describe("commandes d'une installation", () => {
 });
 
 describe("compose.yaml", () => {
-  // Ce que compose.yaml ou l'image fixent eux-mêmes : le port dans le conteneur, les adresses des deux bases (gardées
-  // avec les secrets), le mode production.
-  const SET_BY_INSTALL = ["NODE_ENV", "PORT", "DATABASE_URL", "DEMO_DATABASE_URL"];
+  // Ce que compose.yaml ou l'image fixent eux-mêmes : le port dans le conteneur et l'interface où le serveur y écoute
+  // (toutes : c'est Docker qui publie le port, PECULE_BIND dit où), les adresses des deux bases (gardées avec les
+  // secrets), le mode production.
+  const SET_BY_INSTALL = ["NODE_ENV", "PORT", "LISTEN_HOST", "DATABASE_URL", "DEMO_DATABASE_URL"];
 
   it("transmet au serveur tous ses réglages, sans exiger de fichier .env", () => {
     const block = service("pecule");
@@ -63,9 +71,9 @@ describe("compose.yaml", () => {
     for (const name of serverSettings()) if (!SET_BY_INSTALL.includes(name)) expect(names, `${name} : à ajouter à l'environnement du service « pecule » de compose.yaml`).toContain(name);
     // Un fichier .env obligatoire empêcherait « docker compose up -d » dans un dossier qui n'a que compose.yaml.
     expect(compose).not.toMatch(/^\s*env_file:/m);
-    // Jamais le port du conteneur ni une adresse de base venus de .env : l'un casserait la publication du port,
-    // l'autre désignerait une base hors du réseau des conteneurs.
-    for (const name of ["PORT", "DATABASE_URL", "DEMO_DATABASE_URL"]) expect(names).not.toContain(name);
+    // Jamais le port du conteneur, son interface d'écoute ni une adresse de base venus de .env : les deux premiers
+    // casseraient la publication du port, la dernière désignerait une base hors du réseau des conteneurs.
+    for (const name of ["PORT", "LISTEN_HOST", "DATABASE_URL", "DEMO_DATABASE_URL"]) expect(names).not.toContain(name);
   });
 
   it("ne laisse pas .env déplacer les sauvegardes hors de leur volume", () => {
@@ -166,7 +174,7 @@ describe("consignes pour un agent IA", () => {
     expect(agents.split("\n").length).toBeLessThan(200);
     // Un agent n'a pas de terminal interactif : ses commandes dans le conteneur portent « -T ».
     const forAgent = (command: string) => command.replace("docker compose exec pecule", "docker compose exec -T pecule");
-    for (const command of [forAgent(linkCommand("docker")), forAgent(doctorCommand("docker")), updateCommand("docker"), "node scripts/lien.mjs", "node scripts/doctor.mjs", "node scripts/maj.mjs"]) expect(agents, command).toContain(command);
+    for (const command of [forAgent(linkCommand("docker") ?? ""), forAgent(doctorCommand("docker") ?? ""), updateCommand("docker") ?? "", "node scripts/lien.mjs", "node scripts/doctor.mjs", "node scripts/maj.mjs"]) expect(agents, command).toContain(command);
     expect(agents).not.toMatch(/docker compose exec (?!-T )/);
     // Les adresses stables des pièces jointes d'une version, et celle des consignes elles-mêmes.
     for (const url of ["releases/latest/download/compose.yaml", "releases/latest/download/pecule.tar.gz", "raw.githubusercontent.com/Enki-Engineer/pecule/stable/AGENTS.md"]) expect(agents, url).toContain(url);

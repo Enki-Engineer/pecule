@@ -58,6 +58,7 @@ Puis regarde la machine :
 | --- | --- |
 | `docker compose version` répond (version 2 ou plus récente) | **Docker**, section 2 — le plus simple, à préférer |
 | Pas de Docker, mais `node --version` ≥ 24 et une base MariaDB ou MySQL vide | **Archive**, section 3 |
+| Elle veut Pécule sur son Mac (puce Apple, macOS 14+), pour elle seule : ni serveur, ni téléphone | **Appli pour Mac**, qui porte sa base : `curl -fsSL https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule-mac.sh \| sh`, puis l'appli demande son prénom. Rien d'autre de ce fichier ne s'y applique : `docs/guide/appli-mac.md` |
 | Ni l'un ni l'autre | Propose d'installer Docker (https://docs.docker.com/get-docker/), avec son accord |
 
 ## 2. Docker

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { INSTALL_END, INSTALL_START, installBlock, RELEASE_FILES, releaseChanges, releaseNotes } from "./release-notes.ts";
+import { readFileSync } from "node:fs";
+import { INSTALL_END, INSTALL_START, installBlock, MAC_FILES, RELEASE_FILES, releaseChanges, releaseNotes } from "./release-notes.ts";
+
+const read = (file: string) => readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
 
 const changes = "- **Docker en une commande.** Le fichier `compose.yaml` suffit.\n- Deuxième point.";
 
@@ -16,8 +19,30 @@ describe("notes d'une version", () => {
     expect(block.endsWith(INSTALL_END)).toBe(true);
     // Un tableau Markdown : chaque ligne a le même nombre de colonnes.
     const rows = block.split("\n").filter((l) => l.startsWith("|"));
-    expect(rows.length).toBe(5);
-    for (const row of rows) expect(row.split("|").length).toBe(rows[0].split("|").length);
+    expect(rows.length).toBe(6);
+    // Une barre échappée (« \| », dans une commande) n'est pas une séparation de colonnes.
+    const columns = (row: string) => row.split(/(?<!\\)\|/).length;
+    for (const row of rows) expect(columns(row), row).toBe(columns(rows[0]));
+    // L'appli de bureau s'installe par le script de la version, et ses empreintes sont annoncées.
+    expect(block).toContain(`curl -fsSL https://github.com/Enki-Engineer/pecule/releases/download/v1.33.0/${MAC_FILES.installer} \\| sh`);
+    expect(block).toContain(`releases/download/v1.33.0/${MAC_FILES.sums}`);
+  });
+
+  it("l'appli de bureau est jointe à la version sous les noms que l'appli, son script et les notes attendent", () => {
+    const publication = read(".github/workflows/publication.yml");
+    const bureau = read(".github/workflows/bureau.yml");
+    const fabriquer = read("bureau/fabriquer.mjs");
+    const installer = read("bureau/pecule-mac.sh");
+    for (const name of Object.values(MAC_FILES)) {
+      expect(publication, `${name} : à joindre à la version`).toContain(`dist/bureau/${name}`);
+      expect(bureau, `${name} : à transmettre au flux de publication`).toContain(`dist/bureau/${name}`);
+      expect(fabriquer, `${name} : à fabriquer`).toContain(`"${name}"`);
+    }
+    // Le script d'installation prend l'appli et ses empreintes sous ces noms ; l'appli cherche ses mises à jour sous celui-ci.
+    for (const name of [MAC_FILES.app, MAC_FILES.sums]) expect(installer).toContain(name);
+    expect(read("bureau/src-tauri/tauri.conf.json")).toContain(`/releases/latest/download/${MAC_FILES.manifest}`);
+    // La version n'est créée qu'une fois l'appli fabriquée : une version publiée ne reçoit plus de pièce jointe.
+    expect(publication).toMatch(/publication:\n\s+needs: bureau\n/);
   });
 
   it("une copie du projet annonce ses propres adresses", () => {

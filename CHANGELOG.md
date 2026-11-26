@@ -3,6 +3,47 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.49.0
+
+Pécule a son appli pour Mac : sur un Mac à puce Apple, une commande l'installe, et tout — l'appli, sa base, tes
+données — reste sur l'ordinateur, sans serveur à tenir ni Docker. Rien ne change pour une installation sur un
+serveur. Aucune migration ; un réglage nouveau, facultatif (`LISTEN_HOST`).
+
+- **L'appli pour Mac** (puce Apple, macOS 14 ou plus récent) : dans le Terminal,
+  `curl -fsSL https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule-mac.sh | sh`. Elle embarque
+  Pécule, Node.js et MySQL — rien d'autre à installer —, crée sa base à la première ouverture et te demande ton
+  prénom. Elle convient à qui suit ses finances depuis un seul Mac ; pour le téléphone ou une autre machine, il faut
+  toujours un Pécule sur un serveur. Le guide : `docs/guide/appli-mac.md`.
+- **Y entrer** : par un mot de passe, si tu en choisis un ; sans lui, Pécule s'ouvre sur cet ordinateur sans rien
+  demander. Mot de passe oublié : menu Aide → « Mot de passe oublié… ». Les écrans y parlent de « cet ordinateur »
+  et du menu de l'appli, jamais d'un serveur ni d'une commande.
+- **Relier sa banque** : l'accord se donne dans une fenêtre à part, dont le titre dit chez qui tu es, et qui se
+  referme d'elle-même. L'adresse de retour à déclarer chez Enable Banking est celle que l'appli affiche
+  (`https://localhost:<port>/reglages/comptes`) : personne ne la sert, l'appli la reconnaît et reprend la main.
+- **Mettre à jour** : menu Pécule → « Rechercher une mise à jour… ». L'appli télécharge la version, vérifie sa
+  signature, se remplace et se rouvre ; une archive qui ne vient pas du projet est refusée.
+- **Fermer n'est pas quitter** : la fenêtre fermée, l'appli reste dans le Dock et continue de synchroniser ;
+  « Quitter Pécule » arrête tout, base comprise. Un lien extérieur s'ouvre dans ton navigateur, un document ou une
+  facture dans une fenêtre de l'appli, un téléchargement dans le dossier Téléchargements.
+- **Ce qu'elle n'a pas** : les notifications, la clé d'accès, l'accès depuis un téléphone. Tes données ne sont que
+  sur ce Mac : les sauvegardes de Pécule (Réglages → Compte et sécurité) et leur copie hors de l'ordinateur y
+  prennent toute leur importance. Une sauvegarde complète se restaure d'une appli à un serveur, et l'inverse.
+- **Sécurité** : rien ne sort de la machine — Pécule n'écoute que sur `127.0.0.1` et ne répond qu'à ce nom, sa base
+  n'a aucun port. Le compte du Mac est la seule frontière : sur un compte partagé à plusieurs, « privé » ne protège
+  de personne (`SECURITY.fr.md`, « L'appli pour Mac »). L'appli n'est pas signée par un compte Apple : installée par
+  la commande, elle se lance sans que macOS s'y oppose ; téléchargée par un navigateur, il faut l'autoriser dans
+  Réglages Système → Confidentialité et sécurité.
+- **Pour qui héberge un serveur** : `LISTEN_HOST=127.0.0.1` attache le serveur à la machine seule (un Pécule que
+  seul un proxy de la même machine joint) ; sans ce réglage, rien ne change. Un serveur dont le port est déjà pris
+  le dit dans son journal, au lieu de s'y déclarer « à l'écoute ».
+- **Sous le capot** : l'appli est l'archive prête à l'emploi avec Node.js 24 et MySQL 8.4 fournis, épinglés par leur
+  empreinte (`bureau/pieces.json`). Un superviseur (`scripts/bureau.mjs`) fait tout ce qui n'est pas la fenêtre —
+  dossier des données, réglages, base sans port, serveur — et se lance aussi seul ; la fenêtre est une coque Tauri 2,
+  à qui la page de Pécule ne peut rien demander. Quatre essais rejouables sans personne devant l'écran
+  (`bureau/essais/`), dont la recette dans la vraie fenêtre et une mise à jour de bout en bout, tournent sur une
+  machine Mac avant chaque publication (`.github/workflows/bureau.yml`). Deux relectures de sécurité indépendantes
+  ont précédé l'envoi.
+
 ## 1.48.0
 
 Le premier lancement ne bute plus sur la clé d'accès : on entre d'abord, l'écran dit pourquoi une clé ne peut pas se

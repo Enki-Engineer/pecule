@@ -17,6 +17,7 @@ Chaque version publiée de Pécule est livrée sous ces formats, joints à
 | **Docker** — le fichier `compose.yaml` | Un ordinateur, un serveur, un NAS. Le plus simple : l'appli et sa base ensemble. | Docker avec Compose 2 (essayé de la version 2.9 à la 5.5) |
 | **Archive prête à l'emploi** — `npm create pecule`, ou `pecule.tar.gz` / `pecule.zip` à la main | Un hébergement Node.js (offre mutualisée, serveur sans Docker). Le serveur est déjà construit. | Node.js 24, une base MariaDB 10.6+ ou MySQL 8+ |
 | **Sources** — le dépôt git, branche `stable` | Contribuer, modifier le code, ou un hébergeur qui construit depuis GitHub. | Node.js 24, pnpm, une base |
+| **Appli pour Mac** — une commande, ou `Pecule-mac.zip` | Suivre ses finances depuis un seul Mac, sans serveur ni Docker : l'appli porte sa propre base. Ni téléphone, ni autre machine. | Un Mac à puce Apple, macOS 14 — [son guide](appli-mac.md) |
 
 Une fois le serveur en place, Pécule s'installe sur chaque appareil comme une appli : « Sur l'écran d'accueil » du
 téléphone, « Ajouter au Dock » sur un Mac (le manuel intégré à l'appli le détaille).

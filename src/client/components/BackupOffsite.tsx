@@ -1,3 +1,4 @@
+import { useDesktop } from "../desktop.ts";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CloudUpload, Copy, KeyRound } from "lucide-react";
@@ -92,6 +93,7 @@ function Recovery({ identity, onStored }: { identity: string; onStored: () => vo
  */
 export function OffsiteBackupSettings() {
   const qc = useQueryClient();
+  const desktop = useDesktop();
   const info = useQuery({ queryKey: ["backup-info"], queryFn: () => api<Info>("/backup/info") });
   const d = info.data;
   const [identity, setIdentity] = useState<string | null>(null);
@@ -154,7 +156,7 @@ export function OffsiteBackupSettings() {
 
   return (
     <Card className="p-4">
-      <p className="text-sm">{t("Une copie chiffrée de chaque sauvegarde automatique est déposée sur un stockage à toi, hors du serveur : c'est elle qui protège de la perte du serveur.")}</p>
+      <p className="text-sm">{desktop ? t("Une copie chiffrée de chaque sauvegarde automatique est déposée sur un stockage à toi, hors de cet ordinateur : c'est elle qui protège de sa perte.") : t("Une copie chiffrée de chaque sauvegarde automatique est déposée sur un stockage à toi, hors du serveur : c'est elle qui protège de la perte du serveur.")}</p>
 
       <div className="mt-4 border-t border-line pt-4">
         <h3 className="flex items-center gap-2 text-[15px] font-semibold text-ink">
@@ -178,7 +180,7 @@ export function OffsiteBackupSettings() {
           </div>
         ) : (
           <>
-            <p className="mt-1 text-sm text-muted">{t("Rien ne quitte le serveur sans être chiffré. Pécule crée une clé, n'en garde que la moitié qui chiffre, et te montre une seule fois la clé de récupération.")}</p>
+            <p className="mt-1 text-sm text-muted">{desktop ? t("Rien ne quitte cet ordinateur sans être chiffré. Pécule crée une clé, n'en garde que la moitié qui chiffre, et te montre une seule fois la clé de récupération.") : t("Rien ne quitte le serveur sans être chiffré. Pécule crée une clé, n'en garde que la moitié qui chiffre, et te montre une seule fois la clé de récupération.")}</p>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
               <button type="button" onClick={() => key.mutate(undefined)} disabled={key.isPending} className="press rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
                 {t("Créer la clé de chiffrement")}
@@ -298,7 +300,7 @@ export function OffsiteBackupSettings() {
               {out.echec ? (
                 <p className="mt-3 text-sm text-warn">
                   {t("Dernier envoi en échec, le {date} à {heure} : {raison}", { date: day(out.echec.at), heure: hour(out.echec.at), raison: out.echec.raison })}
-                  {out.attente && ` ${t("L'archive attend sur le serveur : Pécule réessaie tout seul.")}`}
+                  {out.attente && ` ${desktop ? t("L'archive attend sur cet ordinateur : Pécule réessaie tout seul.") : t("L'archive attend sur le serveur : Pécule réessaie tout seul.")}`}
                 </p>
               ) : (
                 <p className="mt-3 text-sm text-muted">
@@ -306,7 +308,9 @@ export function OffsiteBackupSettings() {
                     ? t("Dernière copie déposée : le {date} à {heure} ({taille}).", { date: day(out.ok.at), heure: hour(out.ok.at), taille: mo(out.ok.octets) })
                     : d.auto.auto
                       ? t("Aucune copie pour l'instant : la prochaine sauvegarde automatique y sera déposée.")
-                      : t("Les copies partent avec les sauvegardes du serveur : active les sauvegardes automatiques, ou écris-en une maintenant.")}
+                      : desktop
+                        ? t("Les copies partent avec les sauvegardes de cet ordinateur : active les sauvegardes automatiques, ou écris-en une maintenant.")
+                        : t("Les copies partent avec les sauvegardes du serveur : active les sauvegardes automatiques, ou écris-en une maintenant.")}
                 </p>
               )}
               <button type="button" onClick={() => (listing ? void copies.refetch() : setListing(true))} className="press mt-2 text-sm font-medium text-accent">

@@ -1,3 +1,4 @@
+import { installKind } from "./install.ts";
 import { randomBytes } from "node:crypto";
 import { exec, one } from "./db.ts";
 import { runReal } from "./demo-context.ts";
@@ -24,6 +25,9 @@ const decoyHash = () => (decoy ??= hashPassword(randomBytes(18).toString("base64
 
 /** L'administrateur exige-t-il la clé d'accès ? (Alors aucun mot de passe n'est accepté.) */
 export async function passkeysOnly(): Promise<boolean> {
+  // L'appli de bureau n'a que le mot de passe (pas de clé d'accès sur 127.0.0.1) : la règle n'y vaut pas, même reprise
+  // d'une sauvegarde faite sur un serveur — sans quoi plus personne n'entrerait.
+  if (installKind() === "bureau") return false;
   const row = await runReal(() => one<{ value: string }>("SELECT value FROM app_kv WHERE `key` = 'acces'"));
   try {
     return (JSON.parse(row?.value ?? "{}") as { passkeysOnly?: unknown }).passkeysOnly === true;

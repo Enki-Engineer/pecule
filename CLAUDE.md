@@ -131,7 +131,8 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 ## Installation
 
 - **Trois formats, une seule façon de faire** : `compose.yaml` seul (Docker), l'archive prête à l'emploi
-  (`scripts/paquet.mjs`), les sources. Une étape ajoutée à l'installation se reporte dans `AGENTS.md` (la marche à
+  (`scripts/paquet.mjs`), les sources — et l'appli pour Mac (`bureau/`), qui est l'archive avec Node et MySQL
+  fournis (`docs/guide/appli-mac.md`). Une étape ajoutée à l'installation se reporte dans `AGENTS.md` (la marche à
   suivre des agents IA, lisible par son adresse sans cloner le dépôt), `docs/guide/installation.md` et la compétence
   `skills/pecule/SKILL.md`, recopiée dans `.claude/skills/pecule/` (un test compare).
 - **Le paquet npm « create-pecule » n'est que l'installateur** (`scripts/pecule.mjs`, fabriqué par
@@ -148,6 +149,13 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 - **Les scripts de l'installation tournent avec Node seul** (`doctor`, `lien`, `importer` : aucun fichier TypeScript
   importé), lisent les réglages par `scripts/lib/reglages.mjs`, ont un `--help` et un `--json`, et n'affichent
   jamais un secret — sauf le lien du premier démarrage, qui est fait pour être remis.
+- **L'appli de bureau ne change rien pour un serveur** : ce qui lui est propre se garde par
+  `installKind() === "bureau"` côté serveur, par `useDesktop()` (ou `access.desktop`) à l'écran — où elle a ses
+  mots : « cet ordinateur », jamais « le serveur », ni commande à lancer. La fenêtre n'est qu'une fenêtre : la page
+  ne reçoit aucune API de la coque, tout ce qui peut se décider hors d'elle vit dans le superviseur
+  (`scripts/bureau.mjs`, règles pures dans `src/lib/desktop.ts`), et chaque comportement de la coque a son essai
+  rejouable (`bureau/essais/`). Un texte de la coque se déclare dans `src/lib/desktop-texts.ts` et se traduit comme
+  les autres (`pnpm exec tsx scripts/bureau-textes.ts` refait son fichier ; un test compare).
 
 ## Interface
 
@@ -205,6 +213,8 @@ Le texte français est la clé (`src/lib/i18n.ts`) : `t("Je t'écoute")`, `t("Co
 | Une étape de la visite guidée | son identifiant et sa place dans `tourSteps` (`src/lib/tour.ts`), son repère `data-tour` dans la coquille (`components/Layout.tsx`, `MobileShell.tsx` : un test vérifie qu'il existe), son titre et son texte dans `words` (`components/Tour.tsx`) ; la visite ne fait que montrer : elle n'écrit rien et rend l'écran d'où l'on est parti |
 | Une option de la mise à jour | `scripts/maj.mjs` (Node seul, sans dépendance) et `docs/guide/mise-a-jour.md` |
 | Une commande de l'installation | `scripts/<nom>.mjs` (Node seul, `--help`, `--json`) ; pour qu'elle existe avec Docker et dans l'archive : la ligne `COPY` du `Dockerfile` et `SCRIPTS` de `scripts/paquet.mjs` |
+| Une pièce de l'appli de bureau (Node, MySQL) ou sa version | `bureau/pieces.json` : adresse chez l'éditeur, empreinte SHA-256 du fichier, fichiers gardés ; puis `node bureau/fabriquer.mjs` et les quatre essais de `bureau/essais/` |
+| Un élément du menu de l'appli de bureau | son texte dans `SHELL_TEXTS` (`src/lib/desktop-texts.ts`), l'élément dans `menu` et son geste dans `action_menu` (`bureau/src-tauri/src/main.rs`), son essai dans `bureau/essais/fenetre.mjs` |
 | Une commande que l'appli affiche à celui qui l'héberge | `src/lib/install.ts` (une par façon d'installer), jamais écrite en dur dans un écran |
 | Un réglage que l'assistant peut changer | `src/server/tools/reglages.ts` ; s'il est gardé par l'appareil : `DeviceSettings` (`src/lib/device-settings.ts`) et `applyDeviceSettings` (`src/client/deviceSettings.ts`) |
 

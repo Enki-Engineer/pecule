@@ -1,0 +1,117 @@
+name: Appli de bureau
+
+# Fabrique l'appli de bureau pour Mac (puce Apple) et la met à l'épreuve : le superviseur d'abord (cycle de vie
+# complet, sans fenêtre), puis l'appli fabriquée, dans sa vraie fenêtre. Appelé par le flux « Publication », qui joint
+# l'appli à la version ; lancé à la main (« Run workflow ») ou par une branche « bureau/… », il sert à essayer un
+# changement, sans rien publier ni signer.
+on:
+  workflow_call:
+    inputs:
+      signer:
+        description: Signer l'archive de mise à jour (publication seulement)
+        type: boolean
+        default: false
+  workflow_dispatch:
+  # Une branche « bureau/… » poussée sur le dépôt : pour essayer un changement de l'appli sur une machine Mac de
+  # GitHub avant de l'envoyer sur la branche principale.
+  push:
+    branches: ["bureau/**"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  mac:
+    # Une machine à puce Apple : l'appli ne se fabrique ni ne s'essaie ailleurs.
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 12.6.0
+      # Aucun cache partagé, comme dans « Publication » : ce qui est livré vient des fichiers de verrouillage
+      # (pnpm-lock.yaml, Cargo.lock) et des pièces épinglées par leur empreinte (bureau/pieces.json).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile
+      - name: Machine et outils
+        run: |
+          uname -m && sw_vers -productVersion
+          rustc --version && cargo --version && pnpm exec tauri --version
+      - name: Fabrication (pièces, Pécule, coque)
+        run: node bureau/fabriquer.mjs --sortie dist/bureau
+      - name: Superviseur — cycle de vie complet, sans fenêtre
+        run: node bureau/essais/cycle.mjs --mysql bureau/src-tauri/ressources/mysql
+      - name: Appli fabriquée — recette dans sa fenêtre
+        run: node bureau/essais/fenetre.mjs --appli "bureau/src-tauri/target/release/bundle/macos/Pécule.app" --captures "$RUNNER_TEMP/captures"
+      - name: Captures de la recette
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: recette-bureau
+          path: ${{ runner.temp }}/captures
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Empreintes
+        run: cd dist/bureau && shasum -a 256 --check SHA256SUMS-mac && ls -l
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: appli-mac
+          path: |
+            dist/bureau/Pecule-mac.zip
+            dist/bureau/Pecule-mac.app.tar.gz
+            dist/bureau/pecule-mac.sh
+            dist/bureau/SHA256SUMS-mac
+          if-no-files-found: error
+          retention-days: 7
+
+  # La signature de l'archive de mise à jour, sur une machine neuve : elle n'a rien compilé ni joué, ne reçoit que
+  # l'archive et ses empreintes, et n'exécute que l'outil de signature (les paquets y sont posés sans lancer leurs
+  # scripts). La clé est un secret de l'environnement « publication », que seules les étiquettes de version peuvent
+  # demander : une branche poussée sur le dépôt ne la lit pas.
+  signature:
+    if: ${{ inputs.signer }}
+    needs: mac
+    runs-on: ubuntu-latest
+    environment: publication
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: appli-mac
+          path: dist/bureau
+      - name: L'archive est celle que la machine Mac a fabriquée
+        run: cd dist/bureau && sha256sum --check SHA256SUMS-mac
+      - name: Signature de l'archive de mise à jour
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] || { echo "::error::La clé qui signe les mises à jour (secret TAURI_SIGNING_PRIVATE_KEY de l'environnement « publication ») manque : l'appli publiée ne pourrait pas se mettre à jour."; exit 1; }
+          node bureau/fabriquer.mjs --signer --sortie dist/bureau
+          test -s dist/bureau/pecule-mac.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: appli-mac-mise-a-jour
+          path: dist/bureau/pecule-mac.json
+          if-no-files-found: error
+          retention-days: 7

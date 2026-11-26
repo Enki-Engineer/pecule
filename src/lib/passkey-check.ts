@@ -17,19 +17,23 @@ export type PageFacts = {
   webauthn: boolean;
   /** L'adresse où l'installation est servie, dite par le serveur. */
   expected?: string | null;
+  /** L'appli de bureau : on y entre par mot de passe, quoi que sache faire sa fenêtre. */
+  desktop?: boolean;
 };
 
 /**
  * Ce qui empêche une clé d'accès de servir sur cette page :
  * - `adresse` : la page n'est pas ouverte à l'adresse de l'installation (rien n'y marchera, mot de passe compris) ;
+ * - `bureau` : l'appli de bureau, servie sur la machine elle-même (`src/lib/desktop.ts`) ;
  * - `ip` : l'adresse est une adresse IP ;
  * - `http` : le contexte n'est pas sûr (http hors de localhost) ;
  * - `navigateur` : ce navigateur ne connaît pas les clés d'accès.
  */
-export type PasskeyBlock = "adresse" | "ip" | "http" | "navigateur";
+export type PasskeyBlock = "adresse" | "bureau" | "ip" | "http" | "navigateur";
 
 export function passkeyBlock(page: PageFacts): PasskeyBlock | null {
   if (page.expected && page.expected !== page.origin) return "adresse";
+  if (page.desktop) return "bureau";
   if (addressInfo(page.origin)?.ip) return "ip";
   if (!page.secure) return "http";
   if (!page.webauthn) return "navigateur";

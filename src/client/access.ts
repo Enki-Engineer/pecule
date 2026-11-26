@@ -14,17 +14,18 @@ import { t } from "../lib/i18n.ts";
  * membre au moins en a un (l'écran de connexion le propose). Pour le membre connecté : ses clés d'accès (`passkeys`),
  * son mot de passe (`hasPassword`), et si l'administrateur exige la clé d'accès (`passkeysOnly`).
  */
-export type Access = { address: string; password: boolean; passwordLogin: boolean; passkeysOnly?: boolean; passkeys?: number; hasPassword?: boolean };
+export type Access = { address: string; password: boolean; passwordLogin: boolean; passkeysOnly?: boolean; passkeys?: number; hasPassword?: boolean; /** L'appli de bureau. */ desktop?: boolean };
 
 export const useAccess = () => useQuery({ queryKey: ["access"], queryFn: () => api<Access>("/auth/access"), staleTime: 300_000 });
 
 /** Ce qui empêche une clé d'accès de servir sur cette page ; `null` si rien ne s'y oppose. */
 export const pageBlock = (access?: Access | null): PasskeyBlock | null =>
-  passkeyBlock({ origin: window.location.origin, secure: window.isSecureContext, webauthn: typeof window.PublicKeyCredential !== "undefined", expected: access?.address });
+  passkeyBlock({ origin: window.location.origin, secure: window.isSecureContext, webauthn: typeof window.PublicKeyCredential !== "undefined", expected: access?.address, desktop: access?.desktop === true });
 
 /** Pourquoi une clé d'accès ne peut pas servir ici, dit avant le geste. */
 export function blockText(block: PasskeyBlock, address?: string): string {
   if (block === "adresse") return t("Cette page est ouverte à {ici}, mais cette installation de Pécule est servie à {adresse} : c'est à cette adresse qu'on se connecte.", { ici: window.location.origin, adresse: address ?? "" });
+  if (block === "bureau") return t("Dans l'appli de bureau, ton accès se protège par un mot de passe.");
   if (block === "ip") return t("Une clé d'accès ne peut pas servir sur une adresse IP : il lui faut un nom (un nom de domaine en https, ou http://localhost sur la machine elle-même).");
   if (block === "http") return t("Une clé d'accès demande une adresse en https (ou http://localhost sur la machine elle-même) : en http, le navigateur la refuse.");
   return t("Ce navigateur ne sait pas se servir d'une clé d'accès.");

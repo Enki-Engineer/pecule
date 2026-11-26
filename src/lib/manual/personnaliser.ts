@@ -202,5 +202,26 @@ export const personnaliser: ManualTheme = {
       links: [{ to: "/reglages/notifications", label: ["Réglages", "Notifications et appareil"] }],
       words: tk("installer application pwa écran d'accueil ajouter à l'écran d'accueil app store télécharger l'appli mobile"),
     },
+    {
+      id: "appli-mac",
+      title: tk("L'appli pour Mac"),
+      summary: tk("Pécule sur ton Mac, avec sa propre base : ce qui change par rapport à un Pécule installé sur un serveur."),
+      body: [
+        tk("Dans l'appli pour Mac, Pécule et sa base tournent sur ton ordinateur : rien ne sort de la machine, et il n'y a ni serveur à tenir ni commande à lancer."),
+        {
+          list: [
+            tk("Ton accès se protège par un mot de passe, à choisir dans [[Réglages]] → [[Compte et sécurité]] ; sans lui, Pécule s'ouvre sur cet ordinateur sans rien demander."),
+            tk("Mot de passe oublié : ouvre le menu Aide de l'appli, puis « [[Mot de passe oublié…]] »."),
+            tk("Fermer la fenêtre ne quitte pas l'appli ; « [[Quitter Pécule]] » arrête tout. Pécule ne synchronise que lorsqu'il est ouvert."),
+            tk("Une mise à jour s'installe par le menu Pécule, « [[Rechercher une mise à jour…]] » : l'appli la télécharge, vérifie sa signature et se rouvre."),
+            tk("Quand tu relies ta banque, l'accord se donne dans une fenêtre à part, qui se referme d'elle-même."),
+          ],
+        },
+        { warning: tk("Tes données ne sont que sur ce Mac : active les sauvegardes dans [[Réglages]] → [[Compte et sécurité]], et la copie hors de l'ordinateur si tu le peux — c'est la seule qui protège de la perte du Mac.") },
+        { note: tk("L'appli pour Mac n'envoie pas de notifications et ne s'ouvre pas depuis un téléphone : pour cela, il faut un Pécule installé sur un serveur. Une sauvegarde complète se restaure de l'un à l'autre.") },
+      ],
+      links: [{ to: "/reglages/compte", label: ["Réglages", "Compte et sécurité"] }],
+      words: tk("mac macos bureau desktop ordinateur appli de bureau application dock quitter fenêtre mise à jour de l'appli"),
+    },
   ],
 };

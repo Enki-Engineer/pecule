@@ -20,6 +20,8 @@ type Status = {
   state: UpdateState;
   latest: { version: string; url: string; notes: string; publishedAt: string | null } | null;
   docker: boolean;
+  /** Façon dont l'installation est tenue ; « bureau » : l'appli de bureau, qui installe elle-même la mise à jour. */
+  install?: "docker" | "node" | "bureau";
   /** Commande qui installe la dernière version, pour cette installation ; celle de la version palier quand il en faut une. */
   command?: string;
   commandPalier?: string | null;
@@ -92,7 +94,13 @@ export function UpdateSettings() {
                 <Markdown text={d.latest.notes} />
               </div>
             )}
-            {newer.kind === "palier" ? (
+            {d.install === "bureau" ? (
+              <p className="mt-3 text-sm">
+                {newer.kind === "palier"
+                  ? t("Ta version est trop ancienne pour y passer d'un coup : installe d'abord la version {palier} (sa page, sur GitHub, dit comment), puis reviens ici.", { palier: newer.palier })
+                  : t("Pour l'installer, ouvre le menu Pécule de l'appli, puis « {menu} ».", { menu: t("Rechercher une mise à jour…") })}
+              </p>
+            ) : newer.kind === "palier" ? (
               <>
                 <p className="mt-3 text-sm">
                   {t("Ta version est trop ancienne pour y passer d'un coup : installe d'abord la version {palier}, puis relance la mise à jour. Sur le serveur, dans le dossier de Pécule :", { palier: newer.palier })}
@@ -107,7 +115,9 @@ export function UpdateSettings() {
               </>
             )}
             <p className="mt-2 text-xs text-muted">
-              {d.docker
+              {d.install === "bureau"
+                ? t("L'appli télécharge la version, vérifie sa signature, puis redémarre ; avant de modifier la base, Pécule en garde lui-même une sauvegarde complète.")
+                : d.docker
                 ? t("Elle récupère la nouvelle version et relance Pécule ; avant de modifier la base, le serveur en garde lui-même une sauvegarde complète. Rien ne s'installe depuis l'appli.")
                 : t("Elle télécharge une sauvegarde complète, installe la version, attend que Pécule ait redémarré et contrôle le résultat. Rien ne s'installe depuis l'appli.")}{" "}
               {d.latest && (
@@ -124,8 +134,12 @@ export function UpdateSettings() {
           {!d.backupBeforeMigration
             ? t("La sauvegarde automatique d'avant mise à jour est coupée sur ce serveur : fais-en une toi-même avant chaque mise à jour.")
             : last
-              ? t("Avant une mise à jour qui change la base, le serveur en garde une sauvegarde complète. La dernière : le {date} à {heure} ({taille}), dans {dossier}.", { date: day(last.at), heure: hour(last.at), taille: mo(last.octets), dossier: d.backupDir })
-              : t("Avant une mise à jour qui change la base, le serveur en garde une sauvegarde complète, dans {dossier}. Aucune pour l'instant.", { dossier: d.backupDir })}
+              ? d.install === "bureau"
+                ? t("Avant une mise à jour qui change la base, Pécule en garde une sauvegarde complète. La dernière : le {date} à {heure} ({taille}), dans {dossier}.", { date: day(last.at), heure: hour(last.at), taille: mo(last.octets), dossier: d.backupDir })
+                : t("Avant une mise à jour qui change la base, le serveur en garde une sauvegarde complète. La dernière : le {date} à {heure} ({taille}), dans {dossier}.", { date: day(last.at), heure: hour(last.at), taille: mo(last.octets), dossier: d.backupDir })
+              : d.install === "bureau"
+                ? t("Avant une mise à jour qui change la base, Pécule en garde une sauvegarde complète, dans {dossier}. Aucune pour l'instant.", { dossier: d.backupDir })
+                : t("Avant une mise à jour qui change la base, le serveur en garde une sauvegarde complète, dans {dossier}. Aucune pour l'instant.", { dossier: d.backupDir })}
         </p>
       </Card>
     </Section>

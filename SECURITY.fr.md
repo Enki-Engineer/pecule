@@ -61,3 +61,31 @@ libre : une réponse arrive en général sous une semaine. Seule la dernière ve
   adresse de visiteur. Sans Docker, ferme au pare-feu le port du serveur : seul ton proxy https doit l'atteindre.
 - Ne publie pas ton instance sans https — ni derrière un certificat autosigné, que le navigateur refuse pour les
   clés d'accès —, et laisse `X-Robots-Tag` en place : rien ne doit être indexé.
+
+## L'appli pour Mac
+
+L'appli de bureau (`docs/guide/appli-mac.md`) fait tourner Pécule et sa base sur l'ordinateur de celui qui s'en sert.
+Son modèle n'est pas celui d'un serveur :
+
+- **Le compte du Mac est la seule frontière.** Les données, la base et les réglages — dont le secret qui chiffre les
+  clés gardées en base — sont dans `~/Library/Application Support/Pecule`, fermé aux autres comptes. Qui ouvre la
+  session du Mac a tout : verrouille-la, et active FileVault. Une sauvegarde du Mac (Time Machine) emporte ce
+  dossier entier : protège-la de même.
+- **Sur un compte du Mac partagé par plusieurs personnes, « privé » ne protège de personne.** Le menu Aide →
+  « Mot de passe oublié… » donne à qui tient la fenêtre un accès à n'importe quel membre, administrateur compris —
+  c'est l'équivalent de `scripts/lien.mjs` sur un serveur. Un mot de passe n'y arrête qu'un regard de passage. Pour
+  des membres qui se cachent des choses : un compte du Mac chacun, ou une installation sur un serveur.
+- **Rien ne sort de la machine.** Le serveur n'écoute que sur `127.0.0.1` et ne répond qu'à ce nom (une page d'un
+  autre site qui ferait pointer le sien vers la machine est refusée) ; la base n'a aucun port, seulement un socket
+  dans le dossier des données.
+- **Le témoin de session vaut pour tous les ports de `127.0.0.1`** : un navigateur l'enverrait à un autre programme
+  qui prendrait le port de Pécule quand il est arrêté. La fenêtre de l'appli ne va à ce port qu'après que son propre
+  serveur a prouvé qu'il le tient, et la fenêtre où se donne l'accord d'une banque n'a jamais ce témoin. Sur un Mac
+  où d'autres comptes sont ouverts en même temps, n'ouvre pas Pécule dans un navigateur ordinaire.
+- **L'appli n'est pas signée par un compte Apple** (signature « ad hoc ») : macOS ne peut pas dire de qui elle
+  vient. Installe-la par la commande du guide, qui contrôle son empreinte, et vérifie au besoin l'attestation de
+  provenance de la version. Les mises à jour faites par l'appli sont, elles, **signées** : elle refuse une archive
+  qui ne porte pas la signature du projet, d'où qu'elle vienne. Node.js et MySQL y sont ceux de leurs éditeurs,
+  épinglés par leur empreinte (`bureau/pieces.json`), avec leur signature d'origine.
+- La page de Pécule ne reçoit aucun pouvoir de l'appli : ni commande, ni accès aux fichiers. L'appli ne fait que
+  regarder où la fenêtre veut aller — tout lien extérieur part dans le navigateur.

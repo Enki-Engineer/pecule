@@ -5,7 +5,7 @@ import { runReal } from "./demo-context.ts";
 import { backupDir, listServerBackups, type ServerBackup } from "./pre-migration.ts";
 import { installKind } from "./install.ts";
 import { VERSION } from "./version.ts";
-import { updateCommand, versionCommand } from "../lib/install.ts";
+import { updateCommand, versionCommand, type InstallKind } from "../lib/install.ts";
 import { releaseChanges } from "../lib/release-notes.ts";
 import { cleanVersion, DOCKER_IMAGE, updateState, type UpdateState } from "../lib/version.ts";
 
@@ -155,8 +155,10 @@ export type UpdateStatus = {
   /** Installation par Docker : la mise à jour passe par l'image publiée. */
   docker: boolean;
   image: string;
-  /** Commande qui installe la dernière version sur le serveur, pour cette installation. */
-  command: string;
+  /** Façon dont cette installation est tenue (`src/lib/install.ts`). */
+  install: InstallKind;
+  /** Commande qui installe la dernière version sur le serveur, pour cette installation ; aucune dans l'appli de bureau, qui la propose elle-même. */
+  command: string | null;
   /** Commande qui installe d'abord la version palier, quand il en faut une. */
   commandPalier: string | null;
   /** Sauvegardes écrites par le serveur avant une migration, la plus récente d'abord, et leur dossier. */
@@ -184,6 +186,7 @@ export async function updateStatus(): Promise<UpdateStatus> {
     state,
     latest: state.kind === "a-jour" ? null : s.latest,
     docker: kind === "docker",
+    install: kind,
     image: DOCKER_IMAGE,
     command: updateCommand(kind),
     commandPalier: state.kind === "palier" ? versionCommand(kind, state.palier) : null,

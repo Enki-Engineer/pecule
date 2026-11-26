@@ -8,6 +8,7 @@ sur le serveur. La commande dépend de la façon dont Pécule est installé — 
 | Docker | `docker compose pull && docker compose up -d` |
 | Archive prête à l'emploi | `node scripts/maj.mjs` |
 | Sources (dépôt git) | `node scripts/maj.mjs` |
+| Appli pour Mac | aucune : menu Pécule → « Rechercher une mise à jour… » ([son guide](appli-mac.md)) |
 
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/) et sont décrites dans le
 [journal des versions](../../CHANGELOG.md).
@@ -43,6 +44,16 @@ Sauvegarde complète.
   l'ancien avant `docker compose up -d` : vos volumes ne dépendent pas de lui.
 - Installé depuis le dépôt, avec Node sur la machine ? `node scripts/maj.mjs` fait la même chose en téléchargeant
   d'abord une sauvegarde complète, et contrôle le résultat.
+
+## Avec l'appli pour Mac
+
+Menu Pécule → « Rechercher une mise à jour… ». L'appli lit, sur la page de la dernière version, le fichier
+`pecule-mac.json` : s'il annonce une version plus récente, elle demande votre accord, arrête Pécule proprement,
+télécharge `Pecule-mac.app.tar.gz`, **vérifie sa signature** (la clé publique est dans l'appli : une archive qui ne
+vient pas du projet, ou abîmée en route, est refusée et l'appli en place n'est pas touchée), se remplace et se
+rouvre. Vos données ne bougent pas, et la base est sauvegardée avant toute migration, comme ailleurs. Une version
+trop ancienne pour passer d'un coup à la dernière le dit, avec la version à installer d'abord
+(`PECULE_VERSION=<version>` devant la commande d'installation du [guide](appli-mac.md)).
 
 ## Avec l'archive ou les sources : `node scripts/maj.mjs`
 

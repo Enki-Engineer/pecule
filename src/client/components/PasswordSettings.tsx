@@ -39,9 +39,11 @@ export function PasswordSettings({ name }: { name: string }) {
     <div className="mt-2 space-y-2 text-sm">
       {unprotected && (
         <div className="text-warn">
-          {access.password
-            ? t("Ton accès n'est pas protégé : crée une clé d'accès avec « {bouton} », ou choisis un mot de passe. Sans eux, tu ne reviendras sur un autre appareil que par un lien donné sur le serveur.", { bouton: t("Ajouter cet appareil") })
-            : t("Ton accès n'est pas protégé : crée une clé d'accès avec « {bouton} ». Sans elle, tu ne reviendras sur un autre appareil que par un lien donné sur le serveur.", { bouton: t("Ajouter cet appareil") })}
+          {access.desktop
+            ? t("Ton accès n'est pas protégé : sans mot de passe, Pécule s'ouvre sur cet ordinateur sans rien demander.")
+            : access.password
+              ? t("Ton accès n'est pas protégé : crée une clé d'accès avec « {bouton} », ou choisis un mot de passe. Sans eux, tu ne reviendras sur un autre appareil que par un lien donné sur le serveur.", { bouton: t("Ajouter cet appareil") })
+              : t("Ton accès n'est pas protégé : crée une clé d'accès avec « {bouton} ». Sans elle, tu ne reviendras sur un autre appareil que par un lien donné sur le serveur.", { bouton: t("Ajouter cet appareil") })}
         </div>
       )}
       {/* Pourquoi « Ajouter cet appareil » ne peut rien ici, dit avant qu'on essaie. */}
@@ -83,7 +85,8 @@ export function AccessPolicy() {
   const qc = useQueryClient();
   const access = useAccess().data;
   const [busy, setBusy] = useState(false);
-  if (!access) return null;
+  // L'appli de bureau n'a que le mot de passe : il n'y a pas de clé d'accès à exiger.
+  if (!access || access.desktop) return null;
 
   async function set(only: boolean) {
     if (only && !confirm(t("Exiger une clé d'accès de tous les membres ? Les mots de passe déjà choisis sont effacés et les autres sessions fermées ; un membre qui n'avait que son mot de passe reviendra par un lien d'inscription."))) return;

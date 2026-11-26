@@ -39,6 +39,9 @@ Réponds à la personne dans sa langue. Ce qui suit est l'essentiel, si le fichi
    port que 3000 : `PECULE_PORT=3322` (l'adresse suit d'elle-même). Sur un serveur : `APP_URL=https://…`, et
    `COMPOSE_PROFILES=https` pour que Caddy obtienne le certificat (à omettre s'il y a déjà un proxy https). Sur le
    réseau de la maison : `APP_URL=http://192.168.1.20:3000` et `PECULE_BIND=0.0.0.0` (le port est publié sur ce réseau).
+   Sur un Mac à puce Apple, pour une personne seule, sans serveur ni téléphone : l'appli pour Mac, qui porte sa
+   base — `curl -fsSL https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule-mac.sh | sh`, puis
+   l'appli demande un prénom (`docs/guide/appli-mac.md` ; rien d'autre de cette marche à suivre ne s'y applique).
 3. Pas de Docker, mais Node 24 et une base MariaDB ou MySQL vide : l'archive prête à l'emploi.
    ```sh
    npm create pecule && cd pecule      # ou : curl -fsSLO https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule.tar.gz && tar -xzf pecule.tar.gz && cd pecule

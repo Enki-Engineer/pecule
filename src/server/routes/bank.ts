@@ -1,3 +1,4 @@
+import { bankAuthLink } from "../../lib/desktop.ts";
 import { region } from "../region.ts";
 import { one } from "../db.ts";
 import { changeAccountCurrency } from "../currency-change.ts";
@@ -110,7 +111,7 @@ bankApi.post("/bank/enable-banking/connect", member, async (req, res) => {
   // `from` : la demande part de la présentation de bienvenue, où le retour de la banque ramène.
   const body = z.object({ aspsp: z.string().min(1).max(120), country: z.string().regex(/^[A-Za-z]{2}$/), userId: z.number().int().optional(), from: z.enum(["bienvenue"]).optional() }).parse(req.body);
   const who = body.userId !== undefined && body.userId !== req.user!.id ? await keyTarget(req, "moi", body.userId) : req.user!.id;
-  res.json({ url: await ebStartAuth(who!, body.aspsp, body.country.toUpperCase(), body.from) });
+  res.json({ url: bankAuthLink(process.env, await ebStartAuth(who!, body.aspsp, body.country.toUpperCase(), body.from)) });
 });
 
 bankApi.delete("/bank/enable-banking/sessions/:id", member, async (req, res) => {

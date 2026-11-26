@@ -207,7 +207,7 @@ export function mergeSettings(env: Record<string, string | undefined>, kept: Set
 }
 
 /** Une chaîne dans une instruction SQL de MariaDB ou MySQL (apostrophes et barres obliques inverses doublées). */
-const sqlString = (text: string) => `'${text.replace(/\\/g, "\\\\").replace(/'/g, "''")}'`;
+export const sqlString = (text: string) => `'${text.replace(/\\/g, "\\\\").replace(/'/g, "''")}'`;
 
 /** Un mot de passe dans l'adresse d'une base (`mysql://utilisateur:motdepasse@…`). */
 const urlPart = (text: string) => encodeURIComponent(text);

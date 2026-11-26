@@ -30,6 +30,14 @@ const schema = z.object({
    */
   NODE_ENV: z.enum(["development", "production", "test"]).default("production"),
   PORT: z.coerce.number().default(3000),
+  /**
+   * Interface où le serveur écoute. Absent : toutes (un hébergeur, un conteneur, un proxy le joignent d'où ils sont).
+   * `127.0.0.1` : la machine seule — c'est ce que règle l'appli de bureau, où rien ne doit sortir de l'ordinateur.
+   */
+  LISTEN_HOST: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim() || undefined),
   DATABASE_URL: z.string().min(1),
   /** Mode démo : base séparée remplie de données fictives (désactivé si absent). */
   DEMO_DATABASE_URL: z.string().optional(),

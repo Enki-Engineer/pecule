@@ -1,3 +1,4 @@
+import { useDesktop } from "../desktop.ts";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, HardDriveDownload, Trash2 } from "lucide-react";
@@ -49,6 +50,7 @@ function kindLabel(kind: Archive["kind"]): string {
  */
 export function AutoBackupSettings() {
   const qc = useQueryClient();
+  const desktop = useDesktop();
   // L'écriture se suit en relisant l'état : elle peut durer plusieurs minutes. `asked` : le dernier résultat connu au
   // moment du clic — tant qu'il n'a pas changé, la sauvegarde demandée n'est pas finie.
   const [asked, setAsked] = useState<string | null>(null);
@@ -93,8 +95,8 @@ export function AutoBackupSettings() {
       <label className="flex cursor-pointer items-start gap-3">
         <input type="checkbox" checked={d.auto.auto} disabled={save.isPending} onChange={(e) => save.mutate({ auto: e.target.checked })} className="mt-0.5 size-5 shrink-0 accent-[var(--color-accent)]" />
         <span className="min-w-0">
-          <span className="block text-[15px] font-medium text-ink">{t("Écrire une sauvegarde sur le serveur, sans que j'aie à y penser")}</span>
-          <span className="mt-0.5 block text-sm text-muted">{t("Pécule écrit une sauvegarde complète dans un dossier du serveur, la relit en entier, et ne garde que les plus récentes.")}</span>
+          <span className="block text-[15px] font-medium text-ink">{desktop ? t("Écrire une sauvegarde sur cet ordinateur, sans que j'aie à y penser") : t("Écrire une sauvegarde sur le serveur, sans que j'aie à y penser")}</span>
+          <span className="mt-0.5 block text-sm text-muted">{desktop ? t("Pécule écrit une sauvegarde complète dans un dossier de cet ordinateur, la relit en entier, et ne garde que les plus récentes.") : t("Pécule écrit une sauvegarde complète dans un dossier du serveur, la relit en entier, et ne garde que les plus récentes.")}</span>
         </span>
       </label>
 
@@ -144,7 +146,7 @@ export function AutoBackupSettings() {
 
       {d.archives.length > 0 && (
         <div className="mt-4 border-t border-line pt-3">
-          <p className="tnum mb-1 text-sm text-muted">{`${tn("{n} archive sur le serveur", "{n} archives sur le serveur", d.archives.length, { n: n(d.archives.length) })} · ${mo(total)}`}</p>
+          <p className="tnum mb-1 text-sm text-muted">{`${desktop ? tn("{n} archive sur cet ordinateur", "{n} archives sur cet ordinateur", d.archives.length, { n: n(d.archives.length) }) : tn("{n} archive sur le serveur", "{n} archives sur le serveur", d.archives.length, { n: n(d.archives.length) })} · ${mo(total)}`}</p>
           <ul className="max-h-72 divide-y divide-line overflow-y-auto">
             {d.archives.map((a) => (
               <li key={a.name} className="flex items-center gap-2 py-2">
@@ -160,7 +162,7 @@ export function AutoBackupSettings() {
                   title={t("Supprimer")}
                   aria-label={t("Supprimer")}
                   disabled={remove.isPending}
-                  onClick={() => confirm(t("Retirer cette archive du serveur ? Elle ne pourra pas être retrouvée.")) && remove.mutate(a.name)}
+                  onClick={() => confirm(desktop ? t("Retirer cette archive de cet ordinateur ? Elle ne pourra pas être retrouvée.") : t("Retirer cette archive du serveur ? Elle ne pourra pas être retrouvée.")) && remove.mutate(a.name)}
                   className="press grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:text-ink"
                 >
                   <Trash2 size={16} />
@@ -173,8 +175,12 @@ export function AutoBackupSettings() {
 
       <p className="mt-3 text-xs text-muted">
         {d.destination
-          ? t("Dossier du serveur : {dossier}. Ces archives sont sur le même serveur que la base ; une copie chiffrée de chaque sauvegarde automatique part aussi sur ton stockage extérieur.", { dossier: d.dir })
-          : t("Dossier du serveur : {dossier}. Ces archives sont sur le même serveur que la base : elles protègent d'une erreur ou d'une mise à jour qui tourne mal, pas de la perte du serveur. Télécharges-en une de temps en temps.", { dossier: d.dir })}
+          ? desktop
+            ? t("Dossier : {dossier}. Ces archives sont sur le même ordinateur que la base ; une copie chiffrée de chaque sauvegarde automatique part aussi sur ton stockage extérieur.", { dossier: d.dir })
+            : t("Dossier du serveur : {dossier}. Ces archives sont sur le même serveur que la base ; une copie chiffrée de chaque sauvegarde automatique part aussi sur ton stockage extérieur.", { dossier: d.dir })
+          : desktop
+            ? t("Dossier : {dossier}. Ces archives sont sur le même ordinateur que la base : elles protègent d'une erreur ou d'une mise à jour qui tourne mal, pas de la perte de l'ordinateur. Copies-en une de temps en temps sur un autre disque.", { dossier: d.dir })
+            : t("Dossier du serveur : {dossier}. Ces archives sont sur le même serveur que la base : elles protègent d'une erreur ou d'une mise à jour qui tourne mal, pas de la perte du serveur. Télécharges-en une de temps en temps.", { dossier: d.dir })}
       </p>
     </Card>
   );

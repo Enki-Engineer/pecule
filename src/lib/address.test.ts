@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addressInfo as forScripts } from "../../scripts/lib/adresse.mjs";
-import { addressInfo } from "./address.ts";
+import { addressInfo, isLoopbackHost } from "./address.ts";
 
 const CASES: [url: string, kind: string | null, passkeys: boolean][] = [
   ["https://pecule.exemple.fr", "https", true],
@@ -50,3 +50,14 @@ describe("addressInfo", () => {
     for (const [url] of CASES) expect(forScripts(url), url).toEqual(addressInfo(url));
   });
 });
+
+describe("nom d'hôte d'une requête", () => {
+  it("reconnaît la machine elle-même, avec ou sans port", () => {
+    for (const host of ["127.0.0.1", "127.0.0.1:47800", "localhost", "LOCALHOST:3000", "pecule.localhost:3000", "[::1]", "[::1]:3000", "::1", "127.1.2.3:80"]) expect(isLoopbackHost(host), host).toBe(true);
+  });
+
+  it("refuse tout autre nom, même s'il ressemble", () => {
+    for (const host of [undefined, "", "pecule.exemple.fr", "127.0.0.1.exemple.fr", "localhost.exemple.fr", "exemple.fr:47800", "192.168.1.20:3000", "[::2]:3000", "0.0.0.0", "1127.0.0.1"]) expect(isLoopbackHost(host), String(host)).toBe(false);
+  });
+});
+

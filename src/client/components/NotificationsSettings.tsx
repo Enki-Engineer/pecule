@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Bell, BellOff, Send } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../api.ts";
+import { useDesktop } from "../desktop.ts";
 import { Card } from "./ui.tsx";
 import { dateFr } from "../format.ts";
 import { t } from "../../lib/i18n.ts";
@@ -30,6 +31,7 @@ export function NotificationsSettings() {
   const [endpoint, setEndpoint] = useState<string | null>(null);
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [busy, setBusy] = useState(false);
+  const desktop = useDesktop();
 
   // Abonnement déjà présent sur cet appareil ?
   useEffect(() => {
@@ -83,6 +85,8 @@ export function NotificationsSettings() {
     if (endpoint) await api("/push/prefs", { method: "PATCH", json: { endpoint, prefs: next } }).catch(() => toast.error(t("Réglage non enregistré")));
   }
 
+  // La fenêtre de l'appli de bureau a de quoi s'abonner, mais aucun service ne lui porte les notifications.
+  if (desktop) return <Card className="p-4 text-sm text-muted">{t("L'appli de bureau n'envoie pas encore de notifications.")}</Card>;
   if (!supported())
     return (
       <Card className="p-4 text-sm text-muted">

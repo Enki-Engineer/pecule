@@ -147,6 +147,13 @@ Every release ships in three formats, attached to [its page](https://github.com/
 | **Docker** — one file, `compose.yaml` | A computer, a server, a NAS. The simplest: the app and its database together. | Docker with Compose 2 (tested from 2.9 to 5.5) |
 | **Ready-to-run archive** — `npm create pecule`, or `pecule.tar.gz` / `pecule.zip` by hand | Node.js hosting without Docker. The server is already built. | Node.js 24, MariaDB 10.6+ or MySQL 8+ |
 | **Source** — `git clone -b stable` | Contributing, or a host that builds from GitHub. | Node.js 24, pnpm, a database |
+| **Mac app** — one command in the Terminal ([guide, in French](docs/guide/appli-mac.md)) | Tracking your finances from a single Mac, with no server and no Docker: the app carries its own database. | An Apple-silicon Mac, macOS 14 |
+
+On an Apple-silicon Mac, with no server and no Docker — the app carries its own database, and everything stays on the computer:
+
+```sh
+curl -fsSL https://github.com/Enki-Engineer/pecule/releases/latest/download/pecule-mac.sh | sh
+```
 
 With Docker, three commands — nothing to clone, no Node, no settings file to write:
 

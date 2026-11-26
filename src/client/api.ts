@@ -224,6 +224,8 @@ export type Me = {
   demoAvailable?: boolean;
   setup?: boolean;
   setupCommand?: string;
+  /** L'appli de bureau (`src/lib/desktop.ts`) : l'écran y parle de l'appli, pas d'un serveur ni de ses commandes. */
+  desktop?: boolean;
 };
 /** L'identité a été lue sur le serveur depuis l'ouverture de cette page (sinon, c'est la copie gardée par l'appareil). */
 let identityRead = false;

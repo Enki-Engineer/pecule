@@ -193,7 +193,11 @@ export function Login() {
       {/* Pourquoi la clé d'accès manque ici : dit seulement quand il n'y a pas de mot de passe à proposer à la place. */}
       {block !== null && access && !password && <p className="max-w-xs text-sm text-muted">{blockText(block, access.address)}</p>}
       {block !== null && access && !password && (
-        <p className="mt-3 max-w-xs text-sm">{t("Aucun membre n'a encore de mot de passe : demande un lien d'inscription à l'administrateur du foyer. Si c'est toi, la commande « lien » de l'installation en donne un.")}</p>
+        <p className="mt-3 max-w-xs text-sm">
+          {access.desktop
+            ? t("Aucun membre n'a encore de mot de passe : pour entrer, ouvre le menu Aide de l'appli, puis « {menu} ».", { menu: t("Mot de passe oublié…") })
+            : t("Aucun membre n'a encore de mot de passe : demande un lien d'inscription à l'administrateur du foyer. Si c'est toi, la commande « lien » de l'installation en donne un.")}
+        </p>
       )}
       {block === null && password && (
         <button type="button" onClick={() => (setByPassword((v) => !v), setError(null))} className={linkButton}>
@@ -277,7 +281,8 @@ export function Enroll() {
           </button>
         </>
       )}
-      {block !== null && <p className="mb-5 max-w-xs text-sm text-muted">{blockText(block, access?.address)}</p>}
+      {/* Dit une fois que le serveur a dit où l'on est : avant, l'appli de bureau montrerait un instant le texte d'une adresse IP. */}
+      {access && block !== null && <p className="mb-5 max-w-xs text-sm text-muted">{blockText(block, access.address)}</p>}
       {form && (
         <>
           <p className="mb-4 max-w-xs text-[15px]">{t("Choisis un mot de passe : tu te connecteras avec ton prénom et lui.")}</p>
@@ -297,7 +302,11 @@ export function Enroll() {
             {t("Plus tard")}
           </button>
           {access && !access.passkeys && !access.hasPassword && (
-            <p className="mt-2 max-w-xs text-xs text-muted">{t("Ça se fait aussi plus tard, dans les réglages. D'ici là, sans clé d'accès ni mot de passe, tu ne reviendras sur un autre appareil que par un lien donné sur le serveur.")}</p>
+            <p className="mt-2 max-w-xs text-xs text-muted">
+              {access.desktop
+                ? t("Ça se fait aussi plus tard, dans les réglages. D'ici là, Pécule s'ouvre sur cet ordinateur sans rien demander.")
+                : t("Ça se fait aussi plus tard, dans les réglages. D'ici là, sans clé d'accès ni mot de passe, tu ne reviendras sur un autre appareil que par un lien donné sur le serveur.")}
+            </p>
           )}
         </>
       )}

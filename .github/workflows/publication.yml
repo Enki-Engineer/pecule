@@ -1,7 +1,8 @@
 name: Publication
 
 # Une étiquette « v1.22.0 » poussée sur le dépôt publie la version : image Docker (amd64 et arm64) sur ghcr.io,
-# version GitHub avec ses formats en pièces jointes (compose.yaml, l'archive prête à l'emploi, leurs empreintes) et
+# version GitHub avec ses formats en pièces jointes (compose.yaml, l'archive prête à l'emploi, l'appli de bureau pour
+# Mac, leurs empreintes) et
 # pour notes le tableau « Installer ou mettre à jour » puis la section du journal des versions, et branche « stable »
 # avancée jusqu'à elle. L'étiquette doit être celle de la version de package.json, et CHANGELOG.md doit avoir sa
 # section : sinon rien n'est publié.
@@ -27,7 +28,35 @@ defaults:
     shell: bash
 
 jobs:
+  # L'étiquette et le journal des versions d'abord : une étiquette qui n'est pas celle du paquet n'occupe pas une
+  # machine Mac pendant un quart d'heure.
+  etiquette:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: node scripts/notes-de-version.mjs --etiquette "$GITHUB_REF_NAME" > /dev/null
+
+  # L'appli de bureau pour Mac : fabriquée, essayée dans sa fenêtre, puis signée pour les mises à jour. Une version
+  # déjà publiée ne reçoit plus de pièce jointe : l'appli doit être prête avant que la version ne soit créée, et une
+  # appli qui ne se fabrique pas ou ne passe pas sa recette empêche la publication.
+  bureau:
+    needs: etiquette
+    permissions:
+      contents: read
+    uses: ./.github/workflows/bureau.yml
+    with:
+      signer: true
+
   publication:
+    needs: bureau
     runs-on: ubuntu-latest
     steps:
       # Tout l'historique, et toutes les branches : l'étape « Branche stable » doit savoir si cette version descend de
@@ -59,6 +88,20 @@ jobs:
           pnpm build
           node scripts/paquet.mjs
           ( cd dist/paquet && sha256sum --check SHA256SUMS )
+      - name: Appli de bureau pour Mac (fabriquée et essayée par le flux « Appli de bureau »)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: appli-mac
+          path: dist/bureau
+      - name: Appli de bureau — ce qui l'annonce aux mises à jour (signé à part, par le même flux)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: appli-mac-mise-a-jour
+          path: dist/bureau
+      - name: Appli de bureau — empreintes, et version annoncée aux mises à jour
+        run: |
+          ( cd dist/bureau && sha256sum --check SHA256SUMS-mac )
+          test "$(node -p "require('./dist/bureau/pecule-mac.json').version")" = "${GITHUB_REF_NAME#v}"
 
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -111,7 +154,7 @@ jobs:
           # « Dernière version » sur GitHub (celle que télécharge l'adresse stable des pièces jointes) : jamais une
           # version plus ancienne que celle qui l'est déjà.
           derniere="--latest=${{ steps.rang.outputs.derniere }}"
-          fichiers=(dist/paquet/compose.yaml dist/paquet/pecule.tar.gz dist/paquet/pecule.zip dist/paquet/SHA256SUMS)
+          fichiers=(dist/paquet/compose.yaml dist/paquet/pecule.tar.gz dist/paquet/pecule.zip dist/paquet/SHA256SUMS dist/bureau/Pecule-mac.zip dist/bureau/Pecule-mac.app.tar.gz dist/bureau/pecule-mac.sh dist/bureau/pecule-mac.json dist/bureau/SHA256SUMS-mac)
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             # Version créée à la main sur GitHub : ses notes sont gardées, sauf si elle n'en a pas.
             if [ -z "$(gh release view "$GITHUB_REF_NAME" --json body --jq .body)" ]; then
@@ -163,6 +206,9 @@ jobs:
             dist/paquet/pecule.tar.gz
             dist/paquet/pecule.zip
             dist/paquet/compose.yaml
+            dist/bureau/Pecule-mac.zip
+            dist/bureau/Pecule-mac.app.tar.gz
+            dist/bureau/pecule-mac.sh
       - name: Nom de l'image (en minuscules)
         id: nom
         if: ${{ !github.event.repository.private }}

@@ -67,7 +67,11 @@ export function Settings() {
 
   const invite = useMutation({
     mutationFn: (id: number) => api<{ link: string }>(`/auth/users/${id}/enrollment`, { method: "POST" }),
-    onSuccess: (r, id) => setLinks((l) => ({ ...l, [id]: r.link })),
+    onSuccess: (r, id) => {
+      // Dans l'appli de bureau, un lien ne s'ouvre nulle part ailleurs : le membre choisit son mot de passe ici même.
+      if (me.data?.desktop) return void window.location.assign(new URL(r.link).pathname + new URL(r.link).search);
+      setLinks((l) => ({ ...l, [id]: r.link }));
+    },
   });
 
   async function addDevice() {
@@ -150,14 +154,18 @@ export function Settings() {
                       <button type="button" onClick={() => revokeAccess(u)} className="press text-sm font-medium text-muted">
                         {t("Couper ses accès")}
                       </button>
-                      <button type="button" onClick={() => invite.mutate(u.id)} className="press text-sm font-medium text-accent">
-                        {t("Lien d'inscription")}
+                      <button
+                        type="button"
+                        onClick={() => (!me.data?.desktop || confirm(t("{nom} va choisir son mot de passe sur cet ordinateur : ta session se ferme, la sienne s'ouvre. Continuer ?", { nom: u.name }))) && invite.mutate(u.id)}
+                        className="press text-sm font-medium text-accent"
+                      >
+                        {me.data?.desktop ? t("Choisir son mot de passe") : t("Lien d'inscription")}
                       </button>
                     </span>
                   ) : null}
                 </div>
                 {/* Un autre membre qui ne peut pas entrer : ni clé d'accès ni mot de passe. Le sien se dit plus bas, avec ce qu'il peut y faire. */}
-                {!demo && u.id !== me.data?.user?.id && u.passkeys.length === 0 && !u.hasPassword && <div className="mt-1 text-sm text-warn">{t("Aucune clé d'accès : envoie-lui un lien d'inscription.")}</div>}
+                {!demo && u.id !== me.data?.user?.id && u.passkeys.length === 0 && !u.hasPassword && <div className="mt-1 text-sm text-warn">{me.data?.desktop ? t("Pas encore de mot de passe : « {bouton} » lui en fait choisir un, ici même.", { bouton: t("Choisir son mot de passe") }) : t("Aucune clé d'accès : envoie-lui un lien d'inscription.")}</div>}
                 {!demo && u.id !== me.data?.user?.id && u.hasPassword && <div className="mt-1 text-sm text-muted">{t("Se connecte avec un mot de passe")}</div>}
                 {u.passkeys.map((k) => (
                   <div key={k.id_hash} className="mt-1.5 flex items-center justify-between text-sm text-muted">
@@ -204,7 +212,7 @@ export function Settings() {
           </Section>
         )}
         {!demo && me.data?.user?.admin && (
-          <Section id="sauvegardes-dehors" title={t("Copie hors du serveur")}>
+          <Section id="sauvegardes-dehors" title={me.data?.desktop ? t("Copie hors de cet ordinateur") : t("Copie hors du serveur")}>
             <OffsiteBackupSettings />
           </Section>
         )}

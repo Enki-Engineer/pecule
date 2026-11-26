@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { api } from "../api.ts";
 import { blockText, type Access } from "../access.ts";
+import { useDesktop } from "../desktop.ts";
 import { linkedSetupCode } from "../setup-code.ts";
 import { PASSWORD_MIN, passwordProblem, passwordProblemText } from "../../lib/password-rules.ts";
 import { t } from "../../lib/i18n.ts";
@@ -42,6 +43,8 @@ function Reveal({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
  * en a déjà un, qui lui est redemandé ; `name` : son prénom, pour que le gestionnaire de mots de passe range le tout.
  */
 export function NewPassword({ jeton, name, current, onDone, submit }: { jeton?: string; name?: string; current?: boolean; onDone: () => void | Promise<void>; submit?: string }) {
+  // Dans l'appli de bureau, rien ne circule sur un réseau : pas de mise en garde sur le http.
+  const desktop = useDesktop();
   const [old, setOld] = useState("");
   const [password, setPassword] = useState("");
   const [again, setAgain] = useState("");
@@ -77,7 +80,7 @@ export function NewPassword({ jeton, name, current, onDone, submit }: { jeton?: 
       </div>
       <input type={shown ? "text" : "password"} value={again} onChange={(e) => setAgain(e.target.value)} placeholder={t("Encore une fois")} aria-label={t("Le même mot de passe, encore une fois")} autoComplete="new-password" className={field} />
       <p className="text-xs text-muted">{t("{n} caractères au moins. Une phrase convient très bien.", { n: PASSWORD_MIN })}</p>
-      {!window.isSecureContext && <p className="text-xs text-warn">{t("Cette adresse est en http : le mot de passe et tes données y circulent en clair sur le réseau de la maison. Pour un usage durable, une adresse en https.")}</p>}
+      {!window.isSecureContext && !desktop && <p className="text-xs text-warn">{t("Cette adresse est en http : le mot de passe et tes données y circulent en clair sur le réseau de la maison. Pour un usage durable, une adresse en https.")}</p>}
       <button type="submit" disabled={busy || !password || !again || (current && !old)} className="press flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 font-semibold text-white shadow-lg disabled:opacity-60">
         <LockKeyhole size={19} /> {busy ? t("Enregistrement…") : (submit ?? t("Enregistrer mon mot de passe"))}
       </button>
@@ -88,6 +91,7 @@ export function NewPassword({ jeton, name, current, onDone, submit }: { jeton?: 
 
 /** Se connecter par son prénom et son mot de passe. */
 export function PasswordLogin({ onDone }: { onDone: () => void | Promise<void> }) {
+  const desktop = useDesktop();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [shown, setShown] = useState(false);
@@ -119,7 +123,11 @@ export function PasswordLogin({ onDone }: { onDone: () => void | Promise<void> }
         <LockKeyhole size={19} /> {busy ? t("Connexion…") : t("Se connecter")}
       </button>
       {error && <p role="alert" className="text-sm text-neg">{error}</p>}
-      <p className="text-xs text-muted">{t("Mot de passe oublié ? L'administrateur du foyer te donne un nouveau lien d'inscription.")}</p>
+      <p className="text-xs text-muted">
+        {desktop
+          ? t("Mot de passe oublié ? Ouvre le menu Aide de l'appli, puis « {menu} ».", { menu: t("Mot de passe oublié…") })
+          : t("Mot de passe oublié ? L'administrateur du foyer te donne un nouveau lien d'inscription.")}
+      </p>
     </form>
   );
 }

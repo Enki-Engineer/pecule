@@ -116,13 +116,13 @@ for (const entry of ["server.mjs", "server.mjs.map", "client", "drizzle", "migra
 
 // ---------- Scripts, guides, ce qu'un agent lit en ouvrant le dossier ----------
 /** Scripts de l'installation : sans dépendance, ils tournent avec Node seul. */
-const SCRIPTS = ["setup.mjs", "doctor.mjs", "lien.mjs", "maj.mjs", "importer.mjs"];
+const SCRIPTS = ["setup.mjs", "doctor.mjs", "lien.mjs", "maj.mjs", "importer.mjs", "bureau.mjs"];
 mkdirSync(path.join(stage, "scripts"), { recursive: true });
 for (const file of SCRIPTS) cpSync(path.join("scripts", file), path.join(stage, "scripts", file));
 cpSync("scripts/lib", path.join(stage, "scripts", "lib"), { recursive: true, filter: (src) => !/\.d\.mts$/.test(src) });
 // Règles pures que lisent ces scripts (Node efface leurs types à la volée).
 mkdirSync(path.join(stage, "src", "lib"), { recursive: true });
-for (const file of ["version.ts", "settings-file.ts"]) cpSync(path.join("src", "lib", file), path.join(stage, "src", "lib", file));
+for (const file of ["version.ts", "settings-file.ts", "desktop.ts"]) cpSync(path.join("src", "lib", file), path.join(stage, "src", "lib", file));
 for (const file of ["AGENTS.md", "LICENSE", ".env.example", "CHANGELOG.md"]) cpSync(file, path.join(stage, file));
 // Les guides, sans les images du dépôt.
 for (const dir of ["docs/guide", "docs/connecteurs"]) cpSync(dir, path.join(stage, dir), { recursive: true, filter: (src) => statSync(src).isDirectory() || src.endsWith(".md") });

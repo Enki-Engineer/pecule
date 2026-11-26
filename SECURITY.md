@@ -60,3 +60,31 @@ spare time: an answer usually comes within a week. Only the latest published rel
   Without Docker, close the server's port at the firewall: only your https proxy should reach it.
 - Do not publish your instance without https — nor behind a self-signed certificate, which browsers refuse for
   passkeys —, and leave `X-Robots-Tag` in place: nothing should be indexed.
+
+## The Mac app
+
+The desktop app (`docs/guide/appli-mac.md`, in French) runs Pécule and its database on the computer of the person
+using it. Its model is not a server's:
+
+- **The Mac account is the only boundary.** The data, the database and the settings — including the secret that
+  encrypts the keys kept in the database — live in `~/Library/Application Support/Pecule`, closed to other accounts.
+  Whoever opens the Mac session has everything: lock it, and turn on FileVault. A backup of the Mac (Time Machine)
+  takes that whole folder with it: protect it the same way.
+- **On a Mac account shared by several people, "private" protects from no one.** The Help menu → "Forgot password…"
+  gives whoever holds the window access to any member, administrator included — it is the equivalent of
+  `scripts/lien.mjs` on a server. A password only stops a passing glance there. For members who keep things from
+  each other: one Mac account each, or an installation on a server.
+- **Nothing leaves the machine.** The server only listens on `127.0.0.1` and only answers to that name (a page from
+  another site pointing its own name at the machine is refused); the database has no port, only a socket in the data
+  folder.
+- **The session cookie is valid for every port of `127.0.0.1`**: a browser would send it to another program taking
+  Pécule's port while it is stopped. The app's window only goes to that port once its own server has proved it holds
+  it, and the window where a bank's consent is given never has that cookie. On a Mac where other accounts are open
+  at the same time, do not open Pécule in an ordinary browser.
+- **The app is not signed by an Apple account** (ad hoc signature): macOS cannot tell who it comes from. Install it
+  with the command from the guide, which checks its checksum, and verify the release's provenance attestation if
+  needed. Updates made by the app, however, are **signed**: it refuses an archive that does not carry the project's
+  signature, wherever it comes from. Node.js and MySQL in it are their publishers' builds, pinned by checksum
+  (`bureau/pieces.json`), with their original signatures.
+- The Pécule page receives no power from the app: no command, no file access. The app only watches where the window
+  wants to go — every external link goes to the browser.

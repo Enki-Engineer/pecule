@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Clock, Compass, Eye, FileUp, Globe, Landmark, LayoutGrid, Palette, PanelBottom, PanelLeft, Presentation, Search, Server, Shapes, Smartphone, Sparkles, Tags, TriangleAlert, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { api, closeWelcome, useAccounts, useMe, type Me } from "../api.ts";
+import { useDesktop } from "../desktop.ts";
 import { consentsOf, guideFacts, takeBankOutcome, useBankState, type BankScope } from "../api-bank.ts";
 import { enterDemo } from "../demo.ts";
 import { appLang, applyLang } from "../i18n.ts";
@@ -374,10 +375,11 @@ function LangSelect() {
 /* ---------- 1. Bienvenue ---------- */
 
 function StepWelcome({ name, host, admin, onNext }: { name: string; host: string | null; admin: boolean; onNext: () => void }) {
+  const desktop = useDesktop();
   const points: [LucideIcon, string][] = [
     [Eye, t("Pécule ne fait que lire tes comptes : aucun paiement n'en part.")],
-    [Server, t("Tes données vivent sur le serveur de ton foyer, pas chez un éditeur.")],
-    [Users, t("Chaque membre du foyer a sa clé d'accès et sa propre vue.")],
+    desktop ? [Server, t("Tes données vivent sur cet ordinateur, pas chez un éditeur.")] : [Server, t("Tes données vivent sur le serveur de ton foyer, pas chez un éditeur.")],
+    desktop ? [Users, t("Chaque membre du foyer a son mot de passe et sa propre vue.")] : [Users, t("Chaque membre du foyer a sa clé d'accès et sa propre vue.")],
   ];
   return (
     <>
@@ -781,13 +783,15 @@ function StepReady({
   back?: () => void;
   onFinish: (to: string) => void;
 }) {
-  const installed = window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  const desktop = useDesktop();
+  // L'appli de bureau ne s'ouvre que sur cet ordinateur : rien à installer sur un téléphone.
+  const installed = desktop || window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
   const all: (false | { icon: LucideIcon; title: string; text: string; to: string })[] = [
     // La visite guidée : le menu et les outils, montrés dans l'appli elle-même dès qu'on y entre.
     { icon: Compass, title: t("Suivre la visite guidée"), text: t("Le menu et les outils de l'appli, éclairés un à un dans l'appli elle-même."), to: TOUR_LINK },
     accounts > 0 && { icon: Tags, title: t("Classer tes opérations"), text: t("Pécule retient tes choix et classe les suivantes de lui-même."), to: "/tri" },
     admin && !ai && { icon: Sparkles, title: t("Brancher l'assistant"), text: t("Facultatif : avec ta propre clé d'IA, Pécule lit tes factures et répond à tes questions."), to: "/reglages/connexions?c=ia" },
-    admin && alone && { icon: UserPlus, title: t("Inviter un autre adulte"), text: t("À chacun sa clé d'accès et sa vue du foyer."), to: "/reglages/compte" },
+    admin && alone && { icon: UserPlus, title: t("Inviter un autre adulte"), text: desktop ? t("À chacun son mot de passe et sa vue du foyer.") : t("À chacun sa clé d'accès et sa vue du foyer."), to: "/reglages/compte" },
     !installed && { icon: Smartphone, title: t("Installer Pécule sur ton téléphone"), text: t("Sur l'écran d'accueil, il s'ouvre comme une appli et peut te prévenir."), to: "/manuel/installer-telephone" },
     { icon: Palette, title: t("Mettre Pécule à ton goût"), text: t("Clair ou sombre, couleur, thèmes de l'année."), to: "/reglages/apparence" },
   ];

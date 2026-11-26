@@ -230,7 +230,18 @@ async function memberView(userId: number) {
   return { dateBasis: basis, scopeChoice: mine > 0 && mine < Number(counts?.total ?? 0), several: Number(members?.n ?? 0) > 1 };
 }
 
-const limiter = rateLimit({ windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false });
+/**
+ * Dans l'appli de bureau, tout arrive de la machine elle-même : la fenêtre, le superviseur, et n'importe quel autre
+ * programme — un seul compteur pour tous. Les lectures n'y sont donc pas comptées (elles ne font rien deviner) : sans
+ * cela, quelques dizaines de requêtes venues d'ailleurs fermeraient l'appli à celui qui s'en sert.
+ */
+const limiter = rateLimit({ windowMs: 15 * 60_000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false, skip: (req) => installKind() === "bureau" && req.method === "GET" });
+
+/** Connexion par mot de passe fermée après trop d'essais : ce qui reste pour entrer dépend de l'installation. */
+const lockedText = (vars: { n: number }): string =>
+  installKind() === "bureau"
+    ? tr("Trop d'essais : la connexion par mot de passe de ce membre est fermée encore {n} min. Le menu Aide de l'appli, « {menu} », lui redonne un accès.", { ...vars, menu: tr("Mot de passe oublié…") })
+    : tr("Trop d'essais : la connexion par mot de passe de ce membre est fermée encore {n} min. Sa clé d'accès, s'il en a une, marche toujours.", vars);
 
 export const authRouter = Router();
 authRouter.use(limiter);
@@ -241,6 +252,9 @@ authRouter.get("/me", async (req, res) => {
   // setup : installation neuve, aucun membre encore — l'écran propose de créer le premier (l'administrateur), et dit
   // par quelle commande (`setupCommand`, celle de cette installation) le serveur donne le lien qui porte le code.
   const setup = !req.user && !(await one("SELECT id FROM users LIMIT 1"));
+  // desktop : l'appli de bureau — pas de commande à montrer (c'est elle qui ouvre le lien), et des mots à elle à l'écran.
+  const desktop = installKind() === "bureau";
+  const command = linkCommand(installKind());
   // region : pays, devise et fuseau du foyer (l'écran met en forme les montants dans cette devise).
   // modulesOff : écrans facultatifs retirés par le foyer (la démo les montre tous).
   const modulesOff = req.user && !req.user.demo ? (await householdSettings().catch(() => null))?.modulesOff ?? [] : [];
@@ -250,13 +264,13 @@ authRouter.get("/me", async (req, res) => {
   const view = req.user ? await (req.user.demo ? runDemo : runReal)(() => memberView(req.user!.id)).catch(() => null) : null;
   // welcome : la présentation de bienvenue attend ce membre (première connexion) ; jamais en démo, ni pour un jeton.
   const welcome = req.user?.via === "session" && !req.user.demo ? await awaitsWelcome(req.user.id).catch(() => false) : false;
-  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, welcome, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(setup ? { setup: true, setupCommand: linkCommand(installKind()) } : {}) });
+  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, welcome, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(desktop ? { desktop: true } : {}), ...(setup ? { setup: true, ...(command ? { setupCommand: command } : {}) } : {}) });
 });
 
 /** Ce que l'écran doit savoir pour proposer la bonne connexion : l'adresse de l'installation et la place du mot de passe. */
 async function accessFacts() {
   const only = await passkeysOnly();
-  return { address: origin, password: !only, passwordLogin: !only && (await anyPassword()) };
+  return { address: origin, password: !only, passwordLogin: !only && (await anyPassword()), ...(installKind() === "bureau" ? { desktop: true } : {}) };
 }
 
 /**
@@ -432,7 +446,7 @@ authRouter.post("/password/login", passwordLimiter, async (req, res) => {
   const found = await passwordLogin(body.name, body.password);
   if (found && "wait" in found) {
     const minutes = Math.ceil(found.wait / 60);
-    return res.status(429).json({ error: tr("Trop d'essais : la connexion par mot de passe de ce membre est fermée encore {n} min. Sa clé d'accès, s'il en a une, marche toujours.", { n: minutes }) });
+    return res.status(429).json({ error: lockedText( { n: minutes }) });
   }
   if (!found) return res.status(401).json({ error: tr("Prénom ou mot de passe incorrect.") });
   // L'ancienne session de cet appareil (ex. une session de démo dont on sort) est fermée.
@@ -471,7 +485,7 @@ authRouter.post("/password", passwordLimiter, async (req, res) => {
     const known = await currentPassword(userId, body.currentPassword ?? "");
     if (known !== "ok")
       return typeof known === "object"
-        ? res.status(429).json({ error: tr("Trop d'essais : la connexion par mot de passe de ce membre est fermée encore {n} min. Sa clé d'accès, s'il en a une, marche toujours.", { n: Math.ceil(known.wait / 60) }) })
+        ? res.status(429).json({ error: lockedText( { n: Math.ceil(known.wait / 60) }) })
         : res.status(403).json({ error: tr("Le mot de passe actuel n'est pas le bon.") });
   }
   // Premier moyen d'entrer de ce membre : c'est sa première connexion, la présentation de bienvenue l'attend.
@@ -524,6 +538,8 @@ authRouter.get("/access", async (req, res) => {
  */
 authRouter.put("/policy", requireAdmin, async (req, res) => {
   const { passkeysOnly: only } = z.object({ passkeysOnly: z.boolean() }).parse(req.body);
+  // L'appli de bureau n'a que le mot de passe : exiger la clé d'accès effacerait le seul moyen d'y entrer.
+  if (only && installKind() === "bureau") return res.status(400).json({ error: tr("Dans l'appli de bureau, ton accès se protège par un mot de passe.") });
   if (only && !(await one("SELECT 1 AS x FROM passkeys WHERE user_id = ? LIMIT 1", [req.user!.id])))
     return res.status(400).json({ error: tr("Crée d'abord ta clé d'accès : sans elle, tu ne pourrais plus entrer.") });
   await setPasskeysOnly(only);

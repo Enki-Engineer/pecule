@@ -19,6 +19,7 @@ navigateur (React)  ──  /api  ──  serveur Express  ──  MySQL / Maria
 | `src/i18n/` | Dictionnaires (le texte français est la clé) |
 | `drizzle/` | Migrations et schéma de départ d'une installation neuve (`initial/schema.sql`) |
 | `scripts/` | `setup`, `lien` (lien du premier démarrage), `doctor`, `maj` (mise à jour), `importer`, `paquet` (pièces jointes d'une version), sauvegarde et restauration, notes de version, base locale, outils de traduction |
+| `bureau/` | L'appli de bureau pour Mac : la coque Tauri (`src-tauri/`), sa fabrication (`fabriquer.mjs`, `pieces.json`), son installation par une commande (`pecule-mac.sh`), ses essais (`essais/`) |
 | `skills/` | La compétence « pecule » pour un agent IA (installer, vérifier, mettre à jour), telle que la distribuent `npx skills`, `gh skill` et le catalogue de plugins de Claude Code ; `.claude/skills/pecule` en est la copie lue dans le dépôt |
 | `public/` | Fichiers statiques : icônes, service worker, script de thème |
 | `docs/` | Guides d'installation, d'import et de connexion des banques |
@@ -293,6 +294,8 @@ Trois formats, fabriqués à chaque version (`docs/guide/installation.md`) :
   (`scripts/pecule.mjs`, `node scripts/paquet.mjs --npm`) n'en est que l'installateur : il télécharge l'archive de la
   dernière version, contrôle son empreinte et la déplie (`scripts/lib/archive.mjs`, partagé avec `maj.mjs`).
 - **Sources** — le dépôt, branche `stable`.
+- **Appli pour Mac** — l'archive prête à l'emploi avec ses deux prérequis fournis : Node.js et un MySQL réduit à son
+  serveur (`bureau/pieces.json`, épinglés par leur empreinte). Voir « L'appli de bureau », plus bas.
 
 Ce que le serveur charge en service est dans `dependencies` ; ce qui ne sert qu'à construire l'écran (React, icônes,
 graphiques) est dans `devDependencies`. L'image et l'archive n'installent que les premières, et le build s'arrête si
@@ -302,6 +305,46 @@ Les scripts de l'installation (`doctor`, `lien`, `maj`, `importer`) lisent les r
 (`scripts/lib/reglages.mjs`) : le fichier `.env`, le volume quand ils tournent dans le conteneur, ou le conteneur
 depuis la machine. Les commandes que l'appli affiche à celui qui l'héberge dépendent de son installation
 (`src/lib/install.ts`, `src/server/install.ts`).
+
+## L'appli de bureau
+
+Deux pièces, pour que presque tout se teste sans fenêtre :
+
+- **Le superviseur** (`scripts/bureau.mjs`, Node seul ; règles pures dans `src/lib/desktop.ts`) fait tout ce qui
+  n'est pas la fenêtre. Il crée le dossier des données (`~/Library/Application Support/Pecule`, fermé aux autres
+  comptes), tire une fois les réglages (`reglages/pecule.env`, mêmes secrets que Docker), prend le verrou du dossier
+  (`bureau.json` : une seule appli par dossier, reprise atomique d'un verrou périmé), crée puis lance MySQL — sans
+  aucun port, sur un socket du dossier, avec des réglages de foyer (165 Mo de mémoire) —, y joue à chaque démarrage le
+  SQL qui règle ses comptes, puis lance le serveur attaché à `127.0.0.1` (`LISTEN_HOST`), dans un environnement fermé
+  (ni variable du terminal, ni fichier `.env`). Il ne se fie pas à ce qui répond sur le port : le serveur lui dit par
+  un canal (`process.send`) qu'il écoute, et s'arrête si ce canal se rompt. Il relance un serveur tombé, arrête tout
+  si la base tombe, arrête au lancement suivant ce qu'un superviseur tué aurait laissé, et parle par lignes JSON
+  (`demarrage`, `pret`, `erreur`, `arret`) ; sur son entrée, la coque lui demande d'arrêter ou un lien d'inscription.
+- **La coque** (`bureau/src-tauri`, Rust et Tauri 2) n'est qu'une fenêtre. Elle lance le superviseur, montre un
+  écran de démarrage local, puis charge l'adresse annoncée. La page de Pécule n'y reçoit aucune API : la coque ne
+  fait que décider où la fenêtre peut aller. WebKit lui pose la question avant toute navigation, nouvelle fenêtre
+  comprise : l'adresse de Pécule passe, tout lien extérieur part dans le navigateur, un fichier de Pécule s'ouvre
+  dans une fenêtre de l'appli. L'accord d'une banque est le seul site extérieur ouvert dans l'appli : le serveur
+  rend son adresse emballée (`bankAuthLink` : `pecule-banque://ouvrir?vers=…`), la coque l'ouvre dans une fenêtre à
+  part, sans le témoin de session, et y guette l'adresse de retour — `https://localhost:<port>/…`
+  (`bankReturnOrigin`), que personne ne sert —, qu'elle rend au serveur local en http. Ses mots viennent des
+  dictionnaires de l'appli (`src/lib/desktop-texts.ts` → `textes.json`, un test compare). Fermer la fenêtre la
+  cache ; quitter arrête le superviseur, qui s'arrêterait de toute façon en voyant son entrée se fermer.
+- **Le serveur** sait qu'il tourne là (`PECULE_BUREAU`, `installKind() === "bureau"`) : aucune commande à montrer,
+  des mots à lui (`desktop`, dans `/auth/me` et `/auth/access`), la règle « clé d'accès exigée » ignorée, les
+  lectures de `/api/auth` hors du compteur d'essais (tout arrive de la même adresse).
+
+Fabrication : `node bureau/fabriquer.mjs` télécharge les pièces et contrôle leur empreinte, y joint l'archive de la
+version (`scripts/paquet.mjs`), compile la coque, signe l'appli sans certificat et écrit `Pecule-mac.zip`,
+`Pecule-mac.app.tar.gz` et `pecule-mac.sh` ; `--signer`, seule étape à voir la clé, signe l'archive de mise à jour
+et écrit `pecule-mac.json`, que l'appli lit pour se mettre à jour (`tauri-plugin-updater` ; `depuis` y dit la
+version palier).
+
+Essais, tous rejouables sans personne devant l'écran (`bureau/essais/`) : `cycle.mjs` (le superviseur : création,
+arrêts, plantages, deux lancements, port pris ou usurpé), `parcours.mjs` (le premier usage, dans WebKit),
+`fenetre.mjs` (l'appli fabriquée, dans sa vraie fenêtre — lancée avec `--recette <socket>`, la coque exécute ce
+qu'on lui envoie et note ce qu'elle aurait ouvert au-dehors) et `maj.mjs` (une mise à jour de bout en bout). Le flux
+« Appli de bureau » les joue sur une machine Mac avant toute publication.
 
 ## Démarrage
 
@@ -323,7 +366,9 @@ membre n'a ni clé d'accès ni mot de passe et a perdu sa session, `lien` redonn
   `src/server/version.ts`), avec `pecule.depuis` de `package.json` : la plus ancienne version depuis laquelle
   celle-ci se met à jour directement. Les comparaisons de versions sont des fonctions pures (`src/lib/version.ts`).
 - **Publication** : une étiquette `vX.Y.Z` lance `.github/workflows/publication.yml` — image Docker pour amd64 et
-  arm64 sur `ghcr.io`, pièces jointes (`compose.yaml`, `pecule.tar.gz`, `pecule.zip`, `SHA256SUMS`, sous des noms
+  arm64 sur `ghcr.io`, pièces jointes (`compose.yaml`, `pecule.tar.gz`, `pecule.zip`, `SHA256SUMS`, et l'appli pour
+  Mac que fabrique et essaie d'abord `.github/workflows/bureau.yml` : `Pecule-mac.zip`, `Pecule-mac.app.tar.gz`,
+  `pecule-mac.sh`, `pecule-mac.json`, `SHA256SUMS-mac` — sous des noms
   qui ne changent pas d'une version à l'autre : la dernière se télécharge toujours à la même adresse), version GitHub
   dont les notes sont le tableau « Installer ou mettre à jour » puis la section de `CHANGELOG.md`
   (`scripts/notes-de-version.mjs`), branche `stable` avancée jusqu'à elle. Les actions du flux sont épinglées par

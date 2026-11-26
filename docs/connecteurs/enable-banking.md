@@ -37,7 +37,9 @@ Mesuré sur une banque en ligne française ; d'une banque à l'autre, les détai
 
 ## Avant de commencer
 
-- Ton Pécule doit être servi en **https**, à une adresse stable.
+- Ton Pécule doit être servi en **https**, à une adresse stable. Dans **l'appli pour Mac**, l'adresse de retour que
+  Pécule affiche est de la forme `https://localhost:<port>/reglages/comptes` : déclare-la telle quelle. Personne ne
+  la sert — l'appli la reconnaît au retour de la banque et reprend la main, sans certificat.
 - La console d'Enable Banking propose de renseigner l'adresse d'une page de confidentialité et d'une page de
   conditions d'utilisation (facultatives tant que l'application n'accède qu'à tes propres comptes). Pécule les
   fournit : `https://<ton-pecule>/confidentialite` et `https://<ton-pecule>/conditions` (lisibles sans connexion,

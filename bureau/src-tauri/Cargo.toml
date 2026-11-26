@@ -1,0 +1,32 @@
+[package]
+name = "pecule"
+version = "0.0.0"
+description = "Pécule, l'appli de bureau : la fenêtre, autour du superviseur (scripts/bureau.mjs)"
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+semver = "1"
+serde_json = "1"
+sys-locale = "0.3"
+
+[profile.release]
+strip = true
+opt-level = "s"
+lto = true
+codegen-units = 1
+
+# La coque parle à la WKWebView elle-même : dialogues des pages (src/dialogues.rs) ; en recette, fenêtres ouvertes
+# sans geste et capture de la page (src/recette.rs).
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSAlert", "NSApplication", "NSImage", "NSImageRep", "NSBitmapImageRep"] }
+objc2-foundation = { version = "0.3", features = ["NSData", "NSDictionary", "NSError", "NSString", "NSURL"] }
+objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKWebViewConfiguration", "WKPreferences", "WKSnapshotConfiguration", "WKUIDelegate", "block2", "objc2-app-kit"] }

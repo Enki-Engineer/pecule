@@ -1,3 +1,4 @@
+import { useDesktop } from "../desktop.ts";
 import { useEffect, useRef, useState } from "react";
 import { ArchiveRestore, KeyRound, ScanFace, Upload } from "lucide-react";
 import { api, ApiError } from "../api.ts";
@@ -143,6 +144,7 @@ function Report({ r }: { r: RestoreReport }) {
  * suivi du chargement — Pécule est en maintenance pendant ce temps — et ce qu'il reste à faire.
  */
 export function RestoreSetup({ onBack, linkedCode, command }: { onBack: () => void; /** Code reçu avec le lien du premier démarrage. */ linkedCode?: string | null; /** Commande qui, sur le serveur, donne ce lien. */ command?: string }) {
+  const desktop = useDesktop();
   const [code, setCode] = useState(linkedCode ?? "");
   // Le code est venu avec le lien : son champ n'est montré que si le serveur le refuse.
   const [linked, setLinked] = useState(!!linkedCode);
@@ -244,7 +246,7 @@ export function RestoreSetup({ onBack, linkedCode, command }: { onBack: () => vo
         <p className="mb-1 text-lg font-semibold">{t("Clé de récupération")}</p>
         <p className="max-w-xs text-sm text-neg">{status.erreur ?? t("Erreur inattendue")}</p>
         <input key="cle" value={cle} onChange={(e) => setCle(e.target.value)} placeholder={t("Clé de récupération")} aria-label={t("Clé de récupération")} autoComplete="off" spellCheck={false} className={`${field} mt-4`} />
-        <p className="mt-2 max-w-xs text-xs text-muted">{t("L'archive est restée sur le serveur : pas besoin de la renvoyer.")}</p>
+        <p className="mt-2 max-w-xs text-xs text-muted">{desktop ? t("L'archive est restée sur cet ordinateur : pas besoin de la renvoyer.") : t("L'archive est restée sur le serveur : pas besoin de la renvoyer.")}</p>
         <button type="button" onClick={() => start(true)} disabled={busy || !cle.trim()} className={main}>
           {t("Réessayer avec cette clé")}
         </button>
@@ -299,7 +301,7 @@ export function RestoreSetup({ onBack, linkedCode, command }: { onBack: () => vo
   return (
     <>
       <p className="mb-1 text-lg font-semibold">{t("Choisis la sauvegarde")}</p>
-      <p className="mb-5 max-w-xs text-sm text-muted">{t("L'archive téléchargée depuis Réglages → Compte et sécurité, une copie chiffrée reprise de ton stockage extérieur, ou une archive écrite par le serveur.")}</p>
+      <p className="mb-5 max-w-xs text-sm text-muted">{desktop ? t("L'archive téléchargée depuis Réglages → Compte et sécurité, une copie chiffrée reprise de ton stockage extérieur, ou une archive écrite par Pécule.") : t("L'archive téléchargée depuis Réglages → Compte et sécurité, une copie chiffrée reprise de ton stockage extérieur, ou une archive écrite par le serveur.")}</p>
       <input
         key="archive"
         ref={input}
@@ -320,7 +322,7 @@ export function RestoreSetup({ onBack, linkedCode, command }: { onBack: () => vo
       </button>
       {opened.archives.length > 0 && (
         <div className="mt-4 w-full max-w-xs text-left">
-          <p className="mb-2 text-center text-xs text-muted">{t("Ou une archive déjà sur le serveur :")}</p>
+          <p className="mb-2 text-center text-xs text-muted">{desktop ? t("Ou une archive déjà sur cet ordinateur :") : t("Ou une archive déjà sur le serveur :")}</p>
           <div className="flex max-h-52 flex-col gap-2 overflow-y-auto">
             {opened.archives.map((a) => (
               <button

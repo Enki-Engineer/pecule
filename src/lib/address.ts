@@ -63,3 +63,20 @@ export function addressInfo(url: string): AddressInfo | null {
         !host.includes(".") || LOCAL_SUFFIXES.some((s) => host.endsWith(s));
   return { kind: home ? "reseau" : "public", ip, passkeys: false };
 }
+
+/**
+ * Le nom d'hôte d'une requête (en-tête `Host`, port compris ou non) désigne-t-il la machine elle-même ? Un serveur
+ * attaché à la boucle locale (l'appli de bureau) ne répond qu'à ces noms : une page d'un autre site qui ferait
+ * pointer son propre nom vers 127.0.0.1 (« DNS rebinding ») arrive avec ce nom-là, et se voit refusée.
+ */
+export function isLoopbackHost(host: string | undefined): boolean {
+  if (!host) return false;
+  const name = host.trim().toLowerCase();
+  // « [::1]:3000 », « 127.0.0.1:3000 », « localhost » : le port ne compte pas.
+  // Une adresse IPv6 s'écrit entre crochets dans un en-tête (« [::1]:3000 »), nue dans un réglage (« ::1 »).
+  const bare = name.startsWith("[") ? name.slice(0, name.indexOf("]") + 1) : name === "::1" ? "[::1]" : name.replace(/:\d+$/, "");
+  if (bare === "[::1]" || bare === "localhost" || bare.endsWith(".localhost")) return true;
+  const v4 = ipv4(bare);
+  return !!v4 && v4[0] === 127;
+}
+

@@ -1,3 +1,4 @@
+import { bankReturnOrigin } from "../lib/desktop.ts";
 import { createHash, createSign, randomUUID } from "node:crypto";
 import { isDemo, runReal } from "./demo-context.ts";
 import { exec, one, pool, q, withLock } from "./db.ts";
@@ -193,7 +194,7 @@ export type EbStatus = {
   observation: boolean;
 };
 
-export const ebRedirectUrl = () => `${origin}/reglages/comptes`;
+export const ebRedirectUrl = () => `${bankReturnOrigin(process.env, origin)}/reglages/comptes`;
 
 async function applicationOf(client: EbClient | null): Promise<{ application: EbStatus["application"]; error: string | null }> {
   if (!client) return { application: null, error: null };

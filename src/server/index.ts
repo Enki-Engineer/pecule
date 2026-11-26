@@ -47,6 +47,7 @@ import { updatesApi } from "./routes/updates.ts";
 import { cleanInterruptedRestore, cleanRestoreLeftovers, restoreApi, type RestoreHooks } from "./restore.ts";
 import { cleanOffsiteLeftovers } from "./offsite.ts";
 import { setClientBuild } from "./client-build.ts";
+import { isLoopbackHost } from "../lib/address.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -132,6 +133,16 @@ export async function createApp() {
     res.set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet");
     next();
   });
+  // Attaché à la boucle locale (l'appli de bureau, ou un serveur que seul son proxy joint) : ne sont servies que les
+  // requêtes adressées à la machine elle-même, ou au nom de l'installation (celui que le proxy transmet).
+  if (env.LISTEN_HOST && isLoopbackHost(env.LISTEN_HOST)) {
+    const own = new URL(env.APP_URL).host.toLowerCase();
+    app.use((req, res, next) => {
+      const host = req.headers.host?.toLowerCase();
+      if (isLoopbackHost(host) || host === own || host === new URL(env.APP_URL).hostname.toLowerCase()) return next();
+      res.status(421).type("text/plain").send("Pécule ne répond ici qu'à l'adresse de cette machine.");
+    });
+  }
   app.get("/robots.txt", (_req, res) => res.type("text/plain").send("User-agent: *\nDisallow: /\n"));
   app.use(compression());
   app.use(cookieParser());
@@ -360,13 +371,34 @@ const restoreHooks: RestoreHooks = {
 export async function start() {
   installProcessHandlers();
   const app = await createApp();
-  const server = app.listen(env.PORT, () => console.log(`Pécule à l'écoute sur le port ${env.PORT}`));
+  // Express donne à ce rappel l'erreur de l'écoute (port déjà pris, interface inconnue) : sans la lire, le serveur se
+  // dirait « à l'écoute » sans rien servir. Il le dit dans son journal. Dans l'appli de bureau, il s'arrête : son
+  // superviseur le voit, et un autre programme qui tiendrait ce port ne passe pas pour Pécule. Ailleurs, rien ne
+  // change à ce que fait le processus : certains hébergeurs lancent deux fois le serveur le temps d'une mise en ligne.
+  const listening = (error?: Error) => {
+    if (error) {
+      console.error(`Pécule ne peut pas écouter sur le port ${env.PORT}${env.LISTEN_HOST ? ` (${env.LISTEN_HOST})` : ""} : ${(error as NodeJS.ErrnoException).code === "EADDRINUSE" ? "il est déjà pris" : error.message}`);
+      if (process.send || env.LISTEN_HOST) process.exit(1);
+      return;
+    }
+    console.log(`Pécule à l'écoute sur le port ${env.PORT}${env.LISTEN_HOST ? ` (${env.LISTEN_HOST} seulement)` : ""}`);
+    // Lancé par le superviseur de l'appli de bureau (un canal le relie à lui) : c'est ce message, et lui seul, qui
+    // lui dit que ce port est bien tenu par son serveur.
+    process.send?.({ pecule: "ecoute", port: env.PORT });
+  };
+  // Sans LISTEN_HOST : toutes les interfaces, comme toujours. Avec lui : celle-là seule (l'appli de bureau, la boucle locale).
+  const server = env.LISTEN_HOST ? app.listen(env.PORT, env.LISTEN_HOST, listening) : app.listen(env.PORT, listening);
   boot.current = bootstrap().then(() => {});
   const stop = () => {
     server.close(() => endPools().finally(() => process.exit(0)));
+    // L'appli de bureau se ferme : personne n'attend plus de réponse, et une connexion que la fenêtre gardait ouverte
+    // sans rien demander retiendrait l'arrêt plusieurs secondes.
+    if (process.send) setTimeout(() => server.closeAllConnections(), 400).unref();
     setTimeout(() => process.exit(0), 8000).unref();
   };
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);
+  // Le superviseur de l'appli de bureau a disparu sans rien arrêter : le serveur ne reste pas derrière lui.
+  if (process.send) process.on("disconnect", stop);
   return server;
 }

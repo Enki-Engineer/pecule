@@ -3,7 +3,7 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
-## 1.49.0
+## 1.49.1
 
 Pécule a son appli pour Mac : sur un Mac à puce Apple, une commande l'installe, et tout — l'appli, sa base, tes
 données — reste sur l'ordinateur, sans serveur à tenir ni Docker. Rien ne change pour une installation sur un
@@ -43,6 +43,13 @@ serveur. Aucune migration ; un réglage nouveau, facultatif (`LISTEN_HOST`).
   (`bureau/essais/`), dont la recette dans la vraie fenêtre et une mise à jour de bout en bout, tournent sur une
   machine Mac avant chaque publication (`.github/workflows/bureau.yml`). Deux relectures de sécurité indépendantes
   ont précédé l'envoi.
+
+La 1.49.0 portait déjà tout cela, mais n'a pas été publiée : sa publication s'est arrêtée avant de créer la version
+(l'étape qui signe l'appli ne recevait pas sa clé). Cette version corrige cette étape et rien d'autre.
+
+## 1.49.0
+
+Non publiée : son contenu est celui de la 1.49.1.
 
 ## 1.48.0
 

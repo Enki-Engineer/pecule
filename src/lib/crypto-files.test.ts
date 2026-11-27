@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balancesOf, isCryptocomExport, isSwissborgStatement, OBSERVED, parseCryptocomExport, parseSwissborgRows } from "./crypto-files.ts";
+import { balancesOf, isCryptocomExport, isSwissborgStatement, moveEventKind, OBSERVED, parseCryptocomExport, parseSwissborgRows } from "./crypto-files.ts";
 
 const HEADER = "Timestamp (UTC),Transaction Description,Currency,Amount,To Currency,To Amount,Native Currency,Native Amount,Native Amount (in USD),Transaction Kind,Transaction Hash";
 const file = (...rows: string[]) => `﻿${[HEADER, ...rows].join("\n")}\n`;
@@ -151,5 +151,39 @@ describe("relevé de compte SwissBorg", () => {
     const parsed = parseSwissborgRows(sheet(row("2026-01-02 09:00:00", "Payouts", "BTC", "0.001", "0.0", "0.001"), row("2026-01-03 09:00:00", "Mystère", "BTC", "5", "0", "5")))!;
     expect(parsed.unknown).toEqual(["Mystère"]);
     expect(balancesOf(parsed.moves).get("BTC")).toBe(0.001);
+  });
+});
+
+describe("genre du journal d'une ligne d'export", () => {
+  it("range les genres que les applis écrivent", () => {
+    const expected: [string, string][] = [
+      ["crypto_purchase", "achat"],
+      ["viban_purchase", "achat"],
+      ["buy", "achat"],
+      ["crypto_viban_exchange", "vente"],
+      ["sell", "vente"],
+      ["crypto_exchange", "echange"],
+      ["dust_conversion_credited", "echange"],
+      ["crypto_withdrawal", "transfert"],
+      ["crypto_deposit", "transfert"],
+      ["crypto_to_exchange_transfer", "transfert"],
+      ["deposit", "transfert"],
+      ["withdrawal", "transfert"],
+      ["referral_card_cashback", "prime"],
+      ["reimbursement", "prime"],
+      ["rewards_platform_deposit_credited", "prime"],
+      ["crypto_earn_interest_paid", "interets"],
+      ["payouts", "interets"],
+      ["mco_stake_reward", "recompense"],
+      ["supercharger_reward_to_app_credited", "recompense"],
+    ];
+    for (const [kind, type] of expected) expect(moveEventKind(kind), kind).toBe(type);
+    expect(moveEventKind("Crypto_Purchase")).toBe("achat");
+  });
+
+  it("ne devine pas un genre inconnu, ni un solde constaté", () => {
+    expect(moveEventKind("admin_wallet_credited")).toBeNull();
+    expect(moveEventKind("crypto_payment")).toBeNull();
+    expect(moveEventKind(OBSERVED)).toBeNull();
   });
 });

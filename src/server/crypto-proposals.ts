@@ -6,13 +6,15 @@ import { priceFactor } from "./wealth.ts";
 import { addCryptoEvent, type EventInput } from "./crypto-events.ts";
 import { alreadyTold, detectMoves, PLATFORM_WORDS, platformOf, type Holding } from "../lib/crypto-moves.ts";
 import { kindOf, type EventKind } from "../lib/crypto-events.ts";
+import { moveEventKind, OBSERVED } from "../lib/crypto-files.ts";
 import { t as tr } from "../lib/i18n.ts";
 
 /*
  * Mouvements que Pécule propose de noter au journal crypto, d'après ce qu'il lit déjà : une opération bancaire vers
  * une plateforme crypto (relue à chaque fois dans les opérations du membre), un solde qui a bougé entre deux
  * synchronisations (gardé dans `crypto_proposals`). Une proposition n'écrit rien au journal : le membre la note —
- * il peut tout y corriger — ou l'écarte. Les règles sont dans src/lib/crypto-moves.ts.
+ * il peut tout y corriger — ou l'écarte. Les règles sont dans src/lib/crypto-moves.ts. Les lignes lues dans les
+ * exports d'une appli se consultent à part (`sourceMoves`) : le membre y choisit celles qu'il note.
  */
 
 export type Proposal = {
@@ -48,6 +50,7 @@ const ownOperations = (userId: number) =>
 /**
  * Opérations bancaires vers une plateforme crypto (ou qui en reviennent) que le journal ne raconte pas encore : ni
  * notées, ni écartées, ni couvertes par un mouvement d'argent du journal sur la même plateforme aux mêmes dates.
+ * Un virement de quelques centimes — l'essai par lequel une plateforme vérifie un compte — n'est pas proposé.
  */
 async function bankProposals(userId: number): Promise<Proposal[]> {
   const rows = await q<{ id: string; day: string; amount: number; label: string; merchant: string | null; bank_label: string | null; account: string }>(
@@ -56,7 +59,7 @@ async function bankProposals(userId: number): Promise<Proposal[]> {
      LEFT JOIN crypto_events e ON e.transaction_id = t.id AND e.owner_user_id = ?
      LEFT JOIN crypto_proposals p ON p.ref = CONCAT('tx:', t.id) AND p.owner_user_id = ?
      WHERE t.status = 'posted' AND a.excluded = 0 AND a.owner NOT IN (SELECT LOWER(u.name) FROM users u WHERE u.id <> ?)
-       AND e.id IS NULL AND p.id IS NULL AND t.amount <> 0
+       AND e.id IS NULL AND p.id IS NULL AND ABS(t.amount) >= 1
        AND (${PLATFORM_WORDS.map(() => "LOWER(CONCAT_WS(' ', t.label, t.merchant, t.bank_label)) LIKE ?").join(" OR ")})
      ORDER BY day DESC, t.id LIMIT 300`,
     [userId, userId, userId, ...PLATFORM_WORDS.map((w) => `%${w}%`)],
@@ -115,6 +118,11 @@ export async function cryptoProposals(userId: number): Promise<Proposal[]> {
 }
 
 const txId = (ref: string) => (ref.startsWith("tx:") ? ref.slice(3) : null);
+/** « move:<portefeuille>:<ligne> » : une ligne lue dans l'export d'une appli (l'identifiant d'un portefeuille peut porter des « : »). */
+const moveRef = (ref: string) => {
+  const cut = ref.lastIndexOf(":");
+  return ref.startsWith("move:") && cut > 5 ? { portfolioId: ref.slice(5, cut), rowKey: ref.slice(cut + 1) } : null;
+};
 
 /** L'opération bancaire d'une proposition, si le membre peut la voir. */
 async function ownOperation(userId: number, id: string) {
@@ -123,6 +131,12 @@ async function ownOperation(userId: number, id: string) {
 
 /** Vrai si la proposition existe et attend encore la décision du membre. */
 export async function openProposal(userId: number, ref: string): Promise<boolean> {
+  const move = moveRef(ref);
+  if (move) {
+    const line = await one("SELECT 1 AS x FROM crypto_file_moves WHERE portfolio_id = ? AND owner_user_id = ? AND row_key = ? AND kind <> ?", [move.portfolioId, userId, move.rowKey, OBSERVED]);
+    if (!line) return false;
+    return !(await one("SELECT 1 AS x FROM crypto_events WHERE owner_user_id = ? AND source_ref = ? LIMIT 1", [userId, ref]));
+  }
   const id = txId(ref);
   if (id) {
     if (!(await ownOperation(userId, id))) return false;
@@ -138,6 +152,7 @@ export async function openProposal(userId: number, ref: string): Promise<boolean
  */
 export async function noteProposal(userId: number, ref: string, e: EventInput, via: "main" | "assistant"): Promise<number> {
   if (!(await openProposal(userId, ref))) throw new ActionError(404, tr("Cette proposition n'est plus à noter"));
+  if (moveRef(ref)) return addCryptoEvent(userId, e, via === "assistant" ? "assistant" : "fichier", { sourceRef: ref });
   const id = txId(ref);
   if (id) return addCryptoEvent(userId, e, via === "assistant" ? "assistant" : "banque", { transactionId: id });
   // Le nom du portefeuille, gardé tel que proposé, y rattache le mouvement (voir `place`, crypto-events.ts).
@@ -166,6 +181,46 @@ export async function dismissProposals(userId: number, refs: string[]): Promise<
     }
   }
   return n;
+}
+
+/* ---------- Lignes lues dans les exports d'une appli ---------- */
+
+export type SourceMove = {
+  /** Ce que l'écran renvoie pour noter la ligne au journal (« move:<portefeuille>:<ligne> »). */
+  ref: string;
+  at: string;
+  /** Genre écrit par l'appli, tel quel. */
+  kind: string;
+  /** Genre du journal qui lui ressemble, s'il y en a un. */
+  type: EventKind | null;
+  symbol: string;
+  amount: number;
+  /** Déjà noté au journal depuis cette ligne. */
+  noted: boolean;
+};
+
+/**
+ * Mouvements que Pécule a lus dans les exports d'un portefeuille du membre (appli sans clé d'API), du plus récent au
+ * plus ancien : tels que l'appli les écrit. Rien n'y est proposé d'office — il y en a des centaines — ; le membre
+ * note au journal ceux qui comptent pour lui. `null` : ce portefeuille n'est pas à lui, ou n'est pas tenu par fichier.
+ */
+export async function sourceMoves(userId: number, portfolioId: string, limit = 200): Promise<{ name: string; total: number; moves: SourceMove[] } | null> {
+  const src = await one<{ name: string; type: string }>("SELECT name, type FROM crypto_sources WHERE portfolio_id = ? AND owner_user_id = ?", [portfolioId, userId]);
+  if (!src || !src.type.startsWith("f-")) return null;
+  const count = await one<{ n: number }>("SELECT COUNT(*) AS n FROM crypto_file_moves WHERE portfolio_id = ? AND owner_user_id = ? AND kind <> ?", [portfolioId, userId, OBSERVED]);
+  const rows = await q<{ row_key: string; at: string; kind: string; symbol: string; amount: number; noted: number | null }>(
+    `SELECT m.row_key, DATE_FORMAT(m.at, '%Y-%m-%d %H:%i:%s') AS at, m.kind, m.symbol, m.amount, e.id AS noted
+     FROM crypto_file_moves m
+     LEFT JOIN crypto_events e ON e.owner_user_id = m.owner_user_id AND e.source_ref = CONCAT('move:', m.portfolio_id, ':', m.row_key)
+     WHERE m.portfolio_id = ? AND m.owner_user_id = ? AND m.kind <> ?
+     ORDER BY m.at DESC, m.id DESC LIMIT ?`,
+    [portfolioId, userId, OBSERVED, limit],
+  );
+  return {
+    name: src.name,
+    total: Number(count?.n ?? 0),
+    moves: rows.map((r) => ({ ref: `move:${portfolioId}:${r.row_key}`, at: r.at, kind: r.kind, type: moveEventKind(r.kind), symbol: r.symbol, amount: Number(r.amount), noted: r.noted != null })),
+  };
 }
 
 /* ---------- Synchronisation : ce qui a bougé entre deux lectures ---------- */

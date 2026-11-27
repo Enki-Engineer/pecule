@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, ChevronDown, FileUp, Layers, PencilLine, Plus, RefreshCw, Trash2, Wallet, X, type LucideIcon } from "lucide-react";
+import { Building2, ChevronDown, FileUp, Layers, ListOrdered, PencilLine, Plus, RefreshCw, Trash2, Wallet, X, type LucideIcon } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api, useCrypto, type CryptoPosition, type CryptoSource, type CryptoStatus } from "../api.ts";
 import { Card, ErrorBox, Field, PageHeader, Segmented, Sheet, Spinner } from "../components/ui.tsx";
 import { dateFr, money, moneySymbol, pct, timeAgo } from "../format.ts";
-import { Journal, JournalTable, type JournalHints } from "../components/CryptoJournal.tsx";
+import { Journal, JournalTable, SourceMovesSheet, type JournalHints } from "../components/CryptoJournal.tsx";
 import { BrandLogo, CoinLogo, Tile } from "../components/Logo.tsx";
 import { brandOf } from "../../lib/brands.ts";
 import { EXCHANGES, type ExchangeId } from "../../lib/crypto-exchanges.ts";
@@ -203,7 +203,7 @@ export function Crypto() {
               )}
             </Card>
           ) : (
-            <Portfolios positions={data.positions} st={st} onAdd={() => setAdding(true)} focus={focus} onFocus={pick} />
+            <Portfolios positions={data.positions} st={st} hints={hints} onAdd={() => setAdding(true)} focus={focus} onFocus={pick} />
           )}
 
           <Archived st={st} />
@@ -337,6 +337,8 @@ type RowActions = {
   accepting: string | null;
   /** Corriger un solde d'un portefeuille tenu par ses exports. */
   observe: (s: CryptoSource) => void;
+  /** Voir les mouvements lus dans les exports d'un portefeuille. */
+  moves: (s: CryptoSource) => void;
   /** Portefeuille dont les cryptos ressortent dans « Par crypto », et de quoi le choisir. */
   focus: string | null;
   pick: (id: string) => void;
@@ -362,6 +364,11 @@ function SourceRow({ s, value, actions }: { s: CryptoSource; value: number; acti
         <label className="flex items-center gap-1 text-xs text-muted">
           <input type="checkbox" checked={!!s.enabled} onChange={() => actions.toggle(s)} className="size-[18px] accent-[var(--color-accent)]" aria-label={t("Compter « {nom} »", { nom: s.name })} />
         </label>
+        {s.file && (
+          <button type="button" onClick={() => actions.moves(s)} className="press grid size-8 place-items-center rounded-full text-muted hover:text-ink" aria-label={t("Voir ses mouvements")} title={t("Voir ses mouvements")}>
+            <ListOrdered size={16} />
+          </button>
+        )}
         {s.file && (
           <button type="button" onClick={() => actions.observe(s)} className="press grid size-8 place-items-center rounded-full text-muted hover:text-ink" aria-label={t("Corriger un solde")} title={t("Corriger un solde")}>
             <PencilLine size={16} />
@@ -422,9 +429,10 @@ function OriginCard({ title, hint, icon, brand, rows, positions, actions }: { ti
   );
 }
 
-function Portfolios({ positions, st, onAdd, focus, onFocus }: { positions: CryptoPosition[]; st: CryptoStatus; onAdd: () => void; focus: string | null; onFocus: (id: string) => void }) {
+function Portfolios({ positions, st, hints, onAdd, focus, onFocus }: { positions: CryptoPosition[]; st: CryptoStatus; hints: JournalHints; onAdd: () => void; focus: string | null; onFocus: (id: string) => void }) {
   const qc = useQueryClient();
   const [observing, setObserving] = useState<string | null>(null);
+  const [listing, setListing] = useState<string | null>(null);
   const manual = positions.filter((p) => p.source === "manuel");
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["crypto"] }), qc.invalidateQueries({ queryKey: ["wealth"] })]);
   const toggle = (s: CryptoSource) =>
@@ -456,7 +464,7 @@ function Portfolios({ positions, st, onAdd, focus, onFocus }: { positions: Crypt
       toast.error(e instanceof Error ? e.message : t("Enregistrement impossible"));
     }
   };
-  const actions: RowActions = { toggle, remove, accept, accepting, observe: (s) => setObserving(s.portfolioId), focus, pick: onFocus };
+  const actions: RowActions = { toggle, remove, accept, accepting, observe: (s) => setObserving(s.portfolioId), moves: (s) => setListing(s.portfolioId), focus, pick: onFocus };
   return (
     <div className="space-y-3">
       {ORIGINS.map((o) => {
@@ -486,6 +494,7 @@ function Portfolios({ positions, st, onAdd, focus, onFocus }: { positions: Crypt
         <Plus size={16} /> {t("Ajouter un portefeuille")}
       </button>
       <ObservedSheet source={st.sources.find((s) => s.portfolioId === observing) ?? null} positions={positions} onClose={() => setObserving(null)} />
+      {listing && <SourceMovesSheet portfolioId={listing} hints={hints} onClose={() => setListing(null)} />}
     </div>
   );
 }
@@ -782,7 +791,7 @@ function CryptoDesktop({
           <DuplicateNotices st={st} />
           <div>
             <h2 className="mb-2 font-semibold">{t("Portefeuilles")}</h2>
-            <Portfolios positions={data.positions} st={st} onAdd={onAdd} focus={focus} onFocus={onFocus} />
+            <Portfolios positions={data.positions} st={st} hints={hints} onAdd={onAdd} focus={focus} onFocus={onFocus} />
           </div>
           <Archived st={st} />
         </div>

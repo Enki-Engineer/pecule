@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Landmark, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Check as CheckIcon, ChevronDown, Landmark, Plus, RefreshCw, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api } from "../api.ts";
-import { useCryptoEvents, type CryptoEvent, type CryptoJournal, type CryptoProposal } from "../api-situation.ts";
-import { Card, InfoTip, Sheet } from "./ui.tsx";
+import { useCryptoEvents, useCryptoSourceMoves, type CryptoEvent, type CryptoJournal, type CryptoProposal, type CryptoSourceMove } from "../api-situation.ts";
+import { Card, InfoTip, Sheet, Spinner } from "./ui.tsx";
 import { DataTable, type Column } from "./DataTable.tsx";
 import { dateFr, money, moneySymbol } from "../format.ts";
 import { cn } from "../cn.ts";
@@ -86,7 +86,9 @@ function proposalTitle(p: CryptoProposal): string {
 
 /** D'où vient une proposition : l'opération bancaire, ou les deux lectures entre lesquelles le solde a bougé. */
 const proposalSource = (p: CryptoProposal) =>
-  p.origin === "banque"
+  p.origin === "fichier"
+    ? t("Lu dans l'export de {nom}, au {date}", { nom: p.platform ?? "", date: dateFr(p.date) })
+    : p.origin === "banque"
     ? [dateFr(p.date), p.label, p.account].filter(Boolean).join(" · ")
     : p.since && p.since !== p.date
       ? t("Solde changé entre le {debut} et le {fin}", { debut: dateFr(p.since), fin: dateFr(p.date) })
@@ -473,6 +475,80 @@ function EventSheet({ event, proposal, hints, onClose }: { event: CryptoEvent | 
         )}
         <p className="px-1 text-xs text-muted">{t("Le journal raconte ce que tu as fait : il ne change ni tes positions ni leur valeur.")}</p>
       </div>
+    </Sheet>
+  );
+}
+
+/* ---------- Mouvements lus dans les exports d'une appli ---------- */
+
+/** Genre écrit par l'appli, rendu lisible faute de mieux (« crypto_earn_interest_paid » → « crypto earn interest paid »). */
+const rawKind = (kind: string) => kind.replace(/[_.]+/g, " ");
+const signed = (m: CryptoSourceMove) => `${m.amount > 0 ? "+" : "−"}${qty(Math.abs(m.amount))} ${m.symbol}`;
+const MOVES_STEP = 200;
+
+/**
+ * Ce que Pécule a lu dans les exports d'un portefeuille (appli sans clé d'API) : tous ses mouvements, tels que
+ * l'appli les écrit. Toucher une ligne ouvre le mouvement rempli, à relire avant de le noter au journal ; rien n'y
+ * est noté d'office.
+ */
+export function SourceMovesSheet({ portfolioId, hints, onClose }: { portfolioId: string; hints: JournalHints; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [limit, setLimit] = useState(MOVES_STEP);
+  const [noting, setNoting] = useState<CryptoProposal | null>(null);
+  const moves = useCryptoSourceMoves(portfolioId, limit);
+  const data = moves.data;
+  const note = (m: CryptoSourceMove) =>
+    setNoting({ ref: m.ref, origin: "fichier", date: m.at.slice(0, 10), since: null, type: m.type ?? "autre", asset: m.symbol, quantity: Math.abs(m.amount), value: null, platform: data?.name ?? null, fromPlatform: null, direction: null, label: null, account: null });
+  return (
+    <Sheet open onClose={onClose} title={data ? t("Mouvements de « {nom} »", { nom: data.name }) : t("Mouvements")}>
+      {!data ? (
+        <Spinner />
+      ) : (
+        <div className="space-y-3">
+          <p className="px-1 text-xs leading-relaxed text-muted">
+            {tn("{n} mouvement lu dans les fichiers que tu as déposés, tel que l'appli l'écrit.", "{n} mouvements lus dans les fichiers que tu as déposés, tels que l'appli les écrit.", data.total)}{" "}
+            {t("Touche une ligne pour la noter au journal : tu la relis avant.")}
+          </p>
+          <Card className="divide-y divide-line">
+            {data.moves.map((m) => (
+              <button key={m.ref} type="button" disabled={m.noted} onClick={() => note(m)} className="press flex w-full items-center gap-3 px-4 py-2.5 text-left disabled:opacity-100">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[15px] font-medium">{m.type ? kindLabel(m.type) : rawKind(m.kind)}</div>
+                  <div className="truncate text-xs text-muted">
+                    {dateFr(m.at.slice(0, 10))}
+                    {m.type && ` · ${rawKind(m.kind)}`}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="tnum text-sm font-semibold">{signed(m)}</div>
+                  {m.noted && (
+                    <div className="flex items-center justify-end gap-1 text-[11px] text-muted">
+                      <CheckIcon size={12} /> {t("noté au journal")}
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))}
+            {!data.moves.length && <div className="px-4 py-3 text-sm text-muted">{t("Aucun mouvement.")}</div>}
+          </Card>
+          {data.moves.length < data.total && (
+            <button type="button" onClick={() => setLimit((n) => n + MOVES_STEP)} disabled={moves.isFetching} className="press card w-full px-4 py-3 text-sm font-medium text-accent disabled:opacity-50">
+              {t("Afficher les mouvements plus anciens ({reste})", { reste: data.total - data.moves.length })}
+            </button>
+          )}
+        </div>
+      )}
+      {noting && (
+        <EventSheet
+          event={null}
+          proposal={noting}
+          hints={hints}
+          onClose={() => {
+            setNoting(null);
+            void qc.invalidateQueries({ queryKey: ["crypto-source-moves", portfolioId] });
+          }}
+        />
+      )}
     </Sheet>
   );
 }

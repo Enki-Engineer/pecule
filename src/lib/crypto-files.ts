@@ -8,6 +8,7 @@
 import { splitCsv } from "./bank-files.ts";
 import { isCurrency } from "./currencies.ts";
 import { tk } from "./i18n.ts";
+import type { EventKind } from "./crypto-events.ts";
 
 /**
  * Applis suivies par leurs exports : nom, format du fichier, marche à suivre, ce qui est lu. Une source de ce genre
@@ -150,6 +151,25 @@ export function parseSwissborgRows(rows: string[][]): FileParse | null {
  * peut avoir un trou (des récompenses que l'appli n'y écrit pas) ; le solde constaté le comble sans rien inventer.
  */
 export const OBSERVED = "solde_constate";
+
+/**
+ * Genre du journal qui ressemble le plus à une ligne d'export, d'après le genre que l'appli écrit — pour montrer la
+ * ligne dans la langue du membre et préremplir le mouvement qu'il en note, et qu'il relit. `null` quand rien ne le
+ * dit : la ligne garde alors le genre écrit par l'appli, rien n'est deviné.
+ */
+export function moveEventKind(kind: string): EventKind | null {
+  const k = kind.toLowerCase();
+  if (k === OBSERVED) return null;
+  if (/interest|^payouts?$/.test(k)) return "interets";
+  if (/stak\w*_reward|supercharger\w*reward/.test(k)) return "recompense";
+  if (/cashback|referral|reimbursement|gift|bonus|campaign|airdrop|(^|_)rewards?(_|$)/.test(k)) return "prime";
+  // De la crypto contre de la monnaie, dans un sens ou dans l'autre, avant les échanges entre cryptos.
+  if (/crypto_viban_exchange|^sell$/.test(k)) return "vente";
+  if (/purchase|^buy$/.test(k)) return "achat";
+  if (/withdrawal|deposit|transfer/.test(k)) return "transfert";
+  if (/exchange|swap|dust_conversion|convert/.test(k)) return "echange";
+  return null;
+}
 
 /**
  * Solde de chaque crypto : la somme de ses mouvements. Une crypto qui a un solde constaté part de lui : seuls les

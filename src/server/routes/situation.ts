@@ -20,7 +20,7 @@ import {
 } from "../situation.ts";
 import { addCryptoEvent, cryptoEvents, deleteCryptoEvent, updateCryptoEvent } from "../crypto-events.ts";
 import { EVENT_KINDS, EVENT_STATUSES, kindOf } from "../../lib/crypto-events.ts";
-import { cryptoProposals, dismissProposals, noteProposal } from "../crypto-proposals.ts";
+import { cryptoProposals, dismissProposals, noteProposal, sourceMoves } from "../crypto-proposals.ts";
 import { cashFlows } from "../../lib/crypto-moves.ts";
 import { extractPayslip, normalizePayslips, payslipHistory, payslipsToReread } from "../payslips.ts";
 import { audience, setIncomeShared } from "../sharing.ts";
@@ -174,6 +174,14 @@ const eventId = (req: Request) => z.coerce.number().int().positive().parse(req.p
 situationApi.post("/crypto/events", async (req, res) => {
   const { proposal, ...event } = cryptoEvent.extend({ proposal: z.string().max(191).optional() }).parse(req.body);
   res.json({ id: proposal ? await noteProposal(req.user!.id, proposal, event, "main") : await addCryptoEvent(req.user!.id, event, "main") });
+});
+
+/** Mouvements lus dans les exports d'un portefeuille du membre, tels que l'appli les écrit : il y choisit ceux qu'il note. */
+situationApi.get("/crypto/sources/:id/moves", async (req, res) => {
+  const limit = z.coerce.number().int().min(1).max(5000).default(200).parse(req.query.limit);
+  const moves = await sourceMoves(req.user!.id, z.string().max(96).parse(req.params.id), limit);
+  if (!moves) throw new ActionError(404, tr("Portefeuille introuvable"));
+  res.json(moves);
 });
 
 /** Propositions écartées : elles ne seront plus montrées. */

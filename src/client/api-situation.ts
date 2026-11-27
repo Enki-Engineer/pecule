@@ -160,7 +160,8 @@ export type CryptoEvent = {
 /** Mouvement que Pécule propose de noter : une opération bancaire vers une plateforme, ou un solde qui a bougé à une synchronisation. */
 export type CryptoProposal = {
   ref: string;
-  origin: "banque" | "synchro";
+  /** fichier : une ligne de l'export d'une appli, que le membre choisit de noter. */
+  origin: "banque" | "synchro" | "fichier";
   date: string;
   /** Synchronisation : jour de la lecture d'avant. */
   since: string | null;
@@ -184,6 +185,14 @@ export const useBudget = () => useQuery({ queryKey: ["budget"], queryFn: () => a
 export const useTaxes = () => useQuery({ placeholderData: keepPreviousData, queryKey: ["taxes", currentScopeKey()], queryFn: () => api<Taxes>("/taxes") });
 export const useRetirement = () => useQuery({ queryKey: ["retirement"], queryFn: () => api<Retirement>("/retirement") });
 export const useProjections = () => useQuery({ queryKey: ["projections"], queryFn: () => api<Projections>("/projections") });
+/** Mouvement lu dans l'export d'une appli, tel qu'elle l'écrit ; `type` : le genre du journal qui lui ressemble. */
+export type CryptoSourceMove = { ref: string; at: string; kind: string; type: string | null; symbol: string; amount: number; noted: boolean };
+export const useCryptoSourceMoves = (portfolioId: string, limit: number) =>
+  useQuery({
+    placeholderData: keepPreviousData,
+    queryKey: ["crypto-source-moves", portfolioId, limit],
+    queryFn: () => api<{ name: string; total: number; moves: CryptoSourceMove[] }>(`/crypto/sources/${encodeURIComponent(portfolioId)}/moves?limit=${limit}`),
+  });
 export const useCryptoEvents = () => useQuery({ queryKey: ["crypto-events"], queryFn: () => api<CryptoJournal>("/crypto/events") });
 
 export const COMMITMENT_TYPES: Record<string, string> = { credit: t("Crédit"), assurance: t("Assurance"), abonnement: t("Contrat & abonnement"), taxe: t("Taxe & impôt"), garde: t("Garde & école"), budget: t("Budget courant") };

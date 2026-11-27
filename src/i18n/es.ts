@@ -3955,4 +3955,13 @@ export const es: Dict = {
   "{n} mouvement à noter ?": ["¿{n} operación por anotar?", "¿{n} operaciones por anotar?"],
   "{n} autre proposition": ["{n} propuesta más", "{n} propuestas más"],
   "Écarter {n} proposition du journal crypto": ["Descartar {n} propuesta del registro cripto", "Descartar {n} propuestas del registro cripto"],
+  "Lu dans l'export de {nom}, au {date}": "Leído en la exportación de {nom}, con fecha {date}",
+  "Mouvements de « {nom} »": "Operaciones de «{nom}»",
+  "Mouvements": "Operaciones",
+  "Touche une ligne pour la noter au journal : tu la relis avant.": "Toca una línea para anotarla en el registro: antes la revisas.",
+  "noté au journal": "anotado en el registro",
+  "Aucun mouvement.": "Ninguna operación.",
+  "Afficher les mouvements plus anciens ({reste})": "Mostrar las operaciones más antiguas ({reste})",
+  "Voir ses mouvements": "Ver sus operaciones",
+  "{n} mouvement lu dans les fichiers que tu as déposés, tel que l'appli l'écrit.": ["{n} operación leída en los archivos que has subido, tal como la escribe la app.", "{n} operaciones leídas en los archivos que has subido, tal como las escribe la app."],
 };

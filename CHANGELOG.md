@@ -3,6 +3,20 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.53.0
+
+Crypto : les mouvements lus dans les exports d'une appli se consultent, et se notent au journal. Aucune migration,
+aucun réglage nouveau.
+
+- **« Voir ses mouvements »** : un portefeuille tenu par ses exports (l'appli Crypto.com, SwissBorg) montre tout ce
+  que Pécule a lu dans les fichiers déposés, du plus récent au plus ancien — la date, le genre écrit par l'appli et
+  celui du journal qui lui ressemble, la quantité. Jusque-là ces lignes ne servaient qu'à calculer les soldes.
+- **Une ligne se note au journal en un geste** : la toucher ouvre le mouvement rempli (genre, date, crypto,
+  quantité, plateforme), à relire et à compléter de son montant. Une ligne déjà notée le dit, et ne se note pas deux
+  fois. Rien n'y est noté d'office : un export compte des centaines de lignes.
+- **Un virement de quelques centimes n'est plus proposé au journal** : c'est l'essai par lequel une plateforme
+  vérifie un compte bancaire (moins d'une unité de la devise du foyer).
+
 ## 1.52.0
 
 Crypto : Pécule propose de noter au journal ce qu'il voit passer — dans la banque et dans les portefeuilles. Une

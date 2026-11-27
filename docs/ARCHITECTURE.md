@@ -97,7 +97,8 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   `src/lib/crypto-events.ts`) ; il ne change aucune position. Pécule lui propose des mouvements, jamais écrits sans
   le membre (`src/server/crypto-proposals.ts`, règles pures dans `src/lib/crypto-moves.ts`) : une opération
   bancaire vers une plateforme crypto, relue à chaque fois dans ses opérations, et un solde qui a bougé entre deux
-  synchronisations, gardé dans `crypto_proposals`.
+  synchronisations, gardé dans `crypto_proposals`. Les lignes lues dans les exports d'une appli (`crypto_file_moves`)
+  se consultent par portefeuille, et le membre note au journal celles qu'il choisit (`sourceMoves`).
 - **Situation** — `properties`, `commitments` (engagements récurrents), `payslips`, `tax_returns`, `property_taxes`,
   `retirement_simulations`, `career_periods`, `projections`. Les indicateurs sont recalculés, jamais stockés.
 - **Revenus et impôts du foyer** — Foyer / Moi (`scopeKind`, `src/lib/scope.ts`) vaut aussi pour Revenus et Impôts,

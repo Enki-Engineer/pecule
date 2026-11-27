@@ -3955,4 +3955,13 @@ export const en: Dict = {
   "{n} mouvement à noter ?": ["{n} entry to note?", "{n} entries to note?"],
   "{n} autre proposition": ["{n} more suggestion", "{n} more suggestions"],
   "Écarter {n} proposition du journal crypto": ["Dismiss {n} suggestion from the crypto log", "Dismiss {n} suggestions from the crypto log"],
+  "Lu dans l'export de {nom}, au {date}": "Read in the {nom} export, dated {date}",
+  "Mouvements de « {nom} »": "Activity of “{nom}”",
+  "Mouvements": "Activity",
+  "Touche une ligne pour la noter au journal : tu la relis avant.": "Tap a line to note it in the log: you read it over first.",
+  "noté au journal": "noted in the log",
+  "Aucun mouvement.": "No activity.",
+  "Afficher les mouvements plus anciens ({reste})": "Show older activity ({reste})",
+  "Voir ses mouvements": "See its activity",
+  "{n} mouvement lu dans les fichiers que tu as déposés, tel que l'appli l'écrit.": ["{n} entry read in the files you dropped, as the app writes it.", "{n} entries read in the files you dropped, as the app writes them."],
 };

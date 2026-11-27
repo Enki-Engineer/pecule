@@ -210,6 +210,7 @@ export const patrimoine: ManualTheme = {
             tk("L'assistant voit aussi ces propositions : demande-lui ce qu'il reste à noter."),
           ],
         },
+        tk("Un portefeuille tenu par ses exports (l'appli Crypto.com, SwissBorg) garde tous les mouvements lus dans les fichiers que tu as déposés. Dans [[Par portefeuille]], [[Voir ses mouvements]] les montre, du plus récent au plus ancien, tels que l'appli les écrit ; touche une ligne pour la noter au journal — le mouvement s'ouvre rempli, tu le relis et tu ajoutes le montant. Une ligne déjà notée le dit. Rien n'y est noté d'office : un export compte des centaines de lignes, à toi de choisir celles qui comptent."),
         { note: tk("Le journal n'a pas à suivre chaque ligne d'un relevé : note ce qui compte pour toi, et résume le reste par période.") },
       ],
       links: [{ to: "/patrimoine/crypto", label: ["Crypto"] }],

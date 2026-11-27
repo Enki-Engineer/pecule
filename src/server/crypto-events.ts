@@ -46,8 +46,8 @@ export type EventInput = {
   status?: EventStatus;
   note?: string | null;
 };
-/** D'où vient la ligne : saisie à l'écran, dictée à l'assistant, reprise d'un autre outil, ou proposition de Pécule notée (banque, synchronisation). */
-export type EventOrigin = "main" | "assistant" | "import" | "banque" | "synchro";
+/** D'où vient la ligne : saisie à l'écran, dictée à l'assistant, reprise d'un autre outil, ou noté depuis ce que Pécule lit (banque, synchronisation, ligne d'un export). */
+export type EventOrigin = "main" | "assistant" | "import" | "banque" | "synchro" | "fichier";
 
 // Le nom d'un portefeuille relié suit ses changements ; un portefeuille retiré laisse le nom noté ce jour-là.
 const COLUMNS = `e.id, e.date, e.end_date, e.title, e.asset, e.type, COALESCE(s.name, e.platform) AS platform,
@@ -89,15 +89,15 @@ function check(date: string, endDate: string | null | undefined) {
 
 /**
  * Ajoute un mouvement au journal du membre ; rend son identifiant. `link.transactionId` : l'opération bancaire qu'il
- * raconte (l'appelant a vérifié que le membre la voit).
+ * raconte ; `link.sourceRef` : la ligne d'export dont il vient (l'appelant a vérifié que le membre les voit).
  */
-export async function addCryptoEvent(userId: number, e: EventInput, origin: EventOrigin, link: { transactionId?: string } = {}): Promise<number> {
+export async function addCryptoEvent(userId: number, e: EventInput, origin: EventOrigin, link: { transactionId?: string; sourceRef?: string } = {}): Promise<number> {
   check(e.date, e.endDate);
   const where = await place(userId, e.platform, e.portfolioId);
   const r = await exec(
-    `INSERT INTO crypto_events (owner_user_id, date, end_date, title, asset, type, platform, portfolio_id, quantity, value, price, fee, status, note, origin, transaction_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [userId, e.date, e.endDate || null, e.title.trim().slice(0, 255), text(e.asset, 120), e.type, where.platform, where.portfolioId, number(e.quantity), amount(e.value), number(e.price), amount(e.fee), e.status ?? "fait", text(e.note, 4000), origin, link.transactionId ?? null],
+    `INSERT INTO crypto_events (owner_user_id, date, end_date, title, asset, type, platform, portfolio_id, quantity, value, price, fee, status, note, origin, transaction_id, source_ref)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [userId, e.date, e.endDate || null, e.title.trim().slice(0, 255), text(e.asset, 120), e.type, where.platform, where.portfolioId, number(e.quantity), amount(e.value), number(e.price), amount(e.fee), e.status ?? "fait", text(e.note, 4000), origin, link.transactionId ?? null, link.sourceRef ?? null],
   );
   return r.insertId;
 }

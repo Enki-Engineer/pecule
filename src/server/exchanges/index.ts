@@ -18,7 +18,8 @@ import { readKucoin } from "./kucoin.ts";
 import { readOkx } from "./okx.ts";
 import { readBitpanda } from "./bitpanda.ts";
 import { readCoinbase } from "./coinbase.ts";
-import { readKraken } from "./kraken.ts";
+import { readKraken, readKrakenLedger } from "./kraken.ts";
+import type { LedgerEntry } from "../../lib/crypto-ledger.ts";
 import type { Credentials, ExchangeReading } from "./http.ts";
 
 export { ExchangeError } from "./http.ts";
@@ -49,3 +50,12 @@ export async function readExchange(id: ExchangeId, creds: Credentials) {
   const holdings = holdingsOf(reading.balances, reading.pricesEur, SYMBOLS, await fiatRates(reading.balances.map((b) => b.symbol)));
   return { holdings, note: `${EXCHANGES[id].name} · ${reading.note}`, unread: reading.unread };
 }
+
+/**
+ * Exchanges dont Pécule sait lire le registre (les écritures du compte), quand la clé en a le droit : de quoi dater
+ * et chiffrer un achat ou une vente qu'il a vus dans les soldes. Lecture seule, comme le reste.
+ */
+const HISTORY: Partial<Record<ExchangeId, (creds: Credentials, since: Date) => Promise<LedgerEntry[] | null>>> = { kraken: readKrakenLedger };
+
+/** Écritures du registre d'un compte depuis un instant ; `null` si l'exchange n'est pas de ceux-là, ou si la clé n'en a pas le droit. */
+export const readExchangeHistory = async (id: ExchangeId, creds: Credentials, since: Date): Promise<LedgerEntry[] | null> => (await HISTORY[id]?.(creds, since)) ?? null;

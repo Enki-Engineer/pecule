@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { binanceSignature, readBinance } from "./binance.ts";
 import { readBitpanda } from "./bitpanda.ts";
 import { coinbaseJwt, coinbaseKey, readCoinbase } from "./coinbase.ts";
-import { krakenSignature, readKraken } from "./kraken.ts";
+import { krakenSignature, readKraken, readKrakenLedger } from "./kraken.ts";
 import { ExchangeError, type Http } from "./http.ts";
 
 type Call = { url: string; method: string; headers: Record<string, string>; body?: string };
@@ -97,6 +97,53 @@ describe("Kraken", () => {
     expect(await refused(readKraken(creds, fake(() => ({ body: { error: ["EService:Unavailable"] } })).http))).toBe(false);
     expect(await refused(readKraken(creds, fake(() => ({ status: 502, body: null })).http))).toBe(false);
     expect(await refused(readKraken({ key: "k" }, fake(() => ({ body: {} })).http))).toBe(true);
+  });
+
+  // Écritures à la forme de l'exemple de la documentation de `Ledgers` : un achat de bitcoin contre des euros.
+  const ledger = {
+    "L4UESK-KG3EQ-UFO4T5": { refid: "TJKLXF-PGMUI-4NTLXU", time: 1795200421.5, type: "trade", subtype: "", aclass: "currency", asset: "ZEUR", amount: "-1600.0000", fee: "0.0000", balance: "0.4000" },
+    "LMKZCZ-Z3GVL-CXKK4H": { refid: "TJKLXF-PGMUI-4NTLXU", time: 1795200421.5, type: "trade", subtype: "", aclass: "currency", asset: "XXBT", amount: "0.0200000000", fee: "0.0000760000", balance: "0.0199240000" },
+    "LAAAAA-BBBBB-CCCCCC": { refid: "FTAAAAA-BBBBB", time: 1795100000, type: "deposit", subtype: "", aclass: "currency", asset: "ZEUR", amount: "1600.0000", fee: "0.0000", balance: "1600.4000" },
+    "LKFEE0-00000-000000": { refid: "X", time: 1795100001, type: "transfer", subtype: "", aclass: "currency", asset: "KFEE", amount: "10.00", fee: "0.00", balance: "10.00" },
+  };
+
+  it("lit le registre depuis un instant, par la seule route du registre, et ramène les codes à leur symbole", async () => {
+    const { http, calls } = fake((path) => {
+      if (path === "/0/private/Ledgers") return { body: { error: [], result: { ledger, count: 4 } } };
+      if (path === "/0/public/Assets") return { body: { error: [], result: { XXBT: { altname: "XBT" }, ZEUR: { altname: "EUR" } } } };
+      return { status: 404, body: { error: ["EGeneral:Unknown method"] } };
+    });
+    const secret = Buffer.from("secret").toString("base64");
+    const entries = (await readKrakenLedger({ key: "ma-cle", secret }, new Date("2026-11-20T08:00:00Z"), http))!;
+    expect(entries.map((e) => [e.type, e.symbol, e.amount, e.fee, e.ref])).toEqual([
+      ["deposit", "EUR", 1600, 0, "FTAAAAA-BBBBB"],
+      ["trade", "EUR", -1600, 0, "TJKLXF-PGMUI-4NTLXU"],
+      ["trade", "BTC", 0.02, 0.000076, "TJKLXF-PGMUI-4NTLXU"],
+    ]);
+    expect(entries[1].at).toBe(new Date(1795200421500).toISOString());
+    const signed = calls.filter((c) => c.headers["API-Key"]);
+    expect(signed.map((c) => `${c.method} ${new URL(c.url).pathname}`)).toEqual(["POST /0/private/Ledgers"]);
+    expect(signed[0].body).toMatch(/^nonce=\d+&start=1795161600&ofs=0$/);
+    const nonce = /^nonce=(\d+)/.exec(signed[0].body!)![1];
+    expect(signed[0].headers["API-Sign"]).toBe(krakenSignature("/0/private/Ledgers", nonce, signed[0].body!, secret));
+  });
+
+  it("relit page après page tant qu'une page est pleine", async () => {
+    const full = Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`L${i}`, { refid: `R${i}`, time: 1795100000 + i, type: "staking", asset: "DOT", amount: "0.01", fee: "0" }]));
+    const { http, calls } = fake((path, call) => {
+      if (path === "/0/private/Ledgers") return { body: { error: [], result: { ledger: call.body!.endsWith("ofs=0") ? full : { LZ: { refid: "RZ", time: 1795200000, type: "staking", asset: "DOT", amount: "0.02", fee: "0" } } } } };
+      return { body: { error: [], result: {} } };
+    });
+    const entries = (await readKrakenLedger({ key: "k", secret: Buffer.from("s").toString("base64") }, new Date(0), http))!;
+    expect(entries).toHaveLength(51);
+    expect(calls.filter((c) => c.headers["API-Key"]).map((c) => c.body!.replace(/^nonce=\d+/, ""))).toEqual(["&start=0&ofs=0", "&start=0&ofs=50"]);
+  });
+
+  it("une clé sans le droit de lire le registre n'est pas une panne : pas d'écritures, rien de plus", async () => {
+    const creds = { key: "k", secret: Buffer.from("s").toString("base64") };
+    expect(await readKrakenLedger(creds, new Date(0), fake(() => ({ body: { error: ["EGeneral:Permission denied"] } })).http)).toBeNull();
+    expect(await refused(readKrakenLedger(creds, new Date(0), fake(() => ({ body: { error: ["EAPI:Invalid key"] } })).http))).toBe(true);
+    expect(await refused(readKrakenLedger(creds, new Date(0), fake(() => ({ status: 502, body: null })).http))).toBe(false);
   });
 });
 

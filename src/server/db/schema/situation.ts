@@ -297,6 +297,9 @@ export const cryptoProposals = mysqlTable(
     quantity: decimal("quantity", { precision: 30, scale: 10, mode: "number" }),
     /** Valeur estimée le jour de la lecture, dans la devise du foyer. */
     value: decimal("value", { precision: 14, scale: 2, mode: "number" }),
+    /** Cours d'exécution et frais, dans la devise du foyer, quand le registre de l'exchange a permis de les retrouver. */
+    price: decimal("price", { precision: 24, scale: 10, mode: "number" }),
+    fee: decimal("fee", { precision: 14, scale: 2, mode: "number" }),
     portfolioId: varchar("portfolio_id", { length: 96 }),
     /** Portefeuille d'où vient la crypto, pour un transfert entre deux portefeuilles du membre. */
     fromPortfolioId: varchar("from_portfolio_id", { length: 96 }),

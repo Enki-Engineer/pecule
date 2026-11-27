@@ -20,9 +20,9 @@ import { cardanoAccount, isCardanoAddress, readCardano } from "./chains/cardano.
 import { readMultiversxWallet } from "./chains/multiversx-wallet.ts";
 import { fxRate } from "./fx.ts";
 import { EXCHANGE_KINDS, EXCHANGES, exchangeOf, isExchangeKind, sameCoin, type ExchangeId } from "../lib/crypto-exchanges.ts";
-import { ExchangeError, readExchange, type Credentials } from "./exchanges/index.ts";
+import { ExchangeError, readExchange, readExchangeHistory, type Credentials } from "./exchanges/index.ts";
 import { logAudit, recordAlert } from "./journal.ts";
-import { directHoldings, proposeFromSync } from "./crypto-proposals.ts";
+import { directHoldings, proposeFromSync, type HistoryReader } from "./crypto-proposals.ts";
 import { refreshPrices, snapshotWealth } from "./wealth.ts";
 import { t } from "../lib/i18n.ts";
 import { serviceKey } from "./service-keys.ts";
@@ -85,18 +85,23 @@ const READERS: Record<WalletKind, (src: Source) => Promise<Reading>> = {
     };
   },
 };
+/** Clé d'un compte d'exchange, sortie de son coffre ; `null` si elle est illisible. */
+function credentialsOf(src: Source): Credentials | null {
+  const opened = src.secret ? sealer.open(src.secret) : null;
+  try {
+    const creds = opened ? (JSON.parse(opened) as Credentials) : null;
+    return creds?.key ? creds : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Lit une source selon son genre : une adresse sur sa blockchain, un compte chez son exchange. */
 function read(src: Source): Promise<Reading> {
   if (isWalletKind(src.type)) return READERS[src.type](src);
   if (!isExchangeKind(src.type)) throw new Error(`source de genre inconnu : ${src.type}`);
-  const opened = src.secret ? sealer.open(src.secret) : null;
-  let creds: Credentials | null = null;
-  try {
-    creds = opened ? (JSON.parse(opened) as Credentials) : null;
-  } catch {
-    creds = null;
-  }
-  if (!creds?.key) throw new ExchangeError("clé illisible : retirer ce compte et l'ajouter de nouveau", true);
+  const creds = credentialsOf(src);
+  if (!creds) throw new ExchangeError("clé illisible : retirer ce compte et l'ajouter de nouveau", true);
   return readExchange(exchangeOf(src.type), creds);
 }
 
@@ -250,7 +255,13 @@ export async function syncCrypto(trigger: "auto" | "manuel" | "assistant") {
       await refreshPrices().catch(() => undefined);
       await refreshDirectTotals();
       // Une proposition qui ne se fait pas ne doit pas faire échouer la synchro : elle est signalée, rien de plus.
-      await proposeFromSync(run.id, before, reread).catch((e) => recordAlert("crypto", `Mouvements à proposer au journal crypto : ${e instanceof Error ? e.message : String(e)}`, e, "alerte"));
+      // Le registre d'un exchange, quand la clé permet de le lire : il date et chiffre un achat ou une vente vus dans les soldes.
+      const history: HistoryReader = async (portfolioId, since) => {
+        const src = direct.find((s) => s.portfolioId === portfolioId);
+        const creds = src && isExchangeKind(src.type) ? credentialsOf(src) : null;
+        return src && creds && isExchangeKind(src.type) ? readExchangeHistory(exchangeOf(src.type), creds, since) : null;
+      };
+      await proposeFromSync(run.id, before, reread, history).catch((e) => recordAlert("crypto", `Mouvements à proposer au journal crypto : ${e instanceof Error ? e.message : String(e)}`, e, "alerte"));
       const owners = new Set(direct.map((s) => s.ownerUserId));
       if (cs) owners.add(cs.owner);
       for (const id of owners) await snapshotWealth(id);

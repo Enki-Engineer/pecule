@@ -21,7 +21,7 @@ const getCryptoEvents = readTool({
     "events — chaque mouvement : id, date (et end_date s'il résume une période), type, title, asset, quantity, value (devise du foyer), price (cours unitaire noté), unit_price (cours noté ou déduit), fee, platform, " +
     "status (fait, ou attente pour un ordre posé et pas encore exécuté), note. Pour le tenir : add_crypto_event, update_crypto_event, delete_crypto_event. " +
     "proposals — ce que Pécule propose d'y noter et que l'utilisateur n'a encore ni noté ni écarté : une opération bancaire vers une plateforme crypto (origin banque : bank_label, account), " +
-    "un solde qui a bougé entre deux synchronisations (origin synchro : entre since et date ; value = la monnaie réellement dépensée ou reçue pour un achat ou une vente, une estimation au cours du jour pour le reste ; direction in ou out quand l'autre bout n'est pas connu). " +
+    "un solde qui a bougé entre deux synchronisations (origin synchro : entre since et date ; value = la monnaie réellement dépensée ou reçue pour un achat ou une vente, une estimation au cours du jour pour le reste ; price et fee quand le registre de l'exchange a donné le cours d'exécution et les frais exacts — la date est alors celle de l'exécution ; direction in ou out quand l'autre bout n'est pas connu). " +
     "Pour en noter une : add_crypto_event avec proposal_ref, après avoir vérifié avec l'utilisateur ce qui s'est passé ; pour en écarter : dismiss_crypto_proposals. cash — somme des dépôts et des retraits notés au journal (ce n'est pas une plus-value : le journal ne dit pas tout ce qui a été acheté).",
   input: z.object({ limit: z.number().int().min(1).max(500).optional(), status: z.enum(EVENT_STATUSES).optional().describe("Ne rendre que les mouvements dans cet état") }),
   async run({ userId }, { limit, status }) {
@@ -39,6 +39,7 @@ const getCryptoEvents = readTool({
       asset: p.asset,
       quantity: p.quantity,
       value: p.value,
+      ...(p.price != null ? { price: p.price, fee: p.fee } : {}),
       platform: p.platform,
       ...(p.fromPlatform ? { from_platform: p.fromPlatform } : {}),
       ...(p.direction ? { direction: p.direction } : {}),

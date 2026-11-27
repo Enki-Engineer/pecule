@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0042_propositions_crypto.sql
+-- inclut-jusqu-a: drizzle/0043_propositions_exactes.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -369,6 +369,8 @@ CREATE TABLE `crypto_proposals` (
   `direction` varchar(4) DEFAULT NULL,
   `event_id` int(11) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `price` decimal(24,10) DEFAULT NULL,
+  `fee` decimal(14,2) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_crypto_proposal` (`owner_user_id`,`ref`),
   CONSTRAINT `fk_crypto_proposals_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION

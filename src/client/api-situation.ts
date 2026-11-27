@@ -169,6 +169,9 @@ export type CryptoProposal = {
   asset: string | null;
   quantity: number | null;
   value: number | null;
+  /** Cours d'exécution et frais retrouvés dans le registre de l'exchange, quand la clé permet de le lire. */
+  price?: number | null;
+  fee?: number | null;
   platform: string | null;
   fromPlatform: string | null;
   direction: "in" | "out" | null;

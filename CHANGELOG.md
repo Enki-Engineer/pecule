@@ -3,6 +3,25 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.54.0
+
+Crypto : un achat ou une vente chez Kraken se propose au journal avec sa vraie date, son cours et ses frais. Une
+migration (colonnes `price` et `fee` de `crypto_proposals`), aucun réglage nouveau.
+
+- **Le registre de Kraken, quand la clé permet de le lire.** Jusque-là, Pécule ne lisait chez un exchange que les
+  soldes : d'un achat, il ne voyait que l'avant et l'après, et le proposait au jour de la synchronisation. Si ta clé
+  porte aussi le droit « Query ledger entries » (sous « Data », dans les réglages de l'API chez Kraken — il s'ajoute
+  à une clé existante et ne permet que de lire), Pécule retrouve dans le registre les exécutions de l'ordre : la
+  proposition porte le jour de l'exécution, le cours d'exécution, les frais ramenés à ta devise, et la quantité
+  reçue frais déduits.
+- **Rien ne change sans ce droit**, ni pour les autres exchanges : la proposition garde le jour de la lecture et le
+  montant de la monnaie dépensée ou reçue. Le registre n'est lu que lorsqu'un achat ou une vente vient d'être
+  reconnu dans les soldes, et seulement depuis la lecture d'avant ; s'il ne dit rien de clair (une autre quantité,
+  deux monnaies), l'estimation est gardée.
+- **Le guide « Un exchange, par une clé en lecture seule »** dit quel droit cocher chez Kraken pour cela.
+- **Pour celui qui héberge** : la migration `0043_propositions_exactes` ajoute deux colonnes ; un seul chemin de
+  lecture de plus est appelé chez Kraken avec la clé (`/0/private/Ledgers`).
+
 ## 1.53.0
 
 Crypto : les mouvements lus dans les exports d'une appli se consultent, et se notent au journal. Aucune migration,

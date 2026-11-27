@@ -127,6 +127,13 @@
       "when": 1795821449854,
       "tag": "0042_propositions_crypto",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "5",
+      "when": 1795823210120,
+      "tag": "0043_propositions_exactes",
+      "breakpoints": true
     }
   ]
 }

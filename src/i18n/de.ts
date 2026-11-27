@@ -3964,4 +3964,6 @@ export const de: Dict = {
   "Afficher les mouvements plus anciens ({reste})": "Ältere Bewegungen anzeigen ({reste})",
   "Voir ses mouvements": "Bewegungen ansehen",
   "{n} mouvement lu dans les fichiers que tu as déposés, tel que l'appli l'écrit.": ["{n} Bewegung aus den von dir abgelegten Dateien, so wie die App sie schreibt.", "{n} Bewegungen aus den von dir abgelegten Dateien, so wie die App sie schreibt."],
+  "Lu dans le registre de {nom}, au {date}": "Im Kontobuch von {nom} gelesen, vom {date}",
+  "Si tu veux que Pécule retrouve la date, le cours et les frais de tes achats et de tes ventes, coche aussi « Query ledger entries », sous « Data » : c'est encore de la lecture.": "Wenn Pécule Datum, Kurs und Gebühren deiner Käufe und Verkäufe ermitteln soll, setze auch das Häkchen bei „Query ledger entries“ unter „Data“: Das ist weiterhin nur Lesen.",
 };

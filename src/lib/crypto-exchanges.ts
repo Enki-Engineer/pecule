@@ -38,6 +38,7 @@ export const EXCHANGES: Record<ExchangeId, ExchangeInfo> = {
     steps: [
       tk("Dans Kraken : Réglages → API → créer une clé."),
       tk("Sous « Funds permissions », coche seulement « Query » (consulter les fonds). Laisse tout le reste décoché : ni ordres, ni retraits."),
+      tk("Si tu veux que Pécule retrouve la date, le cours et les frais de tes achats et de tes ventes, coche aussi « Query ledger entries », sous « Data » : c'est encore de la lecture."),
       tk("Copie la clé d'API et la clé privée : Kraken ne montre la clé privée qu'une fois."),
     ],
     covers: tk("Soldes du compte, cryptos mises en staking ou en récompenses comprises."),

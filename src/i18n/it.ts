@@ -3964,4 +3964,6 @@ export const it: Dict = {
   "Afficher les mouvements plus anciens ({reste})": "Mostra le operazioni più vecchie ({reste})",
   "Voir ses mouvements": "Vedi le sue operazioni",
   "{n} mouvement lu dans les fichiers que tu as déposés, tel que l'appli l'écrit.": ["{n} operazione letta nei file che hai caricato, così come la scrive l'app.", "{n} operazioni lette nei file che hai caricato, così come le scrive l'app."],
+  "Lu dans le registre de {nom}, au {date}": "Letto nel registro di {nom}, in data {date}",
+  "Si tu veux que Pécule retrouve la date, le cours et les frais de tes achats et de tes ventes, coche aussi « Query ledger entries », sous « Data » : c'est encore de la lecture.": "Se vuoi che Pécule ritrovi la data, la quotazione e le spese dei tuoi acquisti e delle tue vendite, spunta anche «Query ledger entries», sotto «Data»: è sempre sola lettura.",
 };

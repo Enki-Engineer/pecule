@@ -90,6 +90,8 @@ const proposalSource = (p: CryptoProposal) =>
     ? t("Lu dans l'export de {nom}, au {date}", { nom: p.platform ?? "", date: dateFr(p.date) })
     : p.origin === "banque"
     ? [dateFr(p.date), p.label, p.account].filter(Boolean).join(" · ")
+    : p.price != null
+      ? t("Lu dans le registre de {nom}, au {date}", { nom: p.platform ?? "", date: dateFr(p.date) })
     : p.since && p.since !== p.date
       ? t("Solde changé entre le {debut} et le {fin}", { debut: dateFr(p.since), fin: dateFr(p.date) })
       : t("Solde changé à la lecture du {date}", { date: dateFr(p.date) });
@@ -330,8 +332,8 @@ function EventSheet({ event, proposal, hints, onClose }: { event: CryptoEvent | 
   const [asset, setAsset] = useState(seed?.asset ?? "");
   const [quantity, setQuantity] = useState(shown(seed?.quantity));
   const [value, setValue] = useState(shown(seed?.value));
-  const [price, setPrice] = useState(shown(event?.price));
-  const [fee, setFee] = useState(shown(event?.fee));
+  const [price, setPrice] = useState(shown(seed?.price));
+  const [fee, setFee] = useState(shown(seed?.fee));
   const [platform, setPlatform] = useState(seed?.platform ?? "");
   const [pending, setPending] = useState(event?.status === "attente");
   // Un transfert reconnu entre deux portefeuilles, une arrivée, un départ : le titre le dit, le genre ne suffit pas.

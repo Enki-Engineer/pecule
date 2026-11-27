@@ -7,6 +7,8 @@ import { addCryptoEvent, type EventInput } from "./crypto-events.ts";
 import { alreadyTold, detectMoves, PLATFORM_WORDS, platformOf, type Holding } from "../lib/crypto-moves.ts";
 import { kindOf, type EventKind } from "../lib/crypto-events.ts";
 import { moveEventKind, OBSERVED } from "../lib/crypto-files.ts";
+import { exactTrade, fillsOf, type LedgerEntry } from "../lib/crypto-ledger.ts";
+import { fxRate } from "./fx.ts";
 import { t as tr } from "../lib/i18n.ts";
 
 /*
@@ -29,6 +31,9 @@ export type Proposal = {
   quantity: number | null;
   /** Dans la devise du foyer ; estimée au cours du jour de la lecture pour une synchronisation. */
   value: number | null;
+  /** Cours d'exécution et frais, dans la devise du foyer, quand le registre de l'exchange les a donnés (sinon nuls). */
+  price: number | null;
+  fee: number | null;
   platform: string | null;
   /** Transfert entre deux portefeuilles du membre : celui d'où vient la crypto. */
   fromPlatform: string | null;
@@ -86,6 +91,8 @@ async function bankProposals(userId: number): Promise<Proposal[]> {
       asset: currency,
       quantity: amount,
       value: amount,
+      price: null,
+      fee: null,
       platform: platform.name,
       fromPlatform: null,
       direction: null,
@@ -99,8 +106,8 @@ async function bankProposals(userId: number): Promise<Proposal[]> {
 
 /** Soldes qui ont bougé à une synchronisation, et dont le membre n'a encore rien décidé. */
 async function syncProposals(userId: number): Promise<Proposal[]> {
-  const rows = await q<{ ref: string; date: string; since: string | null; type: string; asset: string | null; quantity: number | null; value: number | null; platform: string | null; fromPlatform: string | null; direction: string | null }>(
-    `SELECT p.ref, p.date, p.since, p.type, p.asset, p.quantity, p.value, s.name AS platform, f.name AS fromPlatform, p.direction
+  const rows = await q<{ ref: string; date: string; since: string | null; type: string; asset: string | null; quantity: number | null; value: number | null; price: number | null; fee: number | null; platform: string | null; fromPlatform: string | null; direction: string | null }>(
+    `SELECT p.ref, p.date, p.since, p.type, p.asset, p.quantity, p.value, p.price, p.fee, s.name AS platform, f.name AS fromPlatform, p.direction
      FROM crypto_proposals p
      LEFT JOIN crypto_sources s ON s.portfolio_id = p.portfolio_id AND s.owner_user_id = p.owner_user_id
      LEFT JOIN crypto_sources f ON f.portfolio_id = p.from_portfolio_id AND f.owner_user_id = p.owner_user_id
@@ -239,25 +246,47 @@ export async function directHoldings(): Promise<OwnedHolding[]> {
   );
 }
 
+/** De quoi relire le registre d'un portefeuille depuis un instant ; `null` : il n'en a pas, ou sa clé n'en a pas le droit. */
+export type HistoryReader = (portfolioId: string, since: Date) => Promise<LedgerEntry[] | null>;
+
+/** Marge prise avant la lecture d'avant : les horloges de Pécule et de l'exchange ne sont pas à la seconde. */
+const HISTORY_MARGIN_MS = 120_000;
+
 /**
  * Après une synchronisation : compare ce que portaient les portefeuilles avant (`before`) à ce qu'ils portent
  * maintenant, et garde une proposition par mouvement reconnu. `read` : pour chaque portefeuille relu avec succès et
- * déjà lu auparavant, le jour de sa lecture d'avant. Rend le nombre de propositions gardées.
+ * déjà lu auparavant, l'instant de sa lecture d'avant. `history` : quand un achat ou une vente est reconnu dans un
+ * portefeuille dont on sait lire le registre, on y cherche sa date, son cours et ses frais exacts — s'il ne dit rien
+ * de clair, la proposition garde le jour de la lecture. Rend le nombre de propositions gardées.
  */
-export async function proposeFromSync(runId: number, before: OwnedHolding[], read: Map<string, string | null>): Promise<number> {
+export async function proposeFromSync(runId: number, before: OwnedHolding[], read: Map<string, string | null>, history?: HistoryReader): Promise<number> {
   if (!read.size) return 0;
   const after = await directHoldings();
   const factor = await priceFactor().catch(() => null);
   const day = today();
+  const ledgers = new Map<string, Promise<LedgerEntry[] | null>>();
+  const ledgerOf = (portfolioId: string) => {
+    const since = read.get(portfolioId);
+    if (!history || !since) return Promise.resolve(null);
+    if (!ledgers.has(portfolioId)) ledgers.set(portfolioId, history(portfolioId, new Date(Date.parse(`${since.replace(" ", "T")}Z`) - HISTORY_MARGIN_MS)).catch(() => null));
+    return ledgers.get(portfolioId)!;
+  };
   let kept = 0;
   for (const owner of new Set([...before, ...after].map((h) => h.ownerUserId))) {
     const mine = (rows: OwnedHolding[]) => rows.filter((h) => h.ownerUserId === owner).map((h) => ({ ...h, quantity: Number(h.quantity), priceEur: h.priceEur == null ? null : Number(h.priceEur) }));
     for (const m of detectMoves(mine(before), mine(after), new Set(read.keys()))) {
+      let line = { date: day, quantity: m.quantity, value: m.valueEur != null && factor != null ? round2(m.valueEur * factor) : null, price: null as number | null, fee: null as number | null };
+      if (m.kind === "achat" || m.kind === "vente") {
+        const entries = await ledgerOf(m.portfolioId);
+        const exact = entries ? exactTrade(fillsOf(entries), m.kind, m.asset, m.quantity) : null;
+        const rate = exact ? await fxRate(exact.currency).catch(() => null) : null;
+        if (exact && rate) line = { date: today(new Date(exact.at)), quantity: exact.quantity, value: round2(exact.amount * rate), price: exact.price * rate, fee: round2(exact.fee * rate) };
+      }
       const ref = `sync:${runId}:${m.portfolioId}:${m.asset}:${m.kind}${m.direction ?? ""}`.slice(0, 191);
       const r = await exec(
-        `INSERT IGNORE INTO crypto_proposals (owner_user_id, ref, origin, date, since, type, asset, quantity, value, portfolio_id, from_portfolio_id, direction)
-         VALUES (?, ?, 'synchro', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [owner, ref, day, read.get(m.portfolioId)?.slice(0, 10) ?? null, m.kind, m.asset.slice(0, 120), m.quantity, m.valueEur != null && factor != null ? round2(m.valueEur * factor) : null, m.portfolioId, m.fromPortfolioId, m.direction],
+        `INSERT IGNORE INTO crypto_proposals (owner_user_id, ref, origin, date, since, type, asset, quantity, value, price, fee, portfolio_id, from_portfolio_id, direction)
+         VALUES (?, ?, 'synchro', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [owner, ref, line.date, read.get(m.portfolioId)?.slice(0, 10) ?? null, m.kind, m.asset.slice(0, 120), line.quantity, line.value, line.price, line.fee, m.portfolioId, m.fromPortfolioId, m.direction],
       );
       kept += r.affectedRows;
     }

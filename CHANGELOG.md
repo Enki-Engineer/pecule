@@ -3,6 +3,15 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.49.4
+
+Opérations : le filtre par catégorie distingue deux catégories de même nom. Aucune migration, aucun réglage nouveau.
+
+- **Le filtre « Catégorie » de l'écran Opérations range les catégories sous leur poste**, comme la liste du classement
+  proposé par l'IA. Jusque-là il n'écrivait que leur nom : deux catégories de même nom — un revenu et une dépense —
+  s'y confondaient, et choisir la première venue pouvait donner une liste vide alors que les opérations étaient
+  rangées dans l'autre.
+
 ## 1.49.3
 
 Relevés de compte : les achats par carte retrouvent leurs catégories. Aucune migration, aucun réglage nouveau.

@@ -29,6 +29,7 @@ import { operationEntity, txDateHint, txSubline } from "../txInfo.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
 import { txTitle } from "../../lib/labels.ts";
 import { balanceOf, defaultSince, groupByMonth, isInternal, olderYear, posteSlot, sumMonths, type DayGroup, type MonthTotals } from "../../lib/tx-groups.ts";
+import { groupByPoste } from "../../lib/category-groups.ts";
 import { useAssistantEntity } from "../assistantContext.ts";
 import { t as tr, td, tk, tn } from "../../lib/i18n.ts";
 
@@ -688,6 +689,8 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, fi
   const grouped = sort.key === "date";
   const totals = useMemo(() => new Map((monthly ?? []).map((m) => [m.month, m])), [monthly]);
   const overall = useMemo(() => (monthly ? sumMonths(monthly) : null), [monthly]);
+  // Filtre par catégorie : rangées sous leur poste, deux catégories de même nom (un revenu, une dépense) se distinguent.
+  const categoryGroups = useMemo(() => groupByPoste(categories), [categories]);
   // Lignes de la première page, par mois : ces mois-là sont dépliés d'office.
   const listed = useMemo(() => {
     const map = new Map<string, Transaction[]>();
@@ -930,10 +933,14 @@ function DesktopOperations({ rows, list, search, setSearch, params, setParam, fi
           <select value={params.category ?? ""} onChange={(e) => setParam("categorie", e.target.value || null)} aria-label={tr("Catégorie")} className="card max-w-56 px-2.5 py-1.5 text-[13px]">
             <option value="">{tr("Toutes les catégories")}</option>
             {transferLabel(params.category, tr) && <option value={params.category}>{transferLabel(params.category, tr)}</option>}
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {td(c.name)}
-              </option>
+            {categoryGroups.map((g) => (
+              <optgroup key={g.poste} label={td(g.poste)}>
+                {g.list.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {td(c.name)}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <select value={params.nature ?? ""} onChange={(e) => setParam("nature", e.target.value || null)} className="card max-w-48 px-2.5 py-1.5 text-[13px]" aria-label={tr("Nature")}>

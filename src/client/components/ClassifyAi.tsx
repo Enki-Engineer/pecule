@@ -7,6 +7,7 @@ import { Sheet, Spinner } from "./ui.tsx";
 import { cn } from "../cn.ts";
 import { aiCost, money } from "../format.ts";
 import { undoToast } from "../undo.ts";
+import { groupByPoste } from "../../lib/category-groups.ts";
 import { preselected, type ClassConfidence } from "../../lib/classify.ts";
 import { t, td, tn } from "../../lib/i18n.ts";
 
@@ -172,16 +173,4 @@ function ProposalRow({ line, groups, disabled, onChange }: { line: Line; groups:
       </select>
     </div>
   );
-}
-
-/** Catégories rangées par poste, dans l'ordre du référentiel. */
-function groupByPoste(list: Category[]): { poste: string; list: Category[] }[] {
-  const out: { poste: string; list: Category[] }[] = [];
-  for (const c of [...list].sort((a, b) => a.sort_order - b.sort_order)) {
-    const poste = c.poste ?? c.group_name ?? c.name;
-    const g = out.find((x) => x.poste === poste);
-    if (g) g.list.push(c);
-    else out.push({ poste, list: [c] });
-  }
-  return out;
 }

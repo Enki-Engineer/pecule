@@ -22,6 +22,7 @@ import { fxRate } from "./fx.ts";
 import { EXCHANGE_KINDS, EXCHANGES, exchangeOf, isExchangeKind, sameCoin, type ExchangeId } from "../lib/crypto-exchanges.ts";
 import { ExchangeError, readExchange, type Credentials } from "./exchanges/index.ts";
 import { logAudit, recordAlert } from "./journal.ts";
+import { directHoldings, proposeFromSync } from "./crypto-proposals.ts";
 import { refreshPrices, snapshotWealth } from "./wealth.ts";
 import { t } from "../lib/i18n.ts";
 import { serviceKey } from "./service-keys.ts";
@@ -228,8 +229,16 @@ export async function syncCrypto(trigger: "auto" | "manuel" | "assistant") {
     const [run] = await db.insert(cryptoSyncRuns).values({ trigger }).$returningId();
     try {
       const direct = await directSources();
+      // Ce que portaient les portefeuilles avant d'être relus : ce qui aura bougé se proposera au journal.
+      const before = await directHoldings().catch(() => []);
+      const reread = new Map<string, string | null>();
       let read = 0;
-      for (const src of direct) if ((await readSource(src)).ok) read++;
+      for (const src of direct)
+        if ((await readSource(src)).ok) {
+          read++;
+          // Un portefeuille jamais lu n'a pas d'« avant » : sa première lecture ne raconte aucun mouvement.
+          if (src.lastSyncedAt) reread.set(src.portfolioId, src.lastSyncedAt);
+        }
       // CoinStats en panne n'empêche pas de garder ce que la blockchain vient de rendre : l'échec est levé à la fin.
       let failure: unknown = null;
       const cs = coinstats
@@ -240,6 +249,8 @@ export async function syncCrypto(trigger: "auto" | "manuel" | "assistant") {
         : null;
       await refreshPrices().catch(() => undefined);
       await refreshDirectTotals();
+      // Une proposition qui ne se fait pas ne doit pas faire échouer la synchro : elle est signalée, rien de plus.
+      await proposeFromSync(run.id, before, reread).catch((e) => recordAlert("crypto", `Mouvements à proposer au journal crypto : ${e instanceof Error ? e.message : String(e)}`, e, "alerte"));
       const owners = new Set(direct.map((s) => s.ownerUserId));
       if (cs) owners.add(cs.owner);
       for (const id of owners) await snapshotWealth(id);

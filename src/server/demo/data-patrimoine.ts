@@ -109,7 +109,9 @@ export function buildWealth(w: WealthInput) {
     { ownerUserId: ua.id, symbol: "BTC", name: "Bitcoin", coingeckoId: "bitcoin", quantity: qty("BTC", s.T), location: "Coinbase", updatedAt: lastBuy("BTC"), sortOrder: 0, source: "manuel", lineKey: "BTC" },
     { ownerUserId: ua.id, symbol: "ETH", name: "Ethereum", coingeckoId: "ethereum", quantity: qty("ETH", s.T), location: "Coinbase", updatedAt: lastBuy("ETH"), sortOrder: 1, source: "manuel", lineKey: "ETH" },
   ];
-  const cryptoEvents: Insert<typeof schema.cryptoEvents>[] = events.map((e) => ({
+  // Le dernier virement vers la plateforme n'est pas encore au journal : Pécule propose de le noter.
+  const unnoted = bought.at(-1);
+  const cryptoEvents: Insert<typeof schema.cryptoEvents>[] = events.filter((e) => e !== unnoted).map((e) => ({
     ownerUserId: ua.id,
     date: e.date,
     title: e.title,

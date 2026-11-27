@@ -3,6 +3,33 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.52.0
+
+Crypto : Pécule propose de noter au journal ce qu'il voit passer — dans la banque et dans les portefeuilles. Une
+migration (table `crypto_proposals`, colonne `crypto_events.transaction_id`), aucun réglage nouveau.
+
+- **Un virement vers une plateforme crypto se propose au journal.** Pécule reconnaît, au libellé de la banque, une
+  opération vers Kraken, Binance, Coinbase, Crypto.com, Bitpanda, Bitvavo et une douzaine d'autres plateformes —
+  ou vers la société qui encaisse pour elles —, sur tes comptes et sur les comptes communs. Il la propose en dépôt
+  (ou en retrait, quand l'argent revient) au-dessus du journal de l'écran Crypto.
+- **Un solde qui a bougé se propose aussi.** À chaque synchronisation, Pécule compare ce que portaient tes
+  portefeuilles (adresses, exchanges) à ce qu'ils portent : de la monnaie en moins et une crypto en plus, c'est un
+  achat, au prix de la monnaie dépensée ; l'inverse, une vente ; une crypto contre une autre, un échange ; la même
+  crypto qui part d'un portefeuille et arrive dans un autre, aux frais près, un transfert. Ce dont l'autre bout
+  n'est pas connu est proposé comme une arrivée ou un départ.
+- **Rien n'est noté sans toi.** « Noter » ouvre le mouvement déjà rempli, à relire et à corriger ; « Écarter »
+  retire la proposition pour de bon ; « Tout écarter » les retire toutes. Une opération bancaire que le journal
+  raconte déjà — même plateforme, mêmes dates, ou une période qui les couvre — n'est pas proposée.
+- **Ce qui n'est pas proposé** : les petits écarts (moins de 20 € au cours du jour, ou moins de 2 % d'une ligne :
+  récompenses au fil de l'eau, poussière), un jeton sans cours, ce que porte un portefeuille le jour où tu le
+  relies, et la monnaie qui bouge seule chez un exchange — c'est l'opération bancaire qui la raconte.
+- **Dépôts et retraits notés** : sous le titre du journal, la somme des dépôts et celle des retraits qu'il porte.
+  Ce n'est pas une plus-value : le journal ne dit pas tout ce qui a été acheté.
+- **L'assistant voit les propositions** (`get_crypto_events`) et en note une avec toi (`add_crypto_event`, paramètre
+  `proposal_ref`).
+- **Pour celui qui héberge** : la migration `0042_propositions_crypto` crée `crypto_proposals` (les propositions
+  nées d'une synchronisation, et les opérations bancaires écartées) et ajoute `crypto_events.transaction_id`.
+
 ## 1.51.0
 
 Crypto : le journal des mouvements se tient dans Pécule, à l'écran et par l'assistant. Une migration (table

@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { addCryptoEvent, cryptoEvent, cryptoEvents, deleteCryptoEvent, updateCryptoEvent, type CryptoEventRow } from "../crypto-events.ts";
+import { cryptoProposals, dismissProposals, noteProposal, openProposal } from "../crypto-proposals.ts";
+import { cashFlows } from "../../lib/crypto-moves.ts";
 import { EVENT_KIND_INFO, EVENT_KINDS, EVENT_STATUSES, kindOf, unitPrice, validPeriod } from "../../lib/crypto-events.ts";
 import { ToolError, change, day, field, longDate, money, readTool, writeTool } from "./registry.ts";
-import { locale, t as tr, tk } from "../../lib/i18n.ts";
+import { locale, t as tr, tk, tn } from "../../lib/i18n.ts";
 
 /* Journal des mouvements crypto du membre : le lire, y ajouter un mouvement, le corriger, le retirer. */
 
@@ -16,15 +18,33 @@ const getCryptoEvents = readTool({
   progress: tk("Lecture des mouvements crypto…"),
   description:
     "Journal des mouvements crypto de l'utilisateur, du plus récent au plus ancien : un récit qu'il tient lui-même (dépôts, achats, ventes, transferts, staking…), pas le relevé complet d'une plateforme. " +
-    "Chaque mouvement : id, date (et end_date s'il résume une période), type, title, asset, quantity, value (devise du foyer), price (cours unitaire noté), unit_price (cours noté ou déduit), fee, platform, " +
-    "status (fait, ou attente pour un ordre posé et pas encore exécuté), note. Pour le tenir : add_crypto_event, update_crypto_event, delete_crypto_event.",
+    "events — chaque mouvement : id, date (et end_date s'il résume une période), type, title, asset, quantity, value (devise du foyer), price (cours unitaire noté), unit_price (cours noté ou déduit), fee, platform, " +
+    "status (fait, ou attente pour un ordre posé et pas encore exécuté), note. Pour le tenir : add_crypto_event, update_crypto_event, delete_crypto_event. " +
+    "proposals — ce que Pécule propose d'y noter et que l'utilisateur n'a encore ni noté ni écarté : une opération bancaire vers une plateforme crypto (origin banque : bank_label, account), " +
+    "un solde qui a bougé entre deux synchronisations (origin synchro : entre since et date ; value = la monnaie réellement dépensée ou reçue pour un achat ou une vente, une estimation au cours du jour pour le reste ; direction in ou out quand l'autre bout n'est pas connu). " +
+    "Pour en noter une : add_crypto_event avec proposal_ref, après avoir vérifié avec l'utilisateur ce qui s'est passé ; pour en écarter : dismiss_crypto_proposals. cash — somme des dépôts et des retraits notés au journal (ce n'est pas une plus-value : le journal ne dit pas tout ce qui a été acheté).",
   input: z.object({ limit: z.number().int().min(1).max(500).optional(), status: z.enum(EVENT_STATUSES).optional().describe("Ne rendre que les mouvements dans cet état") }),
   async run({ userId }, { limit, status }) {
-    const rows = await cryptoEvents(userId, status ? 500 : (limit ?? 60));
-    return rows
+    const all = await cryptoEvents(userId);
+    const events = all
       .filter((e) => !status || e.status === status)
       .slice(0, limit ?? 60)
-      .map(({ origin: _origin, portfolio_id: _portfolio, ...e }) => ({ ...e, type: kindOf(e.type) ?? e.type, unit_price: unitPrice(e)?.price ?? null }));
+      .map(({ origin: _origin, portfolio_id: _portfolio, transaction_id: _operation, ...e }) => ({ ...e, type: kindOf(e.type) ?? e.type, unit_price: unitPrice(e)?.price ?? null }));
+    const proposals = (await cryptoProposals(userId)).map((p) => ({
+      ref: p.ref,
+      origin: p.origin,
+      date: p.date,
+      ...(p.since ? { since: p.since } : {}),
+      type: p.type,
+      asset: p.asset,
+      quantity: p.quantity,
+      value: p.value,
+      platform: p.platform,
+      ...(p.fromPlatform ? { from_platform: p.fromPlatform } : {}),
+      ...(p.direction ? { direction: p.direction } : {}),
+      ...(p.label ? { bank_label: p.label, account: p.account } : {}),
+    }));
+    return { events, ...(proposals.length ? { proposals } : {}), cash: cashFlows(all) };
   },
 });
 
@@ -78,13 +98,15 @@ const addEvent = writeTool({
     "Ajoute un mouvement au journal crypto de l'utilisateur (achat, vente, dépôt, transfert, staking…). Le journal est un récit : un mouvement peut résumer une période (end_date). " +
     "Ne note que ce que l'utilisateur a dit ou ce qu'un outil a rendu : jamais un cours, une quantité ou des frais estimés sans le dire dans la note. " +
     "Un ordre posé et pas encore exécuté se note avec status « attente », puis se met à jour par update_crypto_event quand il passe. Ne change aucune position : le journal raconte, il ne compte pas.",
-  input: z.object(fields),
-  async describe(_ctx, i) {
+  input: z.object({ ...fields, proposal_ref: z.string().max(191).optional().describe("ref d'une proposition de get_crypto_events : le mouvement la solde (elle ne sera plus proposée)") }),
+  async describe({ userId }, i) {
     period(i.date, i.end_date);
-    return { label: tr("Ajouter au journal crypto : « {titre} »", { titre: i.title }), details: lines(i) };
+    if (i.proposal_ref && !(await openProposal(userId, i.proposal_ref))) throw new ToolError("Proposition inconnue ou déjà traitée : relis get_crypto_events");
+    return { label: tr("Ajouter au journal crypto : « {titre} »", { titre: i.title }), details: [...lines(i), ...(i.proposal_ref ? [tr("D'après une proposition de Pécule")] : [])] };
   },
   async run({ userId }, i) {
-    const id = await addCryptoEvent(userId, { date: i.date, endDate: i.end_date, type: i.type, title: i.title, asset: i.asset, quantity: i.quantity, value: i.value, price: i.price, fee: i.fee, platform: i.platform, status: i.status, note: i.note }, "assistant");
+    const event = { date: i.date, endDate: i.end_date, type: i.type, title: i.title, asset: i.asset, quantity: i.quantity, value: i.value, price: i.price, fee: i.fee, platform: i.platform, status: i.status, note: i.note };
+    const id = i.proposal_ref ? await noteProposal(userId, i.proposal_ref, event, "assistant") : await addCryptoEvent(userId, event, "assistant");
     return `Fait : mouvement ajouté au journal (id ${id}).`;
   },
 });
@@ -140,4 +162,26 @@ const deleteEvent = writeTool({
   },
 });
 
-export const journalCryptoTools = [getCryptoEvents, addEvent, updateEvent, deleteEvent];
+const dismissProposal = writeTool({
+  name: "dismiss_crypto_proposals",
+  description:
+    "Écarte des propositions du journal crypto (proposal_refs = ref de get_crypto_events) : elles ne seront plus montrées. À faire quand l'utilisateur dit que le mouvement est déjà noté, ou qu'il ne veut pas le noter. Ne retire rien du journal.",
+  input: z.object({ proposal_refs: z.array(z.string().max(191)).min(1).max(30) }),
+  async describe({ userId }, i) {
+    const open = await cryptoProposals(userId);
+    const chosen = i.proposal_refs.map((ref) => open.find((p) => p.ref === ref));
+    if (chosen.some((p) => !p)) throw new ToolError("Proposition inconnue ou déjà traitée : relis get_crypto_events");
+    return {
+      label: tn("Écarter {n} proposition du journal crypto", "Écarter {n} propositions du journal crypto", chosen.length),
+      details: chosen.map((p) =>
+        [longDate(p!.date), kindText(p!.type), p!.quantity != null && p!.origin === "synchro" ? quantityText(p!.quantity, p!.asset) : null, p!.platform, p!.value != null ? money(p!.value) : null, p!.label].filter(Boolean).join(" · "),
+      ),
+    };
+  },
+  async run({ userId }, i) {
+    const n = await dismissProposals(userId, i.proposal_refs);
+    return `Fait : ${n} proposition${n > 1 ? "s" : ""} écartée${n > 1 ? "s" : ""}.`;
+  },
+});
+
+export const journalCryptoTools = [getCryptoEvents, addEvent, updateEvent, deleteEvent, dismissProposal];

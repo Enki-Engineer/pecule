@@ -20,6 +20,8 @@ import {
 } from "../situation.ts";
 import { addCryptoEvent, cryptoEvents, deleteCryptoEvent, updateCryptoEvent } from "../crypto-events.ts";
 import { EVENT_KINDS, EVENT_STATUSES, kindOf } from "../../lib/crypto-events.ts";
+import { cryptoProposals, dismissProposals, noteProposal } from "../crypto-proposals.ts";
+import { cashFlows } from "../../lib/crypto-moves.ts";
 import { extractPayslip, normalizePayslips, payslipHistory, payslipsToReread } from "../payslips.ts";
 import { audience, setIncomeShared } from "../sharing.ts";
 import { JOINT } from "../../lib/taxes.ts";
@@ -145,8 +147,10 @@ situationApi.get("/payslips", async (req, res) => {
   res.json(await payslipHistory(req.user!.id, scopeOf(req)));
 });
 
+/** Le journal du membre, ce que Pécule lui propose d'y noter, et ce que ses dépôts et retraits disent avoir versé. */
 situationApi.get("/crypto/events", async (req, res) => {
-  res.json({ events: await cryptoEvents(req.user!.id) });
+  const events = await cryptoEvents(req.user!.id);
+  res.json({ events, proposals: await cryptoProposals(req.user!.id), cash: cashFlows(events) });
 });
 
 /** Un mouvement du journal crypto, tel que l'écran le saisit. */
@@ -166,8 +170,16 @@ const cryptoEvent = z.object({
 });
 const eventId = (req: Request) => z.coerce.number().int().positive().parse(req.params.id);
 
+/** Ajout d'un mouvement ; `proposal` : il vient d'une proposition de Pécule, relue et peut-être corrigée, qui est soldée. */
 situationApi.post("/crypto/events", async (req, res) => {
-  res.json({ id: await addCryptoEvent(req.user!.id, cryptoEvent.parse(req.body), "main") });
+  const { proposal, ...event } = cryptoEvent.extend({ proposal: z.string().max(191).optional() }).parse(req.body);
+  res.json({ id: proposal ? await noteProposal(req.user!.id, proposal, event, "main") : await addCryptoEvent(req.user!.id, event, "main") });
+});
+
+/** Propositions écartées : elles ne seront plus montrées. */
+situationApi.post("/crypto/proposals/dismiss", async (req, res) => {
+  const { refs } = z.object({ refs: z.array(z.string().max(191)).min(1).max(100) }).parse(req.body);
+  res.json({ dismissed: await dismissProposals(req.user!.id, refs) });
 });
 
 situationApi.patch("/crypto/events/:id", async (req, res) => {

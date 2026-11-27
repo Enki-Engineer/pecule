@@ -153,7 +153,29 @@ export type CryptoEvent = {
   /** fait | attente */
   status?: string;
   note: string | null;
+  /** Opération bancaire que le mouvement raconte, s'il a été noté depuis elle. */
+  transaction_id?: string | null;
 };
+
+/** Mouvement que Pécule propose de noter : une opération bancaire vers une plateforme, ou un solde qui a bougé à une synchronisation. */
+export type CryptoProposal = {
+  ref: string;
+  origin: "banque" | "synchro";
+  date: string;
+  /** Synchronisation : jour de la lecture d'avant. */
+  since: string | null;
+  type: string;
+  asset: string | null;
+  quantity: number | null;
+  value: number | null;
+  platform: string | null;
+  fromPlatform: string | null;
+  direction: "in" | "out" | null;
+  /** Banque : libellé de l'opération et compte. */
+  label: string | null;
+  account: string | null;
+};
+export type CryptoJournal = { events: CryptoEvent[]; proposals?: CryptoProposal[]; cash?: { deposited: number; withdrawn: number } };
 
 export const useProperties = () => useQuery({ queryKey: ["properties"], queryFn: () => api<{ properties: Property[] }>("/properties") });
 export const useProperty = (id: string) => useQuery({ queryKey: ["property", id], queryFn: () => api<PropertyDetail>(`/properties/${encodeURIComponent(id)}`) });
@@ -162,7 +184,7 @@ export const useBudget = () => useQuery({ queryKey: ["budget"], queryFn: () => a
 export const useTaxes = () => useQuery({ placeholderData: keepPreviousData, queryKey: ["taxes", currentScopeKey()], queryFn: () => api<Taxes>("/taxes") });
 export const useRetirement = () => useQuery({ queryKey: ["retirement"], queryFn: () => api<Retirement>("/retirement") });
 export const useProjections = () => useQuery({ queryKey: ["projections"], queryFn: () => api<Projections>("/projections") });
-export const useCryptoEvents = () => useQuery({ queryKey: ["crypto-events"], queryFn: () => api<{ events: CryptoEvent[] }>("/crypto/events") });
+export const useCryptoEvents = () => useQuery({ queryKey: ["crypto-events"], queryFn: () => api<CryptoJournal>("/crypto/events") });
 
 export const COMMITMENT_TYPES: Record<string, string> = { credit: t("Crédit"), assurance: t("Assurance"), abonnement: t("Contrat & abonnement"), taxe: t("Taxe & impôt"), garde: t("Garde & école"), budget: t("Budget courant") };
 export const COMMITMENT_STATUS: Record<string, string> = { actif: t("Actif##engagement"), a_verifier: t("À vérifier"), a_completer: t("À compléter"), resilie: t("Résilié"), non_compte: t("Non compté") };

@@ -25,6 +25,8 @@ export type CryptoEventRow = {
   status: string;
   note: string | null;
   origin: string;
+  /** Opération bancaire que le mouvement raconte, s'il a été noté depuis elle. */
+  transaction_id: string | null;
 };
 
 /** Ce qu'un mouvement porte, tel que le donnent l'écran, l'assistant ou une reprise. */
@@ -44,11 +46,12 @@ export type EventInput = {
   status?: EventStatus;
   note?: string | null;
 };
-export type EventOrigin = "main" | "assistant" | "import";
+/** D'où vient la ligne : saisie à l'écran, dictée à l'assistant, reprise d'un autre outil, ou proposition de Pécule notée (banque, synchronisation). */
+export type EventOrigin = "main" | "assistant" | "import" | "banque" | "synchro";
 
 // Le nom d'un portefeuille relié suit ses changements ; un portefeuille retiré laisse le nom noté ce jour-là.
 const COLUMNS = `e.id, e.date, e.end_date, e.title, e.asset, e.type, COALESCE(s.name, e.platform) AS platform,
-  IF(s.portfolio_id IS NULL, NULL, e.portfolio_id) AS portfolio_id, e.quantity, e.value, e.price, e.fee, e.status, e.note, e.origin`;
+  IF(s.portfolio_id IS NULL, NULL, e.portfolio_id) AS portfolio_id, e.quantity, e.value, e.price, e.fee, e.status, e.note, e.origin, e.transaction_id`;
 const FROM = "FROM crypto_events e LEFT JOIN crypto_sources s ON s.portfolio_id = e.portfolio_id AND s.owner_user_id = e.owner_user_id";
 
 /** Mouvements du membre, du plus récent au plus ancien. */
@@ -84,14 +87,17 @@ function check(date: string, endDate: string | null | undefined) {
   if (!validPeriod(date, endDate)) throw new ActionError(400, tr("La fin de la période précède son début"));
 }
 
-/** Ajoute un mouvement au journal du membre ; rend son identifiant. */
-export async function addCryptoEvent(userId: number, e: EventInput, origin: EventOrigin): Promise<number> {
+/**
+ * Ajoute un mouvement au journal du membre ; rend son identifiant. `link.transactionId` : l'opération bancaire qu'il
+ * raconte (l'appelant a vérifié que le membre la voit).
+ */
+export async function addCryptoEvent(userId: number, e: EventInput, origin: EventOrigin, link: { transactionId?: string } = {}): Promise<number> {
   check(e.date, e.endDate);
   const where = await place(userId, e.platform, e.portfolioId);
   const r = await exec(
-    `INSERT INTO crypto_events (owner_user_id, date, end_date, title, asset, type, platform, portfolio_id, quantity, value, price, fee, status, note, origin)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [userId, e.date, e.endDate || null, e.title.trim().slice(0, 255), text(e.asset, 120), e.type, where.platform, where.portfolioId, number(e.quantity), amount(e.value), number(e.price), amount(e.fee), e.status ?? "fait", text(e.note, 4000), origin],
+    `INSERT INTO crypto_events (owner_user_id, date, end_date, title, asset, type, platform, portfolio_id, quantity, value, price, fee, status, note, origin, transaction_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [userId, e.date, e.endDate || null, e.title.trim().slice(0, 255), text(e.asset, 120), e.type, where.platform, where.portfolioId, number(e.quantity), amount(e.value), number(e.price), amount(e.fee), e.status ?? "fait", text(e.note, 4000), origin, link.transactionId ?? null],
   );
   return r.insertId;
 }

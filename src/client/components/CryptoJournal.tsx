@@ -1,16 +1,16 @@
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Landmark, Plus, RefreshCw, Trash2 } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
 import { api } from "../api.ts";
-import { useCryptoEvents, type CryptoEvent } from "../api-situation.ts";
-import { Card, Sheet } from "./ui.tsx";
+import { useCryptoEvents, type CryptoEvent, type CryptoJournal, type CryptoProposal } from "../api-situation.ts";
+import { Card, InfoTip, Sheet } from "./ui.tsx";
 import { DataTable, type Column } from "./DataTable.tsx";
 import { dateFr, money, moneySymbol } from "../format.ts";
 import { cn } from "../cn.ts";
 import { defaultTitle, EVENT_KIND_INFO, EVENT_KINDS, kindOf, unitPrice, type EventKind } from "../../lib/crypto-events.ts";
-import { locale, t } from "../../lib/i18n.ts";
+import { locale, t, tn } from "../../lib/i18n.ts";
 
 /*
  * Journal des mouvements crypto : le récit que le membre tient de ses achats, ventes, transferts et staking. Il
@@ -20,6 +20,8 @@ import { locale, t } from "../../lib/i18n.ts";
 
 /** Ce que le formulaire propose en saisie : les noms des portefeuilles du membre, et les cryptos qu'il détient. */
 export type JournalHints = { platforms: string[]; assets: string[] };
+/** Ce qui s'ouvre dans le formulaire : un mouvement à corriger, une proposition à noter, ou une ligne vierge. */
+type Editing = { event: CryptoEvent | null; proposal?: CryptoProposal };
 
 const qty = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: Math.abs(n) < 1 ? 8 : 4 });
 /** Libellé du genre : celui de la liste, sinon le texte gardé d'une reprise. */
@@ -75,37 +77,143 @@ function EventRow({ e, onOpen }: { e: CryptoEvent; onOpen: (e: CryptoEvent) => v
   );
 }
 
+/** Ce qu'une proposition raconte, en une ligne : le genre, ce qui a bougé, où. */
+function proposalTitle(p: CryptoProposal): string {
+  const label = p.direction === "in" ? t("Arrivée##mouvement") : p.direction === "out" ? t("Départ##mouvement") : kindLabel(p.type);
+  const what = p.origin === "banque" ? null : [p.quantity != null ? qty(Number(p.quantity)) : null, p.asset].filter(Boolean).join(" ") || null;
+  return defaultTitle(label, what, p.fromPlatform && p.platform ? `${p.fromPlatform} → ${p.platform}` : p.platform);
+}
+
+/** D'où vient une proposition : l'opération bancaire, ou les deux lectures entre lesquelles le solde a bougé. */
+const proposalSource = (p: CryptoProposal) =>
+  p.origin === "banque"
+    ? [dateFr(p.date), p.label, p.account].filter(Boolean).join(" · ")
+    : p.since && p.since !== p.date
+      ? t("Solde changé entre le {debut} et le {fin}", { debut: dateFr(p.since), fin: dateFr(p.date) })
+      : t("Solde changé à la lecture du {date}", { date: dateFr(p.date) });
+
+/**
+ * Ce que Pécule propose de noter : une opération bancaire vers une plateforme, un solde qui a bougé. « Noter »
+ * ouvre le formulaire rempli, à relire ; « Écarter » retire la proposition pour de bon. Rien n'est écrit sans ce geste.
+ */
+function Proposals({ proposals, onNote }: { proposals: CryptoProposal[]; onNote: (p: CryptoProposal) => void }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [all, setAll] = useState(false);
+  if (!proposals.length) return null;
+  const shown = all ? proposals : proposals.slice(0, 3);
+  const dismiss = async (refs: string[]) => {
+    if (refs.length > 1 && !confirm(t("Écarter ces {n} propositions ? Elles ne seront plus montrées.", { n: refs.length }))) return;
+    setBusy(true);
+    try {
+      await api("/crypto/proposals/dismiss", { method: "POST", json: { refs } });
+      await qc.invalidateQueries({ queryKey: ["crypto-events"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("Enregistrement impossible"));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card className="divide-y divide-line">
+      <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+        <div className="min-w-0">
+          <div className="text-[13px] font-semibold">{tn("{n} mouvement à noter ?", "{n} mouvements à noter ?", proposals.length)}</div>
+          <div className="text-xs text-muted">{t("Repérés dans tes opérations et tes portefeuilles. Rien n'est noté sans toi.")}</div>
+        </div>
+        {proposals.length > 1 && (
+          <button type="button" disabled={busy} onClick={() => dismiss(proposals.map((p) => p.ref))} className="press shrink-0 text-xs font-medium text-muted hover:text-ink disabled:opacity-50">
+            {t("Tout écarter")}
+          </button>
+        )}
+      </div>
+      {shown.map((p) => (
+        <div key={p.ref} className="flex items-center gap-3 px-4 py-2.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-bg text-muted" title={p.origin === "banque" ? t("Vu dans tes opérations bancaires") : t("Vu à la synchronisation de tes portefeuilles")}>
+            {p.origin === "banque" ? <Landmark size={15} /> : <RefreshCw size={15} />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <span className="line-clamp-2 min-w-0 text-[15px] font-medium leading-snug">{proposalTitle(p)}</span>
+              {p.value != null && (
+                <span className="tnum shrink-0 text-sm font-semibold">
+                  {p.origin === "synchro" && p.type !== "achat" && p.type !== "vente" ? "≈ " : ""}
+                  {money(p.value)}
+                </span>
+              )}
+            </div>
+            <div className="truncate text-xs text-muted">{proposalSource(p)}</div>
+            <div className="mt-1.5 flex gap-4 text-[13px] font-medium">
+              <button type="button" disabled={busy} onClick={() => onNote(p)} className="press text-accent disabled:opacity-50">
+                {t("Noter")}
+              </button>
+              <button type="button" disabled={busy} onClick={() => dismiss([p.ref])} className="press text-muted hover:text-ink disabled:opacity-50">
+                {t("Écarter")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+      {proposals.length > 3 && (
+        <button type="button" onClick={() => setAll((v) => !v)} className="press flex w-full items-center justify-between px-4 py-2.5 text-xs text-muted">
+          <span>{all ? t("Replier") : tn("{n} autre proposition", "{n} autres propositions", proposals.length - 3)}</span>
+          <ChevronDown size={14} className={clsx("transition-transform", all && "rotate-180")} />
+        </button>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * Ce que le journal dit avoir versé sur les plateformes, et retiré : la somme de ses dépôts et de ses retraits, rien
+ * de plus. Pas de plus-value ici : le journal est un récit, il ne dit pas tout ce qui a été acheté.
+ */
+function CashLine({ cash }: { cash: CryptoJournal["cash"] }) {
+  if (!cash || !(cash.deposited > 0 || cash.withdrawn > 0)) return null;
+  return (
+    <div className="flex items-center gap-1.5 px-1 text-xs text-muted">
+      <span className="tnum">
+        {[cash.deposited > 0 ? t("Dépôts notés : {montant}", { montant: money(cash.deposited, true) }) : null, cash.withdrawn > 0 ? t("Retraits notés : {montant}", { montant: money(cash.withdrawn, true) }) : null].filter(Boolean).join(" · ")}
+      </span>
+      <InfoTip text={t("La somme des dépôts et des retraits notés au journal, sans ceux qui sont en attente.")} />
+    </div>
+  );
+}
+
 /** Journal sur téléphone : ce qui attend reste en vue, le reste se déplie. */
 export function Journal({ hints }: { hints: JournalHints }) {
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<CryptoEvent | "new" | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
   const events = useCryptoEvents();
   const list = events.data?.events ?? [];
   const pending = list.filter(isPending);
   const done = list.filter((e) => !isPending(e));
+  const edit = (event: CryptoEvent) => setEditing({ event });
   return (
     <section className="space-y-2">
       <button type="button" onClick={() => setOpen((o) => !o)} disabled={!done.length} className="flex w-full items-center justify-between px-1 text-[15px] font-semibold text-ink">
         {t("Journal des mouvements ({n})", { n: list.length })}
         {done.length > 0 && <ChevronDown size={16} className={clsx("shrink-0 transition", open && "rotate-180")} />}
       </button>
+      <CashLine cash={events.data?.cash} />
+      <Proposals proposals={events.data?.proposals ?? []} onNote={(proposal) => setEditing({ event: null, proposal })} />
       {!list.length && !events.isLoading && <EmptyJournal />}
       {pending.length > 0 && (
         <Card className="divide-y divide-line">
           {pending.map((e) => (
-            <EventRow key={e.id} e={e} onOpen={setEditing} />
+            <EventRow key={e.id} e={e} onOpen={edit} />
           ))}
         </Card>
       )}
       {open && done.length > 0 && (
         <Card className="divide-y divide-line">
           {done.map((e) => (
-            <EventRow key={e.id} e={e} onOpen={setEditing} />
+            <EventRow key={e.id} e={e} onOpen={edit} />
           ))}
         </Card>
       )}
-      <AddButton onClick={() => setEditing("new")} className="card w-full gap-2 px-4 py-3 text-left text-sm" />
-      {editing && <EventSheet event={editing === "new" ? null : editing} hints={hints} onClose={() => setEditing(null)} />}
+      <AddButton onClick={() => setEditing({ event: null })} className="card w-full gap-2 px-4 py-3 text-left text-sm" />
+      {editing && <EventSheet event={editing.event} proposal={editing.proposal} hints={hints} onClose={() => setEditing(null)} />}
     </section>
   );
 }
@@ -149,21 +257,25 @@ export function JournalTable({ hints }: { hints: JournalHints }) {
   const list = events.data?.events ?? [];
   const pending = list.filter(isPending);
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<CryptoEvent | "new" | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
   // Ce qui attend reste en vue même journal replié.
   const rows = open ? list : pending;
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <button type="button" onClick={() => setOpen((o) => !o)} disabled={!list.length} className="flex items-center gap-1.5 font-semibold">
-          {t("Journal des mouvements")} <span className={cn("tnum text-[12px] font-normal text-muted")}>{list.length}</span>
-          {list.length > 0 && <ChevronDown size={15} className={clsx("text-muted transition", open && "rotate-180")} />}
-        </button>
-        <AddButton onClick={() => setEditing("new")} className="rounded-md border border-line bg-card px-3 py-1.5 text-[13px] text-ink hover:bg-bg" />
+    <section className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+          <button type="button" onClick={() => setOpen((o) => !o)} disabled={!list.length} className="flex items-center gap-1.5 font-semibold">
+            {t("Journal des mouvements")} <span className={cn("tnum text-[12px] font-normal text-muted")}>{list.length}</span>
+            {list.length > 0 && <ChevronDown size={15} className={clsx("text-muted transition", open && "rotate-180")} />}
+          </button>
+          <CashLine cash={events.data?.cash} />
+        </div>
+        <AddButton onClick={() => setEditing({ event: null })} className="rounded-md border border-line bg-card px-3 py-1.5 text-[13px] text-ink hover:bg-bg" />
       </div>
+      <Proposals proposals={events.data?.proposals ?? []} onNote={(proposal) => setEditing({ event: null, proposal })} />
       {!list.length && !events.isLoading && <EmptyJournal />}
-      {rows.length > 0 && <DataTable rows={rows} columns={EVENT_COLUMNS} rowKey={(e) => String(e.id)} initialSort={{ key: "date", dir: "desc" }} onRowClick={setEditing} />}
-      {editing && <EventSheet event={editing === "new" ? null : editing} hints={hints} onClose={() => setEditing(null)} />}
+      {rows.length > 0 && <DataTable rows={rows} columns={EVENT_COLUMNS} rowKey={(e) => String(e.id)} initialSort={{ key: "date", dir: "desc" }} onRowClick={(event) => setEditing({ event })} />}
+      {editing && <EventSheet event={editing.event} proposal={editing.proposal} hints={hints} onClose={() => setEditing(null)} />}
     </section>
   );
 }
@@ -202,21 +314,26 @@ function Check({ checked, onChange, label, hint }: { checked: boolean; onChange:
   );
 }
 
-/** Ajout (`event` nul) ou correction d'un mouvement. */
-function EventSheet({ event, hints, onClose }: { event: CryptoEvent | null; hints: JournalHints; onClose: () => void }) {
+/**
+ * Ajout (`event` nul) ou correction d'un mouvement. Une proposition de Pécule remplit le formulaire : le membre la
+ * relit, la corrige, puis la note — ou referme sans rien écrire.
+ */
+function EventSheet({ event, proposal, hints, onClose }: { event: CryptoEvent | null; proposal?: CryptoProposal; hints: JournalHints; onClose: () => void }) {
   const qc = useQueryClient();
-  const [type, setType] = useState<EventKind>(kindOf(event?.type) ?? (event ? "autre" : "achat"));
-  const [date, setDate] = useState(event?.date ?? today());
+  const seed = event ?? proposal;
+  const [type, setType] = useState<EventKind>(kindOf(seed?.type) ?? (seed ? "autre" : "achat"));
+  const [date, setDate] = useState(seed?.date ?? today());
   const [ranged, setRanged] = useState(!!event?.end_date && event.end_date !== event.date);
   const [endDate, setEndDate] = useState(event?.end_date ?? "");
-  const [asset, setAsset] = useState(event?.asset ?? "");
-  const [quantity, setQuantity] = useState(shown(event?.quantity));
-  const [value, setValue] = useState(shown(event?.value));
+  const [asset, setAsset] = useState(seed?.asset ?? "");
+  const [quantity, setQuantity] = useState(shown(seed?.quantity));
+  const [value, setValue] = useState(shown(seed?.value));
   const [price, setPrice] = useState(shown(event?.price));
   const [fee, setFee] = useState(shown(event?.fee));
-  const [platform, setPlatform] = useState(event?.platform ?? "");
+  const [platform, setPlatform] = useState(seed?.platform ?? "");
   const [pending, setPending] = useState(event?.status === "attente");
-  const [title, setTitle] = useState(event?.title ?? "");
+  // Un transfert reconnu entre deux portefeuilles, une arrivée, un départ : le titre le dit, le genre ne suffit pas.
+  const [title, setTitle] = useState(event?.title ?? (proposal && (proposal.fromPlatform || proposal.direction) ? proposalTitle(proposal) : ""));
   const [note, setNote] = useState(event?.note ?? "");
   const [busy, setBusy] = useState(false);
 
@@ -249,7 +366,7 @@ function EventSheet({ event, hints, onClose }: { event: CryptoEvent | null; hint
     };
     try {
       if (event) await api(`/crypto/events/${event.id}`, { method: "PATCH", json });
-      else await api("/crypto/events", { method: "POST", json });
+      else await api("/crypto/events", { method: "POST", json: proposal ? { ...json, proposal: proposal.ref } : json });
       await done(event ? t("Mouvement mis à jour") : t("Mouvement ajouté"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t("Enregistrement impossible"));
@@ -272,6 +389,12 @@ function EventSheet({ event, hints, onClose }: { event: CryptoEvent | null; hint
   return (
     <Sheet open onClose={onClose} title={event ? t("Modifier le mouvement") : t("Ajouter un mouvement")}>
       <div className="space-y-3">
+        {proposal && (
+          <p className="rounded-xl bg-accent-soft px-3.5 py-2.5 text-xs leading-relaxed">
+            <span className="font-medium">{proposalSource(proposal)}.</span> {t("Relis, corrige ce qui doit l'être, puis note-le.")}
+            {proposal.origin === "synchro" && proposal.type !== "achat" && proposal.type !== "vente" && ` ${t("Le montant est une estimation au cours du jour de la lecture.")}`}
+          </p>
+        )}
         <div>
           <Box label={t("Genre##mouvement")}>
             <select value={type} onChange={(e) => setType(e.target.value as EventKind)} className={cn(INPUT, "-ml-0.5")}>
@@ -309,7 +432,7 @@ function EventSheet({ event, hints, onClose }: { event: CryptoEvent | null; hint
             <input value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal" placeholder="0" className={cn(INPUT, "tnum")} />
           </Box>
           <Box label={t("Cours ({devise})", { devise: moneySymbol() })}>
-            <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder={derived ? String(Math.round(derived.price * 100) / 100) : t("facultatif")} className={cn(INPUT, "tnum")} />
+            <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder={derived ? shown(Math.round(derived.price * 100) / 100) : t("facultatif")} className={cn(INPUT, "tnum")} />
           </Box>
           <Box label={t("Frais ({devise})", { devise: moneySymbol() })}>
             <input value={fee} onChange={(e) => setFee(e.target.value)} inputMode="decimal" placeholder={t("facultatif")} className={cn(INPUT, "tnum")} />

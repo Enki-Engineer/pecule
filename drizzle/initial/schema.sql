@@ -1,5 +1,5 @@
 -- Pécule — schéma de départ d'une installation neuve. Écrit par `pnpm db:initial`, ne pas modifier à la main.
--- inclut-jusqu-a: drizzle/0041_journal_crypto.sql
+-- inclut-jusqu-a: drizzle/0042_propositions_crypto.sql
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -304,10 +304,12 @@ CREATE TABLE `crypto_events` (
   `fee` decimal(14,2) DEFAULT NULL,
   `status` varchar(12) NOT NULL DEFAULT 'fait',
   `origin` varchar(12) NOT NULL DEFAULT 'import',
+  `transaction_id` varchar(160) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_crypto_events_ref` (`owner_user_id`,`source_ref`),
   KEY `fk_crypto_events_owner` (`owner_user_id`),
   KEY `idx_crypto_events_date` (`date`),
+  KEY `idx_crypto_events_tx` (`transaction_id`),
   CONSTRAINT `fk_crypto_events_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table crypto_file_moves
@@ -348,6 +350,28 @@ CREATE TABLE `crypto_positions` (
   UNIQUE KEY `uq_crypto_line` (`owner_user_id`,`source`,`line_key`),
   KEY `idx_crypto_portfolio` (`portfolio_id`),
   CONSTRAINT `fk_crypto_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- § table crypto_proposals
+CREATE TABLE `crypto_proposals` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `owner_user_id` int(11) NOT NULL,
+  `ref` varchar(191) NOT NULL,
+  `origin` varchar(12) NOT NULL,
+  `status` varchar(12) NOT NULL DEFAULT 'ouverte',
+  `date` date NOT NULL,
+  `since` date DEFAULT NULL,
+  `type` varchar(40) NOT NULL,
+  `asset` varchar(120) DEFAULT NULL,
+  `quantity` decimal(30,10) DEFAULT NULL,
+  `value` decimal(14,2) DEFAULT NULL,
+  `portfolio_id` varchar(96) DEFAULT NULL,
+  `from_portfolio_id` varchar(96) DEFAULT NULL,
+  `direction` varchar(4) DEFAULT NULL,
+  `event_id` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_crypto_proposal` (`owner_user_id`,`ref`),
+  CONSTRAINT `fk_crypto_proposals_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- § table crypto_sources
 CREATE TABLE `crypto_sources` (

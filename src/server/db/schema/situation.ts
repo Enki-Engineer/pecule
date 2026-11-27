@@ -256,16 +256,57 @@ export const cryptoEvents = mysqlTable(
     /** fait | attente (ordre posé, retrait en cours d'examen) */
     status: varchar("status", { length: 12 }).notNull().default("fait"),
     note: text("note"),
-    /** D'où vient la ligne : main (écran) | assistant | import (reprise d'un autre outil). */
+    /** D'où vient la ligne : main (écran) | assistant | import (reprise d'un autre outil) | banque | synchro (proposition notée). */
     origin: varchar("origin", { length: 12 }).notNull().default("import"),
     sourceRef: varchar("source_ref", { length: 191 }),
+    /** Opération bancaire que le mouvement raconte (un virement vers une plateforme), quand il a été noté depuis elle. */
+    transactionId: varchar("transaction_id", { length: 160 }),
   },
   (t) => [
     // La référence d'une reprise distingue les lignes d'un membre : deux membres peuvent reprendre le même export.
     uniqueIndex("uq_crypto_events_ref").on(t.ownerUserId, t.sourceRef),
     index("idx_crypto_events_date").on(t.date),
+    index("idx_crypto_events_tx").on(t.transactionId),
     foreignKey({ name: "fk_crypto_events_owner", columns: [t.ownerUserId], foreignColumns: [users.id] }).onDelete("cascade"),
   ],
+);
+
+/**
+ * Mouvements que Pécule propose de noter au journal crypto, et ce que le membre en a décidé. Rien ici n'est le
+ * journal : une proposition notée devient une ligne de `crypto_events`.
+ * - `origin = synchro` : un solde a bougé entre deux lectures d'un portefeuille (`ref = sync:<synchro>:…`) ; la
+ *   proposition est gardée ici, l'état d'avant étant perdu après la lecture.
+ * - `origin = banque` : une opération bancaire vers une plateforme, écartée par le membre (`ref = tx:<opération>`) —
+ *   seule trace gardée, de quoi ne pas la reproposer ; tant qu'elle n'est ni notée ni écartée, elle se relit dans
+ *   les opérations.
+ */
+export const cryptoProposals = mysqlTable(
+  "crypto_proposals",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    ownerUserId: int("owner_user_id").notNull(),
+    ref: varchar("ref", { length: 191 }).notNull(),
+    origin: varchar("origin", { length: 12 }).notNull(),
+    /** ouverte | notee | ecartee */
+    status: varchar("status", { length: 12 }).notNull().default("ouverte"),
+    date: date("date", { mode: "string" }).notNull(),
+    /** Jour de la lecture d'avant : le mouvement a eu lieu entre les deux. */
+    since: date("since", { mode: "string" }),
+    type: varchar("type", { length: 40 }).notNull(),
+    asset: varchar("asset", { length: 120 }),
+    quantity: decimal("quantity", { precision: 30, scale: 10, mode: "number" }),
+    /** Valeur estimée le jour de la lecture, dans la devise du foyer. */
+    value: decimal("value", { precision: 14, scale: 2, mode: "number" }),
+    portfolioId: varchar("portfolio_id", { length: 96 }),
+    /** Portefeuille d'où vient la crypto, pour un transfert entre deux portefeuilles du membre. */
+    fromPortfolioId: varchar("from_portfolio_id", { length: 96 }),
+    /** in | out : sens d'un mouvement dont l'autre bout n'est pas connu. */
+    direction: varchar("direction", { length: 4 }),
+    /** Ligne du journal née de la proposition. */
+    eventId: int("event_id"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("uq_crypto_proposal").on(t.ownerUserId, t.ref), foreignKey({ name: "fk_crypto_proposals_owner", columns: [t.ownerUserId], foreignColumns: [users.id] }).onDelete("cascade")],
 );
 
 /** Faits clés d'une entité (bien, retraite, emploi…) : libellé, valeur, unité, date de relevé. */

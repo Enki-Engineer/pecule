@@ -194,6 +194,22 @@ export const patrimoine: ManualTheme = {
             tk("Le journal est à toi : un autre membre du foyer ne le voit pas."),
           ],
         },
+        tk("Au-dessus du journal, Pécule te propose des mouvements à noter, d'après ce qu'il lit déjà :"),
+        {
+          list: [
+            tk("une opération bancaire vers une plateforme crypto, ou qui en revient — un virement, un paiement par carte —, reconnue à son libellé sur tes comptes et sur les comptes communs ;"),
+            tk("un solde qui a bougé entre deux synchronisations d'un portefeuille : un achat ou une vente (de la monnaie contre une crypto), un échange, un transfert d'un de tes portefeuilles à un autre, une arrivée ou un départ dont l'autre bout n'est pas connu."),
+          ],
+        },
+        {
+          list: [
+            tk("[[Noter]] ouvre le mouvement déjà rempli : relis-le, corrige ce qui doit l'être, puis ajoute-le. [[Écarter]] retire la proposition pour de bon. Rien n'est écrit au journal sans ce geste."),
+            tk("Un mouvement noté depuis une opération bancaire lui reste relié : elle n'est plus proposée. Une opération que le journal raconte déjà — un dépôt, un retrait, un achat ou une vente sur la même plateforme, aux mêmes dates ou sur une période qui les couvre — n'est pas proposée non plus."),
+            tk("Pour un solde qui a bougé, Pécule ne connaît que l'avant et l'après : le montant d'un achat ou d'une vente est la monnaie dépensée ou reçue, celui d'un transfert une estimation au cours du jour. Les petits écarts — récompenses au fil de l'eau, poussière — ne sont pas proposés, ni ce que porte un portefeuille le jour où tu le relies."),
+            tk("Sous le titre du journal, Pécule additionne les dépôts et les retraits que tu y as notés : ce que tu as versé sur les plateformes, et ce qui en est revenu. Ce n'est pas une plus-value : le journal ne dit pas tout ce que tu as acheté."),
+            tk("L'assistant voit aussi ces propositions : demande-lui ce qu'il reste à noter."),
+          ],
+        },
         { note: tk("Le journal n'a pas à suivre chaque ligne d'un relevé : note ce qui compte pour toi, et résume le reste par période.") },
       ],
       links: [{ to: "/patrimoine/crypto", label: ["Crypto"] }],

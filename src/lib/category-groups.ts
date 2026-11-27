@@ -15,3 +15,23 @@ export function groupByPoste<C extends { name: string; poste: string | null; gro
   }
   return out;
 }
+
+/**
+ * Un vrai poste, qui réunit plusieurs catégories : la liste des opérations sait se filtrer sur lui tout entier.
+ * Un groupe sans poste (rangé sous son groupe ou sous son nom) ne le peut pas ; une seule catégorie, c'est déjà elle.
+ */
+export const wholePoste = <C extends { poste: string | null }>(g: PosteGroup<C>) => g.list.length > 1 && g.list.every((c) => c.poste === g.poste);
+
+const plain = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * Groupes réduits à ce que désigne une recherche, sans tenir compte des accents ni des majuscules. Un poste trouvé
+ * par son nom garde toutes ses catégories ; sinon ne restent que les catégories trouvées. `shown` : le nom tel
+ * qu'il est affiché (traduit) — on cherche dans le nom d'origine comme dans celui-là.
+ */
+export function searchGroups<C extends { name: string }>(groups: PosteGroup<C>[], query: string, shown: (name: string) => string = (x) => x): PosteGroup<C>[] {
+  const f = plain(query.trim());
+  if (!f) return groups;
+  const has = (name: string) => plain(`${name} ${shown(name)}`).includes(f);
+  return groups.map((g) => (has(g.poste) ? g : { poste: g.poste, list: g.list.filter((c) => has(c.name)) })).filter((g) => g.list.length > 0);
+}

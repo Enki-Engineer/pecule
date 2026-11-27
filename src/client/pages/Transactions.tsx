@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { keepPreviousData, useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowDownLeft, ArrowLeftRight, ArrowUp, Banknote, ChevronDown, ChevronsDownUp, CreditCard, Eye, Landmark, Repeat, Search, Send, Tags, Undo2, X, Sparkles, Paperclip, ShieldCheck, PanelRight, CheckSquare, Store, Tag, CalendarDays, Shapes, Copy, MessageSquare, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronsDownUp, Eye, Search, Tags, X, Sparkles, Paperclip, ShieldCheck, PanelRight, CheckSquare, Store, Tag, CalendarDays, Shapes, Copy, MessageSquare } from "lucide-react";
 import { ContextMenu, useContextMenu } from "../components/ContextMenu.tsx";
 import { TxLogo } from "../components/Logo.tsx";
 import { undoToast } from "../undo.ts";
 import { SwipeTxRow } from "../components/SwipeTxRow.tsx";
+import { OpsFilterBar } from "../components/OpsFilters.tsx";
+import { NATURE_ICONS } from "../natureIcons.ts";
 import { NameDebit } from "../components/NameDebit.tsx";
 import { AddOperationButton, DeleteManualOperation } from "../components/ManualEntry.tsx";
 import { HoverPreview } from "../components/HoverPreview.tsx";
@@ -24,7 +26,7 @@ import { api, transactionListQuery, transactionMonthRowsQuery, transactionMonths
 import { AddInvoiceButton, FileIcon } from "./Invoices.tsx";
 import { Amount, Card, Empty, ErrorBox, PageHeader, Sheet, Spinner, TxAmount } from "../components/ui.tsx";
 import { OpsTabs, useListSearch, useTabParams, useTabState } from "../components/OpsSection.tsx";
-import { dateFr, dateShort, dayLabel, money, moneyIn, monthLabel, periodLabel, plainMoney } from "../format.ts";
+import { dateFr, dateShort, dayLabel, money, moneyIn, monthLabel, plainMoney } from "../format.ts";
 import { operationEntity, txDateHint, txSubline } from "../txInfo.ts";
 import { Equivalence } from "../components/Equivalence.tsx";
 import { txTitle } from "../../lib/labels.ts";
@@ -92,20 +94,6 @@ export function Transactions() {
   }, [openTx, rows, desktop, list.isLoading, list.isPlaceholderData, list.hasNextPage, list.isFetchingNextPage, list.fetchNextPage]);
   const byMonth = useMemo(() => groupByMonth(rows), [rows]);
 
-  const chips: { key: string; label: string }[] = [];
-  if (account) chips.push({ key: "compte", label: accounts.data?.accounts.find((a) => a.id === account)?.display_name ?? accounts.data?.accounts.find((a) => a.id === account)?.name ?? tr("Compte") });
-  // Arrivée d'une répartition sur « Apports de … » ou « Versements à … » : le filtre porte ce nom, pas son identifiant.
-  if (category) chips.push({ key: "categorie", label: transferLabel(category, tr) ?? td(categories.data?.categories.find((c) => c.id === category)?.name) ?? category });
-  if (poste) chips.push({ key: "poste", label: td(poste) });
-  if (month) chips.push({ key: "mois", label: periodLabel(month) });
-  if (nature) chips.push({ key: "nature", label: NATURE_LABELS[nature as Nature] ?? nature });
-  if (uncategorized) chips.push({ key: "a_classer", label: tr("À classer") });
-
-  const removeChip = (key: string) => {
-    const next = new URLSearchParams(params);
-    next.delete(key);
-    setParams(next, { replace: true });
-  };
   const setFilters = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
     for (const [key, value] of Object.entries(patch)) {
@@ -170,19 +158,7 @@ export function Transactions() {
             </button>
           )}
         </label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {!uncategorized && (
-            <button type="button" onClick={() => setParams(new URLSearchParams({ ...Object.fromEntries(params), a_classer: "1" }), { replace: true })} className="press rounded-full bg-card px-3 py-1.5 text-sm text-muted ring-1 ring-line">
-              {tr("À classer")}
-            </button>
-          )}
-          {chips.map((c) => (
-            <button key={c.key} type="button" onClick={() => removeChip(c.key)} className="press flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-sm font-medium text-white">
-              {c.label}
-              <X size={14} />
-            </button>
-          ))}
-        </div>
+        <OpsFilterBar filters={filters} accounts={accounts.data?.accounts ?? []} categories={categories.data?.categories ?? []} colored={colored} onChange={setFilters} />
       </div>
 
       {list.error && <ErrorBox error={list.error} />}
@@ -201,7 +177,7 @@ export function Transactions() {
                   <Card className="divide-y divide-line overflow-hidden">
                     {g.items.map((t) => (
                       <div key={t.id} data-tx={t.id}>
-                        <SwipeTxRow t={t} onOpen={() => setSelected(t)} onSearch={setSearch}>
+                        <SwipeTxRow t={t} onOpen={() => setSelected(t)} onSearch={setSearch} onFilter={setFilters}>
                           <TxRow t={t} colored={colored} onClick={() => setSelected(t)} />
                         </SwipeTxRow>
                       </div>
@@ -1070,17 +1046,6 @@ const NATURE_SHORT: Record<Nature, string> = {
 };
 
 /* La couleur d'une ligne dit son poste (pastille de la catégorie) ; sa nature se reconnaît à son icône. */
-const NATURE_ICONS: Record<Nature, LucideIcon> = {
-  carte: CreditCard,
-  prelevement: Repeat,
-  virement: Send,
-  retrait: Banknote,
-  frais: Landmark,
-  interne: ArrowLeftRight,
-  remboursement: Undo2,
-  entree: ArrowDownLeft,
-};
-
 function NatureBadge({ n }: { n: Nature }) {
   const Icon = NATURE_ICONS[n];
   return (

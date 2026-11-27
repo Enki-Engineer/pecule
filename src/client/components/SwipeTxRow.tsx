@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, MessageSquare, MoreHorizontal, PanelRight, Store } from "lucide-react";
+import { CalendarDays, Check, Copy, MessageSquare, MoreHorizontal, PanelRight, Shapes, Store, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { api, queryClient, useSuggestions, type Transaction } from "../api.ts";
 import { Sheet } from "./ui.tsx";
@@ -8,19 +8,33 @@ import { undoToast } from "../undo.ts";
 import { askAssistant } from "../assistantBus.ts";
 import { txTitle } from "../../lib/labels.ts";
 import { operationEntity } from "../txInfo.ts";
-import { merchantName } from "../../lib/nature.ts";
-import { dateFr, money, plainMoney } from "../format.ts";
+import { merchantName, NATURE_LABELS, natureOf } from "../../lib/nature.ts";
+import { dateFr, money, monthLabel, plainMoney } from "../format.ts";
 import { cn } from "../cn.ts";
 import { t as tr, td, tk } from "../../lib/i18n.ts";
 
 /*
  * Ligne d'opération (iPhone) avec gestes : balayer vers la gauche révèle « Classer dans [suggestion] »
- * et « Plus » (balayage complet = classer tout de suite) ; appui long = menu d'actions.
+ * et « Plus » (balayage complet = classer tout de suite) ; appui long = menu d'actions — les mêmes que le clic droit
+ * d'une ligne sur ordinateur : ouvrir, filtrer la liste sur ce que porte la ligne, demander à l'assistant, copier.
  */
 
 const REVEAL = 168;
 
-export function SwipeTxRow({ t, children, onOpen, onSearch }: { t: Transaction; children: ReactNode; onOpen: () => void; onSearch: (q: string) => void }) {
+export function SwipeTxRow({
+  t,
+  children,
+  onOpen,
+  onSearch,
+  onFilter,
+}: {
+  t: Transaction;
+  children: ReactNode;
+  onOpen: () => void;
+  onSearch: (q: string) => void;
+  /** Filtrer la liste : paramètre de l'adresse → valeur, null pour le retirer. */
+  onFilter: (patch: Record<string, string | null>) => void;
+}) {
   const [dx, setDx] = useState(0);
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -29,6 +43,7 @@ export function SwipeTxRow({ t, children, onOpen, onSearch }: { t: Transaction; 
   const moved = useRef(false);
   const sg = useSuggestions(open || menu ? t.id : null);
   const first = sg.data?.suggestions[0];
+  const nature = natureOf(t.label, Number(t.amount));
 
   async function classify(categoryId: string, name: string) {
     setOpen(false);
@@ -129,9 +144,17 @@ export function SwipeTxRow({ t, children, onOpen, onSearch }: { t: Transaction; 
                 ))}
               </div>
             )}
-            <div className="card divide-y divide-line">
+            <div className="card mb-3 overflow-hidden">
               <ActionRow icon={<PanelRight size={17} />} label={tr("Ouvrir la fiche")} onClick={() => (setMenu(false), onOpen())} />
+            </div>
+            {/* Filtrer la liste sur ce que porte la ligne : son marchand, sa catégorie, sa nature, son mois. */}
+            <div className="card mb-3 divide-y divide-line overflow-hidden">
               <ActionRow icon={<Store size={17} />} label={tr("Opérations « {nom} »", { nom: merchantName(t.label, t.merchant).slice(0, 30) })} onClick={() => (setMenu(false), onSearch(merchantName(t.label, t.merchant)))} />
+              {t.category_id && <ActionRow icon={<Tag size={17} />} label={tr("Catégorie : {nom}", { nom: td(t.category_name) ?? "—" })} onClick={() => (setMenu(false), onFilter({ categorie: t.category_id, poste: null }))} />}
+              <ActionRow icon={<Shapes size={17} />} label={tr("Nature : {nom}", { nom: NATURE_LABELS[nature] })} onClick={() => (setMenu(false), onFilter({ nature }))} />
+              <ActionRow icon={<CalendarDays size={17} />} label={tr("Mois : {mois}", { mois: monthLabel(t.date.slice(0, 7)) })} onClick={() => (setMenu(false), onFilter({ mois: t.date.slice(0, 7) }))} />
+            </div>
+            <div className="card divide-y divide-line overflow-hidden">
               <ActionRow
                 icon={<MessageSquare size={17} />}
                 label={tr("Demander à l'assistant")}

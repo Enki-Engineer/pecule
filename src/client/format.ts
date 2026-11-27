@@ -66,6 +66,11 @@ export const shiftMonth = (m: string, delta: number) => {
   d.setUTCMonth(d.getUTCMonth() + delta);
   return d.toISOString().slice(0, 7);
 };
+/** Nom d'un mois sans son année, pour une grille qui la porte en titre : « Novembre ». */
+export const monthName = (m: string) => {
+  const s = parse(`${m}-01`).toLocaleDateString(locale(), { month: "long" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
 /** « janv », « févr », « juin », « juil »… (uniques, pour les axes). */
 export const monthShort = (m: string) => parse(`${m}-01`).toLocaleDateString(locale(), { month: "short" }).replace(".", "");
 

@@ -3868,4 +3868,10 @@ export const de: Dict = {
   "Pas encore de mot de passe : « {bouton} » lui en fait choisir un, ici même.": "Noch kein Passwort: Mit „{bouton}“ legt das Mitglied gleich hier eines fest.",
   "Pécule n'a pas répondu : réessaie dans un instant.": "Pécule hat nicht geantwortet: Versuche es gleich noch einmal.",
   "Numéro du compte choisi (4 derniers chiffres)": "Nummer des gewählten Kontos (letzte 4 Ziffern)",
+  "Filtres": "Filter",
+  "Retirer le filtre « {nom} »": "Filter „{nom}“ entfernen",
+  "Tout le poste": "Ganzer Posten",
+  "Tout le poste « {nom} »": "Ganzer Posten „{nom}“",
+  "Tous les mois": "Alle Monate",
+  "Toute l'année {annee}": "Ganzes Jahr {annee}",
 };

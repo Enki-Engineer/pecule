@@ -3,6 +3,28 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.50.0
+
+Opérations sur téléphone : tous les filtres se choisissent, comme sur ordinateur. Aucune migration, aucun réglage
+nouveau.
+
+- **Une barre de filtres sous la recherche** : « À classer », « Catégorie », « Compte », « Nature », « Mois », en
+  pastilles sur une seule ligne qui défile au doigt. Jusque-là, le téléphone ne proposait que « À classer » : un
+  filtre par catégorie, par compte, par nature ou par mois ne pouvait y arriver que par un lien venu d'un autre écran,
+  et l'on ne pouvait que le retirer. Une pastille qui filtre prend la couleur de l'appli, écrit le choix et passe en
+  tête ; la toucher rouvre le choix, sa croix la retire. L'en-tête garde la même hauteur quel que soit le nombre de
+  filtres.
+- **Catégorie** : les catégories rangées sous leur poste, avec la couleur du poste sur l'anneau des dépenses et un
+  champ de recherche — la même présentation que la fiche d'une opération. « Tout le poste » filtre sur un poste
+  entier, ce qu'aucun écran ne proposait. Rouverte sur un filtre en cours, la feuille s'ouvre à sa hauteur.
+- **Mois** : les douze mois de l'année, chacun avec le nombre d'opérations qu'il garde avec les autres filtres en
+  cours, l'année entière au-dessus, et les années précédentes tant qu'elles ont des opérations. Un mois vide ou à
+  venir ne se choisit pas.
+- **Compte** et **Nature** : une liste, avec le logo de la banque ou l'icône de la nature ; un compte sorti des
+  statistiques le dit.
+- **Appui long sur une ligne** : le menu propose aussi de filtrer la liste sur la catégorie, la nature ou le mois de
+  l'opération, comme le clic droit sur ordinateur.
+
 ## 1.49.4
 
 Opérations : le filtre par catégorie distingue deux catégories de même nom. Aucune migration, aucun réglage nouveau.

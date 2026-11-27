@@ -3868,4 +3868,10 @@ export const en: Dict = {
   "Pas encore de mot de passe : « {bouton} » lui en fait choisir un, ici même.": "No password yet: “{bouton}” lets them choose one, right here.",
   "Pécule n'a pas répondu : réessaie dans un instant.": "Pécule didn't answer: try again in a moment.",
   "Numéro du compte choisi (4 derniers chiffres)": "Number of the chosen account (last 4 digits)",
+  "Filtres": "Filters",
+  "Retirer le filtre « {nom} »": "Remove the “{nom}” filter",
+  "Tout le poste": "Whole heading",
+  "Tout le poste « {nom} »": "Whole “{nom}” heading",
+  "Tous les mois": "All months",
+  "Toute l'année {annee}": "All of {annee}",
 };

@@ -3868,4 +3868,10 @@ export const es: Dict = {
   "Pas encore de mot de passe : « {bouton} » lui en fait choisir un, ici même.": "Aún no tiene contraseña: «{bouton}» le permite elegir una, aquí mismo.",
   "Pécule n'a pas répondu : réessaie dans un instant.": "Pécule no ha respondido: vuelve a intentarlo en un momento.",
   "Numéro du compte choisi (4 derniers chiffres)": "Número de la cuenta elegida (4 últimas cifras)",
+  "Filtres": "Filtros",
+  "Retirer le filtre « {nom} »": "Quitar el filtro «{nom}»",
+  "Tout le poste": "Toda la partida",
+  "Tout le poste « {nom} »": "Toda la partida «{nom}»",
+  "Tous les mois": "Todos los meses",
+  "Toute l'année {annee}": "Todo {annee}",
 };

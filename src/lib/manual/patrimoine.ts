@@ -122,7 +122,7 @@ export const patrimoine: ManualTheme = {
       summary: tk("Portefeuilles lus par leur adresse, exchanges reliés par une clé en lecture seule, compte CoinStats ou positions saisies à la main."),
       module: "crypto",
       body: [
-        tk("L'écran [[Crypto]] donne la valeur totale, la variation sur 24 heures, les positions par crypto et par portefeuille, et le journal des mouvements. [[Ajouter un portefeuille]] propose plusieurs façons de relier ce que tu as ; elles se combinent, et [[Synchroniser]] relit tout sans attendre le lendemain."),
+        tk("L'écran [[Crypto]] donne la valeur totale, la variation sur 24 heures, les positions par crypto et par portefeuille, et le [[Journal des mouvements]], que tu tiens toi-même. [[Ajouter un portefeuille]] propose plusieurs façons de relier ce que tu as ; elles se combinent, et [[Synchroniser]] relit tout sans attendre le lendemain."),
         {
           list: [
             tk("[[Un portefeuille, par son adresse publique]] : colle l'adresse, Pécule reconnaît la blockchain, montre ce qu'il a trouvé, puis relit le portefeuille chaque jour. Aucun compte à ouvrir, aucune clé à créer ; chaque membre ajoute les siens."),
@@ -168,6 +168,36 @@ export const patrimoine: ManualTheme = {
         { to: "/reglages/connexions?c=coinstats", label: ["Réglages", "Comptes et connexions"] },
       ],
       words: tk("bitcoin ethereum solana cryptomonnaie wallet portefeuille adresse publique xpub ledger trezor metamask phantom coinstats coingecko cardano vechain multiversx exchange kraken binance coinbase bitpanda bitvavo okx bybit kucoin bitget bitfinex crypto.com swissborg export csv excel xlsx relevé fichier clé api lecture seule staking blockchain"),
+    },
+    {
+      id: "journal-crypto",
+      title: tk("Tenir le journal de ses cryptos"),
+      summary: tk("Tes achats, ventes, transferts et récompenses, notés avec leur date, leur montant et leur raison."),
+      module: "crypto",
+      body: [
+        tk("En bas de l'écran [[Crypto]], le [[Journal des mouvements]] garde le récit de ce que tu as fait de tes cryptos : un achat, une vente, un transfert vers un autre portefeuille, une mise en staking, ce qu'elle rapporte. C'est toi qui l'écris ; il ne change ni tes positions ni leur valeur, qui viennent de tes portefeuilles."),
+        {
+          steps: [
+            tk("Touche [[Ajouter un mouvement]]."),
+            tk("Choisis son genre (achat, vente, dépôt, transfert, staking…) et sa date. [[Sur une période]] sert à résumer plusieurs mouvements en une ligne : les récompenses d'une année, une série de virements."),
+            tk("Indique la crypto et la quantité, puis le montant. Le cours, les frais et la plateforme sont facultatifs : sans cours noté, un achat ou une vente affiche le montant divisé par la quantité."),
+            tk("Écris un titre si celui que Pécule propose ne te va pas, et dans la note ce que tu voudras retrouver : la raison du mouvement, d'où viennent les fonds, la référence de l'ordre."),
+            tk("Touche [[Ajouter au journal]]."),
+          ],
+        },
+        {
+          list: [
+            tk("Touche un mouvement pour le corriger ([[Modifier le mouvement]]) ou le retirer ([[Supprimer ce mouvement]])."),
+            tk("Un ordre posé et pas encore exécuté, un retrait en cours d'examen : coche [[En attente##mouvement]]. Le mouvement reste en vue en tête du journal, même replié ; quand il passe, ouvre-le, décoche la case et complète la date, la quantité, le cours et les frais."),
+            tk("Le nom d'un de tes portefeuilles reliés, choisi comme plateforme, rattache le mouvement à ce portefeuille : s'il change de nom, le journal suit."),
+            tk("L'assistant tient aussi le journal : dis-lui ce que tu as fait (« hier, j'ai acheté 0,02 BTC sur Coinbase »), il te montre le mouvement avant de l'écrire. Il peut de même corriger ou retirer un mouvement."),
+            tk("Le journal est à toi : un autre membre du foyer ne le voit pas."),
+          ],
+        },
+        { note: tk("Le journal n'a pas à suivre chaque ligne d'un relevé : note ce qui compte pour toi, et résume le reste par période.") },
+      ],
+      links: [{ to: "/patrimoine/crypto", label: ["Crypto"] }],
+      words: tk("journal mouvements crypto achat vente transfert dépôt retrait staking récompenses intérêts minage airdrop ordre en attente cours limite frais historique note"),
     },
     {
       id: "projections",

@@ -62,7 +62,7 @@ export const assistant: ManualTheme = {
             tk("Une action faite reste dans la conversation, avec une coche. Pour revenir dessus, demande-lui l'inverse."),
           ],
         },
-        tk("Ce qu'il sait faire : classer des opérations et créer des règles, noter une opération, relier ou corriger une facture, corriger le classement d'un document, ajouter ou cocher une tâche, gérer les engagements et les revenus du budget, créer une enveloppe ou un objectif, mettre à jour un placement, un bien ou une position crypto, gérer les catégories et les postes, construire des projections, lancer une synchronisation, et changer certains réglages."),
+        tk("Ce qu'il sait faire : classer des opérations et créer des règles, noter une opération, relier ou corriger une facture, corriger le classement d'un document, ajouter ou cocher une tâche, gérer les engagements et les revenus du budget, créer une enveloppe ou un objectif, mettre à jour un placement, un bien ou une position crypto, tenir le journal de tes cryptos, gérer les catégories et les postes, construire des projections, lancer une synchronisation, et changer certains réglages."),
         { note: tk("Chaque action faite par l'assistant est notée dans le journal des modifications : [[Réglages]] → [[Suivi technique]].") },
       ],
       links: [{ to: "/assistant", label: ["Assistant"] }],

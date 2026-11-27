@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { api, useCrypto, type CryptoPosition, type CryptoSource, type CryptoStatus } from "../api.ts";
 import { Card, ErrorBox, Field, PageHeader, Segmented, Sheet, Spinner } from "../components/ui.tsx";
 import { dateFr, money, moneySymbol, pct, timeAgo } from "../format.ts";
-import { useCryptoEvents, type CryptoEvent } from "../api-situation.ts";
+import { Journal, JournalTable, type JournalHints } from "../components/CryptoJournal.tsx";
 import { BrandLogo, CoinLogo, Tile } from "../components/Logo.tsx";
 import { brandOf } from "../../lib/brands.ts";
 import { EXCHANGES, type ExchangeId } from "../../lib/crypto-exchanges.ts";
@@ -16,7 +16,6 @@ import { CryptoEvolution } from "../components/CryptoEvolution.tsx";
 import { useMedia } from "../useMedia.ts";
 import { Stat, StatGrid } from "../components/blocks.tsx";
 import { DataTable, type Column } from "../components/DataTable.tsx";
-import { cn } from "../cn.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
 
 const qty = (n: number) => n.toLocaleString(locale(), { maximumFractionDigits: n < 1 ? 6 : 4 });
@@ -86,6 +85,11 @@ export function Crypto() {
   const desktop = useMedia("(min-width: 768px)");
 
   const groups = useMemo(() => bySymbol(data?.positions ?? []), [data]);
+  // Ce que le formulaire du journal propose en saisie : les portefeuilles du membre et les cryptos qu'il détient.
+  const hints = useMemo<JournalHints>(
+    () => ({ platforms: [...new Set((data?.status.sources ?? []).map((s) => s.name))], assets: [...new Set((data?.positions ?? []).map((p) => p.symbol.toUpperCase()))].sort() }),
+    [data],
+  );
   // Les cryptos du portefeuille choisi passent devant, par ce qu'il en porte ; les petites lignes des autres restent repliées.
   const mine = focus ? groups.filter((g) => shareOf(g, focus) != null).sort((a, b) => (shareOf(b, focus) ?? 0) - (shareOf(a, focus) ?? 0)) : [];
   const others = groups.filter((g) => !mine.includes(g));
@@ -120,7 +124,7 @@ export function Crypto() {
   if (desktop && data && st)
     return (
       <>
-        <CryptoDesktop data={data} st={st} groups={groups} onOpen={setOpen} syncing={syncing} onSync={sync} onAdd={() => setAdding(true)} focus={focus} onFocus={pick} />
+        <CryptoDesktop data={data} st={st} groups={groups} hints={hints} onOpen={setOpen} syncing={syncing} onSync={sync} onAdd={() => setAdding(true)} focus={focus} onFocus={pick} />
         <GroupSheet g={open} onClose={() => setOpen(null)} />
         <AddWalletSheet open={adding} onClose={() => setAdding(false)} st={st} />
       </>
@@ -204,7 +208,7 @@ export function Crypto() {
 
           <Archived st={st} />
 
-          <Journal />
+          <Journal hints={hints} />
 
           <Sources st={st} className="px-1 text-xs leading-relaxed text-muted" />
         </div>
@@ -602,41 +606,6 @@ function ManualEdit({ p, onDone }: { p: CryptoPosition; onDone: () => void }) {
   );
 }
 
-/** Journal des mouvements (achats, ventes, transferts, staking…). */
-function Journal() {
-  const [open, setOpen] = useState(false);
-  const events = useCryptoEvents();
-  const list = events.data?.events ?? [];
-  if (!list.length) return null;
-  return (
-    <section>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="mb-1.5 flex w-full items-center justify-between px-1 text-[15px] font-semibold text-ink">
-        {t("Journal des mouvements ({n})", { n: list.length })}
-        <ChevronDown size={16} className={clsx("transition", open && "rotate-180")} />
-      </button>
-      {open && (
-        <Card className="divide-y divide-line">
-          {list.map((e) => (
-            <div key={e.id} className="px-4 py-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <span className="min-w-0 truncate text-[15px] font-medium">{e.title}</span>
-                {e.value != null && <span className="tnum shrink-0 text-sm font-semibold">{money(e.value)}</span>}
-              </div>
-              <div className="truncate text-xs text-muted">
-                {dateFr(e.date)}
-                {e.type && ` · ${e.type}`}
-                {e.platform && ` · ${e.platform}`}
-                {e.quantity != null && e.asset && ` · ${qty(Number(e.quantity))} ${e.asset}`}
-              </div>
-              {e.note && <div className="mt-0.5 line-clamp-2 text-xs text-muted">{e.note}</div>}
-            </div>
-          ))}
-        </Card>
-      )}
-    </section>
-  );
-}
-
 /* ---------- Ordinateur ---------- */
 
 type CryptoData = NonNullable<ReturnType<typeof useCrypto>["data"]>;
@@ -645,6 +614,7 @@ function CryptoDesktop({
   data,
   st,
   groups,
+  hints,
   onOpen,
   syncing,
   onSync,
@@ -655,6 +625,7 @@ function CryptoDesktop({
   data: CryptoData;
   st: CryptoStatus;
   groups: Group[];
+  hints: JournalHints;
   onOpen: (g: Group) => void;
   syncing: boolean;
   onSync: () => void;
@@ -816,45 +787,10 @@ function CryptoDesktop({
           <Archived st={st} />
         </div>
         <div className="col-span-12">
-          <JournalTable />
+          <JournalTable hints={hints} />
         </div>
       </div>
       <Sources st={st} className="mt-4 text-[12px] leading-relaxed text-muted" />
     </>
-  );
-}
-
-const EVENT_COLUMNS: Column<CryptoEvent>[] = [
-  { key: "date", header: t("Date"), sort: (e) => e.date, cell: (e) => <span className="tnum text-muted">{dateFr(e.date)}</span>, width: "110px" },
-  {
-    key: "title",
-    header: t("Mouvement"),
-    sort: (e) => e.title,
-    cell: (e) => (
-      <div className="min-w-0 py-1">
-        <div className="truncate font-medium">{e.title}</div>
-        {e.note && <div className="line-clamp-1 text-[12px] text-muted">{e.note}</div>}
-      </div>
-    ),
-  },
-  { key: "type", header: t("Type"), sort: (e) => e.type ?? "", cell: (e) => <span className="text-muted">{e.type ?? "—"}</span>, hideBelow: "lg" },
-  { key: "platform", header: t("Plateforme"), sort: (e) => e.platform ?? "", cell: (e) => <span className="text-muted">{e.platform ?? "—"}</span>, hideBelow: "lg" },
-  { key: "qty", header: t("Quantité"), align: "right", sort: (e) => e.quantity, cell: (e) => (e.quantity != null ? `${qty(Number(e.quantity))} ${e.asset ?? ""}` : "—"), hideBelow: "xl" },
-  { key: "value", header: t("Valeur"), align: "right", sort: (e) => e.value, cell: (e) => (e.value != null ? money(e.value) : <span className="text-muted">—</span>) },
-];
-
-function JournalTable() {
-  const events = useCryptoEvents();
-  const list = events.data?.events ?? [];
-  const [open, setOpen] = useState(false);
-  if (!list.length) return null;
-  return (
-    <section>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="mb-2 flex items-center gap-1.5 font-semibold">
-        {t("Journal des mouvements")} <span className={cn("tnum text-[12px] font-normal text-muted")}>{list.length}</span>
-        <ChevronDown size={15} className={clsx("text-muted transition", open && "rotate-180")} />
-      </button>
-      {open && <DataTable rows={list} columns={EVENT_COLUMNS} rowKey={(e) => String(e.id)} initialSort={{ key: "date", dir: "desc" }} />}
-    </section>
   );
 }

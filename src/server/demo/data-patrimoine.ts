@@ -113,13 +113,30 @@ export function buildWealth(w: WealthInput) {
     ownerUserId: ua.id,
     date: e.date,
     title: e.title,
-    asset: e.symbol === "BTC" ? "Bitcoin" : "Ethereum",
+    asset: e.symbol,
     type: "achat",
     platform: "Coinbase",
     quantity: e.quantity,
     value: e.value,
     note: e.note,
+    origin: "main",
   }));
+  // Un ordre posé sous le cours du jour, pas encore exécuté : il reste en vue en tête du journal.
+  const limit = Math.round((PRICES.eth * 0.93) / 10) * 10;
+  cryptoEvents.push({
+    ownerUserId: ua.id,
+    date: addDays(s.T, -6),
+    title: "Ordre d'achat d'ether à cours limité",
+    asset: "ETH",
+    type: "achat",
+    platform: "Coinbase",
+    quantity: 0.2,
+    value: Math.round(limit * 0.2 * 100) / 100,
+    price: limit,
+    status: "attente",
+    note: "Valable jusqu'à annulation : il passera si le cours descend jusque-là.",
+    origin: "main",
+  });
   const prices: Insert<typeof schema.prices>[] = [
     { id: "cg:bitcoin", priceEur: PRICES.btc, change24h: -1.82 },
     { id: "cg:ethereum", priceEur: PRICES.eth, change24h: 0.64 },

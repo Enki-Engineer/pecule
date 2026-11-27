@@ -5,7 +5,6 @@ import { memberIdByName } from "../members.ts";
 import { ActionError } from "../actions.ts";
 import {
   budget,
-  cryptoEvents,
   deleteCommitment,
   listProperties,
   projectionsFor,
@@ -19,6 +18,8 @@ import {
   updateProperty,
   upsertFacts,
 } from "../situation.ts";
+import { addCryptoEvent, cryptoEvents, deleteCryptoEvent, updateCryptoEvent } from "../crypto-events.ts";
+import { EVENT_KINDS, EVENT_STATUSES, kindOf } from "../../lib/crypto-events.ts";
 import { extractPayslip, normalizePayslips, payslipHistory, payslipsToReread } from "../payslips.ts";
 import { audience, setIncomeShared } from "../sharing.ts";
 import { JOINT } from "../../lib/taxes.ts";
@@ -146,6 +147,37 @@ situationApi.get("/payslips", async (req, res) => {
 
 situationApi.get("/crypto/events", async (req, res) => {
   res.json({ events: await cryptoEvents(req.user!.id) });
+});
+
+/** Un mouvement du journal crypto, tel que l'écran le saisit. */
+const cryptoEvent = z.object({
+  date: day,
+  endDate: day.nullable().optional(),
+  type: z.enum(EVENT_KINDS),
+  title: z.string().trim().min(1).max(255),
+  asset: z.string().max(120).nullable().optional(),
+  quantity: z.number().nullable().optional(),
+  value: z.number().nullable().optional(),
+  price: z.number().min(0).nullable().optional(),
+  fee: z.number().min(0).nullable().optional(),
+  platform: z.string().max(60).nullable().optional(),
+  status: z.enum(EVENT_STATUSES).optional(),
+  note: z.string().max(4000).nullable().optional(),
+});
+const eventId = (req: Request) => z.coerce.number().int().positive().parse(req.params.id);
+
+situationApi.post("/crypto/events", async (req, res) => {
+  res.json({ id: await addCryptoEvent(req.user!.id, cryptoEvent.parse(req.body), "main") });
+});
+
+situationApi.patch("/crypto/events/:id", async (req, res) => {
+  await updateCryptoEvent(req.user!.id, eventId(req), cryptoEvent.partial().parse(req.body));
+  res.json({ ok: true });
+});
+
+situationApi.delete("/crypto/events/:id", async (req, res) => {
+  await deleteCryptoEvent(req.user!.id, eventId(req));
+  res.json({ ok: true });
 });
 
 /* ---------- Administration (jeton d'API) : reprise depuis un autre outil, idempotente ---------- */
@@ -384,6 +416,10 @@ situationAdmin.post("/import/projections", async (req, res) => {
   res.json({ imported: b.rows.length });
 });
 
+/**
+ * Reprise du journal crypto tenu dans un autre outil. Rejouable : `sourceRef` distingue chaque ligne du membre. Un
+ * genre de la liste fermée, ou écrit comme avant elle (« Dépôt fiat »), est rangé ; un texte inconnu est gardé tel quel.
+ */
 situationAdmin.post("/import/crypto-events", async (req, res) => {
   const b = z
     .object({
@@ -393,6 +429,7 @@ situationAdmin.post("/import/crypto-events", async (req, res) => {
           z.object({
             sourceRef: z.string().max(191),
             date: day,
+            endDate: day.nullable().optional(),
             title: z.string().min(1).max(255),
             asset: z.string().max(120).nullable().optional(),
             type: z.string().max(40).nullable().optional(),
@@ -401,6 +438,9 @@ situationAdmin.post("/import/crypto-events", async (req, res) => {
             value: money,
             // Ancien nom du champ, encore écrit par d'anciens exports : accepté pour ne pas effacer une valeur en silence.
             valueEur: money,
+            price: money,
+            fee: money,
+            status: z.enum(EVENT_STATUSES).optional(),
             note: z.string().max(4000).nullable().optional(),
           }),
         )
@@ -411,10 +451,11 @@ situationAdmin.post("/import/crypto-events", async (req, res) => {
   if (!owner) throw new ActionError(404, "Membre inconnu");
   for (const e of b.events)
     await exec(
-      `INSERT INTO crypto_events (owner_user_id, date, title, asset, type, platform, quantity, value, note, source_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE date = VALUES(date), title = VALUES(title), asset = VALUES(asset), type = VALUES(type), platform = VALUES(platform),
-         quantity = VALUES(quantity), value = VALUES(value), note = VALUES(note)`,
-      [owner, e.date, e.title, e.asset ?? null, e.type ?? null, e.platform ?? null, e.quantity ?? null, e.value ?? e.valueEur ?? null, e.note ?? null, e.sourceRef],
+      `INSERT INTO crypto_events (owner_user_id, date, end_date, title, asset, type, platform, quantity, value, price, fee, status, note, origin, source_ref)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', ?)
+       ON DUPLICATE KEY UPDATE date = VALUES(date), end_date = VALUES(end_date), title = VALUES(title), asset = VALUES(asset), type = VALUES(type), platform = VALUES(platform),
+         quantity = VALUES(quantity), value = VALUES(value), price = VALUES(price), fee = VALUES(fee), status = VALUES(status), note = VALUES(note)`,
+      [owner, e.date, e.endDate ?? null, e.title, e.asset ?? null, kindOf(e.type) ?? e.type ?? null, e.platform ?? null, e.quantity ?? null, e.value ?? e.valueEur ?? null, e.price ?? null, e.fee ?? null, e.status ?? "fait", e.note ?? null, e.sourceRef],
     );
   res.json({ imported: b.events.length });
 });

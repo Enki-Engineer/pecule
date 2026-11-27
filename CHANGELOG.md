@@ -3,6 +3,37 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.51.0
+
+Crypto : le journal des mouvements se tient dans Pécule, à l'écran et par l'assistant. Une migration (table
+`crypto_events`), aucun réglage nouveau.
+
+- **Le journal des mouvements s'écrit à l'écran.** Jusque-là, il ne se remplissait que par une reprise depuis un
+  autre outil : un foyer qui n'en avait pas fait ne le voyait jamais. Il est maintenant affiché à tous, en bas de
+  l'écran Crypto : « Ajouter un mouvement » note un achat, une vente, un transfert, une mise en staking, ce qu'elle
+  rapporte — sa date, la crypto, la quantité, le montant, et si tu veux le cours, les frais, la plateforme et une
+  note. Toucher un mouvement le corrige ou le retire. Le journal raconte : il ne change ni les positions ni leur
+  valeur, et il reste privé à chaque membre.
+- **L'assistant tient le journal.** Dis-lui ce que tu as fait : il montre le mouvement, puis l'écrit après
+  « Confirmer » ; il corrige et retire de même (outils `add_crypto_event`, `update_crypto_event`,
+  `delete_crypto_event`, offerts aussi par le serveur MCP).
+- **Un mouvement peut attendre sa suite** : coche « En attente » pour un ordre posé et pas encore exécuté, ou un
+  retrait en cours. Il reste en vue en tête du journal, même replié, jusqu'à ce que tu le complètes.
+- **Un mouvement peut résumer une période** (« Sur une période ») : les récompenses d'une année, une série de
+  virements — le journal n'a pas à suivre chaque ligne d'un relevé.
+- **Le cours d'un achat ou d'une vente s'affiche** : celui que tu as noté, sinon le montant divisé par la quantité.
+- **Les genres de mouvement sont une liste, traduite dans les cinq langues** : achat, vente, échange, dépôt, retrait,
+  transfert, mise en staking, sortie de staking, récompenses, intérêts, minage, prime ou airdrop, autre. Les genres
+  écrits en toutes lettres par une reprise (« Dépôt fiat », « Staking — sortie ») y sont rangés par la migration ; un
+  texte qu'elle ne connaît pas est gardé tel quel.
+- **Le nom d'un portefeuille relié, choisi comme plateforme, rattache le mouvement à ce portefeuille** : s'il change
+  de nom, le journal suit.
+- **Manuel** : un article « Tenir le journal de ses cryptos ».
+- **Pour celui qui héberge** : la migration `0041_journal_crypto` ajoute au journal la fin de période, l'état, le
+  cours, les frais, le portefeuille et l'origine de chaque ligne ; la référence d'une reprise
+  (`POST /api/admin/import/crypto-events`) distingue désormais les lignes d'un membre, plus celles de tout le foyer,
+  et la reprise accepte les nouveaux champs (`endDate`, `price`, `fee`, `status`).
+
 ## 1.50.0
 
 Opérations sur téléphone : tous les filtres se choisissent, comme sur ordinateur. Aucune migration, aucun réglage

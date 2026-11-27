@@ -113,6 +113,13 @@
       "when": 1795647086475,
       "tag": "0040_mots_de_passe",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "5",
+      "when": 1795820137805,
+      "tag": "0041_journal_crypto",
+      "breakpoints": true
     }
   ]
 }

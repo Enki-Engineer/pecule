@@ -227,25 +227,42 @@ export const projections = mysqlTable(
   (t) => [uniqueIndex("uq_projection").on(t.ownerUserId, t.scenario, t.horizonYear, t.poche)],
 );
 
-/** Mouvements crypto (journal : achats, ventes, transferts, staking…), par membre. */
+/**
+ * Mouvements crypto (journal : achats, ventes, transferts, staking…), par membre. Un récit tenu par le membre, à
+ * l'écran ou par l'assistant : un mouvement peut résumer une période (`end_date`), ou attendre sa suite (`status`).
+ */
 export const cryptoEvents = mysqlTable(
   "crypto_events",
   {
     id: int("id").autoincrement().primaryKey(),
     ownerUserId: int("owner_user_id").notNull(),
     date: date("date", { mode: "string" }).notNull(),
+    /** Dernier jour, quand le mouvement résume une période. */
+    endDate: date("end_date", { mode: "string" }),
     title: varchar("title", { length: 255 }).notNull(),
     asset: varchar("asset", { length: 120 }),
+    /** Genre du mouvement : un de `EVENT_KINDS` (src/lib/crypto-events.ts) ; un texte d'avant la liste reste lu tel quel. */
     type: varchar("type", { length: 40 }),
     platform: varchar("platform", { length: 60 }),
+    /** Portefeuille du membre où le mouvement a eu lieu (`crypto_sources`), s'il en est un : son nom suit. */
+    portfolioId: varchar("portfolio_id", { length: 96 }),
     quantity: decimal("quantity", { precision: 30, scale: 10, mode: "number" }),
     /** Valeur du mouvement, dans la devise du foyer. */
     value: decimal("value", { precision: 14, scale: 2, mode: "number" }),
+    /** Cours unitaire auquel le mouvement s'est fait, dans la devise du foyer. */
+    price: decimal("price", { precision: 24, scale: 10, mode: "number" }),
+    /** Frais du mouvement, dans la devise du foyer. */
+    fee: decimal("fee", { precision: 14, scale: 2, mode: "number" }),
+    /** fait | attente (ordre posé, retrait en cours d'examen) */
+    status: varchar("status", { length: 12 }).notNull().default("fait"),
     note: text("note"),
+    /** D'où vient la ligne : main (écran) | assistant | import (reprise d'un autre outil). */
+    origin: varchar("origin", { length: 12 }).notNull().default("import"),
     sourceRef: varchar("source_ref", { length: 191 }),
   },
   (t) => [
-    uniqueIndex("uq_crypto_events_ref").on(t.sourceRef),
+    // La référence d'une reprise distingue les lignes d'un membre : deux membres peuvent reprendre le même export.
+    uniqueIndex("uq_crypto_events_ref").on(t.ownerUserId, t.sourceRef),
     index("idx_crypto_events_date").on(t.date),
     foreignKey({ name: "fk_crypto_events_owner", columns: [t.ownerUserId], foreignColumns: [users.id] }).onDelete("cascade"),
   ],

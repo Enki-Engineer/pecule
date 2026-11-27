@@ -2,7 +2,6 @@ import { z } from "zod";
 import { payslipHistory } from "../payslips.ts";
 import {
   budget,
-  cryptoEvents,
   deleteProjectionPocket,
   listProperties,
   projectionPocket,
@@ -20,7 +19,7 @@ import { ToolError, change, day, money, field, longDate, readTool, today, writeT
 import { t as tr, tk, tn } from "../../lib/i18n.ts";
 import { JOINT, taxYears } from "../../lib/taxes.ts";
 
-/* Situation du foyer : immobilier, budget, impôts, retraite, projections, mouvements crypto. */
+/* Situation du foyer : immobilier, budget, impôts, retraite, projections. */
 
 const getProperty = readTool({
   name: "get_property",
@@ -157,14 +156,6 @@ const getProjections = readTool({
   description: "Projections du patrimoine (hors résidence principale) : valeur par poche selon 3 scénarios (prudent, central, favorable) et leurs hypothèses, avec les totaux.",
   input: z.object({}),
   run: ({ userId }) => projectionsFor(userId),
-});
-
-const getCryptoEvents = readTool({
-  name: "get_crypto_events",
-  progress: tk("Lecture des mouvements crypto…"),
-  description: "Journal des mouvements crypto (dépôts, achats, ventes, transferts, staking, mining…) depuis 2018, du plus récent au plus ancien.",
-  input: z.object({ limit: z.number().int().min(1).max(200).optional() }),
-  run: ({ userId }, { limit }) => cryptoEvents(userId, limit ?? 60),
 });
 
 const getPayslips = readTool({
@@ -326,4 +317,4 @@ const saveRetirementTool = writeTool({
   },
 });
 
-export const situationTools = [getPayslips, getProperty, getBudget, getTaxes, updateTaxReturn, getRetirement, getProjections, getCryptoEvents, updateCommitment, setProjection, deleteProjection, saveRetirementTool];
+export const situationTools = [getPayslips, getProperty, getBudget, getTaxes, updateTaxReturn, getRetirement, getProjections, updateCommitment, setProjection, deleteProjection, saveRetirementTool];

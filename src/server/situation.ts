@@ -13,7 +13,8 @@ import { audience, type Scope } from "./sharing.ts";
 
 /*
  * Situation du foyer : biens immobiliers, budget (engagements + revenus), impôts, retraite,
- * projections, mouvements crypto. Les écrans, l'assistant et le serveur MCP lisent ces fonctions.
+ * projections. Les écrans, l'assistant et le serveur MCP lisent ces fonctions (le journal des mouvements crypto
+ * est dans crypto-events.ts).
  * Les indicateurs (reste à vivre, équité, rendement…) sont recalculés ici, jamais saisis.
  */
 
@@ -488,10 +489,4 @@ export async function saveRetirement(ownerUserId: number, b: RetirementInput) {
     );
   if (b.facts?.length) await upsertFacts(ownerUserId, "retirement", String(ownerUserId), b.facts.map((f) => ({ ...f, asOf: f.asOf ?? b.simulatedOn })));
   return { simulations: b.simulations.length, career: b.career.length };
-}
-
-/* ---------- Mouvements crypto ---------- */
-
-export async function cryptoEvents(userId: number, limit = 200) {
-  return q("SELECT id, date, title, asset, type, platform, quantity, value, note FROM crypto_events WHERE owner_user_id = ? ORDER BY date DESC, id DESC LIMIT ?", [userId, limit]);
 }

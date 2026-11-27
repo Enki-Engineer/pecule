@@ -6,6 +6,7 @@ import { facturesTools } from "./factures.ts";
 import { patrimoineTools } from "./patrimoine.ts";
 import { documentsTools } from "./documents.ts";
 import { situationTools } from "./situation.ts";
+import { journalCryptoTools } from "./journal-crypto.ts";
 import { analyseTools } from "./analyse.ts";
 import { editionTools } from "./edition.ts";
 import { pilotageTools } from "./pilotage.ts";
@@ -21,7 +22,7 @@ import type { ClientEffect } from "../../lib/device-settings.ts";
  * confirmées à l'écran) et par le serveur MCP (écritures confirmées par le client, ex. Claude Code).
  */
 
-export const TOOLS: Tool[] = [...banqueTools, ...analyseTools, ...facturesTools, ...patrimoineTools, ...documentsTools, ...contratsTools, ...situationTools, ...editionTools, ...pilotageTools, ...reglagesTools, ...importsTools];
+export const TOOLS: Tool[] = [...banqueTools, ...analyseTools, ...facturesTools, ...patrimoineTools, ...documentsTools, ...contratsTools, ...situationTools, ...journalCryptoTools, ...editionTools, ...pilotageTools, ...reglagesTools, ...importsTools];
 const BY_NAME = new Map(TOOLS.map((t) => [t.name, t]));
 export const WRITE_NAMES = new Set(TOOLS.filter((t) => t.kind === "write").map((t) => t.name));
 /** Outils offerts par le serveur MCP : tous, sauf ceux qui règlent l'appareil de celui qui est devant l'écran. */

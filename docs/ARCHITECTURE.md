@@ -92,6 +92,9 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   (`assets.payout_match`, `src/server/payouts.ts`, `src/lib/payouts.ts`) : ce sont les entrées d'argent dont le
   libellé porte son texte, lues dans les opérations ; avec `valuation = 'versements'`, sa valeur est le dernier
   versement reçu, relue après chaque synchronisation.
+  Le journal des mouvements crypto (`crypto_events`, `src/server/crypto-events.ts`) est à part : un récit privé que
+  le membre tient à l'écran ou par l'assistant (genres en liste fermée, période, état « en attente » :
+  `src/lib/crypto-events.ts`) ; il ne change aucune position.
 - **Situation** — `properties`, `commitments` (engagements récurrents), `payslips`, `tax_returns`, `property_taxes`,
   `retirement_simulations`, `career_periods`, `projections`. Les indicateurs sont recalculés, jamais stockés.
 - **Revenus et impôts du foyer** — Foyer / Moi (`scopeKind`, `src/lib/scope.ts`) vaut aussi pour Revenus et Impôts,

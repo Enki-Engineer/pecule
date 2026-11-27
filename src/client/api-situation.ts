@@ -135,7 +135,25 @@ export type Projections = {
   documents: { id: number; title: string }[];
 };
 
-export type CryptoEvent = { id: number; date: string; title: string; asset: string | null; type: string | null; platform: string | null; quantity: number | null; value: number | null; note: string | null };
+/** Un mouvement du journal crypto ; `type` : un genre de `EVENT_KINDS`, ou le texte gardé d'une reprise. */
+export type CryptoEvent = {
+  id: number;
+  date: string;
+  /** Dernier jour, quand le mouvement résume une période. */
+  end_date?: string | null;
+  title: string;
+  asset: string | null;
+  type: string | null;
+  platform: string | null;
+  quantity: number | null;
+  value: number | null;
+  /** Cours unitaire noté et frais, dans la devise du foyer. */
+  price?: number | null;
+  fee?: number | null;
+  /** fait | attente */
+  status?: string;
+  note: string | null;
+};
 
 export const useProperties = () => useQuery({ queryKey: ["properties"], queryFn: () => api<{ properties: Property[] }>("/properties") });
 export const useProperty = (id: string) => useQuery({ queryKey: ["property", id], queryFn: () => api<PropertyDetail>(`/properties/${encodeURIComponent(id)}`) });

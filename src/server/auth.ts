@@ -1,3 +1,4 @@
+import { DESKTOP_SHELL_FLAG } from "../lib/desktop.ts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { householdSettings } from "./household.ts";
 import { region } from "./region.ts";
@@ -254,6 +255,9 @@ authRouter.get("/me", async (req, res) => {
   const setup = !req.user && !(await one("SELECT id FROM users LIMIT 1"));
   // desktop : l'appli de bureau — pas de commande à montrer (c'est elle qui ouvre le lien), et des mots à elle à l'écran.
   const desktop = installKind() === "bureau";
+  // shell : la fenêtre de l'appli est là (pas un navigateur ouvert sur le superviseur) — l'écran peut lui demander ce
+  // qu'elle seule sait faire : la taille de l'affichage, l'icône du Dock.
+  const shell = desktop && process.env[DESKTOP_SHELL_FLAG] === "1";
   const command = linkCommand(installKind());
   // region : pays, devise et fuseau du foyer (l'écran met en forme les montants dans cette devise).
   // modulesOff : écrans facultatifs retirés par le foyer (la démo les montre tous).
@@ -264,7 +268,7 @@ authRouter.get("/me", async (req, res) => {
   const view = req.user ? await (req.user.demo ? runDemo : runReal)(() => memberView(req.user!.id)).catch(() => null) : null;
   // welcome : la présentation de bienvenue attend ce membre (première connexion) ; jamais en démo, ni pour un jeton.
   const welcome = req.user?.via === "session" && !req.user.demo ? await awaitsWelcome(req.user.id).catch(() => false) : false;
-  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, welcome, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(desktop ? { desktop: true } : {}), ...(setup ? { setup: true, ...(command ? { setupCommand: command } : {}) } : {}) });
+  res.json({ user: req.user ? { id: req.user.id, name: req.user.name, demo: req.user.demo === true, admin: req.user.admin === true, welcome, language, modulesOff, dateBasis: view?.dateBasis ?? "debit", scopeChoice: view?.scopeChoice ?? true, several: view?.several ?? true, region: req.user.demo ? DEFAULT_REGION : region() } : null, demoAvailable: demoEnabled, ...(desktop ? { desktop: true } : {}), ...(shell ? { shell: true } : {}), ...(setup ? { setup: true, ...(command ? { setupCommand: command } : {}) } : {}) });
 });
 
 /** Ce que l'écran doit savoir pour proposer la bonne connexion : l'adresse de l'installation et la place du mot de passe. */

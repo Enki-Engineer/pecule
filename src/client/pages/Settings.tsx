@@ -11,6 +11,8 @@ import { deviceName, pageBlock, useAccess, withPasskey } from "../access.ts";
 import { AccessPolicy, PasswordSettings } from "../components/PasswordSettings.tsx";
 import { Card, PageHeader, Segmented } from "../components/ui.tsx";
 import { useAppearance, useDensity, useTheme, type Density } from "../theme.ts";
+import { shellAction, useDesktop, useShell, useZoom } from "../desktop.ts";
+import { ZOOM_LEVELS } from "../../lib/desktop.ts";
 import { clearOfflineCache, offlineCacheEnabled, setOfflineCache } from "../offline.tsx";
 import { NotificationsSettings } from "../components/NotificationsSettings.tsx";
 import { BalanceAlertSettings } from "../components/BalanceAlertSettings.tsx";
@@ -289,6 +291,7 @@ export function Settings() {
           />
           <p className="mt-2 px-1 text-xs text-muted">{t("« Auto » suit le réglage de l'appareil. Choix mémorisé sur cet appareil.")}</p>
           <DensitySetting />
+          <ZoomSetting />
           <AppearanceExtras />
         </Section>
     </>,
@@ -515,6 +518,8 @@ const OTHER_ASSISTANTS = MCP_CLIENTS.filter((c) => c.name !== "Claude")
 function ConnectedAppsSection() {
   const qc = useQueryClient();
   const grants = useQuery({ queryKey: ["oauth-grants"], queryFn: () => api<{ grants: Grant[] }>("/oauth/grants") });
+  // L'appli de bureau ne sort pas de l'ordinateur : seul un assistant installé dessus peut la joindre.
+  const desktop = useDesktop();
   const url = `${window.location.origin}/api/mcp`;
   async function revoke(g: Grant) {
     if (!confirm(t("Retirer l'accès de « {nom} » ? Il faudra refaire la connexion depuis cette application.", { nom: g.client ?? t("Programme de cet ordinateur") }))) return;
@@ -529,7 +534,9 @@ function ConnectedAppsSection() {
     <Section id="applications" title={t("Applications connectées")}>
       <Card className="divide-y divide-line">
         <div className="px-4 py-3 text-sm text-muted">
-          {t("Pour interroger Pécule depuis l'appli Claude (web, ordinateur, iPhone) : dans Claude, Personnaliser → Connecteurs → Ajouter un connecteur personnalisé, avec cette adresse. Pécule te demande alors de te connecter et de choisir entre lecture seule et lecture et actions.")}
+          {desktop
+            ? t("Un assistant installé sur cet ordinateur (Claude Code, Codex, un éditeur de code) peut interroger Pécule à cette adresse, tant que l'appli est ouverte. L'accord se donne dans ton navigateur, où tu te connectes par ton mot de passe — il t'en faut donc un — et où tu choisis entre lecture seule et lecture et actions.")
+            : t("Pour interroger Pécule depuis l'appli Claude (web, ordinateur, iPhone) : dans Claude, Personnaliser → Connecteurs → Ajouter un connecteur personnalisé, avec cette adresse. Pécule te demande alors de te connecter et de choisir entre lecture seule et lecture et actions.")}
           <button type="button" onClick={() => navigator.clipboard.writeText(url).then(() => toast.success(t("Adresse copiée")))} className="press card mt-2 flex w-full items-center justify-between gap-2 px-3 py-2 text-left font-mono text-xs text-ink">
             <span className="truncate">{url}</span>
             <Copy size={14} className="shrink-0 text-accent" />
@@ -537,7 +544,9 @@ function ConnectedAppsSection() {
           <p className="mt-3">{t("Depuis Claude Code, lance cette commande, puis « /mcp » dans une session pour te connecter :")}</p>
           <ServerCommand text={`claude mcp add --transport http pecule ${url}`} className="card" />
           <p className="mt-3">
-            {t("Un autre assistant se branche sur la même adresse et ouvre le même écran d'accord, pour ta vue seulement : {assistants}, ou un assistant installé sur ton ordinateur (Codex, un éditeur de code, un terminal).", { assistants: OTHER_ASSISTANTS })}
+            {desktop
+              ? t("Un assistant en ligne — l'appli Claude sur le web ou sur iPhone, par exemple — ne peut pas joindre un Pécule qui ne sort pas de cet ordinateur : pour cela, il faut un Pécule installé sur un serveur.")
+              : t("Un autre assistant se branche sur la même adresse et ouvre le même écran d'accord, pour ta vue seulement : {assistants}, ou un assistant installé sur ton ordinateur (Codex, un éditeur de code, un terminal).", { assistants: OTHER_ASSISTANTS })}
           </p>
           <p className="mt-3">{t("Un outil qui ne sait pas faire cette connexion envoie l'en-tête « Authorization: Bearer » suivi d'un jeton d'administration : il agit alors avec tous les droits de l'administrateur, qui crée ce jeton dans le bloc « Jetons d'administration ».")}</p>
         </div>
@@ -715,6 +724,26 @@ function DensitySetting() {
         ]}
       />
       <p className="mt-2 px-1 text-xs text-muted">{t("« Compacte » resserre les marges et les lignes pour montrer plus d'opérations par écran, sans réduire le texte. Sur ordinateur seulement ; choix mémorisé sur cet appareil.")}</p>
+    </div>
+  );
+}
+
+/** Taille de l'affichage dans l'appli de bureau : c'est sa fenêtre qui agrandit ou réduit tout Pécule, et qui le retient. */
+function ZoomSetting() {
+  const shell = useShell();
+  const zoom = useZoom();
+  if (!shell) return null;
+  // Une taille prise par le menu de l'appli, hors de celles proposées ici, se montre à sa place.
+  const levels = [...new Set<number>([...ZOOM_LEVELS, zoom])].sort((a, b) => a - b);
+  return (
+    <div className="mt-4">
+      <div className="mb-2 px-1 text-[13px] font-medium">{t("Taille de l'affichage")}</div>
+      <Segmented<string>
+        value={String(zoom)}
+        onChange={(v) => shellAction("zoom", { niveau: v })}
+        options={levels.map((level) => ({ value: String(level), label: `${level} %` }))}
+      />
+      <p className="mt-2 px-1 text-xs text-muted">{t("Tout Pécule en plus petit ou en plus grand, sur cet ordinateur. Aussi par le menu Présentation de l'appli (⌘+ et ⌘−).")}</p>
     </div>
   );
 }

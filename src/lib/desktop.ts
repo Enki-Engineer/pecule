@@ -304,3 +304,17 @@ export function keptPort(settings: Record<string, string | undefined>): number |
   const n = Number((settings.PORT ?? "").trim());
   return Number.isInteger(n) && n >= 1024 && n <= 65535 ? n : null;
 }
+
+// ---------- Taille de l'affichage ----------
+
+/** Tailles d'affichage proposées dans les réglages de l'appli de bureau, en pour cent. */
+export const ZOOM_LEVELS = [75, 80, 90, 100, 110, 125] as const;
+/** La fenêtre écrit la taille en cours sur la page (`data-pecule-zoom`, en pour cent) et le dit par cet événement. */
+export const ZOOM_DATASET = "peculeZoom";
+export const ZOOM_EVENT = "pecule-zoom";
+
+/** La taille que la fenêtre a écrite sur la page ; 100 si elle n'a rien dit, ou rien de lisible. */
+export function shownZoom(written: string | undefined): number {
+  const value = Number(written);
+  return Number.isFinite(value) && value >= 25 && value <= 400 ? Math.round(value) : 100;
+}

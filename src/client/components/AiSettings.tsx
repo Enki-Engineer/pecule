@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { unreadableKeyText, useDesktop } from "../desktop.ts";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import { api, useMe } from "../api.ts";
@@ -70,6 +71,7 @@ function ConnectorRow({ c, open, onToggle }: { c: AiConnectorStatus; open: boole
 const INPUT = "mt-1 w-full rounded-md bg-bg px-3 py-2 text-[16px] ring-1 ring-line outline-none placeholder:text-muted/70 max-md:focus:ring-2 max-md:focus:ring-accent md:text-[14px]";
 
 function ConnectorForm({ c }: { c: AiConnectorStatus }) {
+  const desktop = useDesktop();
   const info = AI_PROVIDER_INFO[c.id];
   const qc = useQueryClient();
   const id = useId();
@@ -129,7 +131,9 @@ function ConnectorForm({ c }: { c: AiConnectorStatus }) {
   }
 
   const keyHint = c.keyUnreadable
-    ? t("La clé enregistrée n'est plus lisible (le secret du serveur a changé) : ressaisis-la.")
+    ? desktop
+      ? unreadableKeyText(true)
+      : t("La clé enregistrée n'est plus lisible (le secret du serveur a changé) : ressaisis-la.")
     : c.keySource === "reglages"
       ? t("Une clé est enregistrée. Laisse vide pour la garder.")
       : c.keySource === "hebergement"

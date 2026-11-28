@@ -153,6 +153,12 @@ try {
   await page.getByText("Mot de passe choisi").waitFor();
   check(true, "mot de passe choisi dans les réglages");
 
+  // 3 bis. Sans la fenêtre de l'appli (un navigateur ouvert sur le même Pécule), l'écran ne propose pas ce qu'elle seule sait faire.
+  await page.goto(`${url}/reglages/apparence`);
+  await page.getByText("Densité").waitFor();
+  body = await text();
+  check(!body.includes("Taille de l'affichage") && !body.includes("Icône dans le Dock"), "hors de la fenêtre de l'appli, ni « Taille de l'affichage » ni « Icône dans le Dock »");
+
   // 4. Déconnexion, puis retour par prénom et mot de passe.
   await context.clearCookies();
   await page.goto(`${url}/`);

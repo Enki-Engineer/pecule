@@ -27,6 +27,6 @@ codegen-units = 1
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSAlert", "NSApplication", "NSImage", "NSImageRep", "NSBitmapImageRep"] }
-objc2-foundation = { version = "0.3", features = ["NSData", "NSDictionary", "NSError", "NSString", "NSURL"] }
+objc2-app-kit = { version = "0.3", features = ["NSAlert", "NSApplication", "NSBezierPath", "NSGraphics", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSResponder"] }
+objc2-foundation = { version = "0.3", features = ["NSData", "NSDictionary", "NSError", "NSGeometry", "NSString", "NSURL"] }
 objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKWebViewConfiguration", "WKPreferences", "WKSnapshotConfiguration", "WKUIDelegate", "block2", "objc2-app-kit"] }

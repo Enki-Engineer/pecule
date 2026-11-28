@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import clsx from "clsx";
-import { LOGO_FONDS, LOGO_THEMES, logoSrc, type LogoId } from "../../lib/logo.ts";
+import { homeIconId, LOGO_FONDS, LOGO_THEMES, logoSrc, type LogoId } from "../../lib/logo.ts";
 import { SEASONS } from "../../lib/seasons.ts";
 import { useAppearance, useLogo, useSeason } from "../theme.ts";
+import { shellAction, useShell } from "../desktop.ts";
 import { t } from "../../lib/i18n.ts";
 
 function Choice({ id, label, selected, onSelect }: { id: LogoId; label: string; selected: boolean; onSelect: () => void }) {
@@ -19,6 +21,12 @@ export function LogoSettings() {
   const season = useSeason();
   const { seasons } = useAppearance();
   const installed = window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
+  // Dans l'appli de bureau, l'icône choisie est celle du Dock : sa fenêtre la pose dès qu'elle change.
+  const shell = useShell();
+  const dock = homeIconId(home, fond);
+  useEffect(() => {
+    if (shell) shellAction("icone", { id: dock });
+  }, [shell, dock]);
   return (
     <>
       <div>
@@ -37,18 +45,24 @@ export function LogoSettings() {
         </p>
       </div>
       <div>
-        <div className="mb-2 px-1 text-[13px] font-medium">{t("Icône sur l'écran d'accueil")}</div>
+        <div className="mb-2 px-1 text-[13px] font-medium">{shell ? t("Icône dans le Dock") : t("Icône sur l'écran d'accueil")}</div>
         <div className="grid grid-cols-5 gap-x-2 gap-y-3 md:flex md:flex-wrap">
           <Choice id={fond} label={t("Comme le logo")} selected={home === null} onSelect={() => setHome(null)} />
           {LOGO_THEMES.map((x) => (
             <Choice key={x} id={x} label={SEASONS[x].label} selected={home === x} onSelect={() => setHome(x)} />
           ))}
         </div>
-        <p className="mt-2 px-1 text-xs text-muted">
-          {t("L'iPhone garde l'icône du jour où Pécule a été ajouté à l'écran d'accueil : elle ne peut pas changer toute seule. Pour en changer, ouvre Pécule dans Safari, choisis l'icône ici, supprime l'ancienne de l'écran d'accueil, puis Partager → « Sur l'écran d'accueil ». Il faudra te reconnecter et réactiver les notifications.")}
-        </p>
-        <p className="mt-1 px-1 text-xs text-muted">{t("Sur Mac, Safari lit l'icône à l'ouverture de la page : après ton choix, recharge la page, puis Fichier → « Ajouter au Dock ». Une icône déjà dans le Dock garde son dessin : supprime-la d'abord.")}</p>
-        {installed && <p className="mt-1 px-1 text-xs font-medium text-ink">{t("Tu es dans l'appli installée : fais ce choix depuis Safari, c'est lui qui crée l'icône.")}</p>}
+        {shell ? (
+          <p className="mt-2 px-1 text-xs text-muted">{t("L'icône change dans le Dock tant que Pécule est ouvert ; une fois quitté, il y reprend son coffre d'origine.")}</p>
+        ) : (
+          <>
+            <p className="mt-2 px-1 text-xs text-muted">
+              {t("L'iPhone garde l'icône du jour où Pécule a été ajouté à l'écran d'accueil : elle ne peut pas changer toute seule. Pour en changer, ouvre Pécule dans Safari, choisis l'icône ici, supprime l'ancienne de l'écran d'accueil, puis Partager → « Sur l'écran d'accueil ». Il faudra te reconnecter et réactiver les notifications.")}
+            </p>
+            <p className="mt-1 px-1 text-xs text-muted">{t("Sur Mac, Safari lit l'icône à l'ouverture de la page : après ton choix, recharge la page, puis Fichier → « Ajouter au Dock ». Une icône déjà dans le Dock garde son dessin : supprime-la d'abord.")}</p>
+            {installed && <p className="mt-1 px-1 text-xs font-medium text-ink">{t("Tu es dans l'appli installée : fais ce choix depuis Safari, c'est lui qui crée l'icône.")}</p>}
+          </>
+        )}
       </div>
     </>
   );

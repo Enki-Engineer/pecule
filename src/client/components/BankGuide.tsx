@@ -7,6 +7,7 @@ import { BANK_COUNTRIES, BANK_STATE_KEY, consentsOf, guideFacts, useBankState, t
 import { BankBadge, ErrorBox, Field } from "./ui.tsx";
 import { mainButton, quietButton } from "./Connector.tsx";
 import { cn } from "../cn.ts";
+import { unreadableKeyText, useDesktop } from "../desktop.ts";
 import { dateFr } from "../format.ts";
 import { region } from "../region.ts";
 import { ebKeyFile } from "../../lib/enable-banking.ts";
@@ -303,6 +304,7 @@ const extLink = cn(mainButton, "no-underline");
 export function BankGuide({ scope, from }: { scope: BankScope; from?: "bienvenue" }) {
   const qc = useQueryClient();
   const userId = useMe().data?.user?.id;
+  const desktop = useDesktop();
   const state = useBankState();
   const [declared, setDeclared] = useDeclared(scope, userId);
   // Étape dépliée à la main (« aucune » : toutes repliées) ; sinon celle qui est en cours.
@@ -445,7 +447,7 @@ export function BankGuide({ scope, from }: { scope: BankScope; from?: "bienvenue
           <p>{t("Choisis le fichier téléchargé à l'étape 1 (son nom finit par .pem) : Pécule y lit l'identifiant de l'application et sa clé. La clé est gardée chiffrée, et n'est plus jamais affichée.")}</p>
           {facts.keyUnreadable && (
             <p role="status" className={warnBox}>
-              <TriangleAlert size={16} className="mt-px shrink-0" /> <span>{t("La clé enregistrée n'est plus lisible (le secret du serveur a changé) : saisis-la de nouveau.")}</span>
+              <TriangleAlert size={16} className="mt-px shrink-0" /> <span>{unreadableKeyText(desktop)}</span>
             </p>
           )}
           <BankKeyForm

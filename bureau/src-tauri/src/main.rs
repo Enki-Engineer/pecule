@@ -8,12 +8,13 @@
 // où la fenêtre veut aller (`on_navigation`, `on_new_window`).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod apparence;
 mod dialogues;
 mod recette;
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Sender};
@@ -73,6 +74,8 @@ pub struct Coque {
     attentes: Mutex<HashMap<u64, Sender<Value>>>,
     numero: AtomicU64,
     zoom: Mutex<f64>,
+    /// Le logo posé dans le Dock (identifiant de Pécule), pour ne le redessiner que s'il change.
+    icone: Mutex<String>,
     quitte: AtomicBool,
     /// Un Pécule tournait déjà sur ce dossier de données (lancé à la main) : la fenêtre s'y est branchée, il n'est pas à elle.
     adopte: AtomicBool,
@@ -235,7 +238,10 @@ fn evenement_superviseur(app: &AppHandle, e: Value) {
             *coque.origine.lock().unwrap() = Some(origine.clone());
             if let Some(d) = e["donnees"].as_str() {
                 *coque.dossier.lock().unwrap() = Some(PathBuf::from(d));
+                // La taille de l'affichage choisie la dernière fois.
+                *coque.zoom.lock().unwrap() = apparence::zoom_garde(Path::new(d));
             }
+            appliquer_zoom(app);
             // Première ouverture : le lien porte le code d'installation, il n'y a qu'un prénom à donner.
             let ouvrir = e["ouvrir"].as_str().and_then(|u| Url::parse(u).ok()).unwrap_or(origine);
             if let Some(principale) = fenetre(app, PRINCIPALE) {
@@ -375,11 +381,21 @@ fn naviguer_principale(app: &AppHandle, url: &Url) -> bool {
         "about" | "blob" | "data" => true,
         // Boutons de l'écran de démarrage.
         "pecule-action" => {
+            let (app, quoi) = (app.clone(), url.host_str().unwrap_or("").to_string());
+            let demande = |nom: &str| url.query_pairs().find(|(n, _)| n == nom).map(|(_, v)| v.to_string());
             if sur_accueil {
-                let (app, quoi) = (app.clone(), url.host_str().unwrap_or("").to_string());
                 plus_tard(move || match quoi.as_str() {
                     "reessayer" => lancer_superviseur(&app),
                     "journaux" => ouvrir_dossier(&app, Some("journaux")),
+                    _ => {}
+                });
+            } else if sur_pecule {
+                // Ce que l'écran de Pécule demande à sa fenêtre : la taille de l'affichage (en pour cent), le logo du Dock.
+                let niveau = demande("niveau").and_then(|n| n.parse::<f64>().ok());
+                let logo = demande("id").and_then(|i| apparence::identifiant_de_logo(&i));
+                plus_tard(move || match (quoi.as_str(), niveau, logo) {
+                    ("zoom", Some(n), _) => regler_zoom(&app, n / 100.0),
+                    ("icone", _, Some(l)) => apparence::poser_icone(&app, l),
                     _ => {}
                 });
             }
@@ -437,6 +453,7 @@ fn nouvelle_fenetre(app: &AppHandle, url: Url) {
             .build();
         if let Ok(document) = document {
             dialogues::pour_les_pages(&document);
+            let _ = document.set_zoom(*coque.zoom.lock().unwrap());
         }
     });
 }
@@ -553,6 +570,46 @@ fn page_chargee(app: &AppHandle, window: &WebviewWindow, url: &Url) {
     if est_accueil(url) {
         let _ = window.eval(format!("window.afficher && window.afficher({})", coque.statut()));
     }
+    if meme_origine(app, url) {
+        let zoom = *coque.zoom.lock().unwrap();
+        let _ = window.set_zoom(zoom);
+        let _ = window.eval(apparence::dire_zoom(zoom));
+        // Le logo que la page annonce pour l'écran d'accueil est celui que la personne a choisi : c'est celui du Dock.
+        let pour_icone = app.clone();
+        let _ = window.eval_with_callback("(document.querySelector('link[rel=\"apple-touch-icon\"]') || {}).href || ''", move |lien| {
+            // La fenêtre rend la valeur écrite en JSON.
+            if let Some(logo) = serde_json::from_str::<String>(&lien).ok().and_then(|adresse| apparence::logo_de_la_page(&adresse)) {
+                apparence::poser_icone(&pour_icone, logo);
+            }
+        });
+    }
+}
+
+// ---------- Taille de l'affichage ----------
+
+/// Toutes les fenêtres de Pécule à la taille choisie (celle de la banque garde la sienne).
+fn appliquer_zoom(app: &AppHandle) {
+    let zoom = *app.state::<Coque>().zoom.lock().unwrap();
+    for (label, f) in app.webview_windows() {
+        if label != BANQUE {
+            let _ = f.set_zoom(zoom);
+            if f.url().is_ok_and(|u| meme_origine(app, &u)) {
+                let _ = f.eval(apparence::dire_zoom(zoom));
+            }
+        }
+    }
+}
+
+/// Change la taille de l'affichage, et la garde pour la prochaine ouverture.
+fn regler_zoom(app: &AppHandle, voulu: f64) {
+    let coque = app.state::<Coque>();
+    let zoom = (voulu.clamp(apparence::ZOOM_MIN, apparence::ZOOM_MAX) * 100.0).round() / 100.0;
+    *coque.zoom.lock().unwrap() = zoom;
+    appliquer_zoom(app);
+    if let Some(dossier) = coque.dossier.lock().unwrap().clone() {
+        apparence::garder_zoom(&dossier, zoom);
+    }
+    coque.noter(json!({ "zoom": zoom }));
 }
 
 // ---------- Menu ----------
@@ -675,12 +732,9 @@ fn mot_de_passe_oublie(app: &AppHandle, membre: Option<String>) {
 pub fn action_menu(app: &AppHandle, id: &str) {
     let coque = app.state::<Coque>();
     coque.noter(json!({ "menu": id }));
-    let zoomer = |facteur: Option<f64>| {
-        let mut zoom = coque.zoom.lock().unwrap();
-        *zoom = facteur.map_or(1.0, |f| (*zoom * f).clamp(0.5, 3.0));
-        if let Some(w) = fenetre_active(app) {
-            let _ = w.set_zoom(*zoom);
-        }
+    let zoomer = |plus_grand: Option<bool>| {
+        let voulu = plus_grand.map_or(1.0, |sens| apparence::palier_voisin(*coque.zoom.lock().unwrap(), sens));
+        regler_zoom(app, voulu);
     };
     match id {
         "quitter" => quitter(app),
@@ -696,8 +750,8 @@ pub fn action_menu(app: &AppHandle, id: &str) {
             }
         }
         "zoom-reel" => zoomer(None),
-        "zoom-plus" => zoomer(Some(1.1)),
-        "zoom-moins" => zoomer(Some(1.0 / 1.1)),
+        "zoom-plus" => zoomer(Some(true)),
+        "zoom-moins" => zoomer(Some(false)),
         "manuel" => aller(app, "/manuel"),
         "oubli" => mot_de_passe_oublie(app, None),
         "donnees" => ouvrir_dossier(app, None),
@@ -875,6 +929,7 @@ fn main() {
                 attentes: Mutex::new(HashMap::new()),
                 numero: AtomicU64::new(0),
                 zoom: Mutex::new(1.0),
+                icone: Mutex::new(String::new()),
                 quitte: AtomicBool::new(false),
                 adopte: AtomicBool::new(false),
                 journal: Mutex::new(Vec::new()),

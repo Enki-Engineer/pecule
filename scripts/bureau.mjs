@@ -13,7 +13,7 @@
 // et le dépôt installé l'ont.
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -459,16 +459,39 @@ let listening = 0;
 /** Lance le serveur de Pécule, attaché à la machine seule. Tombé seul, il est relancé — quelques fois. */
 function startServer() {
   const log = path.join(layout.logs, "serveur.log");
-  const out = openSync(log, "a", 0o600);
-  // Le dossier des données, en argument que le serveur ne lit pas : il fait reconnaître ce processus comme le nôtre.
-  const child = spawn(process.execPath, [path.join(ROOT, "dist", "server.mjs"), `--bureau=${dataDir}`], {
+  // « --use-system-ca » : le serveur se fie aussi aux certificats que l'ordinateur reconnaît (ceux qu'un réseau
+  // d'entreprise y a posés, par exemple), comme le fait un navigateur — sans cela, derrière un tel réseau, ni la
+  // banque ni les cours ne se laisseraient joindre (un Node qui ne connaît pas cette option s'en passe). Le dossier
+  // des données, en argument que le serveur ne lit pas, fait reconnaître ce processus comme le nôtre.
+  const systemCa = process.allowedNodeEnvironmentFlags.has("--use-system-ca") ? ["--use-system-ca"] : [];
+  const child = spawn(process.execPath, [...systemCa, path.join(ROOT, "dist", "server.mjs"), `--bureau=${dataDir}`], {
     cwd: ROOT,
     env: desktopServerEnv({ port, socket, settings, backups: layout.backups, parent: process.env, shell: flag("coque") }),
     // Un canal relie le serveur à son superviseur : il y annonce son écoute, et s'arrête de lui-même si le canal se rompt.
-    stdio: ["ignore", out, out, "ipc"],
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
     detached: true,
   });
-  closeSync(out);
+  // Ce que dit le serveur est gardé au journal, chaque ligne à son heure : c'est ce qui permet de rapprocher une
+  // erreur du moment où elle s'est produite.
+  for (const stream of [child.stdout, child.stderr]) {
+    let rest = "";
+    const keep = (lines) => {
+      if (!lines.length) return;
+      try {
+        appendFileSync(log, lines.map((line) => `${new Date().toISOString()} ${line}\n`).join(""), { mode: 0o600 });
+      } catch {
+        // Disque plein : le serveur continue.
+      }
+    };
+    stream.setEncoding("utf8");
+    stream.on("data", (chunk) => {
+      const lines = `${rest}${chunk}`.split("\n");
+      rest = lines.pop() ?? "";
+      keep(lines);
+    });
+    stream.on("end", () => keep(rest ? [rest] : []));
+    stream.on("error", () => undefined);
+  }
   children.server = child;
   child.on("message", (message) => {
     if (message?.pecule === "ecoute" && Number(message.port) === port) listening = child.pid;

@@ -45,6 +45,11 @@ dans la fenêtre. Chacun se connecte ensuite avec son prénom et son mot de pass
 Fermer la fenêtre ne quitte pas l'appli : elle reste dans le Dock et continue de synchroniser. « Quitter Pécule »
 (⌘Q) arrête tout, base comprise. **Pécule ne synchronise que lorsqu'il est ouvert.**
 
+**La taille de l'affichage** se règle dans Réglages → Apparence (de 75 % à 125 %), ou par le menu Présentation
+(⌘+, ⌘−, ⌘0 pour la taille réelle) : l'appli la retient d'une ouverture à l'autre. **L'icône du Dock** se choisit au
+même endroit, « Icône dans le Dock » : elle change aussitôt et reste tant que Pécule est ouvert ; une fois l'appli
+quittée, le Dock montre de nouveau le coffre d'origine (macOS ne laisse pas une appli changer son icône au repos).
+
 ## Relier sa banque
 
 Comme sur un serveur, par Enable Banking ([le guide](../connecteurs/enable-banking.md)), avec une différence :
@@ -91,7 +96,8 @@ Suivi technique dit quand une version plus récente est publiée, avec ce qui ch
 | `~/Library/Application Support/Pecule/base` | la base MySQL |
 | `…/Pecule/reglages/pecule.env` | les secrets de l'installation, tirés à la première ouverture — à ne jamais publier |
 | `…/Pecule/sauvegardes` | les sauvegardes écrites par Pécule |
-| `…/Pecule/journaux` | ce que disent l'appli, le serveur et la base (menu Aide → « Ouvrir les journaux ») |
+| `…/Pecule/journaux` | ce que disent l'appli, le serveur et la base, chaque ligne à son heure (menu Aide → « Ouvrir les journaux ») |
+| `…/Pecule/fenetre.json` | la taille de l'affichage choisie |
 
 Rien ne sort de la machine : Pécule n'écoute que sur `127.0.0.1`, et sa base n'a aucun port. Un assistant installé
 sur le même Mac (Claude Code, Cursor…) peut se brancher au serveur MCP de Pécule, à l'adresse que donne Réglages →
@@ -105,6 +111,16 @@ du Mac.
   autre programme tient son port : le fermer, puis « Réessayer ».
 - **« Pécule » est endommagé, ou ne peut pas être ouvert** : l'appli a été téléchargée par un navigateur. Réglages
   Système → Confidentialité et sécurité → « Ouvrir quand même », ou réinstaller par la commande ci-dessus.
+- **Après une sauvegarde restaurée, la banque, l'IA ou les cryptos ne se lisent plus** (« clé illisible », dans
+  Réglages → Suivi technique) : c'est attendu. Les clés enregistrées dans Pécule sont chiffrées par un secret propre
+  à chaque installation, et la sauvegarde vient d'une autre. Ressaisir chaque clé là où elle se règle — Enable
+  Banking, le fournisseur d'IA, chaque compte crypto (le retirer, puis l'ajouter de nouveau). Les accords donnés
+  aux banques, eux, sont dans la sauvegarde : inutile de les redonner. Si le Pécule d'origine reste en service,
+  les deux lisent les mêmes accords, et se partagent le nombre de lectures que la banque admet par jour.
+- **« Cours non mis à jour »** : la source des cours (CoinGecko, Yahoo Finance) n'a pas répondu — ordinateur hors
+  réseau, ou réseau d'entreprise qui la bloque. L'alerte nomme la source et la cause ; les cours reviennent à la
+  synchronisation suivante. Sur un réseau d'entreprise qui inspecte le trafic, l'appli se fie aux certificats que
+  le Mac reconnaît (Trousseau), comme un navigateur.
 - **Tout arrêter à la main** : quitter l'appli suffit. Si un processus restait après un plantage, rouvrir l'appli
   l'arrête d'abord.
 

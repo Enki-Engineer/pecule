@@ -3,6 +3,37 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.55.0
+
+Appli pour Mac : la taille de l'affichage se choisit, l'icône du Dock suit le logo, et ce qui ne se lit plus après
+une sauvegarde restaurée se dit. Aucune migration, aucun réglage nouveau ; rien ne change pour un Pécule installé sur
+un serveur.
+
+- **Taille de l'affichage.** Réglages → Apparence propose de voir tout Pécule en plus petit ou en plus grand, de
+  75 % à 125 %. Le menu Présentation (⌘+, ⌘−, ⌘0) passe par les mêmes tailles, et les réglages le suivent. L'appli
+  retient le choix d'une ouverture à l'autre (`fenetre.json`, dans le dossier des données), fenêtres de documents
+  comprises ; la fenêtre où l'on donne son accord à une banque garde la sienne.
+- **Icône dans le Dock.** Le logo choisi dans Réglages → Apparence (un fond, ou le coffre d'une fête) passe dans le
+  Dock aussitôt, avec la marge et l'arrondi d'une icône de Mac, et y revient à chaque ouverture. Une fois l'appli
+  quittée, le Dock montre de nouveau le coffre d'origine : macOS ne laisse pas une appli changer son icône au repos.
+- **Après une sauvegarde restaurée.** Les clés enregistrées dans Pécule sont chiffrées par le secret de
+  l'installation : reprises ailleurs, elles ne s'ouvrent plus. La banque le disait à l'écran, mais une
+  synchronisation semblait aboutir, à vide : elle laisse maintenant une alerte dans Suivi technique (« Banque non
+  lue »). Les écrans de la banque et de l'IA le disent avec les mots de l'appli de bureau.
+- **Cours non mis à jour.** L'alerte nomme la source qui n'a pas répondu et la cause (« CoinGecko injoignable
+  (ENOTFOUND) ») au lieu de « fetch failed ». L'appli se fie aussi aux certificats que le Mac reconnaît, comme un
+  navigateur : derrière un réseau d'entreprise qui inspecte le trafic, la banque et les cours restent joignables.
+- **Brancher un assistant.** Réglages → Comptes et connexions → Applications connectées dit, dans l'appli pour
+  Mac, qui peut s'y brancher : un assistant installé sur le même ordinateur, pas un assistant en ligne.
+- **Journal du serveur.** Chaque ligne de `journaux/serveur.log` porte son heure.
+
+Pour qui modifie le code : l'écran demande à la fenêtre par une adresse à elle (`shellAction` :
+`pecule-action://zoom`, `pecule-action://icone`), que la coque n'écoute que venue d'une page de Pécule ; le serveur
+dit que la fenêtre est là (`shell`, dans `/auth/me`). Un essai de plus, `bureau/essais/mcp.mjs` : un assistant de
+l'ordinateur se branche au serveur MCP de l'appli (métadonnées, accord dans le navigateur après connexion par mot
+de passe, jetons, appels d'outils, accès retiré). La recette de la fenêtre attend la page avant d'essayer un
+téléchargement — elle échouait parfois là, sans rapport avec l'appli.
+
 ## 1.54.0
 
 Crypto : un achat ou une vente chez Kraken se propose au journal avec sa vraie date, son cours et ses frais. Une

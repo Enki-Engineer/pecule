@@ -11,7 +11,7 @@
 // Options : --captures <dossier> (une image de la fenêtre à chaque étape), --garder (laisse le dossier de données),
 // --seulement <nom> (un seul scénario).
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -344,13 +344,58 @@ try {
 
   // ---------- 6. Téléchargement ----------
   await scenario("téléchargement", async () => {
+    // La page revient tout juste de la banque : elle finit de se charger avant le geste, comme pour une personne.
+    await waitApp();
+    await sleep(500);
     await js(`(() => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["essai de la recette"], { type: "text/plain" })); a.download = "recette.txt"; document.body.append(a); a.click(); a.remove(); return 1; })()`);
     const done = await until(async () => (await journal("telecharge")).at(-1), 15_000, "le téléchargement n'aboutit pas");
     const file = path.join(work, "recette.txt");
     check(done.ok === true && existsSync(file) && readFileSync(file, "utf8") === "essai de la recette", "un fichier fabriqué par la page se télécharge", JSON.stringify(done));
   });
 
-  // ---------- 7. Fermer la fenêtre ne quitte pas ; quitter arrête tout ; la session revient ----------
+  // ---------- 7. Taille de l'affichage et icône du Dock ----------
+  await scenario("taille de l'affichage et icône du Dock", async () => {
+    const widths = () => js("({ dedans: window.innerWidth, dehors: window.outerWidth })");
+    await js(`(location.assign(${JSON.stringify(`${origin}/reglages/apparence`)}), 1)`);
+    await waitPath((p) => p === "/reglages/apparence", "les réglages de l'apparence ne s'ouvrent pas");
+    await waitText("Taille de l'affichage");
+    // Au chargement, la fenêtre a posé dans le Dock le logo que la page annonce.
+    const first = await until(async () => (await journal("icone")).at(-1), 15_000, "le logo de la page n'arrive pas au Dock");
+    check(first.icone === "sable" && first.ok === true, "à l'ouverture, le Dock prend le logo choisi dans Pécule", JSON.stringify(first));
+    const before = await widths();
+    check(await click("75 %"), "« Taille de l'affichage » propose 75 %");
+    await until(async () => (await state()).zoom === 0.75, 10_000, "la fenêtre ne passe pas à 75 %");
+    const after = await until(async () => { const w = await widths(); return w.dedans > before.dedans * 1.2 ? w : null; }, 10_000, "la page ne s'élargit pas");
+    check(Math.abs(after.dedans / before.dedans - 1 / 0.75) < 0.03, "à 75 %, la page voit une fenêtre plus large d'un tiers", JSON.stringify({ before, after }));
+    check(JSON.parse(readFileSync(path.join(data, "fenetre.json"), "utf8")).zoom === 0.75, "la taille choisie est gardée dans le dossier des données");
+    const chosen = () => js(`[...document.querySelectorAll("button")].filter((b) => / %$/.test(b.innerText.trim()) && b.getAttribute("aria-pressed") === "true").map((b) => b.innerText.trim()).join()`);
+    await until(async () => (await chosen()) === "75 %", 10_000, "le réglage ne montre pas la taille en cours");
+    check(true, "le réglage montre la taille en cours");
+    await capture("taille-75");
+    await ask({ menu: "zoom-plus" });
+    await until(async () => (await state()).zoom === 0.8, 10_000, "le menu Présentation n'agrandit plus");
+    check(JSON.parse(readFileSync(path.join(data, "fenetre.json"), "utf8")).zoom === 0.8, "une taille prise par le menu est gardée elle aussi");
+    await until(async () => (await chosen()) === "80 %", 10_000, "le réglage ne suit pas le menu");
+    check(true, "le réglage suit le menu Présentation");
+    await js(`(location.assign("pecule-action://zoom?niveau=75"), 1)`);
+    await until(async () => (await state()).zoom === 0.75, 10_000, "la page ne peut pas redemander 75 %");
+    // Le logo : celui d'une fête, choisi à l'écran.
+    check(await js(`(() => { const b = [...document.querySelectorAll("button")].filter((x) => x.innerText.trim() === "Noël").at(-1); if (!b) return false; b.click(); return true; })()`), "« Icône dans le Dock » propose le coffre de Noël");
+    const posed = await until(async () => (await journal("icone")).find((x) => x.icone === "noel"), 15_000, "le logo choisi n'arrive pas au Dock");
+    check(posed.ok === true && (await state()).icone === "noel", "un logo choisi à l'écran passe dans le Dock", JSON.stringify(posed));
+    check((await text()).includes("Icône dans le Dock"), "le réglage parle du Dock");
+    await capture("icone-dock");
+    // L'image que l'appli donne au Dock : le logo, avec la marge et l'arrondi d'une icône de Mac.
+    const drawn = path.join(shots ?? work, "icone-donnee-au-dock.png");
+    const given = await ask({ dock: drawn });
+    check(given.ok === true && statSync(drawn).size > 20_000, "l'appli donne au Dock une image du logo choisi", JSON.stringify(given));
+    // Une adresse qui n'est pas un logo de Pécule ne va nulle part.
+    await js(`(location.assign("pecule-action://icone?id=..%2F..%2Fapi%2Fhealth"), 1)`);
+    await sleep(500);
+    check((await state()).icone === "noel", "une demande d'icône qui n'est pas un logo est ignorée");
+  });
+
+  // ---------- 8. Fermer la fenêtre ne quitte pas ; quitter arrête tout ; la session revient ----------
   await scenario("fermeture et retour", async () => {
     await ask({ fermer: true });
     await sleep(600);
@@ -365,10 +410,12 @@ try {
     await waitApp();
     const me = await until(() => jsAsync(`return (await fetch("/api/auth/me")).json()`, "main", 8_000), 60_000, "la page ne répond pas");
     check(me.user?.name === "Alex", "à la réouverture, la session est toujours là : Pécule s'ouvre sans rien demander", JSON.stringify(me).slice(0, 120));
+    const back = await state();
+    check(back.zoom === 0.75 && (await until(async () => (await journal("icone")).at(-1), 15_000, "le logo ne revient pas")).icone === "noel", "à la réouverture, la taille de l'affichage et le logo du Dock sont ceux qu'on avait choisis", JSON.stringify({ zoom: back.zoom, icone: back.icone }));
     await quit();
   });
 
-  // ---------- 8. Un démarrage qui échoue se dit à l'écran ----------
+  // ---------- 9. Un démarrage qui échoue se dit à l'écran ----------
   await scenario("échec au démarrage", async () => {
     if (bundled) return void console.log("  (sauté : l'appli livrée porte son MySQL)");
     await launch({ PECULE_COQUE_MYSQL: path.join(work, "pas-de-mysql") });

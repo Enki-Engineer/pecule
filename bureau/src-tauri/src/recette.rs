@@ -72,7 +72,7 @@ fn repondre(app: &AppHandle, demande: &Value) -> Value {
             .into_iter()
             .map(|(label, f)| json!({ "label": label, "url": f.url().map(|u| u.to_string()).unwrap_or_default(), "titre": f.title().unwrap_or_default(), "visible": f.is_visible().unwrap_or(false) }))
             .collect();
-        return json!({ "version": app.package_info().version.to_string(), "origine": coque.origine().map(|o| o.to_string()), "statut": coque.statut(), "fenetres": fenetres, "journal": coque.journal.lock().unwrap().clone() });
+        return json!({ "version": app.package_info().version.to_string(), "origine": coque.origine().map(|o| o.to_string()), "statut": coque.statut(), "zoom": *coque.zoom.lock().unwrap(), "icone": coque.icone.lock().unwrap().clone(), "fenetres": fenetres, "journal": coque.journal.lock().unwrap().clone() });
     }
 
     // { "menu": "oubli" } : l'élément de menu, comme si on l'avait choisi.
@@ -103,6 +103,19 @@ fn repondre(app: &AppHandle, demande: &Value) -> Value {
         };
     }
 
+    // { "dock": "/chemin.png" } : l'icône que l'appli montre dans le Dock, telle qu'elle la donne au système.
+    if let Some(fichier) = demande["dock"].as_str() {
+        let (envoi, reception) = channel::<Result<Vec<u8>, String>>();
+        let _ = app.run_on_main_thread(move || {
+            let _ = envoi.send(icone_du_dock());
+        });
+        let rendu = reception.recv_timeout(Duration::from_secs(10)).map_err(|_| "l'appli ne rend pas son icône".to_string()).and_then(|r| r);
+        return match rendu.and_then(|png| std::fs::write(fichier, png).map_err(|e| e.to_string())) {
+            Ok(()) => json!({ "ok": true }),
+            Err(e) => json!({ "erreur": e }),
+        };
+    }
+
     // { "dialogues": false } : la réponse rendue aux prochaines questions (`confirm` d'une page, question de la coque).
     if let Some(reponse) = demande["dialogues"].as_bool() {
         crate::dialogues::REPONSE_RECETTE.store(reponse, std::sync::atomic::Ordering::SeqCst);
@@ -128,26 +141,42 @@ pub fn fenetres_sans_geste(fenetre: &WebviewWindow) {
 #[cfg(not(target_os = "macos"))]
 pub fn fenetres_sans_geste(_: &WebviewWindow) {}
 
+/// Une image du Mac, écrite en PNG.
+#[cfg(target_os = "macos")]
+fn en_png(image: &objc2_app_kit::NSImage) -> Result<Vec<u8>, String> {
+    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep};
+    use objc2_foundation::NSDictionary;
+    let tiff = image.TIFFRepresentation().ok_or("image illisible")?;
+    let points = NSBitmapImageRep::imageRepWithData(&tiff).ok_or("image illisible")?;
+    let png = unsafe { points.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new()) }.ok_or("PNG impossible")?;
+    Ok(png.to_vec())
+}
+
+#[cfg(target_os = "macos")]
+fn icone_du_dock() -> Result<Vec<u8>, String> {
+    let fil = objc2::MainThreadMarker::new().ok_or("hors du fil principal")?;
+    let image = objc2_app_kit::NSApplication::sharedApplication(fil).applicationIconImage().ok_or("pas d'icône")?;
+    en_png(&image)
+}
+#[cfg(not(target_os = "macos"))]
+fn icone_du_dock() -> Result<Vec<u8>, String> {
+    Err("icône du Dock : sur Mac seulement".into())
+}
+
 /// L'image de la page, écrite en PNG : c'est WebKit qui la rend, sans capture d'écran (aucune autorisation à demander).
 #[cfg(target_os = "macos")]
 fn capturer(fenetre: &WebviewWindow, fichier: PathBuf) -> Result<(), String> {
     use block2::RcBlock;
-    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSImage};
-    use objc2_foundation::{NSDictionary, NSError};
+    use objc2_app_kit::NSImage;
+    use objc2_foundation::NSError;
 
     let (envoi, reception) = channel::<Result<Vec<u8>, String>>();
     fenetre
         .with_webview(move |webview| unsafe {
             let vue: &objc2_web_kit::WKWebView = &*webview.inner().cast();
             let bloc = RcBlock::new(move |image: *mut NSImage, _erreur: *mut NSError| {
-                let rendu = (|| {
-                    let image = image.as_ref().ok_or("WebKit n'a pas rendu d'image")?;
-                    let tiff = image.TIFFRepresentation().ok_or("image illisible")?;
-                    let points = NSBitmapImageRep::imageRepWithData(&tiff).ok_or("image illisible")?;
-                    let png = points.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new()).ok_or("PNG impossible")?;
-                    Ok::<Vec<u8>, &str>(png.to_vec())
-                })();
-                let _ = envoi.send(rendu.map_err(String::from));
+                let rendu = image.as_ref().ok_or_else(|| "WebKit n'a pas rendu d'image".to_string()).and_then(en_png);
+                let _ = envoi.send(rendu);
             });
             vue.takeSnapshotWithConfiguration_completionHandler(None, &bloc);
         })

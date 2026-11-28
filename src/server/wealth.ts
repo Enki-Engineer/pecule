@@ -44,7 +44,7 @@ export async function refreshPrices(): Promise<{ updated: number; errors: string
         updated++;
       }
     } catch (e) {
-      errors.push(String(e));
+      errors.push(fetchError("CoinGecko", e));
     }
   }
   const tickers = (await q<{ ticker: string }>("SELECT DISTINCT ticker FROM assets WHERE valuation = 'cotation' AND ticker IS NOT NULL")).map((r) => r.ticker);
@@ -68,7 +68,7 @@ export async function refreshPrices(): Promise<{ updated: number; errors: string
       );
       updated++;
     } catch (e) {
-      errors.push(String(e));
+      errors.push(fetchError("Yahoo Finance", e));
     }
   }
   return { updated, errors };
@@ -236,6 +236,15 @@ export async function snapshotWealth(userId: number) {
     [userId, w.date, w.gross, w.debts, w.net, JSON.stringify(w.byCategory)],
   );
   return w;
+}
+
+/**
+ * Une erreur de cours, en mots : « fetch failed » ne dit ni qui ne répond pas, ni pourquoi. Une source injoignable
+ * (pas de réseau, site bloqué par celui du bureau, certificat refusé) est nommée, avec la cause que donne le système.
+ */
+function fetchError(source: string, e: unknown): string {
+  const cause = (e as { cause?: { code?: string; message?: string } } | null)?.cause;
+  return e instanceof TypeError && cause ? `${source} injoignable (${cause.code ?? cause.message ?? "réseau"})` : String(e);
 }
 
 /** Erreurs de cours (CoinGecko refusé, ticker introuvable…) : alertes regroupées par source. */

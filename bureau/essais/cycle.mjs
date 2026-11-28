@@ -106,6 +106,10 @@ try {
   const logs = ["bureau.log", "serveur.log", "mysql.log"].map((f) => readFileSync(path.join(data, "journaux", f), "utf8")).join("\n");
   const secrets = [...settingsText.matchAll(/^(?:API_TOKEN|SETUP_CODE|SYNC_TOKEN|SECRET_KEY|DB_PASSWORD|DEMO_DB_PASSWORD|DB_ROOT_PASSWORD)=(.+)$/gm)].map((m) => m[1]);
   check(secrets.length === 7 && secrets.every((s) => !logs.includes(s)), "aucun secret dans les journaux");
+  const serverLines = readFileSync(path.join(data, "journaux", "serveur.log"), "utf8").split("\n").filter(Boolean);
+  check(serverLines.length > 0 && serverLines.every((line) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z /.test(line)), "chaque ligne du journal du serveur porte son heure", serverLines.find((line) => !/^\d{4}-/.test(line)));
+  const serverCommand = spawnSync("ps", ["-o", "command=", "-p", String(first.server)], { encoding: "utf8" }).stdout;
+  check(serverCommand.includes("--use-system-ca"), "le serveur se fie aussi aux certificats que l'ordinateur reconnaît (réseau d'entreprise)", serverCommand.trim().slice(0, 160));
   const me = await (await fetch(`http://127.0.0.1:${port}/api/auth/me`)).json();
   check(me.setup === true && me.demoAvailable === true && me.setupCommand == null, "installation neuve, démo disponible, aucune commande à montrer", JSON.stringify(me));
 

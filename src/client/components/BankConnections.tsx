@@ -9,6 +9,7 @@ import { AccountList, type CardNote } from "./AccountList.tsx";
 import { BankGuide, BankLinkForm } from "./BankGuide.tsx";
 import { dangerButton, Part, quietButton } from "./Connector.tsx";
 import { cn } from "../cn.ts";
+import { unreadableKeyText, useDesktop } from "../desktop.ts";
 import { dateFr } from "../format.ts";
 import { bankGuide } from "../../lib/onboarding.ts";
 import { locale, t, tn } from "../../lib/i18n.ts";
@@ -40,6 +41,7 @@ const OWN_HINT = () => t("L'usage gratuit d'Enable Banking ne couvre que les com
 export function BankConnections({ accounts, members }: { accounts: Account[]; members: { id: number; name: string }[] }) {
   const qc = useQueryClient();
   const userId = useMe().data?.user?.id;
+  const desktop = useDesktop();
   const state = useBankState();
   const [ownForm, setOwnForm] = useState(false);
   const [linking, setLinking] = useState(false);
@@ -132,8 +134,8 @@ export function BankConnections({ accounts, members }: { accounts: Account[]; me
     guiding && scope === "foyer" ? null : s.error,
     s.application && !s.application.active && !(guiding && scope === "foyer") ? t("L'application n'est pas encore active : relie d'abord tes comptes dans la console d'Enable Banking (« Activate by linking accounts »).") : null,
     s.application && !s.application.redirectOk && !(guiding && scope === "foyer") ? `${t("L'adresse de retour n'est pas déclarée chez Enable Banking :")} ${s.redirectUrl}` : null,
-    s.keyUnreadable && s.admin && !(guiding && scope === "foyer") ? t("La clé enregistrée n'est plus lisible (le secret du serveur a changé) : saisis-la de nouveau.") : null,
-    s.own && (s.own.error || s.own.keyUnreadable) && !(guiding && scope === "moi") ? (s.own.error ?? t("La clé enregistrée n'est plus lisible (le secret du serveur a changé) : saisis-la de nouveau.")) : null,
+    s.keyUnreadable && s.admin && !(guiding && scope === "foyer") ? unreadableKeyText(desktop) : null,
+    s.own && (s.own.error || s.own.keyUnreadable) && !(guiding && scope === "moi") ? (s.own.error ?? unreadableKeyText(desktop)) : null,
   ].filter((w): w is string => !!w);
 
   return (

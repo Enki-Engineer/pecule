@@ -84,6 +84,7 @@ export const personnaliser: ManualTheme = {
           list: [
             tk("[[Logo]] : le fond du coffre affiché dans l'appli et dans l'onglet du navigateur. Pendant un thème, il prend le décor du moment."),
             tk("[[Icône sur l'écran d'accueil]] : l'icône de l'appli installée — comme le logo, ou celle d'un thème."),
+            tk("Dans l'appli pour Mac, ce choix s'appelle [[Icône dans le Dock]] : l'icône y change aussitôt, et y reste tant que Pécule est ouvert. Une fois l'appli quittée, le Dock montre de nouveau le coffre d'origine."),
           ],
         },
         { warning: tk("L'iPhone garde l'icône du jour où Pécule a été ajouté à l'écran d'accueil. Pour en changer : ouvre Pécule dans Safari, choisis l'icône, supprime l'ancienne de l'écran d'accueil, puis ajoute Pécule de nouveau. Il faudra te reconnecter et réactiver les notifications.") },
@@ -215,13 +216,14 @@ export const personnaliser: ManualTheme = {
             tk("Fermer la fenêtre ne quitte pas l'appli ; « [[Quitter Pécule]] » arrête tout. Pécule ne synchronise que lorsqu'il est ouvert."),
             tk("Une mise à jour s'installe par le menu Pécule, « [[Rechercher une mise à jour…]] » : l'appli la télécharge, vérifie sa signature et se rouvre."),
             tk("Quand tu relies ta banque, l'accord se donne dans une fenêtre à part, qui se referme d'elle-même."),
+            tk("Pour voir tout Pécule en plus petit ou en plus grand : [[Réglages]] → [[Apparence]], [[Taille de l'affichage]], ou le menu Présentation de l'appli (⌘+ et ⌘−). L'appli retient ton choix d'une ouverture à l'autre."),
           ],
         },
         { warning: tk("Tes données ne sont que sur ce Mac : active les sauvegardes dans [[Réglages]] → [[Compte et sécurité]], et la copie hors de l'ordinateur si tu le peux — c'est la seule qui protège de la perte du Mac.") },
         { note: tk("L'appli pour Mac n'envoie pas de notifications et ne s'ouvre pas depuis un téléphone : pour cela, il faut un Pécule installé sur un serveur. Une sauvegarde complète se restaure de l'un à l'autre.") },
       ],
       links: [{ to: "/reglages/compte", label: ["Réglages", "Compte et sécurité"] }],
-      words: tk("mac macos bureau desktop ordinateur appli de bureau application dock quitter fenêtre mise à jour de l'appli"),
+      words: tk("mac macos bureau desktop ordinateur appli de bureau application dock quitter fenêtre mise à jour de l'appli zoom zoomer dézoomer taille de l'affichage plus petit plus grand"),
     },
   ],
 };

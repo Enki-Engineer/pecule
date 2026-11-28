@@ -26,7 +26,9 @@ import {
   provisionSql,
   RESTART_LIMIT,
   RESTART_WINDOW_MS,
+  shownZoom,
   SOCKET_PATH_MAX,
+  ZOOM_LEVELS,
 } from "./desktop.ts";
 
 const read = (file: string) => readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
@@ -350,3 +352,15 @@ describe("fabrication de l'appli", () => {
   });
 });
 
+describe("taille de l'affichage", () => {
+  it("lit ce que la fenêtre a écrit sur la page, et vaut 100 sans cela", () => {
+    expect(shownZoom("75")).toBe(75);
+    expect(shownZoom("110")).toBe(110);
+    expect(shownZoom(undefined)).toBe(100);
+    for (const wrong of ["", "grand", "0", "-75", "100000"]) expect(shownZoom(wrong)).toBe(100);
+  });
+  it("propose la taille réelle parmi ses choix", () => {
+    expect(ZOOM_LEVELS).toContain(100);
+    expect([...ZOOM_LEVELS]).toEqual([...ZOOM_LEVELS].sort((a, b) => a - b));
+  });
+});

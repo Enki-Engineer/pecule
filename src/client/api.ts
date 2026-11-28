@@ -226,6 +226,8 @@ export type Me = {
   setupCommand?: string;
   /** L'appli de bureau (`src/lib/desktop.ts`) : l'écran y parle de l'appli, pas d'un serveur ni de ses commandes. */
   desktop?: boolean;
+  /** La fenêtre de l'appli de bureau est là : l'écran peut lui demander ce qu'elle seule sait faire (`shellAction`). */
+  shell?: boolean;
 };
 /** L'identité a été lue sur le serveur depuis l'ouverture de cette page (sinon, c'est la copie gardée par l'appareil). */
 let identityRead = false;

@@ -437,7 +437,13 @@ export async function syncEnableBanking(opts: { force?: boolean; client?: EbClie
   if (!first.sessions?.length) return null;
   const clients = new Map<number | undefined, EbClient | null>();
   const clientFor = (app?: number) => opts.client ?? (clients.has(app) ? clients.get(app)! : (clients.set(app, clientOf(first, app)), clients.get(app)!));
-  if (!first.sessions.some((x) => clientFor(x.app))) return null;
+  if (!first.sessions.some((x) => clientFor(x.app))) {
+    // Des accords, mais plus aucune clé qui s'ouvre (sauvegarde reprise dans une autre installation, secret de
+    // chiffrement changé) : rien ne sera lu. Sans cette alerte, la synchronisation semblerait aboutir, à vide.
+    if (first.key || Object.keys(first.members ?? {}).length)
+      await recordAlert("banque", "Banque non lue : la clé Enable Banking enregistrée n'est plus lisible (sauvegarde reprise dans une autre installation, ou secret de chiffrement changé). Ressaisis-la dans Réglages → Comptes et connexions.", undefined, "alerte");
+    return null;
+  }
   if (!opts.force && first.lastSyncAt && Date.now() - Date.parse(first.lastSyncAt) < MIN_HOURS_BETWEEN_SYNCS * 3600_000) return null;
   // Même à la demande, pas deux lectures coup sur coup : les banques comptent chaque lecture.
   if (opts.force && !opts.client && first.lastSyncAt && Date.now() - Date.parse(first.lastSyncAt) < MIN_MINUTES_BETWEEN_FORCED * 60_000) return null;

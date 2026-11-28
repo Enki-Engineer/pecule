@@ -339,6 +339,13 @@ Deux pièces, pour que presque tout se teste sans fenêtre :
   (`bankReturnOrigin`), que personne ne sert —, qu'elle rend au serveur local en http. Ses mots viennent des
   dictionnaires de l'appli (`src/lib/desktop-texts.ts` → `textes.json`, un test compare). Fermer la fenêtre la
   cache ; quitter arrête le superviseur, qui s'arrêterait de toute façon en voyant son entrée se fermer.
+  Deux choses sont à elle seule, que l'écran lui demande sans API : la page part vers une adresse de la coque
+  (`shellAction`, `src/client/desktop.ts` : `pecule-action://zoom?niveau=75`, `pecule-action://icone?id=noel`), que
+  la coque n'ouvre pas et n'écoute que venue d'une page de Pécule. La taille de l'affichage est gardée dans le
+  dossier des données (`fenetre.json`), reposée à chaque ouverture, et écrite sur la page (`data-pecule-zoom`) pour
+  que les réglages la montrent ; le logo choisi est lu sur le serveur local et posé dans le Dock, avec la marge et
+  l'arrondi d'une icône de Mac, le temps que l'appli est ouverte (`bureau/src-tauri/src/apparence.rs`). Le serveur
+  dit à l'écran que la fenêtre est là (`shell`, dans `/auth/me`).
 - **Le serveur** sait qu'il tourne là (`PECULE_BUREAU`, `installKind() === "bureau"`) : aucune commande à montrer,
   des mots à lui (`desktop`, dans `/auth/me` et `/auth/access`), la règle « clé d'accès exigée » ignorée, les
   lectures de `/api/auth` hors du compteur d'essais (tout arrive de la même adresse).
@@ -352,8 +359,10 @@ version palier).
 Essais, tous rejouables sans personne devant l'écran (`bureau/essais/`) : `cycle.mjs` (le superviseur : création,
 arrêts, plantages, deux lancements, port pris ou usurpé), `parcours.mjs` (le premier usage, dans WebKit),
 `fenetre.mjs` (l'appli fabriquée, dans sa vraie fenêtre — lancée avec `--recette <socket>`, la coque exécute ce
-qu'on lui envoie et note ce qu'elle aurait ouvert au-dehors) et `maj.mjs` (une mise à jour de bout en bout). Le flux
-« Appli de bureau » les joue sur une machine Mac avant toute publication.
+qu'on lui envoie et note ce qu'elle aurait ouvert au-dehors), `maj.mjs` (une mise à jour de bout en bout) et
+`mcp.mjs` (un assistant de l'ordinateur qui se branche au serveur MCP : métadonnées, accord dans le navigateur,
+jetons, appels d'outils, accès retiré). Le flux « Appli de bureau » joue `cycle.mjs` et `fenetre.mjs` sur une
+machine Mac avant toute publication.
 
 ## Démarrage
 

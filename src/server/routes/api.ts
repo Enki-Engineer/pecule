@@ -28,6 +28,7 @@ import { listMemories } from "../tools/analyse.ts";
 import { getLogo, logoKeyAllowed, logoStatus, refreshWeakLogos, resetLogo } from "../logos.ts";
 import { registerUndo, runUndo, snapshotTransactions } from "../undo.ts";
 import { suggestCategories } from "../suggest.ts";
+import { addStarterCategory, starterProposals } from "../starter.ts";
 import { applyClassification, CLASSIFY_BATCH, proposeClassification } from "../classify-ai.ts";
 import { meterCost } from "../ai.ts";
 import { assertAiBudget } from "../ai-cost.ts";
@@ -198,6 +199,17 @@ api.get("/summary", async (req, res) => {
 
 api.get("/categories", async (_req, res) => {
   res.json({ categories: await q("SELECT * FROM categories ORDER BY sort_order, id") });
+});
+
+/** Catégories que le jeu de départ a reçues depuis l'installation du foyer : proposées, jamais ajoutées d'office. */
+api.get("/categories/proposals", async (_req, res) => {
+  res.json({ proposals: await starterProposals() });
+});
+
+/** Ajoute une catégorie proposée, avec ses règles ; « Annuler » la retire tant que rien d'autre ne s'en sert. */
+api.post("/categories/proposals/:id", async (req, res) => {
+  const { undo, ...added } = await addStarterCategory(String(req.params.id));
+  res.json({ ...added, undoId: registerUndo(req.user!.id, "Catégorie ajoutée", undo) });
 });
 
 api.get("/rules", async (_req, res) => {

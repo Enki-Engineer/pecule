@@ -5,7 +5,7 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { Activity, Bell, ChevronRight, Coins, Copy, House, KeyRound, Plug, LogOut, Palette, Presentation, ScanFace, Search, Smartphone, Sparkles, Tags, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
-import { api, useMe } from "../api.ts";
+import { api, useCategories, useMe } from "../api.ts";
 import { enterDemo, leaveDemo } from "../demo.ts";
 import { deviceName, pageBlock, useAccess, withPasskey } from "../access.ts";
 import { AccessPolicy, PasswordSettings } from "../components/PasswordSettings.tsx";
@@ -18,6 +18,7 @@ import { NotificationsSettings } from "../components/NotificationsSettings.tsx";
 import { BalanceAlertSettings } from "../components/BalanceAlertSettings.tsx";
 import { BankLabelsImport } from "../components/BankLabelsImport.tsx";
 import { BrandSettings } from "../components/BrandSettings.tsx";
+import { CategorySettings } from "../components/CategorySettings.tsx";
 import { AddMember } from "../components/AddMember.tsx";
 import { LogoSettings } from "../components/LogoSettings.tsx";
 import { FunSettings } from "../components/FunSettings.tsx";
@@ -56,6 +57,7 @@ export function Settings() {
   const users = useQuery({ queryKey: ["users"], queryFn: () => api<Users>("/auth/users") });
   const access = useAccess();
   const runs = useQuery({ queryKey: ["runs"], queryFn: () => api<{ runs: Run[] }>("/sync/runs") });
+  const categories = useCategories();
   const rules = useQuery({ queryKey: ["rules"], queryFn: () => api<{ rules: { id: number; pattern: string; category_name: string }[] }>("/rules") });
   const [links, setLinks] = useState<Record<number, string>>({});
   const [ruleFilter, setRuleFilter] = useState("");
@@ -245,6 +247,9 @@ export function Settings() {
         )}
         <Section id="enseignes" title={t("Mes enseignes")}>
           <BrandSettings />
+        </Section>
+        <Section id="categories" title={t("Catégories ({n})", { n: categories.data?.categories.length ?? 0 })}>
+          <CategorySettings />
         </Section>
         <Section id="regles" title={t("Règles de classement ({n})", { n: rules.data?.rules.length ?? 0 })}>
           <label className="card mb-2 flex items-center gap-2 px-4 py-2.5">
@@ -439,7 +444,7 @@ const GROUPS: { id: GroupId; label: string; hint: string; icon: typeof Bell; ton
   { id: "foyer", label: t("Foyer"), hint: t("Pays et devise, écrans affichés, personnes sans connexion, banques professionnelles"), icon: House, tone: "bg-[#7a5c1f]" },
   { id: "demo", label: t("Mode démo"), hint: t("Montrer Pécule avec une famille fictive"), icon: Presentation, tone: "bg-[#0f766e]" },
   { id: "connexions", label: t("Comptes et connexions"), hint: t("Tes comptes et ce qui les alimente, IA, crypto, applications reliées"), icon: Plug, tone: "bg-[#1863c2]" },
-  { id: "classement", label: t("Classement"), hint: t("Libellés de la banque, mes enseignes, règles de classement"), icon: Tags, tone: "bg-[#1f7a5c]" },
+  { id: "classement", label: t("Classement"), hint: t("Libellés de la banque, mes enseignes, catégories, règles de classement"), icon: Tags, tone: "bg-[#1f7a5c]" },
   { id: "apparence", label: t("Apparence"), hint: t("Langue, clair ou sombre, couleur, thèmes de l'année"), icon: Palette, tone: "bg-[#b83e33]" },
   { id: "notifications", label: t("Notifications et appareil"), hint: t("Solde bas, alertes de cet appareil, ouverture instantanée"), icon: Bell, tone: "bg-[#c2410c]" },
   { id: "assistant", label: t("Assistant"), hint: t("Mode vocal, mémoire, coût de l'IA"), icon: Sparkles, tone: "bg-accent" },

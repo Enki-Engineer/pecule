@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STARTER_CATEGORIES, STARTER_GROUPS, STARTER_NAMES, STARTER_RULES, starterKind } from "./starter.ts";
+import { STARTER_CATEGORIES, STARTER_GROUPS, STARTER_NAMES, STARTER_RULES, STARTER_RULES_BEFORE, starterKind } from "./starter.ts";
 
 describe("jeu de départ", () => {
   it("a des codes uniques, dont ceux sur lesquels le code compte", () => {
@@ -27,6 +27,23 @@ describe("jeu de départ", () => {
     for (const [pattern, id] of STARTER_RULES) {
       expect(ids.has(id), pattern).toBe(true);
       expect(pattern, pattern).toMatch(/^[a-z ]+$/);
+    }
+  });
+  it("garde les codes déjà distribués, et marque ce qui est arrivé après eux", () => {
+    // Les quarante-six catégories des premières installations : leur code ne change plus de sens.
+    const first = STARTER_CATEGORIES.filter((c) => !c.added).map((c) => c.id);
+    expect(first).toHaveLength(46);
+    for (const id of ["A6", "B1-06", "B2-04", "B4-05", "B5-04", "B6-02", "B7", "B9-04", "B10", "B11", "B12-04"]) expect(first).toContain(id);
+    // Une catégorie ajoutée suit, dans son poste, celles qui y étaient.
+    const postes = STARTER_CATEGORIES.map((c) => c.poste);
+    for (const [i, c] of STARTER_CATEGORIES.entries()) if (i && c.poste !== postes[i - 1]) expect(postes.slice(0, i), c.id).not.toContain(c.poste);
+  });
+  it("dit d'où vient chaque règle déplacée vers une catégorie ajoutée", () => {
+    const byId = new Map(STARTER_CATEGORIES.map((c) => [c.id, c]));
+    const rules = new Map(STARTER_RULES);
+    for (const [pattern, was] of Object.entries(STARTER_RULES_BEFORE)) {
+      expect(byId.get(rules.get(pattern)!)?.added, pattern).toBe(true);
+      expect(byId.get(was) && !byId.get(was)!.added, pattern).toBe(true);
     }
   });
   it("ne nomme aucune personne ni aucun lieu", () => {

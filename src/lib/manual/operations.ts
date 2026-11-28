@@ -244,11 +244,23 @@ export const operations: ManualTheme = {
             tk("Un remboursement classé dans une catégorie de dépense vient en déduction de cette dépense."),
           ],
         },
+        tk("Toutes les catégories du foyer se lisent dans [[Réglages]] → [[Classement]], poste par poste."),
+        tk("Au même endroit, [[Catégories proposées]] réunit les catégories courantes que ton foyer n'a pas encore — carburant, tabac, crédit auto… Rien n'est ajouté d'office : touche [[Ajouter]] sur celles qui te servent."),
+        {
+          list: [
+            tk("La catégorie rejoint son poste, avec ses règles de classement : les prochaines opérations qu'elles reconnaissent y vont seules."),
+            tk("Les opérations déjà là que ces règles reconnaissent la rejoignent aussi, si elles n'avaient pas de catégorie ou si une règle de départ les avait rangées ailleurs. La ligne dit combien avant ton geste ; un classement fait à la main ne bouge jamais."),
+            tk("Juste après, un bandeau propose [[Annuler##retour en arrière]] pendant quelques secondes : la catégorie est retirée et tout revient à sa place."),
+          ],
+        },
         tk("Renommer une catégorie, la déplacer vers un autre poste, en créer une ou renommer un poste se demande à l'assistant : « crée une catégorie Animaux dans le poste Maison », « renomme la catégorie Restaurants ». Il montre le changement, et rien n'est modifié avant ta confirmation."),
         { note: tk("Dans une autre langue que le français, les noms de catégories et de postes sont traduits à l'affichage.") },
       ],
-      links: [{ to: "/mois?onglet=repartition", label: ["Analyse", "Répartition"] }],
-      words: tk("catégorie poste référentiel créer une catégorie renommer supprimer déplacer mouvement interne virement interne"),
+      links: [
+        { to: "/reglages/classement#categories", label: ["Réglages", "Classement"] },
+        { to: "/mois?onglet=repartition", label: ["Analyse", "Répartition"] },
+      ],
+      words: tk("catégorie poste référentiel créer une catégorie ajouter une catégorie catégories proposées renommer supprimer déplacer mouvement interne virement interne carburant essence tabac alcool crédit"),
     },
     {
       id: "jour-achat-debit",

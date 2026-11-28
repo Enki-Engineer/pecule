@@ -11,7 +11,7 @@ export const HORS_SONDE = {
 /** Routes appelées telles quelles. */
 const SIMPLES = `/accounts /agenda /ai/config /alerts /assistant/memories /assistant/status /assistant/threads /assistant/usage /audit /auth/access /auth/me /auth/users
 /backup/info /backup/remote /balance-alert /balance-series /bank-logos /bank/cards /bank/enable-banking /bank/enable-banking/banks
-/bank/enable-banking/compare /birthdays /brands /budget /calendar-link /categories /connections /connections/admin-tokens /crypto /crypto/events
+/bank/enable-banking/compare /birthdays /brands /budget /calendar-link /categories /categories/proposals /connections /connections/admin-tokens /crypto /crypto/events
 /dashboard /dashboard/layout /documents /documents/topics /envelopes /fun /goals /household /household/date-basis /imports /invoices /loans
 /nav-counts /oauth/grants /payslips /payslips/reread /projections /properties /push/key /push/recent /retirement /rules /sharing /status /summary
 /sync/connections /sync/runs /taxes /tokens /transactions /transactions/months /trend /updates /voice/status /wealth /weekly-summary`

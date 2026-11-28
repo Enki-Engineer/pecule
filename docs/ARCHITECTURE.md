@@ -146,6 +146,16 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
   réunies par libellé (`src/lib/classify.ts`), l'IA propose une catégorie par libellé d'après le référentiel et ce
   que le foyer a classé lui-même, et rien n'est écrit avant que le membre applique ce qu'il a retenu (annulable,
   règle créée par libellé s'il le demande). Routes `POST /api/transactions/ai-classify` et `…/apply`, fermées en démo.
+- **Référentiel de départ et catégories proposées** — `src/lib/starter.ts` : les catégories, leurs noms dans les
+  cinq langues et les règles des grandes enseignes qu'une installation neuve reçoit (`seedStarter`,
+  `src/server/starter.ts`). Le référentiel appartient ensuite au foyer : une catégorie ajoutée au jeu après son
+  installation (`added`) lui est proposée dans Réglages → Classement, jamais écrite d'office. Ce qu'il en a reçu est
+  gardé dans `app_kv` (« depart:categories » : code du jeu → code chez lui). Les règles sont pures
+  (`src/lib/starter-proposals.ts`) : ce qui est proposé, le rang de la catégorie, ce que deviennent les règles de
+  départ — ajoutées, reprises à leur ancienne catégorie si le foyer ne les a pas touchées, accompagnées des règles
+  plus précises qui les bornent — et les opérations qui la rejoignent : celles que ces règles classent chez elle et
+  qui n'avaient pas de catégorie, ou que la règle d'avant avait rangées ailleurs. L'ajout s'annule
+  (`registerUndo`) tant que rien d'autre ne se sert de la catégorie.
 
 ## Membres, accès, vie privée
 

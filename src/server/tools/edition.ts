@@ -3,6 +3,7 @@ import { exec, one, q } from "../db.ts";
 import { updateAsset } from "../actions.ts";
 import { applyFactPlan, entityFacts, saveCommitment } from "../situation.ts";
 import { today } from "../region.ts";
+import { nextCategoryCode } from "../../lib/category-codes.ts";
 import { factText, planFacts } from "../../lib/facts.ts";
 import { EDITED_COLUMNS } from "./edition-columns.ts";
 import { ToolError, change as changeLine, day, money, field, writeTool, type Tool } from "./registry.ts";
@@ -218,24 +219,7 @@ const KIND_LABELS: Record<string, string> = { depense: tk("depense"), revenu: tk
 const kindLabel = (kind: string) => tr(KIND_LABELS[kind] ?? kind);
 
 /** Code d'une nouvelle catégorie : suite des codes de son poste (B9-05, A7…) ou nouveau poste (B13). */
-async function nextCategoryId(poste: string, kind: string): Promise<string> {
-  const all = await q<{ id: string; poste: string | null }>("SELECT id, poste FROM categories");
-  const siblings = all.filter((c) => c.poste === poste).map((c) => c.id);
-  const ids = new Set(all.map((c) => c.id));
-  const sub = siblings.map((x) => /^([A-Z]\d+)-(\d+)$/.exec(x)).filter(Boolean) as RegExpExecArray[];
-  if (sub.length && sub.every((m) => m[1] === sub[0][1])) {
-    let n = Math.max(...sub.map((m) => Number(m[2]))) + 1;
-    while (ids.has(`${sub[0][1]}-${String(n).padStart(2, "0")}`)) n++;
-    return `${sub[0][1]}-${String(n).padStart(2, "0")}`;
-  }
-  const single = siblings.map((x) => /^([A-Z])(\d+)$/.exec(x)).filter(Boolean) as RegExpExecArray[];
-  if (single.length === 1 && siblings.length === 1) return `${siblings[0]}-02`;
-  const letter = single[0]?.[1] ?? (kind === "revenu" ? "A" : kind === "interne" ? "C" : "B");
-  const nums = all.map((c) => new RegExp(`^${letter}(\\d+)`).exec(c.id)).filter(Boolean).map((m) => Number(m![1]));
-  let n = (nums.length ? Math.max(...nums) : 0) + 1;
-  while (ids.has(`${letter}${n}`)) n++;
-  return `${letter}${n}`;
-}
+const nextCategoryId = async (poste: string, kind: string) => nextCategoryCode(await q<{ id: string; poste: string | null }>("SELECT id, poste FROM categories"), poste, kind);
 
 const updateCategory = writeTool({
   name: "update_category",

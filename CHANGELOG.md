@@ -3,6 +3,38 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.56.0
+
+Catégories : le référentiel de départ s'ouvre à d'autres foyers — carburant, tabac, alcool, crédits, aides… — et
+un foyer déjà installé se les voit proposer, sans que rien ne s'ajoute d'office. Aucune migration, aucun réglage
+nouveau.
+
+- **Onze catégories de plus au départ.** Transports : « Carburant (essence, gazole) » et « Crédit auto / Leasing ».
+  Un poste « Tabac, alcool & jeux » : « Tabac (cigarettes, vapotage) », « Alcool / Bars », « Jeux d'argent (loto,
+  paris) ». Un poste « Crédits » : « Crédits à la consommation ». Logement : « Travaux / Bricolage / Jardin ».
+  Famille : « Pension alimentaire ». Revenus : « Allocations et aides », « Pensions et retraite », « Autres
+  revenus ». Chacune a ses noms dans les cinq langues et ses règles pour les enseignes courantes ; les stations-service
+  vont en carburant, les magasins de bricolage en travaux. Les catégories d'avant gardent leur code et leur nom.
+- **Proposées, jamais ajoutées d'office.** Un foyer installé avant cette version garde son référentiel tel quel.
+  Réglages → Classement → Catégories montre ses catégories, poste par poste, et celles que Pécule lui propose :
+  « Ajouter » sur celles qui servent. La catégorie rejoint son poste avec ses règles de classement.
+- **Les opérations suivent, à vue.** Avant le geste, chaque ligne dit combien d'opérations rejoindront la
+  catégorie : celles que ses règles reconnaissent et qui n'avaient pas de catégorie, ou qu'une règle de départ
+  avait rangées ailleurs (un plein classé en « Transports/déplacements » passe en carburant). Un classement fait à
+  la main, par une facture ou par une règle du foyer ne bouge jamais. « Annuler », dans le bandeau, retire la
+  catégorie et remet tout en place tant que rien d'autre ne s'en sert.
+- **Règles de départ plus justes.** Le nom d'une station-service est aussi celui d'un fournisseur d'électricité, et
+  se cache dans celui d'autres enseignes : des règles plus précises rangent l'électricité et le gaz en énergie, la
+  recharge d'une voiture en « Péages et recharges », les capsules de café en courses. Elles arrivent avec
+  « Carburant » chez un foyer déjà installé, pour que rien d'autre qu'un plein ne le rejoigne.
+
+Pour qui modifie le code : une catégorie ajoutée au jeu de départ porte `added` (`src/lib/starter.ts`) ; ce qu'un
+foyer en a reçu est gardé dans `app_kv` (« depart:categories » : code du jeu → code chez lui, le sien pouvant être
+pris). Les règles sont pures (`src/lib/starter-proposals.ts` : `proposals`, `insertRank`, `rulePlan` — motifs
+ajoutés, déplacés, et règles « de garde » plus précises que les siennes —, `followers`, avec leurs essais), la base est lue et écrite par `src/server/starter.ts` (`GET /api/categories/proposals`,
+`POST /api/categories/proposals/:id`). Les noms du jeu de départ sont enregistrés dans les cinq langues à chaque
+démarrage, sans rien remplacer. Le code d'une nouvelle catégorie se calcule dans `src/lib/category-codes.ts`.
+
 ## 1.55.0
 
 Appli pour Mac : la taille de l'affichage se choisit, l'icône du Dock suit le logo, et ce qui ne se lit plus après

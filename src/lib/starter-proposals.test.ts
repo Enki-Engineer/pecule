@@ -61,10 +61,10 @@ describe("règles d'une catégorie ajoutée", () => {
     const rules: Rule[] = [
       { pattern: "esso", category_id: "B2-05", priority: 200 },
       { pattern: "nespresso", category_id: "B3-01", priority: 200 },
-      { pattern: "esso nantes", category_id: "B2-04", priority: 100 },
+      { pattern: "esso angers centre", category_id: "B2-04", priority: 100 },
     ];
     expect(ruleFor(rules, "nespresso nantes")?.category_id).toBe("B3-01");
-    expect(ruleFor(rules, "esso nantes beaujoire")?.category_id).toBe("B2-04");
+    expect(ruleFor(rules, "esso angers centre ville")?.category_id).toBe("B2-04");
     expect(ruleFor(rules, "esso angers")?.category_id).toBe("B2-05");
     expect(ruleFor(rules, "boulangerie")).toBeNull();
   });

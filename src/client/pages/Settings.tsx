@@ -601,7 +601,7 @@ function ShortcutSection() {
     <Section id="raccourci" title={t("Raccourci iPhone « Envoyer à Pécule »")}>
       <Card className="divide-y divide-line">
         <div className="px-4 py-3 text-sm text-muted">
-          {t("Depuis la feuille de partage (Mail, Fichiers, Photos…), envoie un PDF ou une photo : Claude le reconnaît et le range dans Factures ou dans le coffre de documents.")}
+          {t("Depuis la feuille de partage (Mail, Fichiers, Photos…), envoie un PDF ou une photo : l'IA le reconnaît et le range dans Factures ou dans le coffre de documents.")}
         </div>
         {tokens.data?.tokens.map((tok) => (
           <div key={tok.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">

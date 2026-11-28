@@ -10,6 +10,7 @@ import { ActionError } from "./actions.ts";
 import { redact, redactOrNull } from "../lib/redact.ts";
 import { TOPICS, guessTopic, isTopic } from "../lib/contracts.ts";
 import { t } from "../lib/i18n.ts";
+import { MAX_TEXT, PDF_TIMEOUT_MS, pdfTextIsolated, queued } from "./pdf-text.ts";
 
 /*
  * Coffre de documents : enregistrement idempotent (empreinte du fichier ou clé d'import), texte
@@ -57,68 +58,12 @@ export { TOPICS };
 /** Domaines privés par défaut (visibles du seul déposant). */
 const PRIVATE_DOMAINS = new Set(["retraite", "revenus"]);
 
-const MAX_TEXT = 1_000_000;
 const sha256 = (b: Buffer) => createHash("sha256").update(b).digest("hex");
 
 /** Documents visibles par un membre : communs ou à lui. */
 export const documentVisible = (userId: number, alias = "d") => `(${alias}.owner_user_id IS NULL OR ${alias}.owner_user_id = ${Number(userId)})`;
 
 /* ---------- Texte ---------- */
-
-/*
- * Lecture du texte d'un PDF dans un fil à part, une à la fois, avec un délai et une mémoire bornés : un PDF piégé
- * (flux compressés géants, milliers de pages) ne doit ni figer ni faire tomber le serveur, qui n'a qu'un processus.
- * Au-delà des bornes, le document est gardé sans texte (il reste lisible par l'IA page par page, et à l'écran).
- */
-const PDF_TIMEOUT_MS = 20_000;
-const PDF_MAX_PAGES = 400;
-const PDF_WORKER = `
-const { parentPort, workerData } = require("node:worker_threads");
-(async () => {
-  const { extractText, getDocumentProxy } = await import(workerData.unpdf);
-  const pdf = await getDocumentProxy(new Uint8Array(workerData.content));
-  if (pdf.numPages > workerData.maxPages) return parentPort.postMessage({ totalPages: pdf.numPages, text: "" });
-  const { totalPages, text } = await extractText(pdf, { mergePages: true });
-  parentPort.postMessage({ totalPages, text: String(text).slice(0, workerData.maxText) });
-})().catch((e) => parentPort.postMessage({ error: String(e && e.message || e) }));
-`;
-// Adresse du paquet résolue ici (à côté du serveur) : le fil, lui, résoudrait depuis le dossier courant du processus.
-const UNPDF = (() => {
-  try {
-    return import.meta.resolve("unpdf");
-  } catch {
-    return "unpdf";
-  }
-})();
-let pdfQueue: Promise<unknown> = Promise.resolve();
-
-function pdfTextIsolated(content: Buffer): Promise<{ totalPages: number; text: string }> {
-  const run = () =>
-    new Promise<{ totalPages: number; text: string }>((resolve, reject) => {
-      const worker = new Worker(PDF_WORKER, { eval: true, workerData: { content, unpdf: UNPDF, maxPages: PDF_MAX_PAGES, maxText: MAX_TEXT }, resourceLimits: { maxOldGenerationSizeMb: 384 } });
-      const timer = setTimeout(() => {
-        void worker.terminate();
-        reject(new Error("lecture trop longue, abandonnée"));
-      }, PDF_TIMEOUT_MS);
-      worker.once("message", (m: { totalPages?: number; text?: string; error?: string }) => {
-        clearTimeout(timer);
-        void worker.terminate();
-        if (m.error || m.totalPages === undefined) reject(new Error(m.error ?? "réponse vide"));
-        else resolve({ totalPages: m.totalPages, text: m.text ?? "" });
-      });
-      worker.once("error", (e) => {
-        clearTimeout(timer);
-        reject(e);
-      });
-      worker.once("exit", (code) => {
-        clearTimeout(timer);
-        if (code !== 0) reject(new Error("lecture interrompue (mémoire ou erreur)"));
-      });
-    });
-  const next = pdfQueue.then(run, run);
-  pdfQueue = next.catch(() => undefined);
-  return next;
-}
 
 /*
  * Découpe d'un long PDF en tranches de pages, pour le montrer à l'IA en plusieurs fois (un relevé de plus de 40
@@ -176,9 +121,7 @@ export function splitPdf(content: Buffer, size: number): Promise<PdfPart[]> {
         if (code !== 0) reject(new Error("découpe interrompue (mémoire ou erreur)"));
       });
     });
-  const next = pdfQueue.then(run, run);
-  pdfQueue = next.catch(() => undefined);
-  return next;
+  return queued(run);
 }
 
 /** Texte d'un fichier : PDF lu localement (couche texte), fichiers texte tels quels ; rien pour une photo. */

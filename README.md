@@ -135,8 +135,10 @@ Nothing is mandatory; pick what suits you.
 | By hand | accounts and transactions you keep yourself |
 | Documents | the bulk import, or one file at a time |
 
-The AI features (reading invoices and documents, the assistant) use **your own** provider key — Claude through the
-Anthropic API, Microsoft Foundry, or a compatible gateway. Without a key, everything else works.
+The AI features (reading invoices and documents, the assistant) use **your own** provider — Claude through the
+Anthropic API, Microsoft Foundry or a compatible gateway; OpenAI; OpenRouter; open models running on your own machine
+with Ollama; or any OpenAI-compatible service (LM Studio, Mistral, Groq…). Pécule was tuned with Claude: with another
+model, the assistant needs tool calling, and photos need vision. Without a provider, everything else works.
 
 ## Install
 

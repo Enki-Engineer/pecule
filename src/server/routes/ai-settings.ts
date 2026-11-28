@@ -3,16 +3,18 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { ActionError } from "../actions.ts";
 import { activeConnector, loadAiConfig, previewConnector, saveConnector, setActiveProvider, type ConnectorPatch } from "../ai-config.ts";
-import { foundryAccess, missingFor, testConnector } from "../ai.ts";
+import { connectorError, foundryAccess, missingFor, refusedText, testConnector } from "../ai.ts";
+import { HttpRefused, destination } from "../ai-http.ts";
+import { listModels } from "../ai-wires.ts";
 import { requireAdmin } from "../auth.ts";
-import { resolvesPublic } from "../net.ts";
 import { isDemo } from "../demo-context.ts";
+import { installKind } from "../install.ts";
 import { logAudit } from "../journal.ts";
-import { AI_PROVIDERS, AI_PROVIDER_INFO, aiStatusOf, normalizeAiUrl, type AiProvider } from "../../lib/ai-providers.ts";
+import { AI_PROVIDERS, AI_PROVIDER_SPEC, OLLAMA_CONTEXT, OLLAMA_PORT, aiStatusOf, normalizeAiUrl, type AiProvider } from "../../lib/ai-providers.ts";
 import { t } from "../../lib/i18n.ts";
 
 /*
- * Réglages → Comptes et connexions → Intelligence artificielle : choisir qui sert Claude, avec son adresse, son modèle et sa clé.
+ * Réglages → Comptes et connexions → Intelligence artificielle : choisir qui répond à Pécule, avec son adresse, son modèle et sa clé.
  * Sous /api, pour un membre connecté dans son navigateur ou le jeton d'administration ; interdit en démo
  * (BLOCKED, demo.ts). Une clé n'est jamais renvoyée, ni journalisée : ces routes sont hors de l'audit
  * automatique (qui garde le corps des demandes) et tracent elles-mêmes ce qui a changé.
@@ -42,23 +44,38 @@ const fields = {
   key: z.string().max(500).optional(),
   url: z.string().trim().max(300).optional(),
   model: z.string().trim().max(120).optional(),
+  /** Fenêtre de contexte d'Ollama, en jetons ; null = celle de départ. */
+  context: z.number().int().min(OLLAMA_CONTEXT.min).max(OLLAMA_CONTEXT.max).nullable().optional(),
 };
 
-/** Une adresse saisie doit être utilisable (https, nom de domaine public) ; vide = la retirer. */
-async function checkUrl(provider: (typeof AI_PROVIDERS)[number], url: string | undefined) {
-  if (!url || !AI_PROVIDER_INFO[provider].url) return;
+/**
+ * Une adresse saisie doit être utilisable ; vide = la retirer. Un fournisseur en ligne : https, vers un nom de domaine
+ * public. Un serveur de modèles (Ollama, service compatible) : https, ou http vers la machine ou le réseau local —
+ * et le nom doit mener quelque part depuis ici.
+ */
+async function checkUrl(provider: AiProvider, url: string | undefined) {
+  const kind = AI_PROVIDER_SPEC[provider].address;
+  if (!url || kind === "fixe") return;
+  const bad = kind === "locale" ? t("Adresse inutilisable : il faut une adresse en https, ou en http vers la machine ou le réseau local.") : t("Adresse inutilisable : il faut une adresse https vers un nom de domaine public.");
   const normalized = normalizeAiUrl(provider, url);
-  // Le nom doit être public, et se résoudre vers une adresse publique (pas vers le réseau du serveur).
-  let host: string | null = null;
+  if (!normalized) throw new ActionError(400, bad);
+  const target = new URL(normalized);
+  // Un nom sans point (« ma-ressource ») n'a pas été résolu jusqu'ici pour un fournisseur en ligne : rien ne change pour lui.
+  if (kind === "publique" && !target.hostname.includes(".")) return;
   try {
-    host = normalized ? new URL(/^https:\/\//i.test(normalized) ? normalized : `https://${normalized}`).hostname : null;
-  } catch {
-    host = null;
+    await destination(target, kind === "locale" ? "locale" : "publique");
+  } catch (e) {
+    if (!(e instanceof HttpRefused)) throw e;
+    // Un serveur de modèles : le refus dit pourquoi (en clair hors du réseau local, nom qui ne mène nulle part — avec
+    // Docker, « localhost » et le nom de la machine ne sont pas ceux que voit Pécule).
+    throw new ActionError(400, kind === "locale" ? refusedText(e) : bad);
   }
-  if (!normalized || (host && host.includes(".") && !(await resolvesPublic(host)))) throw new ActionError(400, t("Adresse inutilisable : il faut une adresse https vers un nom de domaine public."));
 }
 
-const status = async () => ({ ...aiStatusOf(await loadAiConfig()), voice: Boolean(foundryAccess()) });
+/** Où un Ollama installé sur la même machine se joint : dans un conteneur, « localhost » est le conteneur lui-même. */
+const ollamaUrl = () => `http://${installKind() === "docker" ? "host.docker.internal" : "localhost"}:${OLLAMA_PORT}`;
+
+const status = async () => ({ ...aiStatusOf(await loadAiConfig()), voice: Boolean(foundryAccess()), ollamaUrl: ollamaUrl() });
 
 aiSettingsApi.get("/ai/config", member, async (_req, res) => {
   res.json(await status());
@@ -71,6 +88,22 @@ async function sameAddressOrNewKey(provider: AiProvider, patch: ConnectorPatch) 
   const [now, next] = await Promise.all([previewConnector(provider, {}), previewConnector(provider, { url: patch.url })]);
   if (now.url !== next.url && (now.key || now.keyUnreadable)) throw new ActionError(400, t("Changer l'adresse du fournisseur demande de ressaisir sa clé."));
 }
+
+/**
+ * Les modèles que propose un service (ceux installés dans un Ollama, le catalogue d'OpenRouter, la liste d'un service
+ * compatible), avec les valeurs saisies ou telles qu'elles sont enregistrées. Une liste vide n'est pas une erreur.
+ */
+aiSettingsApi.post("/ai/models", member, requireAdmin, limiter, async (req, res) => {
+  const { provider, ...patch } = z.object(fields).parse(req.body);
+  await checkUrl(provider, patch.url);
+  await sameAddressOrNewKey(provider, patch);
+  const connector = await previewConnector(provider, patch);
+  try {
+    res.json({ models: await listModels(connector) });
+  } catch (e) {
+    throw new ActionError(502, connectorError(connector, e));
+  }
+});
 
 aiSettingsApi.post("/ai/test", member, requireAdmin, limiter, async (req, res) => {
   const { provider, ...patch } = z.object(fields).parse(req.body);
@@ -103,6 +136,7 @@ aiSettingsApi.put("/ai/config", member, requireAdmin, limiter, async (req, res) 
   void logAudit("PUT /api/ai/config", provider, {
     ...(patch.url !== undefined ? { adresse: patch.url || "retirée" } : {}),
     ...(patch.model !== undefined ? { modele: patch.model || "par défaut" } : {}),
+    ...(patch.context !== undefined ? { contexte: patch.context ?? "par défaut" } : {}),
     ...(patch.key !== undefined ? { cle: patch.key.trim() ? "remplacée" : "retirée" } : {}),
     ...(activate ? { choisi: true } : {}),
   });

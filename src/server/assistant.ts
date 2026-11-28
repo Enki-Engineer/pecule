@@ -8,6 +8,7 @@ import { aiClient, aiEnabled, aiModel, recordUsage } from "./ai.ts";
 import { partialUsage } from "../lib/ai-usage.ts";
 import { exec, one, q } from "./db.ts";
 import { ActionError } from "./actions.ts";
+import { unreadableArgs } from "../lib/ai-wire.ts";
 import { invoiceVisible } from "./invoices.ts";
 import { documentDetail } from "./documents.ts";
 import { z } from "zod";
@@ -466,8 +467,12 @@ async function runLoop(t: Thread, emit?: Emit, signal?: AbortSignal) {
       .map((b) => b.text)
       .join("\n")
       .trim();
-    const uses = response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-    if (response.stop_reason === "tool_use" && uses.length) {
+    const called = response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+    // Un appel dont les arguments n'ont pas pu être lus (un modèle qui écrit mal son JSON) n'est pas exécuté : il
+    // répondrait sans ses filtres. Le modèle reçoit une erreur, et le refait.
+    const unreadable = called.filter((u) => unreadableArgs(u.input)).map((u) => toolResult(u.id, "Arguments illisibles : ce n'était pas du JSON valide. Refais cet appel, avec ses arguments en JSON correct.", true));
+    const uses = called.filter((u) => !unreadableArgs(u.input));
+    if (response.stop_reason === "tool_use" && called.length) {
       if (emit && text) emit({ type: "text", text: "\n\n" });
       const reads = uses.filter((u) => !WRITE_NAMES.has(u.name) && u.name !== "show_chart");
       const chartResults = uses
@@ -488,6 +493,7 @@ async function runLoop(t: Thread, emit?: Emit, signal?: AbortSignal) {
       }
       if (emit) for (const r of reads) emit({ type: "step", label: tr(progressLabel(r.name)) });
       const readResults = [
+        ...unreadable,
         ...chartResults,
         ...(await Promise.all(
           reads.map(async (u) => {

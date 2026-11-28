@@ -261,7 +261,9 @@ Tant que le foyer n'a aucun compte, l'accueil affiche aussi « Bien démarrer »
   si votre navigateur en indique d'autres, « Bien démarrer » propose de les adopter — puis les écrans utiles. Un
   compte peut être tenu dans une autre devise que celle du foyer : ses montants sont convertis au cours de référence
   de la Banque centrale européenne et gardent leur valeur d'origine ;
-- **brancher l'assistant** (Réglages → Comptes et connexions → Intelligence artificielle), facultatif ;
+- **brancher l'assistant** (Réglages → Comptes et connexions → Intelligence artificielle), facultatif : Claude
+  (Microsoft Foundry, API d'Anthropic, passerelle compatible), OpenAI, OpenRouter, des modèles ouverts servis par
+  Ollama, ou tout service compatible OpenAI — voir [Le fournisseur d'IA](#le-fournisseur-dia) ;
 - **importer vos documents** (Documents → Coffre, zone de dépôt) : voir [`importer-des-documents.md`](importer-des-documents.md).
 
 Les autres membres du foyer s'ajoutent dans Réglages → Compte et sécurité : chacun reçoit un lien d'inscription,
@@ -380,3 +382,50 @@ Ce qu'il faut savoir :
 | L'hébergeur ne publie rien | Un répertoire de sortie est renseigné : il n'en faut pas ; l'entrée est `dist/server.mjs`. |
 | Les clés enregistrées ne fonctionnent plus | `SECRET_KEY` a changé (ou `API_TOKEN`, sur une installation sans `SECRET_KEY`) : ressaisissez-les dans les réglages. |
 | Après une mise à jour de `compose.yaml`, la base semble vide | Le projet Compose a changé de nom (il s'appelle `pecule` depuis la 1.34.0) : `COMPOSE_PROJECT_NAME=<nom de votre dossier>` dans `.env` retrouve vos volumes. |
+
+## Le fournisseur d'IA
+
+L'assistant et la lecture des documents passent par le fournisseur que l'administrateur du foyer choisit dans
+Réglages → Comptes et connexions → Intelligence artificielle. Rien à écrire dans `.env` : l'adresse, le modèle et la
+clé se saisissent à l'écran, la clé est gardée chiffrée, et un fournisseur est essayé avant d'être choisi.
+
+| Fournisseur | Ce qu'il demande |
+| --- | --- |
+| Microsoft Foundry, API Claude d'Anthropic, passerelle compatible | une clé, et l'adresse ou la ressource s'il y a lieu |
+| OpenAI | une clé |
+| OpenRouter | une clé, et le modèle choisi dans son catalogue |
+| Ollama | son adresse, et un modèle installé — pas de clé |
+| Compatible OpenAI (LM Studio, Mistral, Groq, vLLM…) | son adresse de base (« /v1 » compris), un modèle, une clé s'il en faut une |
+
+Pécule a été mis au point avec Claude. Avec un autre modèle, l'assistant demande qu'il sache appeler des outils, et
+la lecture d'une photo ou d'un scan qu'il lise les images : l'essai du fournisseur le signale.
+
+### Ollama
+
+Ollama sert des modèles ouverts sur votre machine ou votre réseau : rien ne part chez un fournisseur, et rien n'est
+facturé à l'appel. Installez-le, téléchargez un modèle (`ollama pull <modèle>`), puis donnez son adresse à Pécule.
+
+- **Pécule installé sans Docker, ou l'appli pour Mac** : `http://localhost:11434`.
+- **Pécule dans Docker, Ollama sur la même machine** : `http://host.docker.internal:11434` (« localhost » ne désigne
+  que le conteneur de Pécule). Ollama doit écouter au-delà de sa propre machine : lancez-le avec
+  `OLLAMA_HOST=0.0.0.0`. Sous Linux, le nom `host.docker.internal` n'existe que si le service « pecule » de
+  `compose.yaml` le déclare :
+
+  ```yaml
+      extra_hosts:
+        - "host.docker.internal:host-gateway"
+  ```
+
+  À défaut, donnez l'adresse de la machine sur le réseau local (`http://192.168.1.20:11434`, par exemple).
+- **Ollama dans le même `compose.yaml`** : le nom de son service, `http://ollama:11434`.
+
+En http, Pécule n'accepte qu'une adresse qui mène à la machine ou à un réseau local (le nom d'un réseau privé virtuel
+convient) ; ailleurs, il faut du https.
+
+La **fenêtre de contexte** (ce que le modèle lit d'un coup) se règle dans le même écran, et Pécule la demande à
+chaque appel : les consignes et les outils de l'assistant prennent à eux seuls près de 27 000 jetons, bien plus que ce
+qu'Ollama accorde de lui-même sur une machine modeste. Une fenêtre plus grande demande plus de mémoire. Une demande
+qui n'y tient pas est refusée avec un message, jamais raccourcie en silence.
+
+Ollama et les services compatibles reçoivent un PDF par son texte : un PDF scanné, sans texte, ne peut pas leur être
+lu — déposez-le en photo, avec un modèle qui lit les images.

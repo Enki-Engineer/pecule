@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AI_MODELS, DEFAULT_AI_MODEL } from "./ai-providers.ts";
-import { budgetState, budgetStops, cacheSavingUsd, daysInMonth, KIND_GROUP, knownModel, partialUsage, priceOf, projectMonth, REFERENCE_MODEL, shiftMonth, speechCostUsd, transcriptionCost, USAGE_GROUPS, USAGE_KINDS, usageCostUsd, usageKind } from "./ai-usage.ts";
+import { AI_MODELS, DEFAULT_AI_MODEL, AI_PROVIDER_SPEC } from "./ai-providers.ts";
+import { budgetState, budgetStops, cacheSavingUsd, daysInMonth, KIND_GROUP, knownModel, partialUsage, priceOf, projectMonth, REFERENCE_MODEL, shiftMonth, speechCostUsd, transcriptionCost, USAGE_GROUPS, USAGE_KINDS, usageCostUsd, usageKind, usageModel } from "./ai-usage.ts";
 
 describe("tarif d'un modèle", () => {
   it("reconnaît un modèle daté ou un déploiement qui porte son nom", () => {
@@ -42,6 +42,36 @@ describe("tarif d'un modèle", () => {
     // 1 M relus : 4 − 0,2 = 3,8 ; 1 M écrits : surcoût de 1.
     expect(cacheSavingUsd("claude-opus-5-5", 1_000_000, 1_000_000)).toBeCloseTo(2.8, 6);
     expect(cacheSavingUsd("claude-opus-5-5", 0, 1_000_000)).toBeCloseTo(-1, 6);
+  });
+});
+
+describe("fournisseurs sans tarif à calculer", () => {
+  it("un modèle servi par Ollama ne coûte rien à l'appel, quel que soit son nom", () => {
+    expect(usageModel("ollama", "modele:4b")).toBe("ollama/modele:4b");
+    expect(priceOf("ollama/modele:4b")).toMatchObject({ source: "local", price: { input: 0, output: 0 } });
+    expect(priceOf("ollama/claude-opus-5-5").source).toBe("local");
+    expect(knownModel("ollama/claude-opus-5-5")).toBeNull();
+    expect(usageCostUsd("ollama/modele:4b", { input_tokens: 1_000_000, output_tokens: 1_000_000 })).toBe(0);
+    expect(cacheSavingUsd("ollama/modele:4b", 1_000_000, 0)).toBe(0);
+  });
+  it("le coût rendu par OpenRouter est compté tel quel", () => {
+    expect(usageModel("openrouter", "editeur/modele")).toBe("openrouter/editeur/modele");
+    expect(priceOf("openrouter/editeur/modele").source).toBe("fournisseur");
+    expect(usageCostUsd("openrouter/editeur/modele", { input_tokens: 1000, output_tokens: 100, cost_usd: 0.00042 })).toBe(0.00042);
+    // Une réponse arrêtée en route n'a pas de coût rendu : rien n'est inventé.
+    expect(usageCostUsd("openrouter/editeur/modele", { input_tokens: 1000, output_tokens: 100 })).toBe(0);
+  });
+  it("les autres fournisseurs gardent le nom du modèle, et les modèles d'OpenAI ont leur tarif public", () => {
+    expect(usageModel("openai", "gpt-6.2-sol")).toBe("gpt-6.2-sol");
+    // Une passerelle qui nomme ses modèles « ollama/… » ou « openrouter/… » n'est ni Ollama ni OpenRouter : son modèle garde un tarif.
+    expect(usageModel("openai-compatible", "ollama/modele")).toBe("openai-compatible:ollama/modele");
+    expect(priceOf(usageModel("openai-compatible", "ollama/modele")).source).toBe("estime");
+    expect(priceOf(usageModel("compatible", "openrouter/editeur/modele")).source).toBe("estime");
+    expect(usageModel("foundry", "claude-opus-5-5")).toBe("claude-opus-5-5");
+    for (const m of AI_PROVIDER_SPEC.openai.models) expect(priceOf(m).source, m).toBe("public");
+    expect(knownModel("gpt-5.4-mini-2026-03-17")).toBe("gpt-5.4-mini");
+    expect(knownModel("gpt-6.2-sol")).toBe("gpt-6.2-sol");
+    expect(usageCostUsd("gpt-6.2-sol", { input_tokens: 1_000_000, output_tokens: 1_000_000, cache_read_input_tokens: 1_000_000 })).toBeCloseTo(12.1, 6);
   });
 });
 

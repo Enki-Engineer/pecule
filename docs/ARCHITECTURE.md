@@ -207,7 +207,16 @@ Le build produit `dist/client` (interface) et `dist/server.mjs` (serveur en un s
 
 ## L'IA
 
-Facultative, et toujours avec la clé du foyer (`src/lib/ai-providers.ts`, réglages chiffrés en base). Trois usages :
+Facultative, et toujours avec le fournisseur du foyer (`src/lib/ai-providers.ts`, réglages chiffrés en base) : Claude
+— par Microsoft Foundry, l'API d'Anthropic ou une passerelle —, OpenAI, OpenRouter, un Ollama de la machine ou du
+réseau, ou un service compatible OpenAI. Tout Pécule écrit ses demandes au format de l'API Messages de Claude ; pour
+un fournisseur qui parle une autre API, `src/server/ai-wires.ts` se présente comme le client de Claude et traduit dans
+les deux sens (`src/lib/ai-wire*.ts` : Chat Completions, API Responses d'OpenAI, API d'Ollama), toujours en flux.
+Ce qu'un fournisseur demande de lui rendre au tour suivant — son raisonnement chiffré, entre un appel d'outil et son
+résultat — voyage dans la conversation en bloc opaque, relu par sa seule API et retiré de ce qui part chez Claude.
+Un réglage facultatif qu'un modèle refuse est retiré et la demande rejouée ; un PDF est donné par son texte à qui ne
+le lit pas tel quel ; un serveur de modèles peut être sur le réseau local, en http seulement là
+(`src/server/ai-http.ts`, même règle que la copie des sauvegardes vers un NAS). Trois usages :
 lire un document (sortie JSON structurée), l'assistant (boucle d'outils : les lectures s'exécutent, les écritures
 attendent une confirmation — sa mémoire comprise : un fait retenu est joint aux consignes de toutes les conversations
 suivantes, il ne s'écrit donc pas sur la foi d'un texte lu dans un libellé ou un document), et les traductions des

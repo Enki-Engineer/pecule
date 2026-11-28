@@ -151,7 +151,7 @@ Tout le reste se règle à l'écran, par la personne ou avec elle. Rien n'est ob
   demande un compte à son nom et son accord auprès de sa banque : le bloc « Enable Banking » la guide pas à pas,
   comme la présentation de bienvenue (détail : `docs/connecteurs/enable-banking.md`). Sinon : un fichier de la banque
   (OFX, QIF, CSV), ou un compte tenu à la main.
-- **IA** (assistant, lecture des documents) : même écran, bloc « Intelligence artificielle », avec sa propre clé.
+- **IA** (assistant, documents) : même écran, bloc « Intelligence artificielle » — Claude, OpenAI, OpenRouter, Ollama…
 - **Ton accès à Pécule** : son serveur MCP est à `<adresse>/api/mcp` (Réglages → Comptes et connexions →
   Applications connectées donne l'adresse). Ajoute-le comme serveur MCP distant (`claude mcp add --transport http
   pecule <adresse>/api/mcp`, `codex mcp add pecule --url <adresse>/api/mcp`…) : la personne s'identifie par sa clé

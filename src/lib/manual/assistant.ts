@@ -200,8 +200,8 @@ export const assistant: ManualTheme = {
         {
           steps: [
             tk("Ouvre [[Réglages]] → [[Comptes et connexions]], bloc [[Intelligence artificielle]]."),
-            tk("Choisis le fournisseur : Microsoft Foundry, l'API Claude d'Anthropic, ou une passerelle compatible."),
-            tk("Saisis l'adresse ou la ressource s'il y a lieu, le modèle et la clé d'accès."),
+            tk("Choisis le fournisseur. Pour Claude : Microsoft Foundry, l'API Claude d'Anthropic, ou une passerelle compatible. Sous [[Autres modèles]] : OpenAI, OpenRouter, Ollama, ou tout service compatible OpenAI."),
+            tk("Saisis ce qu'il demande : l'adresse ou la ressource s'il y a lieu, la clé d'accès, le modèle. [[Voir les modèles du service]] propose ceux qu'il a, avec ce que chacun sait faire."),
             tk("Touche [[Tester]], puis [[Enregistrer]] et [[Utiliser ce fournisseur]]."),
           ],
         },
@@ -212,10 +212,22 @@ export const assistant: ManualTheme = {
             tk("Le fournisseur choisi reçoit tout ce que Pécule confie à l'IA : questions à l'assistant, factures, documents et bulletins de paie."),
           ],
         },
-        { note: tk("Ce réglage ne se fait qu'à l'écran : l'assistant ne peut pas le changer. Indisponible en mode démo.") },
+        tk("**Quel fournisseur choisir.** Pécule a été mis au point avec Claude : c'est avec lui que l'assistant et la lecture des documents sont les plus sûrs. Les autres modèles marchent aussi, à deux conditions que l'essai te signale : savoir appeler des outils, sans quoi l'assistant ne peut pas lire tes comptes, et lire les images, sans quoi une photo ou un scan restent illisibles. Essaie un modèle sur quelques documents avant de lui confier un dossier entier."),
+        {
+          list: [
+            tk("**OpenAI** : une clé, et le modèle de ton choix."),
+            tk("**OpenRouter** : une seule clé pour des centaines de modèles, de tous les éditeurs. Écris quelques lettres dans le champ du modèle pour trouver le tien. Tes données passent par OpenRouter, puis par l'hébergeur du modèle : ce qu'ils peuvent en garder se règle dans ton compte OpenRouter."),
+            tk("**Ollama** : des modèles ouverts qui tournent sur ta machine ou ton réseau. Rien ne part chez un fournisseur, et rien n'est facturé à l'appel. La qualité et la vitesse dépendent du modèle et de la machine."),
+            tk("**Compatible OpenAI** : LM Studio, Mistral, Groq, vLLM et les autres services qui parlent la même API. Donne leur adresse de base, « /v1 » compris."),
+          ],
+        },
+        tk("**Avec Ollama.** L'adresse est celle où Ollama écoute : http://localhost:11434 quand il est installé sur la même machine que Pécule. Si Pécule tourne dans Docker, « localhost » ne désigne que lui : l'écran donne l'adresse à écrire, et Ollama doit accepter les connexions qui ne viennent pas de sa propre machine (sa variable OLLAMA_HOST). En http, Pécule n'accepte qu'une adresse de la machine ou du réseau local."),
+        tk("[[Fenêtre de contexte (jetons)]] est ce que le modèle lit d'un coup. Les consignes et les outils de l'assistant en prennent à eux seuls près de 27 000 jetons : garde la valeur proposée, ou augmente-la si la machine a de la mémoire. Une demande qui ne tient pas dans la fenêtre est refusée avec un message, jamais raccourcie en silence."),
+        tk("Ollama et les services compatibles reçoivent un PDF par son texte. Un PDF scanné, sans texte, ne peut donc pas leur être lu : dépose-le en photo, avec un modèle qui lit les images."),
+        { note: tk("Ce réglage ne se fait qu'à l'écran : l'assistant ne peut pas le changer. Indisponible en mode démo. Le mode vocal, lui, passe toujours par une ressource Microsoft Foundry.") },
       ],
       links: [{ to: "/reglages/connexions?c=ia", label: ["Réglages", "Comptes et connexions"] }],
-      words: tk("clé api anthropic claude foundry azure fournisseur modèle configurer l'ia activer l'assistant"),
+      words: tk("clé api anthropic claude foundry azure openai gpt openrouter ollama local lm studio mistral groq fournisseur modèle contexte configurer l'ia activer l'assistant"),
     },
     {
       id: "assistant-cout",
@@ -244,6 +256,7 @@ export const assistant: ManualTheme = {
         },
         tk("L'administrateur reçoit une notification à 80 % du plafond, puis quand il est atteint. Sans la seconde case, l'assistant, une facture ou un document déposé un à un répondent toujours : le plafond ne coupe pas ce que tu demandes toi-même. Avec elle, l'assistant répond que l'IA est en pause, jusqu'au mois suivant ou jusqu'à ce que l'administrateur relève le plafond — à l'écran, puisque l'assistant ne répond plus. En mode démo, l'assistant s'arrête toujours au plafond."),
         tk("**Les tarifs.** La section [[Tarifs des modèles]] montre le prix compté pour chaque modèle, en dollars par million de jetons. Un modèle ou un déploiement que Pécule ne reconnaît pas est compté au tarif d'un modèle de référence et marqué « tarif estimé » : [[Modifier]] permet de saisir le sien, et ses appels déjà comptés sont alors recalculés."),
+        tk("Deux fournisseurs n'ont pas de tarif à saisir. Un modèle servi par Ollama ne coûte rien à l'appel : ses appels sont notés, pour zéro. OpenRouter rend lui-même le coût exact de chaque appel : Pécule le compte tel quel."),
         { note: tk("C'est une estimation : la facture de ton fournisseur fait foi. Interroger Pécule depuis l'appli Claude ne coûte rien ici : c'est ton abonnement Claude qui le porte.") },
       ],
       links: [{ to: "/reglages/cout-ia", label: ["Réglages", "Coût de l'IA"] }],

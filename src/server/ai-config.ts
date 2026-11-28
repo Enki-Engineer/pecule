@@ -2,10 +2,10 @@ import { env, sealingSecret } from "./env.ts";
 import { exec, one } from "./db.ts";
 import { runReal } from "./demo-context.ts";
 import { createSealer } from "./secret.ts";
-import { AI_PROVIDER_INFO, normalizeAiUrl, resolveAiConfig, type AiConfig, type AiConnector, type AiProvider, type StoredAiConfig } from "../lib/ai-providers.ts";
+import { AI_PROVIDER_INFO, AI_PROVIDER_SPEC, cleanContext, normalizeAiUrl, resolveAiConfig, type AiConfig, type AiConnector, type AiProvider, type StoredAiConfig } from "../lib/ai-providers.ts";
 
 /*
- * Configuration de l'IA : fournisseur choisi et, par fournisseur, adresse, modèle et clé d'accès.
+ * Configuration de l'IA : fournisseur choisi et, par fournisseur, adresse, modèle et clé d'accès (et, pour Ollama, sa fenêtre de contexte).
  * Réglée depuis Réglages → Comptes et connexions (bloc « Intelligence artificielle ») et gardée dans `app_kv` (clé `ai:config`), les clés chiffrées.
  * Les variables d'environnement (AI_FOUNDRY_RESOURCE, AI_FOUNDRY_API_KEY, AI_MODEL) restent les valeurs
  * de départ de Foundry : tant que rien n'est enregistré, rien ne change.
@@ -68,7 +68,8 @@ async function write(next: StoredAiConfig): Promise<AiConfig> {
   return loadAiConfig();
 }
 
-export type ConnectorPatch = { key?: string; url?: string; model?: string };
+/** `context` : la fenêtre de contexte d'Ollama, en jetons ; null la remet à sa valeur de départ. */
+export type ConnectorPatch = { key?: string; url?: string; model?: string; context?: number | null };
 
 /**
  * Ce que deviendrait un fournisseur avec ces valeurs, sans rien enregistrer (pour l'essayer d'abord).
@@ -93,6 +94,11 @@ function patched(provider: AiProvider, patch: ConnectorPatch): StoredAiConfig {
   if (patch.model !== undefined) {
     if (patch.model.trim()) c.model = patch.model.trim();
     else delete c.model;
+  }
+  if (patch.context !== undefined && AI_PROVIDER_SPEC[provider].context) {
+    const context = cleanContext(patch.context);
+    if (context) c.context = context;
+    else delete c.context;
   }
   return { ...stored, connectors: { ...stored.connectors, [provider]: c } };
 }

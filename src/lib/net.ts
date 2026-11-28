@@ -55,3 +55,26 @@ export function isPrivateAddress(ip: string): boolean {
     (g[0] === 0x2001 && (g[1] === 0 || g[1] === 0x0db8)) // Teredo, documentation
   );
 }
+
+/** IPv4 de la machine ou d'un réseau local : boucle locale, réseaux privés (RFC 1918), plage partagée des opérateurs (RFC 6598, celle des réseaux privés virtuels). */
+const localV4 = (a: number, b: number) => a === 127 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+
+/**
+ * Adresse IP de la machine elle-même ou d'un réseau local, au sens strict : là où peut tourner un serveur que le foyer
+ * a installé (un serveur de modèles). Plus étroit que « pas publique » (`isPrivateAddress`) : ni les adresses de lien
+ * local — c'est là que les hébergeurs servent leurs métadonnées (169.254.169.254) —, ni la diffusion, ni les plages
+ * réservées ou de traduction, ni les IPv6 qui portent une IPv4 autrement que sous la forme « ::ffff:a.b.c.d ».
+ */
+export function isLocalAddress(ip: string): boolean {
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
+  if (v4) {
+    const n = v4.slice(1).map(Number);
+    return n.every((x) => x <= 255) && localV4(n[0], n[1]);
+  }
+  const g = ipv6Groups(ip);
+  if (!g) return false;
+  if (g.slice(0, 7).every((x) => x === 0)) return g[7] === 1; // « ::1 », la boucle locale
+  if (g.slice(0, 5).every((x) => x === 0) && g[5] === 0xffff) return localV4(g[6] >> 8, g[6] & 0xff); // IPv4 portée par une IPv6
+  // fc00::/7, réseau privé — sauf fd00:ec2::/32, où un hébergeur sert ses métadonnées.
+  return (g[0] & 0xfe00) === 0xfc00 && !(g[0] === 0xfd00 && g[1] === 0x0ec2);
+}

@@ -3,6 +3,67 @@
 Les versions suivent le [versionnage sémantique](https://semver.org/lang/fr/). Avant toute mise à jour : une
 sauvegarde complète (`pnpm sauvegarde`). Les migrations de la base s'appliquent seules au démarrage.
 
+## 1.57.0
+
+IA : le fournisseur se choisit vraiment. À côté de Claude, Pécule parle maintenant à OpenAI, à OpenRouter, à des
+modèles ouverts servis par Ollama sur ta machine ou ton réseau, et à tout service compatible OpenAI. Aucune
+migration, aucun réglage nouveau : rien ne change pour une installation qui garde son fournisseur.
+
+- **Quatre fournisseurs de plus.** Réglages → Comptes et connexions → Intelligence artificielle range désormais les
+  fournisseurs sous deux titres. « Claude » : Microsoft Foundry, l'API d'Anthropic, une passerelle compatible —
+  comme avant. « Autres modèles » : OpenAI (une clé), OpenRouter (une clé pour des centaines de modèles), Ollama
+  (une adresse, pas de clé) et « Compatible OpenAI » (LM Studio, Mistral, Groq, vLLM… : une adresse, une clé s'il en
+  faut une). L'assistant, la lecture des factures, des documents et des bulletins, l'import de dossier et le
+  classement passent par le fournisseur choisi, quel qu'il soit.
+- **Ollama : rien ne sort de chez toi.** Un modèle qui tourne sur ta machine ou ton réseau répond à Pécule sans
+  qu'aucune donnée ne parte chez un fournisseur, et sans rien coûter à l'appel. L'écran dit quelle adresse écrire
+  selon la façon dont Pécule est installé (dans Docker, « localhost » ne désigne que lui), et liste les modèles
+  installés.
+- **Les modèles du service, et ce qu'ils savent faire.** « Voir les modèles du service » propose les modèles
+  installés dans un Ollama, le catalogue d'OpenRouter ou la liste d'un service compatible, avec ce que chacun
+  annonce : outils, images, taille, tarif. L'essai d'un fournisseur prévient quand le modèle choisi ne sait pas
+  appeler d'outils — l'assistant ne pourrait pas lire tes comptes — ou ne lit pas les images.
+- **Une fenêtre de contexte à la mesure de l'assistant.** Laissé à lui-même, Ollama n'accorde que 4 096 jetons sur
+  une machine modeste, quand les consignes et les outils de l'assistant en demandent près de 27 000 : Pécule règle
+  donc la fenêtre à chaque appel (65 536 jetons au départ, modifiable). Une demande qui n'y tient pas est refusée
+  avec un message qui dit quoi changer, jamais raccourcie en silence.
+- **Un coût juste pour chacun.** Un modèle servi par Ollama est compté pour zéro. OpenRouter rend le coût exact de
+  chaque appel, que Pécule note tel quel. Les modèles d'OpenAI ont leur tarif public. Les autres gardent le tarif
+  que tu saisis dans Réglages → Coût de l'IA.
+- **Des messages qui disent quoi faire.** Un modèle sans outils, une fenêtre trop petite, un PDF scanné donné à un
+  modèle qui ne lit pas les PDF, une adresse qui ne mène nulle part depuis Pécule ou qui répond autre chose qu'un
+  serveur de modèles : chaque cas a son message, à l'essai comme dans l'assistant.
+- **Un modèle qui écrit mal un appel d'outil ne répond pas à côté.** Des arguments illisibles ne lancent plus
+  l'outil sans ses filtres : le modèle reçoit une erreur et refait son appel. Une réponse coupée par son plafond
+  n'exécute aucun outil.
+
+Pour celui qui héberge :
+
+- **Adresses locales.** Ollama et « Compatible OpenAI » acceptent une adresse de la machine ou du réseau local, que
+  seul l'administrateur du foyer peut saisir. Même principe que la copie des sauvegardes vers un NAS : en clair
+  (http), seulement vers là ; ailleurs, https. C'est ce vers quoi le nom mène qui compte — le nom d'un réseau privé
+  virtuel convient —, et « local » s'entend au sens strict : la machine, les réseaux privés, la plage partagée des
+  opérateurs ; ni l'adresse où un hébergeur sert ses métadonnées, ni les plages réservées. Les autres fournisseurs
+  gardent leur règle : https, vers un nom de domaine public. La destination est contrôlée à l'enregistrement puis à
+  chaque appel, la connexion part vers l'adresse qui vient d'être contrôlée, aucune redirection n'est suivie, et le
+  corps d'une erreur qui n'a pas la forme de celles d'un serveur de modèles n'est pas recopié à l'écran.
+- **Pécule dans Docker et Ollama sur la même machine** : `http://host.docker.internal:11434`, avec un Ollama lancé
+  par `OLLAMA_HOST=0.0.0.0` ; sous Linux, ce nom demande deux lignes dans `compose.yaml`. Le détail est dans
+  `docs/guide/installation.md`, « Le fournisseur d'IA ».
+- **Ce qui est essayé, et ce qui ne l'est pas.** Ollama l'a été pour de vrai : assistant complet sur les données de
+  démo, lecture d'une facture en PDF et d'une photo, arrêt d'une réponse, refus. OpenAI et OpenRouter ne l'ont été
+  que contre de faux serveurs aux formes de leur documentation, et par une fausse clé que leurs vrais services ont
+  refusée comme attendu : aucune clé valide n'était disponible. Leur premier usage réel mérite un essai sur quelques
+  documents.
+
+Sous le capot : tout Pécule continue d'écrire ses demandes au format de l'API Messages de Claude. Un fournisseur qui
+parle une autre API passe par une traduction pure (`src/lib/ai-wire*.ts` : Chat Completions, API Responses d'OpenAI —
+la seule par laquelle ses modèles actuels acceptent les appels d'outils —, API d'Ollama) et un client qui se présente
+comme celui de Claude (`src/server/ai-wires.ts`) : toujours en flux, un réglage facultatif qu'un modèle refuse est
+retiré et la demande rejouée, un PDF est donné par son texte à qui ne le lit pas, et le raisonnement qu'un
+fournisseur demande de lui rendre entre un appel d'outil et son résultat voyage dans la conversation sans jamais
+partir chez un autre. La lecture du texte d'un PDF a son module (`src/server/pdf-text.ts`).
+
 ## 1.56.0
 
 Catégories : le référentiel de départ s'ouvre à d'autres foyers — carburant, tabac, alcool, crédits, aides… — et

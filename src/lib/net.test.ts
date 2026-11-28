@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPrivateAddress } from "./net.ts";
+import { isPrivateAddress, isLocalAddress } from "./net.ts";
 
 describe("adresses privées", () => {
   it("reconnaît la boucle locale, les réseaux privés et le lien local", () => {
@@ -26,5 +26,17 @@ describe("adresses privées", () => {
   });
   it("refuse ce qui n'est pas une adresse", () => {
     for (const ip of ["exemple", "", "1.2.3", "256.1.1.1", "::ffff:999.1.1.1", "1::2::3", "12345::1", "g::1", "1:2:3:4:5:6:7", "1:2:3:4:5:6:7:8:9"]) expect(isPrivateAddress(ip), ip).toBe(true);
+  });
+});
+
+describe("adresse de la machine ou d'un réseau local, au sens strict", () => {
+  it("la boucle locale, les réseaux privés et la plage partagée des opérateurs", () => {
+    for (const ip of ["127.0.0.1", "10.0.0.5", "172.16.0.1", "172.31.255.254", "192.168.1.20", "100.64.0.5", "100.127.255.254", "::1", "fd12:3456::1", "fc00::1", "::ffff:192.168.1.20", "::ffff:c0a8:114"]) expect(isLocalAddress(ip), ip).toBe(true);
+  });
+  it("ni lien local (métadonnées d'un hébergeur), ni diffusion, ni plages réservées, ni adresse publique", () => {
+    for (const ip of ["169.254.169.254", "fe80::1", "fd00:ec2::254", "224.0.0.251", "0.0.0.0", "192.0.78.24", "198.18.0.1", "100.128.0.1", "172.32.0.1", "8.8.8.8", "2606:4700::1111"]) expect(isLocalAddress(ip), ip).toBe(false);
+  });
+  it("ni une IPv6 qui porte une IPv4 autrement que sous sa forme habituelle, ni une adresse illisible", () => {
+    for (const ip of ["::", "::8.8.8.8", "::ffff:8.8.8.8", "::ffff:0:c0a8:114", "2002:c0a8:114::1", "64:ff9b::c0a8:114", "2001:0:1234::1", "fe80::1%en0", "999.1.1.1", "localhost", ""]) expect(isLocalAddress(ip), ip).toBe(false);
   });
 });

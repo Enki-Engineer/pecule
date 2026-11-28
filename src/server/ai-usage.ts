@@ -1,4 +1,4 @@
-import { aiEnabled, aiModel, usdToEur } from "./ai.ts";
+import { aiEnabled, aiUsageModel, usdToEur } from "./ai.ts";
 import { aiBudget, customPrices, type AiBudget } from "./ai-cost.ts";
 import { budgetStops } from "../lib/ai-usage.ts";
 import { one, q } from "./db.ts";
@@ -133,7 +133,7 @@ export async function usageReport(userId: number, wanted?: string | null): Promi
   // Taux moyen des appels du mois (chacun garde celui de son jour) ; à défaut, celui d'aujourd'hui.
   const monthRate = cache.usd > 0 ? cache.eur / cache.usd : rate;
 
-  const active = aiEnabled() ? aiModel() : null;
+  const active = aiEnabled() ? aiUsageModel() : null;
   const priced = [...new Set([...seen.map((s) => s.model), ...(active ? [active] : [])])];
 
   return {

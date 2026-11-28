@@ -9,14 +9,48 @@
 /** Dollars par million de jetons. */
 export type TokenPrice = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
-/** Tarifs publics des modèles Claude (écriture en cache 5 min = 1,25 × l'entrée). */
+/** Tarifs publics des modèles Claude (écriture en cache 5 min = 1,25 × l'entrée) et des modèles d'OpenAI. */
 export const MODEL_PRICES: Record<string, TokenPrice> = {
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
   "claude-opus-5": { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
   "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
   // Lecture du cache de Haiku 5.5 : estimée au dixième de l'entrée (tarif non publié à part).
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
+  // OpenAI, tarif standard jusqu'à 272 000 jetons d'entrée, relevé sur sa page des tarifs le 28/11/2026. Écriture en
+  // cache (30 minutes) : 1,25 × l'entrée depuis la famille GPT-5.6, sans surcoût avant. Sans tarif de cache publié
+  // (modèles « pro ») : celui de l'entrée.
+  "gpt-6.2-astra": { input: 8, output: 40, cacheRead: 0.4, cacheWrite: 10 },
+  "gpt-6.2-sol": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+  "gpt-6.1-terra": { input: 1, output: 5, cacheRead: 0.05, cacheWrite: 1.25 },
+  "gpt-6.1-sol": { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+  "gpt-6-astra": { input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5 },
+  "gpt-6-sol": { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+  "gpt-6-luna": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
+  "gpt-5.6-sol": { input: 4, output: 20, cacheRead: 0.4, cacheWrite: 5 },
+  "gpt-5.6-terra": { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2.5 },
+  "gpt-5.6-luna": { input: 0.2, output: 1.2, cacheRead: 0.02, cacheWrite: 0.25 },
+  "gpt-5.5-pro": { input: 30, output: 180, cacheRead: 30, cacheWrite: 30 },
+  "gpt-5.5": { input: 5, output: 30, cacheRead: 0.5, cacheWrite: 5 },
+  "gpt-5.4-pro": { input: 30, output: 180, cacheRead: 30, cacheWrite: 30 },
+  "gpt-5.4-mini": { input: 0.75, output: 4.5, cacheRead: 0.075, cacheWrite: 0.75 },
+  "gpt-5.4-nano": { input: 0.2, output: 1.25, cacheRead: 0.02, cacheWrite: 0.2 },
+  "gpt-5.4": { input: 2.5, output: 15, cacheRead: 0.25, cacheWrite: 2.5 },
 };
+
+/**
+ * Le modèle tel qu'il est compté. Deux fournisseurs y laissent leur nom, parce que leur coût ne se calcule pas d'après
+ * un tarif : Ollama (« ollama/… » : rien n'est facturé à l'appel) et OpenRouter (« openrouter/… » : il rend lui-même
+ * le coût exact de chaque appel).
+ */
+export function usageModel(provider: string, model: string): string {
+  if (provider === "ollama" || provider === "openrouter") return `${provider}/${model}`;
+  // Chez un autre fournisseur, un modèle dont le nom commence de même (une passerelle qui nomme ses modèles « ollama/… »)
+  // garde un tarif à lui : il ne doit pas être compté pour rien.
+  return FREE.test(model) || BILLED.test(model) ? `${provider}:${model}` : model;
+}
+const FREE = /^ollama\//;
+const BILLED = /^openrouter\//;
+const NO_PRICE: TokenPrice = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 /** Modèle dont le tarif sert d'estimation à un modèle inconnu. */
 export const REFERENCE_MODEL = "claude-opus-5-5";
 
@@ -29,6 +63,7 @@ const KNOWN = Object.keys(MODEL_PRICES).sort((a, b) => b.length - a.length);
  */
 export function knownModel(model: string): string | null {
   const m = model.trim().toLowerCase();
+  if (FREE.test(m) || BILLED.test(m)) return null;
   return KNOWN.find((k) => m.includes(k)) ?? null;
 }
 
@@ -38,21 +73,32 @@ export type CustomPrices = Record<string, { input: number; output: number }>;
 /** Tarif complet d'un tarif saisi : lecture du cache au dixième de l'entrée, écriture à 1,25 fois. */
 export const fullPrice = (p: { input: number; output: number }): TokenPrice => ({ input: p.input, output: p.output, cacheRead: p.input * 0.1, cacheWrite: p.input * 1.25 });
 
-/** D'où vient un tarif : saisi dans les réglages, tarif public du modèle, ou estimé au tarif du modèle de référence. */
-export type PriceSource = "saisi" | "public" | "estime";
+/**
+ * D'où vient un tarif : saisi dans les réglages, tarif public du modèle, estimé au tarif du modèle de référence — ou
+ * sans objet : « local » (un modèle servi par Ollama, que personne ne facture à l'appel), « fournisseur » (le
+ * fournisseur rend le coût de chaque appel, Pécule n'a rien à calculer).
+ */
+export type PriceSource = "saisi" | "public" | "estime" | "local" | "fournisseur";
 
 export function priceOf(model: string, custom: CustomPrices = {}): { price: TokenPrice; source: PriceSource } {
   const own = custom[model];
   if (own) return { price: fullPrice(own), source: "saisi" };
+  if (FREE.test(model)) return { price: NO_PRICE, source: "local" };
+  if (BILLED.test(model)) return { price: NO_PRICE, source: "fournisseur" };
   const known = knownModel(model);
   if (known) return { price: MODEL_PRICES[known], source: "public" };
   return { price: MODEL_PRICES[REFERENCE_MODEL], source: "estime" };
 }
 
-/** Décompte d'un appel à l'API Messages. */
-export type Usage = { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null };
+/**
+ * Décompte d'un appel, au format de l'API Messages. Un fournisseur traduit y ajoute `label` (le modèle tel qu'il est
+ * compté, `usageModel`) et, quand il le donne, `cost_usd` : le coût exact de l'appel, en dollars.
+ */
+export type Usage = { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null; cost_usd?: number | null; label?: string | null };
 
 export function usageCostUsd(model: string, u: Usage, custom: CustomPrices = {}): number {
+  // Le coût rendu par le fournisseur l'emporte sur tout calcul.
+  if (typeof u.cost_usd === "number" && Number.isFinite(u.cost_usd) && u.cost_usd >= 0) return u.cost_usd;
   const p = priceOf(model, custom).price;
   return (u.input_tokens * p.input + (u.cache_creation_input_tokens ?? 0) * p.cacheWrite + (u.cache_read_input_tokens ?? 0) * p.cacheRead + u.output_tokens * p.output) / 1_000_000;
 }

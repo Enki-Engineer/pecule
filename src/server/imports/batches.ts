@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { ActionError } from "../actions.ts";
-import { aiEnabled, aiModel, meterCost, usageCostUsd, usdToEur } from "../ai.ts";
+import { aiEnabled, aiUsageModel, meterCost, usageCostUsd, usdToEur } from "../ai.ts";
 import { backgroundPaused } from "../ai-cost.ts";
 import { parseBankFile, fileAccounts } from "../../lib/bank-files.ts";
 import { exec, one, q } from "../db.ts";
@@ -171,7 +171,7 @@ export async function createBatch(userId: number, input: { name: string; source:
   if (input.files.length > MAX_BATCH_FILES) throw new ActionError(400, t("Un lot contient au plus {n} fichiers : dépose le dossier en plusieurs fois.", { n: MAX_BATCH_FILES }));
   const created = await exec("INSERT INTO import_batches (user_id, name, source, cost_cap_eur) VALUES (?, ?, ?, ?)", [userId, input.name.trim().slice(0, 160) || t("Dossier"), input.source, Math.min(200, Math.max(0, input.costCapEur ?? 5))]);
   const batchId = created.insertId;
-  const model = aiModel();
+  const model = aiUsageModel();
   const price = { input: usageCostUsd(model, { input_tokens: 1_000_000, output_tokens: 0 }), output: usageCostUsd(model, { input_tokens: 0, output_tokens: 1_000_000 }) };
   const seen = new Set<string>();
   let estimateUsdTotal = 0;

@@ -424,7 +424,10 @@ function PriceRow({ p, admin }: { p: Report["prices"][number]; admin: boolean })
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : t("Enregistrement impossible")),
   });
-  const source = p.source === "saisi" ? t("tarif saisi") : p.source === "public" ? t("tarif public") : t("tarif estimé");
+  // Ollama (rien n'est facturé à l'appel) et OpenRouter (il rend le coût de chaque appel) n'ont pas de tarif à saisir.
+  const free = p.source === "local" || p.source === "fournisseur";
+  const source =
+    p.source === "saisi" ? t("tarif saisi") : p.source === "public" ? t("tarif public") : p.source === "local" ? t("sans coût à l'appel") : p.source === "fournisseur" ? t("coût rendu par le fournisseur") : t("tarif estimé");
   return (
     <div className="px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -434,7 +437,7 @@ function PriceRow({ p, admin }: { p: Report["prices"][number]; admin: boolean })
         </span>
         <span className="flex items-center gap-2 text-[13px]">
           <span className={cn("chip text-[11.5px]", p.source === "estime" && "chip-warn")}>{source}</span>
-          {admin && !editing && (
+          {admin && !editing && !free && (
             <button type="button" onClick={() => setEditing(true)} className="press font-medium text-accent">
               {t("Modifier")}
             </button>
@@ -464,6 +467,10 @@ function PriceRow({ p, admin }: { p: Report["prices"][number]; admin: boolean })
               {t("Annuler")}
             </button>
           </span>
+        </div>
+      ) : free ? (
+        <div className="mt-1 text-[13px] text-muted">
+          {p.source === "local" ? t("Servi par Ollama : rien n'est facturé à l'appel.") : t("OpenRouter rend le coût exact de chaque appel : Pécule le compte tel quel.")}
         </div>
       ) : (
         <div className="tnum mt-1 text-[13px] text-muted">{t("{entree} l'entrée · {sortie} la sortie, par million de jetons", { entree: usd(p.input), sortie: usd(p.output) })}</div>
@@ -506,7 +513,7 @@ export function AiCostScreen() {
         <CurrentMonth r={r} />
       </Section>
       {empty ? (
-        <Card className="px-4 py-3 text-sm text-muted">{t("Aucun appel à Claude enregistré pour l'instant.")}</Card>
+        <Card className="px-4 py-3 text-sm text-muted">{t("Aucun appel à l'IA enregistré pour l'instant.")}</Card>
       ) : (
         <>
           <Section id="historique" title={t("Douze mois")}>
